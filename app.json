@@ -13,7 +13,8 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.matisp6.tripify"
     },
     "android": {
       "adaptiveIcon": {
@@ -31,6 +32,12 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "58d843ea-b48b-4eb3-8e06-705b82f7487c"
+      }
+    },
+    "owner": "matisp6"
   }
 }
