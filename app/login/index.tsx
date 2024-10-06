@@ -1,63 +1,97 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
-import { signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
+import { signInWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { auth } from '../config/firebaseConfig';
-import { useRouter } from 'expo-router'; // Importowanie routera
+import { useRouter } from 'expo-router';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loggedInEmail, setLoggedInEmail] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const router = useRouter(); // Inicjalizacja routera do przekierowań
+  const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
+  const router = useRouter();
 
-  // Nasłuchuj zmian autoryzacji i ustaw e-mail zalogowanego użytkownika
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setLoggedInEmail(user.email); // Użytkownik zalogowany
-        router.replace('/'); // Przekierowanie na stronę główną
-      } else {
-        setLoggedInEmail(null);
-      }
-    });
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
 
-    return unsubscribe;
-  }, [router]);
+  const validatePassword = () => {
+    if (password.length < 6) {
+      setErrorMessage('Hasło musi mieć przynajmniej 6 znaków.');
+      return false;
+    }
+    if (!/[A-Z]/.test(password)) {
+      setErrorMessage('Hasło musi zawierać co najmniej jedną wielką literę.');
+      return false;
+    }
+    if (!/[0-9]/.test(password)) {
+      setErrorMessage('Hasło musi zawierać co najmniej jedną cyfrę.');
+      return false;
+    }
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+      setErrorMessage('Hasło musi zawierać co najmniej jeden znak specjalny.');
+      return false;
+    }
+    return true;
+  };
 
   const handleLogin = async () => {
+    setErrorMessage(null);
+    setVerificationMessage(null);
+
+    if (!validateEmail(email)) {
+      setErrorMessage('Niepoprawny format adresu e-mail.');
+      return;
+    }
+
+    if (!password) {
+      setErrorMessage('Proszę uzupełnić hasło.');
+      return;
+    }
+
+    if (!validatePassword()) {
+      return;
+    }
+
     try {
-      if (password.length < 6) {
-        setErrorMessage('Hasło musi mieć przynajmniej 6 znaków.');
+      // Próba logowania użytkownika
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Sprawdzenie, czy e-mail użytkownika został zweryfikowany
+      if (!user.emailVerified) {
+        // Jeśli e-mail nie jest zweryfikowany, wyślij e-mail weryfikacyjny
+        await sendEmailVerification(user);
+        setVerificationMessage('Twoje konto nie zostało jeszcze zweryfikowane. Wysłaliśmy Ci e-mail z linkiem do weryfikacji.');
+
+        // Wylogowanie użytkownika, aby zapobiec dalszym próbom logowania
+        await auth.signOut();
         return;
       }
 
-      // Sprawdzenie, czy hasło zawiera znak specjalny
-      if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-        setErrorMessage('Hasło musi zawierać co najmniej jeden znak specjalny.');
-        return;
-      }
-
-      await signInWithEmailAndPassword(auth, email, password);
-      setErrorMessage(null);  // Reset błędu po udanym logowaniu
+      // Jeśli e-mail jest zweryfikowany, przekierowanie do aplikacji
+      console.log("Logowanie udane");
+      router.replace('/');
     } catch (error: any) {
-      // Obsługa różnych błędów Firebase
-      switch (error.code) {
-        case 'auth/invalid-email':
-          setErrorMessage('Niepoprawny adres e-mail.');
-          break;
-        case 'auth/user-not-found':
-          setErrorMessage('Nie znaleziono użytkownika z tym adresem e-mail.');
-          break;
-        case 'auth/wrong-password':
-          setErrorMessage('Niepoprawne hasło.');
-          break;
-        case 'auth/too-many-requests':
-          setErrorMessage('Zbyt wiele prób logowania. Spróbuj później.');
-          break;
-        default:
-          setErrorMessage('Wystąpił nieznany błąd. Spróbuj ponownie.');
+      console.log("Błąd logowania:", error.code, error.message);
+
+      // Rozróżnianie błędów Firebase
+      if (error.code === 'auth/too-many-requests') {
+        setErrorMessage('Zbyt wiele prób logowania. Spróbuj ponownie później.');
+      } else {
+        switch (error.code) {
+          case 'auth/user-not-found':
+            setErrorMessage('Użytkownik z tym adresem e-mail nie istnieje.');
+            break;
+          case 'auth/wrong-password':
+            setErrorMessage('Niepoprawne hasło.');
+            break;
+          default:
+            setErrorMessage('Wystąpił nieznany błąd. Spróbuj ponownie później.');
+        }
       }
     }
   };
@@ -66,27 +100,32 @@ export default function LoginScreen() {
     <View style={styles.container}>
       <Text style={styles.title}>Login</Text>
 
-      {/* Pokazywanie e-maila zalogowanego użytkownika */}
-      {loggedInEmail && <Text style={styles.loggedInEmail}>Zalogowany jako: {loggedInEmail}</Text>}
-
       <TextInput
         label="Email"
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
         style={styles.input}
+        error={!!errorMessage && errorMessage.includes('e-mail')}
       />
 
       <TextInput
         label="Hasło"
         value={password}
         onChangeText={setPassword}
-        secureTextEntry
+        secureTextEntry={!showPassword}
         style={styles.input}
+        error={!!errorMessage && errorMessage.includes('hasło')}
+        right={
+          <TextInput.Icon
+            icon={showPassword ? 'eye-off' : 'eye'}
+            onPress={() => setShowPassword(!showPassword)}
+          />
+        }
       />
 
-      {/* Pokazywanie błędów */}
       {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
+      {verificationMessage && <Text style={styles.verificationMessage}>{verificationMessage}</Text>}
 
       <Button mode="contained" onPress={handleLogin}>
         Zaloguj się
@@ -114,10 +153,8 @@ const styles = StyleSheet.create({
     color: 'red',
     marginBottom: 10,
   },
-  loggedInEmail: {
-    marginBottom: 20,
-    fontSize: 16,
+  verificationMessage: {
     color: 'green',
-    textAlign: 'center',
+    marginBottom: 10,
   },
 });
