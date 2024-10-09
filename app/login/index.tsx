@@ -20,19 +20,19 @@ export default function LoginScreen() {
 
   const validatePassword = () => {
     if (password.length < 6) {
-      setErrorMessage('Hasło musi mieć przynajmniej 6 znaków.');
+      setErrorMessage('Your password must contain at least 6 characters.');
       return false;
     }
     if (!/[A-Z]/.test(password)) {
-      setErrorMessage('Hasło musi zawierać co najmniej jedną wielką literę.');
+      setErrorMessage('Your password must include at least one uppercase letter.');
       return false;
     }
     if (!/[0-9]/.test(password)) {
-      setErrorMessage('Hasło musi zawierać co najmniej jedną cyfrę.');
+      setErrorMessage('Your password must include at least one numeric character.');
       return false;
     }
     if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-      setErrorMessage('Hasło musi zawierać co najmniej jeden znak specjalny.');
+      setErrorMessage('Your password must include at least one special character.');
       return false;
     }
     return true;
@@ -43,12 +43,12 @@ export default function LoginScreen() {
     setVerificationMessage(null);
 
     if (!validateEmail(email)) {
-      setErrorMessage('Niepoprawny format adresu e-mail.');
+      setErrorMessage('Please enter a valid email address.');
       return;
     }
 
     if (!password) {
-      setErrorMessage('Proszę uzupełnić hasło.');
+      setErrorMessage('Please enter your password.');
       return;
     }
 
@@ -57,40 +57,38 @@ export default function LoginScreen() {
     }
 
     try {
-      // Próba logowania użytkownika
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+    
+        if (!user.emailVerified) {
+            await sendEmailVerification(user);
+    
+            // Ustawienie komunikatów
+            setErrorMessage("Please verify your email to log in."); // Czerwony komunikat
+            setVerificationMessage("Your account has not yet been verified. Please check your email inbox for the verification link."); // Szary komunikat
+    
+            // Wylogowanie użytkownika w tle, bez zmiany ekranu
+            await auth.signOut();
+    
+            return; // Zatrzymujemy akcję bez przekierowania
+        }
 
-      // Sprawdzenie, czy e-mail użytkownika został zweryfikowany
-      if (!user.emailVerified) {
-        // Jeśli e-mail nie jest zweryfikowany, wyślij e-mail weryfikacyjny
-        await sendEmailVerification(user);
-        setVerificationMessage('Twoje konto nie zostało jeszcze zweryfikowane. Wysłaliśmy Ci e-mail z linkiem do weryfikacji.');
-
-        // Wylogowanie użytkownika, aby zapobiec dalszym próbom logowania
-        await auth.signOut();
-        return;
-      }
-
-      // Jeśli e-mail jest zweryfikowany, przekierowanie do aplikacji
-      console.log("Logowanie udane");
       router.replace('/');
     } catch (error: any) {
-      console.log("Błąd logowania:", error.code, error.message);
+      console.log("Login error:", error.code, error.message);
 
-      // Rozróżnianie błędów Firebase
       if (error.code === 'auth/too-many-requests') {
-        setErrorMessage('Zbyt wiele prób logowania. Spróbuj ponownie później.');
+        setErrorMessage('Too many login attempts or your account has not yet been verified via email.');
       } else {
         switch (error.code) {
           case 'auth/user-not-found':
-            setErrorMessage('Użytkownik z tym adresem e-mail nie istnieje.');
+            setErrorMessage('No account was found with this email address.');
             break;
           case 'auth/wrong-password':
-            setErrorMessage('Niepoprawne hasło.');
+            setErrorMessage('The password you entered is incorrect.');
             break;
           default:
-            setErrorMessage('Wystąpił nieznany błąd. Spróbuj ponownie później.');
+            setErrorMessage('The login credentials you entered are invalid.');
         }
       }
     }
@@ -98,7 +96,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Login</Text>
+      <Text style={styles.title}>Log In</Text>
 
       <TextInput
         label="Email"
@@ -106,16 +104,16 @@ export default function LoginScreen() {
         onChangeText={setEmail}
         keyboardType="email-address"
         style={styles.input}
-        error={!!errorMessage && errorMessage.includes('e-mail')}
+        error={!!errorMessage && errorMessage.includes('email')}
       />
 
       <TextInput
-        label="Hasło"
+        label="Password"
         value={password}
         onChangeText={setPassword}
         secureTextEntry={!showPassword}
         style={styles.input}
-        error={!!errorMessage && errorMessage.includes('hasło')}
+        error={!!errorMessage && errorMessage.includes('password')}
         right={
           <TextInput.Icon
             icon={showPassword ? 'eye-off' : 'eye'}
@@ -127,8 +125,8 @@ export default function LoginScreen() {
       {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
       {verificationMessage && <Text style={styles.verificationMessage}>{verificationMessage}</Text>}
 
-      <Button mode="contained" onPress={handleLogin}>
-        Zaloguj się
+      <Button mode="contained" onPress={handleLogin}style={styles.button}>
+        Log In
       </Button>
     </View>
   );
@@ -151,10 +149,19 @@ const styles = StyleSheet.create({
   },
   error: {
     color: 'red',
-    marginBottom: 10,
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 3,
+    marginTop: 2
   },
   verificationMessage: {
-    color: 'green',
-    marginBottom: 10,
+    color: '#555555', // ciemny szary
+    fontSize: 12,
+  },
+  button: {
+    marginTop: 18,        // Zwiększony margines nad przyciskiem
+    // paddingVertical: 10,  // Dodane wyśrodkowanie pionowe
+    // width: '100%',        // Przyciski na całą szerokość
   },
 });
+
