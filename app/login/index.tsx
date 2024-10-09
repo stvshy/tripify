@@ -68,7 +68,7 @@ export default function LoginScreen() {
             setVerificationMessage("Your account has not yet been verified. Please check your email inbox for the verification link."); // Szary komunikat
     
             // Wylogowanie użytkownika w tle, bez zmiany ekranu
-            await auth.signOut();
+            // await auth.signOut();
     
             return; // Zatrzymujemy akcję bez przekierowania
         }
@@ -164,4 +164,3 @@ const styles = StyleSheet.create({
     // width: '100%',        // Przyciski na całą szerokość
   },
 });
-

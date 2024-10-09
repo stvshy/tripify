@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Text, Pressable, Dimensions } from 'react-native';
 import { TextInput } from 'react-native-paper';
-import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../config/firebaseConfig';
 import { useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { getFirestore, setDoc, doc, serverTimestamp } from 'firebase/firestore';
 
 const { width: screenWidth } = Dimensions.get('window');
-const db = getFirestore(); // Initialize Firestore
+const db = getFirestore();
 
 export default function RegisterScreen() {
   const [email, setEmail] = useState('');
@@ -27,13 +27,11 @@ export default function RegisterScreen() {
     number: false,
   });
 
-  // Real-time email validation
   useEffect(() => {
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     setEmailError(email && !emailPattern.test(email) ? 'Please enter a valid email address.' : null);
   }, [email]);
 
-  // Real-time password validation
   useEffect(() => {
     setPasswordRequirements({
       length: password.length >= 6,
@@ -44,6 +42,8 @@ export default function RegisterScreen() {
   }, [password]);
 
   const handleRegister = async () => {
+    setErrorMessage(null);
+
     if (!email) {
       setErrorMessage('Please enter your email address.');
       return;
@@ -65,28 +65,23 @@ export default function RegisterScreen() {
     }
 
     try {
-      // Register user with Firebase Authentication
+      // Create user account in Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Create user document in Firestore with isVerified set to false
+      // Add user data to Firestore without sending verification email yet
       await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
         email: user.email,
-        nickname: null, // Nickname to be set later
-        isVerified: false, // Field for email verification status
+        nickname: null,
+        isVerified: false,
         createdAt: serverTimestamp(),
         authProvider: 'email'
       });
 
-      // Send verification email
-      await sendEmailVerification(user);
       setErrorMessage(null);
-      alert('A verification link has been sent to your email. Please check your inbox.');
-
-      router.push('/setNickname'); // Redirect to set-nickname screen
+      router.replace('/setNickname'); // Proceed to nickname screen
     } catch (error: any) {
-      // Handle Firebase Authentication errors
       switch (error.code) {
         case 'auth/email-already-in-use':
           setErrorMessage('This email is already registered.');

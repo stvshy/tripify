@@ -1,12 +1,14 @@
-// (tabs)/_layout.tsx (zmodyfikowany)
 import React, { useEffect, useState } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs, useRouter } from 'expo-router';
 import { Pressable, View, ActivityIndicator, Text } from 'react-native';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { auth } from '../config/firebaseConfig'; // Import Firebase
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { auth } from '../config/firebaseConfig';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+
+const db = getFirestore();
 
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof FontAwesome>['name'];
@@ -17,28 +19,39 @@ function TabBarIcon(props: {
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-  const [user, setUser] = useState<User | null>(null);  // Przechowywanie stanu użytkownika
-  const [loading, setLoading] = useState(true);  // Dodanie stanu ładowania
-  const router = useRouter();  // Używamy routera do nawigacji
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [nickname, setNickname] = useState<string | null>(null); // Store nickname
+  const router = useRouter();
 
-  // Nasłuchiwanie zmian autoryzacji
+  // Fetch the nickname from Firestore
+  const fetchNickname = async (userId: string) => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        setNickname(data.nickname || null);
+      }
+    } catch (error) {
+      console.error("Error fetching nickname:", error);
+    }
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      console.log("Current user:", currentUser);  // Logowanie użytkownika
-  
+      setLoading(true);
       if (currentUser) {
-        setUser(currentUser);  // Użytkownik zalogowany
+        setUser(currentUser);
+        fetchNickname(currentUser.uid); // Fetch the nickname once user is authenticated
       } else {
-        setUser(null);         // Użytkownik niezalogowany
-        router.replace('/welcome');  // Przekierowanie na ekran powitalny
+        setUser(null);
+        router.replace('/welcome');
       }
-      setLoading(false);  // Koniec ładowania po sprawdzeniu stanu zalogowania
+      setLoading(false);
     });
-  
     return () => unsubscribe();
   }, [router]);
-  
-  // Sprawdzanie statusu zalogowania, zanim pokażemy zakładki
+
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -48,14 +61,13 @@ export default function TabLayout() {
   }
 
   if (!user) {
-    return null;  // Jeśli użytkownik nie jest zalogowany, nic nie pokazujemy (przekierowanie już nastąpiło)
+    return null;
   }
 
-  // Funkcja wylogowania
   const handleLogout = async () => {
     try {
-      await signOut(auth);  // Wylogowanie użytkownika z Firebase
-      router.replace('/welcome');  // Po wylogowaniu przekierowanie na ekran powitalny
+      await signOut(auth);
+      router.replace('/welcome');
     } catch (error) {
       console.error("Error logging out:", error);
     }
@@ -65,10 +77,10 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: true,  // Przywrócenie nagłówka
+        headerShown: true,
         headerTitle: () => (
           <Text style={{ fontSize: 16 }}>
-            {user?.email}  {/* Wyświetlanie e-maila zalogowanego użytkownika */}
+            {nickname ?? user.email} {/* Display nickname or email if nickname is unavailable */}
           </Text>
         ),
         headerRight: () => (
@@ -85,14 +97,14 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: '',  // Usunięcie napisu "index" z zakładki
+          title: '',
           tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
         }}
       />
       <Tabs.Screen
         name="two"
         options={{
-          title: '',  // Usunięcie napisu "two" z zakładki
+          title: '',
           tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
         }}
       />
