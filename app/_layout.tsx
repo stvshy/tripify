@@ -1,23 +1,22 @@
-// RootLayout.tsx (zmodyfikowane)
+// RootLayout.tsx
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DefaultTheme } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
-import { onAuthStateChanged, signOut, User } from 'firebase/auth';  // Dodanie signOut
-import { auth } from './config/firebaseConfig';                     // Konfiguracja Firebase
-import { useColorScheme } from '@/components/useColorScheme';
-import { Pressable, Text } from 'react-native';
+import { onAuthStateChanged, signOut, User } from 'firebase/auth';
+import { auth } from './config/firebaseConfig';
+import { Pressable, Text, View, StyleSheet } from 'react-native';
 
-export {
-  // Catch any errors thrown by the Layout component.
-  ErrorBoundary,
-} from 'expo-router';
-
-export const unstable_settings = {
-  initialRouteName: '(tabs)',
+// Custom theme with a fixed electric blue background color
+const CustomTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: '#0EE7FE', // Electric blue background
+  },
 };
 
 SplashScreen.preventAutoHideAsync();
@@ -28,23 +27,22 @@ export default function RootLayout() {
     ...FontAwesome.font,
   });
 
-  const [user, setUser] = useState<User | null>(null);  // Przechowywanie użytkownika
+  const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
 
   useEffect(() => {
     if (error) throw error;
   }, [error]);
 
-  // Nasłuchiwanie zmian w autoryzacji Firebase
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);  // Ustawienie użytkownika po zalogowaniu lub wylogowaniu
+      setUser(currentUser);
       if (!currentUser) {
-        router.push('/welcome');  // Przekierowanie na ekran powitalny, jeśli użytkownik nie jest zalogowany
+        router.push('/welcome');
       }
     });
 
-    return () => unsubscribe(); // Zatrzymanie nasłuchiwania po zamknięciu aplikacji
+    return () => unsubscribe();
   }, [router]);
 
   useEffect(() => {
@@ -57,39 +55,45 @@ export default function RootLayout() {
     return null;
   }
 
-  return <RootLayoutNav user={user} />;
+  return (
+    <View style={styles.container}>
+      <RootLayoutNav user={user} />
+    </View>
+  );
 }
 
-// Dodanie wyświetlania e-maila zalogowanego użytkownika oraz przycisku wylogowania
 function RootLayoutNav({ user }: { user: User | null }) {
-  const colorScheme = useColorScheme();
   const router = useRouter();
 
-  // Funkcja wylogowania
   const handleLogout = async () => {
     try {
-      await signOut(auth);  // Wylogowanie użytkownika z Firebase
-      router.replace('/welcome');  // Przekierowanie na ekran powitalny po wylogowaniu
+      await signOut(auth);
+      router.replace('/welcome');
     } catch (error) {
       console.error('Logout error:', error);
     }
   };
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        {user ? (
-          <Stack.Screen
-            name="(tabs)"
-            options={{
-              headerShown: false,  // Ukrycie całego nagłówka dla zakładek
-            }}
-          />
-        ) : (
-          <Stack.Screen name="welcome" options={{ headerShown: false }} />
-        )}
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-      </Stack>
-    </ThemeProvider>
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: CustomTheme.colors.background } }}>
+      {user ? (
+        <Stack.Screen
+          name="(tabs)"
+          options={{
+            headerShown: false,
+          }}
+        />
+      ) : (
+        <Stack.Screen name="welcome" options={{ headerShown: false }} />
+      )}
+      <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+    </Stack>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: CustomTheme.colors.background, // Fixed electric blue color
+  },
+});

@@ -9,7 +9,7 @@ import { useRouter } from 'expo-router';
 const db = getFirestore();
 
 export default function LoginScreen() {
-  const [identifier, setIdentifier] = useState(''); // Username or Email
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -36,7 +36,6 @@ export default function LoginScreen() {
     return true;
   };
 
-  // Function to check if input is an email
   const isEmail = (input: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input);
 
   const handleLogin = async () => {
@@ -48,7 +47,6 @@ export default function LoginScreen() {
     try {
         let email = identifier;
 
-        // If input is not an email, assume it's a nickname and look up the associated email
         if (!isEmail(identifier)) {
             const usersRef = collection(db, 'users');
             const q = query(usersRef, where('nickname', '==', identifier));
@@ -62,21 +60,24 @@ export default function LoginScreen() {
             email = userData.email;
         }
 
-        // Proceed with email-based login
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
-        // Check email verification status
         if (!user.emailVerified) {
-            await sendEmailVerification(user);
+            console.log("User's email is not verified. Checking if re-sending is allowed.");
+            if (!verificationMessage) { // Jeśli nie wysłaliśmy jeszcze wiadomości
+                try {
+                    await sendEmailVerification(user);
+                } catch (emailError) {
+                    console.error("Failed to send verification email:", emailError);
+                }
+            }
             setErrorMessage("Please verify your email to log in.");
             setVerificationMessage("Your account has not yet been verified. Please check your email inbox for the verification link.");
-            
-            // Keep the user on the current screen without redirecting
             return;
         }
+        
 
-        // Only navigate if email is verified
         router.replace('/');
     } catch (error: any) {
         console.log("Login error:", error.code, error.message);
@@ -91,8 +92,7 @@ export default function LoginScreen() {
             setErrorMessage('The login credentials you entered are invalid.');
         }
     }
-};
-
+  };
 
   return (
     <View style={styles.container}>
