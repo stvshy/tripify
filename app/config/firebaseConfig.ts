@@ -30,6 +30,6 @@ const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage)
 });
 
-export { auth };
 // Eksport instancji Firestore
-export const db = getFirestore(app);
+const db = getFirestore(app);
+export { auth, db };

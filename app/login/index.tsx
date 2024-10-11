@@ -48,16 +48,18 @@ export default function LoginScreen() {
         let email = identifier;
 
         if (!isEmail(identifier)) {
+            const lowerCaseNickname = identifier.toLowerCase();
             const usersRef = collection(db, 'users');
-            const q = query(usersRef, where('nickname', '==', identifier));
+            const q = query(usersRef, where('nickname', '==', lowerCaseNickname));
             const querySnapshot = await getDocs(q);
-
+            console.log("Snapshot size:", querySnapshot.size); // Sprawdzamy, czy mamy wynik
             if (querySnapshot.empty) {
                 setErrorMessage('No account found with this nickname.');
                 return;
             }
             const userData = querySnapshot.docs[0].data();
             email = userData.email;
+            console.log("Mapped email from nickname:", email);
         }
 
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
