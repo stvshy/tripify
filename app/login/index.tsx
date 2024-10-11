@@ -41,33 +41,32 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     setErrorMessage(null);
     setVerificationMessage(null);
-
+  
     if (!password || !validatePassword()) return;
-
+  
     try {
-        let email = identifier;
-
-        if (!isEmail(identifier)) {
-            const lowerCaseNickname = identifier.toLowerCase();
+        // Konwersja `identifier` na małe litery tuż przed sprawdzeniem
+        let email = identifier.toLowerCase();
+  
+        if (!isEmail(email)) {
             const usersRef = collection(db, 'users');
-            const q = query(usersRef, where('nickname', '==', lowerCaseNickname));
+            const q = query(usersRef, where('nickname', '==', email));
             const querySnapshot = await getDocs(q);
-            console.log("Snapshot size:", querySnapshot.size); // Sprawdzamy, czy mamy wynik
+  
             if (querySnapshot.empty) {
                 setErrorMessage('No account found with this nickname.');
                 return;
             }
+  
             const userData = querySnapshot.docs[0].data();
             email = userData.email;
-            console.log("Mapped email from nickname:", email);
         }
-
+  
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
-
+  
         if (!user.emailVerified) {
-            console.log("User's email is not verified. Checking if re-sending is allowed.");
-            if (!verificationMessage) { // Jeśli nie wysłaliśmy jeszcze wiadomości
+            if (!verificationMessage) {
                 try {
                     await sendEmailVerification(user);
                 } catch (emailError) {
@@ -78,8 +77,7 @@ export default function LoginScreen() {
             setVerificationMessage("Your account has not yet been verified. Please check your email inbox for the verification link.");
             return;
         }
-        
-
+  
         router.replace('/');
     } catch (error: any) {
         console.log("Login error:", error.code, error.message);
@@ -107,6 +105,7 @@ export default function LoginScreen() {
         keyboardType="default"
         style={styles.input}
         error={!!errorMessage && errorMessage.includes('email')}
+        autoCapitalize="none" // Wyłączenie kapitalizacji pierwszej litery
       />
 
       <TextInput
