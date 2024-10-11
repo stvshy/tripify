@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
 import { signInWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
@@ -14,7 +14,17 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
+  const [isResendDisabled, setIsResendDisabled] = useState(false); // Stan blokady przycisku
+  const [resendTimer, setResendTimer] = useState(0); // [1] Licznik w sekundach
   const router = useRouter();
+
+    // Odliczanie co sekundę
+    useEffect(() => {
+        if (resendTimer > 0) {
+          const timerId = setInterval(() => setResendTimer(prev => prev - 1), 1000);
+          return () => clearInterval(timerId);
+        }
+      }, [resendTimer]);
 
   const validatePassword = () => {
     if (password.length < 6) {
@@ -60,6 +70,17 @@ export default function LoginScreen() {
   
             const userData = querySnapshot.docs[0].data();
             email = userData.email;
+
+
+            // Sprawdzenie, ile sekund zostało do odblokowania
+            const emailSentAt = userData.emailSentAt;
+            if (emailSentAt) {
+                const elapsedSeconds = Math.floor((Date.now() - emailSentAt) / 1000);
+                const remainingTime = 60 - elapsedSeconds;
+                if (remainingTime > 0) {
+                setResendTimer(remainingTime); // Uruchom licznik z pozostałym czasem
+                }
+            }
         }
   
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -75,6 +96,7 @@ export default function LoginScreen() {
             }
             setErrorMessage("Please verify your email to log in.");
             setVerificationMessage("Your account has not yet been verified. Please check your email inbox for the verification link.");
+            // setIsResendDisabled(false); // Umożliwia ponowne wysłanie wiadomości
             return;
         }
   
@@ -93,6 +115,19 @@ export default function LoginScreen() {
         }
     }
   };
+    // Funkcja ponownego wysyłania maila
+    const resendVerificationEmail = async () => {
+        const user = auth.currentUser;
+        if (user && !user.emailVerified && resendTimer === 0) {
+          try {
+            await sendEmailVerification(user);
+            setVerificationMessage("Verification email resent. Please check your inbox.");
+            setResendTimer(60);
+          } catch (error) {
+            console.error("Error resending email verification:", error);
+          }
+        }
+      };
 
   return (
     <View style={styles.container}>
@@ -123,8 +158,21 @@ export default function LoginScreen() {
         }
       />
 
+      
       {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
-      {verificationMessage && <Text style={styles.verificationMessage}>{verificationMessage}</Text>}
+      {verificationMessage && (
+        <>
+          <Text style={styles.verificationMessage}>{verificationMessage}</Text>
+          <Button
+            mode="text"
+            onPress={resendVerificationEmail}
+            disabled={resendTimer > 0} // [4] Blokada przycisku podczas odliczania
+            style={styles.resendButton}
+          >
+            {resendTimer > 0 ? `Resend Verification Email (${resendTimer}s)` : 'Resend Verification Email'}
+          </Button>
+        </>
+      )}
 
       <Button mode="contained" onPress={handleLogin} style={styles.button}>
         Log In
@@ -154,10 +202,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 3,
     marginTop: 2,
+    textAlign: 'center',
   },
   verificationMessage: {
     color: '#555555',
     fontSize: 12,
+    textAlign: 'center',
+  },
+  resendButton: {
+    marginTop: 8,
   },
   button: {
     marginTop: 18,

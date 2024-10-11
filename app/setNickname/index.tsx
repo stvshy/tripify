@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { Button } from 'react-native-paper';
 import { getFirestore, doc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
@@ -14,11 +14,19 @@ export default function SetNicknameScreen() {
   const [isNicknameValid, setIsNicknameValid] = useState<null | boolean>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
+  const [resendTimer, setResendTimer] = useState(0); // Dodany licznik 60 sekund
   const router = useRouter();
+
+  // Zmniejsz licznik co sekundę
+  useEffect(() => {
+    if (resendTimer > 0) {
+      const timerId = setInterval(() => setResendTimer((prev) => prev - 1), 1000);
+      return () => clearInterval(timerId);
+    }
+  }, [resendTimer]);
 
   const validateNickname = async (nickname: string) => {
     const trimmedNickname = nickname.trim();
-
     if (!/^[a-zA-Z0-9]*$/.test(trimmedNickname)) {
       setErrorMessage('Nickname can only contain letters and numbers.');
       setIsNicknameValid(false);
@@ -66,11 +74,12 @@ export default function SetNicknameScreen() {
       const user = auth.currentUser;
       if (user) {
         const userDocRef = doc(db, 'users', user.uid);
-        await setDoc(userDocRef, { nickname: nickname.toLowerCase() }, { merge: true });
-        
-        // Send verification email once after setting the nickname
+        await setDoc(userDocRef, { nickname: nickname.toLowerCase(), emailSentAt: Date.now() }, { merge: true });
+
+        // Wyślij e-mail weryfikacyjny i ustaw licznik
         await sendEmailVerification(user);
         setVerificationMessage("A verification link has been sent to your email. Please verify to continue.");
+        setResendTimer(60); // Ustawienie 60-sekundowego licznika
         router.replace('/success');
       }
     } catch (error) {
@@ -97,6 +106,7 @@ export default function SetNicknameScreen() {
           onChangeText={handleNicknameChange}
           style={styles.input}
           maxLength={24}
+          autoCapitalize="none" 
         />
         {isNicknameValid === true && (
           <FontAwesome name="check-circle" size={20} color="green" style={styles.icon} />
@@ -107,8 +117,9 @@ export default function SetNicknameScreen() {
       </View>
       {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
       {verificationMessage && <Text style={styles.verificationMessage}>{verificationMessage}</Text>}
-      <Button mode="contained" onPress={handleSetNickname}>
-        Save Nickname
+      
+      <Button mode="contained" onPress={handleSetNickname} disabled={resendTimer > 0}>
+        {resendTimer > 0 ? `Save Nickname (Resend in ${resendTimer}s)` : 'Save Nickname'}
       </Button>
     </View>
   );
