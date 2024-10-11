@@ -79,7 +79,7 @@ export default function TabLayout() {
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: true,
         headerTitle: () => (
-          <Text style={{ fontSize: 16 }}>
+          <Text style={{ fontSize: 17 }}>
             {nickname ?? user.email} {/* Display nickname or email if nickname is unavailable */}
           </Text>
         ),
@@ -87,8 +87,8 @@ export default function TabLayout() {
           <Pressable onPress={handleLogout}>
             <FontAwesome
               name="sign-out"
-              size={25}
-              color={Colors[colorScheme ?? 'light'].text}
+              size={26}
+              color="black"
               style={{ marginRight: 15 }}
             />
           </Pressable>
