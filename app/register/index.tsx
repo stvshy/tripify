@@ -122,6 +122,7 @@ export default function RegisterScreen() {
         underlineColor="transparent"
         error={!!emailError}
         mode="outlined"
+        autoCapitalize="none" 
       />
 
       <TextInput

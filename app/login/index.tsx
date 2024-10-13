@@ -111,7 +111,7 @@ export default function LoginScreen() {
         } else if (error.code === 'auth/wrong-password') {
             setErrorMessage('The password you entered is incorrect.');
         } else {
-            setErrorMessage('The login credentials you entered are invalid.');
+            setErrorMessage('The password you entered is incorrect.');
         }
     }
   };
@@ -129,90 +129,111 @@ export default function LoginScreen() {
         }
       };
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Log In</Text>
+return (
+  <View style={styles.container}>
+    <Text style={styles.title}>Log In</Text>
 
-      <TextInput
-        label="Email or Nickname"
+    <TextInput
+        label="Email or nickname"
         value={identifier}
         onChangeText={setIdentifier}
         keyboardType="default"
-        style={styles.input}
+        style={[styles.input, { fontSize: 14 }]} // Zastosowanie mniejszej czcionki
         error={!!errorMessage && errorMessage.includes('email')}
-        autoCapitalize="none" // Wyłączenie kapitalizacji pierwszej litery
-      />
+        autoCapitalize="none"
+    />
 
-      <TextInput
+    <TextInput
         label="Password"
         value={password}
         onChangeText={setPassword}
         secureTextEntry={!showPassword}
-        style={styles.input}
+        style={[styles.input, { fontSize: 14 }]}
         error={!!errorMessage && errorMessage.includes('password')}
         right={
-          <TextInput.Icon
+            <TextInput.Icon
             icon={showPassword ? 'eye-off' : 'eye'}
             onPress={() => setShowPassword(!showPassword)}
-          />
+            />
         }
-      />
+    />
+    <Button
+        mode="text"
+        onPress={() => router.push('/forgotPassword')}
+        style={styles.forgotPasswordButton}
+        labelStyle={styles.forgotPasswordLabel} // Styl tekstu przycisku
+        >
+        Forgot password?
+    </Button>
 
-      
-      {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
-      {verificationMessage && (
-        <>
-          <Text style={styles.verificationMessage}>{verificationMessage}</Text>
-          <Button
-            mode="text"
-            onPress={resendVerificationEmail}
-            disabled={resendTimer > 0} // [4] Blokada przycisku podczas odliczania
-            style={styles.resendButton}
-          >
-            {resendTimer > 0 ? `Resend Verification Email (${resendTimer}s)` : 'Resend Verification Email'}
-          </Button>
-        </>
-      )}
 
-      <Button mode="contained" onPress={handleLogin} style={styles.button}>
-        Log In
-      </Button>
-    </View>
-  );
+    {/* Wyświetlanie komunikatów */}
+    {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
+    {verificationMessage && (
+      <>
+        <Text style={styles.verificationMessage}>{verificationMessage}</Text>
+        <Button
+          mode="text"
+          onPress={resendVerificationEmail}
+          disabled={resendTimer > 0}
+          style={styles.resendButton}
+        >
+          {resendTimer > 0 ? `Resend Verification Email (${resendTimer}s)` : 'Resend Verification Email'}
+        </Button>
+      </>
+    )}
+
+    <Button mode="contained" onPress={handleLogin} style={styles.button}>
+      Log In
+    </Button>
+  </View>
+);
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 16,
-  },
-  title: {
-    marginBottom: 20,
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  input: {
-    marginBottom: 16,
-  },
-  error: {
-    color: 'red',
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 3,
-    marginTop: 2,
-    textAlign: 'center',
-  },
-  verificationMessage: {
-    color: '#555555',
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  resendButton: {
-    marginTop: 8,
-  },
-  button: {
-    marginTop: 18,
-  },
-});
+    container: {
+      flex: 1,
+      justifyContent: 'center',
+      padding: 16,
+    },
+    title: {
+      marginBottom: 20,
+      fontSize: 24,
+      fontWeight: 'bold',
+      textAlign: 'center',
+    },
+    input: {
+      marginBottom: 10, // Zmniejszony odstęp poniżej pola tekstowego
+      fontSize: 15, // Mniejsza czcionka dla wpisywania danych
+    },
+    error: {
+      color: 'red',
+      fontSize: 14,
+      fontWeight: 'bold',
+      marginBottom: 3,
+      marginTop: 2,
+      textAlign: 'center',
+    },
+    verificationMessage: {
+      color: '#555555',
+      fontSize: 12,
+      textAlign: 'center',
+    },
+    resendButton: {
+      marginTop: 8,
+    },
+    button: {
+      marginTop: 12,
+    },
+    forgotPasswordButton: {
+      marginTop: -13, // Zmniejszenie odstępu między polem hasła a przyciskiem
+      paddingHorizontal: 0,
+      alignSelf: 'flex-start',
+      marginLeft: -8,
+    },
+    forgotPasswordLabel: {
+      fontSize: 11.5, // Mniejsza czcionka dla tekstu przycisku
+    },
+  });
+  
+  
