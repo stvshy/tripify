@@ -11,7 +11,7 @@ export default function WelcomeScreen() {
       <Text style={styles.title}>Witaj w Tripify!</Text>
       <Text style={styles.subtitle}>Zaloguj się lub załóż konto, aby rozpocząć swoją podróż!</Text>
       <Button title="Zaloguj się" onPress={() => router.push('/login')} />
-      <Button title="Załóż konto" onPress={() => router.push('/register')} />
+      <Button title="Załóż konto" onPress={() => router.push('/registerChoice')} />
     </View>
   );
 }

@@ -1,11 +1,14 @@
 {
   "expo": {
-    "name": "tripify",
+    "name": "Tripify",
     "slug": "tripify",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
+    "scheme": [
+      "tripify", 
+      "fb517197711280428"
+    ],
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/splash.png",
@@ -20,7 +23,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.matisp6.tripify"
     },
     "web": {
       "bundler": "metro",
@@ -41,3 +45,7 @@
     "owner": "matisp6"
   }
 }
+
+
+
+
