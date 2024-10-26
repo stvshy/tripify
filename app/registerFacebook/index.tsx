@@ -1,67 +1,67 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, Button, Image, StyleSheet } from 'react-native';
+import React from 'react';
+import { View, Button, StyleSheet, Alert } from 'react-native';
+import { LoginManager, AccessToken } from 'react-native-fbsdk-next';
 import { getAuth, FacebookAuthProvider, signInWithCredential } from 'firebase/auth';
-import * as Facebook from 'expo-auth-session/providers/facebook';
-import * as WebBrowser from 'expo-web-browser';
 import { useRouter } from 'expo-router';
-import {getDoc, doc, setDoc, getFirestore } from 'firebase/firestore';
-
-WebBrowser.maybeCompleteAuthSession();
+import { getFirestore, doc, setDoc } from 'firebase/firestore';
+import { AppEventsLogger } from 'react-native-fbsdk-next';  // Import AppEventsLogger
 
 export default function RegisterFacebookScreen() {
-  const [request, response, promptAsync] = Facebook.useAuthRequest({
-    clientId: '517197711280428', // Twoje Facebook App ID
-  });
-  const auth = getAuth();
   const router = useRouter();
+  const auth = getAuth();
   const db = getFirestore();
 
-  useEffect(() => {
-    if (response && response.type === 'success' && response.authentication) {
-      const { accessToken } = response.authentication;
-      handleFacebookLogin(accessToken);
-    }
-  }, [response]);
-
-  const handleFacebookLogin = async (accessToken: string) => {
+  const handleFacebookLogin = async () => {
     try {
-      const credential = FacebookAuthProvider.credential(accessToken);
-      const result = await signInWithCredential(auth, credential);
-      const user = result.user;
+      // Logowanie próby logowania
+      AppEventsLogger.logEvent('loginAttempt');
 
-      // Sprawdź, czy użytkownik istnieje w Firestore
-      const userDocRef = doc(db, 'users', user.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (!userDoc.exists) {
-        // Jeśli użytkownik nie istnieje, dodaj dane do Firestore
-        await setDoc(userDocRef, {
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName,
-          profilePicture: user.photoURL,
-          authProvider: 'facebook',
-          isVerified: true, // Automatyczne oznaczenie jako zweryfikowane
-        });
-
-        // Przekieruj do ekranu ustawienia nicku
-        router.replace('/setNicknameFacebook');
-      } else {
-        // Jeśli użytkownik istnieje, od razu przekieruj na ekran główny
-        router.replace('/');
+      // Użycie Facebook LoginManager
+      const result = await LoginManager.logInWithPermissions(['public_profile', 'email']);
+      if (result.isCancelled) {
+        Alert.alert('Anulowano logowanie');
+        
+        // Logowanie anulowania logowania
+        AppEventsLogger.logEvent('loginCancelled');
+        return;
       }
+
+      // Pobranie AccessToken
+      const data = await AccessToken.getCurrentAccessToken();
+      if (!data) {
+        throw new Error('Brak dostępu do tokenu');
+      }
+
+      const accessToken = data.accessToken.toString();
+      const credential = FacebookAuthProvider.credential(accessToken);
+      const resultAuth = await signInWithCredential(auth, credential);
+
+      // Logowanie pomyślnego logowania
+      AppEventsLogger.logEvent('loginSuccess');
+
+      // Dodanie użytkownika do Firestore
+      const userRef = doc(db, 'users', resultAuth.user.uid);
+      await setDoc(userRef, {
+        uid: resultAuth.user.uid,
+        email: resultAuth.user.email,
+        name: resultAuth.user.displayName,
+        profilePicture: resultAuth.user.photoURL,
+        authProvider: 'facebook'
+      }, { merge: true });
+
+      router.replace('./setNicknameFacebook');
     } catch (error) {
-      console.error('Facebook login error:', error);
+      console.error('Błąd logowania przez Facebook:', error);
+      Alert.alert('Błąd logowania', 'Nie udało się zalogować przez Facebooka.');
+
+      // Logowanie błędu logowania
+      AppEventsLogger.logEvent('loginError');
     }
   };
 
   return (
     <View style={styles.container}>
-      <Button
-        disabled={!request}
-        title="Zaloguj się przez Facebook"
-        onPress={() => promptAsync()}
-      />
+      <Button title="Zaloguj się przez Facebook" onPress={handleFacebookLogin} />
     </View>
   );
 }
@@ -71,6 +71,5 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
   },
 });

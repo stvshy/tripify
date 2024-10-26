@@ -44,7 +44,7 @@ if (getRNMinorVersion() >= 75) {
   }
 }
 
-rootProject.name = 'tripify'
+rootProject.name = 'Tripify'
 
 dependencyResolutionManagement {
   versionCatalogs {

@@ -5,10 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": [
-      "tripify", 
-      "fb517197711280428"
-    ],
+    "scheme": "fb517197711280428",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/splash.png",
@@ -20,11 +17,18 @@
       "bundleIdentifier": "com.matisp6.tripify"
     },
     "android": {
+      "package": "com.matisp6.tripify",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.matisp6.tripify"
+      "permissions": [
+        "com.facebook.permission.FACEBOOK_LOGIN",
+        "INTERNET",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+  ]
+
     },
     "web": {
       "bundler": "metro",
@@ -32,6 +36,18 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "react-native-fbsdk-next",
+        {
+          "appID": "517197711280428",  
+          "clientToken": "e70a82b40276d3ae9177f7c0fc0dd241",
+          "displayName": "Tripify",
+          "scheme": "fb517197711280428",
+          "advertiserIDCollectionEnabled": true,
+          "autoLogAppEventsEnabled": true,
+          "isAutoInitEnabled": true 
+        }
+      ],
       "expo-router"
     ],
     "experiments": {
@@ -45,7 +61,3 @@
     "owner": "matisp6"
   }
 }
-
-
-
-

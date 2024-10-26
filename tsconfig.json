@@ -2,11 +2,11 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    "jsx": "react-jsx",         // Obsługa JSX
+    "esModuleInterop": true,    // Umożliwia importy w stylu CommonJS/ESM
+    "skipLibCheck": true,       // Ignoruje błędy typów w bibliotekach
     "paths": {
-      "@/*": [
-        "./*"
-      ],
-      "@firebase/auth": ["./node_modules/@firebase/auth/dist/index.rn.d.ts"]
+      "@/*": ["./*"]
     }
   },
   "include": [
