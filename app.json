@@ -27,8 +27,7 @@
         "INTERNET",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"
-  ]
-
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -39,13 +38,14 @@
       [
         "react-native-fbsdk-next",
         {
-          "appID": "517197711280428",  
+          "appID": "517197711280428",
           "clientToken": "e70a82b40276d3ae9177f7c0fc0dd241",
           "displayName": "Tripify",
           "scheme": "fb517197711280428",
-          "advertiserIDCollectionEnabled": true,
+          "advertiserIDCollectionEnabled": false,
           "autoLogAppEventsEnabled": true,
-          "isAutoInitEnabled": true 
+          "isAutoInitEnabled": true,
+          "iosUserTrackingPermission": "This identifier will be used to deliver personalized ads to you."
         }
       ],
       "expo-router"
