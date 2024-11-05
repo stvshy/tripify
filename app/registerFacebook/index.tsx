@@ -1,29 +1,23 @@
-import React, { useEffect } from 'react';
-import { View, Button, Alert, StyleSheet } from 'react-native';
+import React from 'react';
+import { View, Button, Alert } from 'react-native';
 import { LoginManager, AccessToken, GraphRequest, GraphRequestManager } from 'react-native-fbsdk-next';
-import { getAuth, FacebookAuthProvider, signInWithCredential, fetchSignInMethodsForEmail } from 'firebase/auth';
-import { useRouter } from 'expo-router';
+import { getAuth, FacebookAuthProvider, signInWithCredential, fetchSignInMethodsForEmail, linkWithCredential } from 'firebase/auth';
 
-const auth = getAuth();
+export default function FacebookLogin() {
+  const auth = getAuth();
 
-export default function RegisterFacebookScreen() {
-  const router = useRouter();
-
-  useEffect(() => {
-    // Inicjalizacja SDK Facebooka, jeśli potrzeba
-  }, []);
-
+  // Funkcja do pobierania e-maila użytkownika z Facebooka
   const getFacebookEmail = (): Promise<string | null> => {
     return new Promise((resolve) => {
       const request = new GraphRequest(
         '/me?fields=email',
-        {}, // Usuwamy typowanie GraphRequestConfig i przekazujemy pusty obiekt
+        {},  // Zamiast `null`, użyj pustego obiektu `{}`, co naprawia błąd
         (error, result) => {
           if (error) {
-            console.log('Error fetching email: ', error);
+            console.log('Błąd pobierania e-maila z Facebooka:', error);
             resolve(null);
           } else if (result && result.email) {
-            resolve(result.email as string); // Rzutowanie 'result.email' na string
+            resolve(result.email as string);
           } else {
             resolve(null);
           }
@@ -35,49 +29,49 @@ export default function RegisterFacebookScreen() {
 
   const handleFacebookLogin = async () => {
     try {
+      // Logowanie użytkownika przez Facebook SDK
       const result = await LoginManager.logInWithPermissions(['public_profile', 'email']);
-      if (result?.isCancelled) { // Sprawdzamy, czy 'result' istnieje
+      if (result.isCancelled) {
         Alert.alert('Logowanie zostało anulowane');
         return;
       }
 
       const data = await AccessToken.getCurrentAccessToken();
       if (!data) {
-        throw new Error('Błąd uzyskiwania tokenu dostępu');
+        Alert.alert('Błąd', 'Nie udało się uzyskać tokenu dostępu.');
+        return;
       }
 
-      const credential = FacebookAuthProvider.credential(data.accessToken);
+      const facebookCredential = FacebookAuthProvider.credential(data.accessToken);
 
-      // Pobieranie adresu e-mail z Facebooka, aby sprawdzić, czy konto już istnieje
+      // Pobieramy e-mail użytkownika przez Graph API
       const email = await getFacebookEmail();
       if (!email) {
         Alert.alert('Błąd', 'Nie udało się pobrać adresu e-mail z Facebooka.');
         return;
       }
 
-      // Sprawdzenie, czy konto z tym adresem e-mail już istnieje
+      // Sprawdzamy istniejące metody logowania dla tego e-maila
       const signInMethods = await fetchSignInMethodsForEmail(auth, email);
       if (signInMethods.length > 0 && !signInMethods.includes('facebook.com')) {
-        // Konto istnieje, ale nie jest powiązane z Facebookiem
+        // Konto istnieje, ale z innym dostawcą logowania
         Alert.alert(
           'Konto istnieje',
-          `Konto z e-mailem ${email} jest już powiązane z innym dostawcą logowania (${signInMethods[0]}). Zaloguj się za pomocą tej metody, a następnie połącz konto z Facebookiem w ustawieniach.`
+          `Konto z tym e-mailem jest już powiązane z innym dostawcą logowania (${signInMethods[0]}). Zaloguj się tą metodą, a potem połącz konto z Facebookiem.`
         );
-        return;
-      }
-
-      // Próba logowania przez Facebooka
-      const resultAuth = await signInWithCredential(auth, credential);
-      if (resultAuth.user) {
-        Alert.alert('Sukces', 'Zalogowano pomyślnie przez Facebooka!');
-        router.replace('./setNicknameFacebook'); // Przekierowanie do ekranu ustawiania pseudonimu
+      } else {
+        // Jeśli nie ma konfliktu, logujemy się przy użyciu poświadczeń Facebooka
+        const resultAuth = await signInWithCredential(auth, facebookCredential);
+        if (resultAuth.user) {
+          Alert.alert('Sukces', 'Zalogowano pomyślnie przez Facebooka!');
+          // Tutaj można dodać dodatkowe kroki po udanym logowaniu, np. nawigację
+        }
       }
     } catch (error: any) {
       if (error.code === 'auth/account-exists-with-different-credential') {
-        // Jeśli występuje konflikt poświadczeń, to oznacza, że konto istnieje z innym dostawcą
         Alert.alert(
           'Konto istnieje',
-          `Konto z tym e-mailem jest już powiązane z innym dostawcą logowania. Zaloguj się tą metodą, a potem połącz konto z Facebookiem.`
+          'Konto z tym e-mailem jest już powiązane z innym dostawcą logowania. Zaloguj się tą metodą, a potem połącz konto z Facebookiem.'
         );
       } else {
         console.error('Błąd logowania przez Facebooka:', error);
@@ -87,16 +81,8 @@ export default function RegisterFacebookScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
       <Button title="Zaloguj się przez Facebook" onPress={handleFacebookLogin} />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});

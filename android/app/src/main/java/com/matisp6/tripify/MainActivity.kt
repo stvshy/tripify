@@ -12,6 +12,11 @@ import expo.modules.ReactActivityDelegateWrapper
 
 class MainActivity : ReactActivity() {
 
+   override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        (application as MainApplication).getCallbackManager().onActivityResult(requestCode, resultCode, data)
+    }
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         // Ustawia motyw przed `onCreate` (wymagane dla `expo-splash-screen`)
         setTheme(R.style.AppTheme)
