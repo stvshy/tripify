@@ -1,5 +1,4 @@
 {
-  "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
     "jsx": "react-jsx",
@@ -7,8 +6,12 @@
     "skipLibCheck": true,
     "paths": {
       "@/*": ["./*"],
-      "@firebase/auth": ["./node_modules/@firebase/auth/dist/index.rn.d.ts"]  // Dodana ścieżka do Firebase Auth
-    }
+      "@firebase/auth": ["./node_modules/@firebase/auth/dist/index.rn.d.ts"]
+    },
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "target": "esnext",
+    "lib": ["dom", "esnext"]
   },
   "include": [
     "**/*.ts",

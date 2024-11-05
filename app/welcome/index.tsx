@@ -1,27 +1,115 @@
-// app/welcome/index.tsx
-import React from 'react';
-import { View, Text, StyleSheet, Button, Alert, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Alert } from 'react-native';
+import { TextInput, Button } from 'react-native-paper';
 import { FontAwesome } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { LoginManager, AccessToken, GraphRequest, GraphRequestManager } from 'react-native-fbsdk-next';
-import { getAuth, FacebookAuthProvider, signInWithCredential, fetchSignInMethodsForEmail } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { getAuth, FacebookAuthProvider, signInWithCredential, fetchSignInMethodsForEmail, signInWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
+import { doc, getDoc, getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 
 export default function WelcomeScreen() {
   const router = useRouter();
   const auth = getAuth();
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
+  const [isResendDisabled, setIsResendDisabled] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
+
+  useEffect(() => {
+    if (resendTimer > 0) {
+      const timerId = setInterval(() => setResendTimer(prev => prev - 1), 1000);
+      return () => clearInterval(timerId);
+    }
+  }, [resendTimer]);
+
+  const validatePassword = () => {
+    if (password.length < 6) {
+      setErrorMessage('Your password must contain at least 6 characters.');
+      return false;
+    }
+    if (!/[A-Z]/.test(password)) {
+      setErrorMessage('Your password must include at least one uppercase letter.');
+      return false;
+    }
+    if (!/[0-9]/.test(password)) {
+      setErrorMessage('Your password must include at least one numeric character.');
+      return false;
+    }
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+      setErrorMessage('Your password must include at least one special character.');
+      return false;
+    }
+    return true;
+  };
+
+  const isEmail = (input: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input);
+
+  const handleLogin = async () => {
+    setErrorMessage(null);
+    setVerificationMessage(null);
+  
+    if (!password || !validatePassword()) return;
+  
+    try {
+      let email = identifier.toLowerCase();
+  
+      if (!isEmail(email)) {
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('nickname', '==', email));
+        const querySnapshot = await getDocs(q);
+  
+        if (querySnapshot.empty) {
+          setErrorMessage('No account found with this nickname.');
+          return;
+        }
+  
+        const userData = querySnapshot.docs[0].data();
+        email = userData.email;
+      }
+  
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+  
+      if (!user.emailVerified) {
+        if (!verificationMessage) {
+          try {
+            await sendEmailVerification(user);
+          } catch (emailError) {
+            console.error("Failed to send verification email:", emailError);
+          }
+        }
+        setErrorMessage("Please verify your email to log in.");
+        setVerificationMessage("Check your email inbox for the verification link.");
+        return;
+      }
+  
+      router.replace('/');
+    } catch (error: any) {
+      console.error("Login error:", error.code, error.message);
+      if (error.code === 'auth/too-many-requests') {
+        setErrorMessage('Too many login attempts. Try again later.');
+      } else if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email') {
+        setErrorMessage('No account was found with this email or nickname.');
+      } else if (error.code === 'auth/wrong-password') {
+        setErrorMessage('The password you entered is incorrect.');
+      } else {
+        setErrorMessage('Login failed. Please try again.');
+      }
+    }
+  };
 
   const handleFacebookLogin = async () => {
     try {
-      // Start the Facebook login process
       const result = await LoginManager.logInWithPermissions(['public_profile', 'email']);
       if (result.isCancelled) {
         Alert.alert('Login canceled');
         return;
       }
   
-      // Retrieve the access token
       const data = await AccessToken.getCurrentAccessToken();
       if (!data) {
         Alert.alert('Error', 'Failed to obtain access token.');
@@ -30,7 +118,6 @@ export default function WelcomeScreen() {
   
       const facebookCredential = FacebookAuthProvider.credential(data.accessToken);
   
-      // Check if email already exists in Firebase
       const getFacebookEmail = async () => {
         return new Promise<string | null>((resolve) => {
           const request = new GraphRequest(
@@ -63,18 +150,14 @@ export default function WelcomeScreen() {
         }
       }
   
-      // Log in or create an account with Facebook credentials
       const userCredential = await signInWithCredential(auth, facebookCredential);
       const user = userCredential.user;
   
-      // Check if the user has a nickname set
       const userDocRef = doc(db, 'users', user.uid);
       const userDoc = await getDoc(userDocRef);
       if (userDoc.exists() && userDoc.data()?.nickname) {
-        // Redirect to the main screen if nickname is set
         router.replace('/');
       } else {
-        // Redirect to SetNicknameFacebook if nickname is not set
         router.replace('/setNicknameFacebook');
       }
     } catch (error: any) {
@@ -88,17 +171,63 @@ export default function WelcomeScreen() {
       <Text style={styles.title}>Welcome to Tripify!</Text>
       <Text style={styles.subtitle}>Log in or create an account to start your journey!</Text>
 
-      {/* Regular login button */}
-      <Button title="Log In" onPress={() => router.push('/login')} />
+      {/* Container for Email input to apply rounded border */}
+      <View style={styles.inputContainer}>
+        <TextInput
+          label="Email or nickname"
+          value={identifier}
+          onChangeText={setIdentifier}
+          keyboardType="default"
+          style={styles.input}
+          autoCapitalize="none"
+          theme={{ colors: { primary: '#6a1b9a' } }}
+        />
+      </View>
 
-      {/* Button to register with email */}
-      <Button title="Sign Up" onPress={() => router.push('/registerChoice')} />
+      {/* Container for Password input to apply rounded border */}
+      <View style={styles.inputContainer}>
+        <TextInput
+          label="Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry={!showPassword}
+          style={styles.input}
+          theme={{ colors: { primary: '#6a1b9a' } }}
+          right={
+            <TextInput.Icon
+              icon={showPassword ? 'eye-off' : 'eye'}
+              onPress={() => setShowPassword(!showPassword)}
+            />
+          }
+        />
+      </View>
 
-      {/* Facebook login button */}
-      <Pressable style={styles.facebookButton} onPress={handleFacebookLogin}>
-        <FontAwesome name="facebook" size={24} color="#FFF" />
-        <Text style={styles.facebookButtonText}>Continue with Facebook</Text>
-      </Pressable>
+      {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
+      {verificationMessage && <Text style={styles.verificationMessage}>{verificationMessage}</Text>}
+
+      <Button mode="contained" onPress={handleLogin} style={styles.loginButton}>
+        Log In
+      </Button>
+      <Button mode="contained" onPress={() => router.push('/registerChoice')} style={styles.registerButton}>
+        Sign Up
+      </Button>
+
+      {/* Separator with 'or' */}
+      <View style={styles.separatorContainer}>
+        <View style={styles.line} />
+        <Text style={styles.orText}>or</Text>
+        <View style={styles.line} />
+      </View>
+
+      <Button
+        mode="text"
+        onPress={handleFacebookLogin}
+        style={styles.facebookButton}
+        icon={() => <FontAwesome name="facebook" size={24} color="#FFF" />}
+        labelStyle={styles.facebookButtonText}
+      >
+        Continue with Facebook
+      </Button>
     </View>
   );
 }
@@ -107,30 +236,69 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    padding: 16,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
+    textAlign: 'center',
     marginBottom: 20,
   },
   subtitle: {
     fontSize: 16,
-    marginBottom: 30,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  inputContainer: {
+    borderRadius: 20, // Full border-radius control
+    overflow: 'hidden',
+    borderColor: '#6a1b9a', // Border color when focused
+    borderWidth: 1,
+    marginBottom: 15,
+  },
+  input: {
+    paddingHorizontal: 15, // Padding for left and right spacing
+    backgroundColor: '#E0E0E0',
+  },
+  error: {
+    color: 'red',
+    fontSize: 14,
     textAlign: 'center',
   },
-  facebookButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#4267B2',
-    padding: 10,
-    borderRadius: 8,
+  verificationMessage: {
+    color: '#555',
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  loginButton: {
     marginTop: 20,
+    backgroundColor: '#6a1b9a',
+  },
+  registerButton: {
+    marginTop: 10,
+    backgroundColor: '#5a189a',
+  },
+  facebookButton: {
+    backgroundColor: '#4267B2',
+    marginTop: 15,
   },
   facebookButtonText: {
     color: '#FFF',
-    fontWeight: 'bold',
-    marginLeft: 8,
+  },
+  separatorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 15,
+  },
+  line: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#d3d3d3',
+  },
+  orText: {
+    marginHorizontal: 10,
+    color: '#555',
+    fontSize: 14,
   },
 });
