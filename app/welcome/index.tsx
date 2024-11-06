@@ -182,15 +182,15 @@ export default function WelcomeScreen() {
           onFocus={() => setIsFocused({ ...isFocused, identifier: true })}
           onBlur={() => setIsFocused({ ...isFocused, identifier: false })}
           keyboardType="default"
-          style={styles.input}
+          style={[styles.input, !isFocused.identifier && styles.inputUnfocusedText]}
           autoCapitalize="none"
           theme={{
             colors: {
-              primary: isFocused.identifier ? '#6a1b9a' : 'transparent',
+              primary: isFocused.identifier ? '#6a1b9a' : 'transparent', // 4) Usunięcie fioletowej linii w trybie nieaktywnym
               placeholder: '#6a1b9a',
             }
           }}
-          left={<TextInput.Icon icon="account" size={26} />}
+          left={<TextInput.Icon icon="account" size={27} style={styles.icon} />} // 2) Przesunięcie ikony w prawo
         />
       </View>
 
@@ -203,14 +203,14 @@ export default function WelcomeScreen() {
           onFocus={() => setIsFocused({ ...isFocused, password: true })}
           onBlur={() => setIsFocused({ ...isFocused, password: false })}
           secureTextEntry={!showPassword}
-          style={styles.input}
+          style={[styles.input, !isFocused.password && styles.inputUnfocusedText]}
           theme={{
             colors: {
-              primary: isFocused.password ? '#6a1b9a' : '#999',
+              primary: isFocused.password ? '#6a1b9a' : 'transparent', // 4) Usunięcie fioletowej linii w trybie nieaktywnym
               placeholder: '#6a1b9a',
             }
           }}
-          left={<TextInput.Icon icon="lock" size={26} />}
+          left={<TextInput.Icon icon="lock" size={27} style={styles.icon} />} // 2) Przesunięcie ikony w prawo
           right={
             <TextInput.Icon
               icon={showPassword ? 'eye-off' : 'eye'}
@@ -221,7 +221,6 @@ export default function WelcomeScreen() {
       </View>
 
       {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
-      {verificationMessage && <Text style={styles.verificationMessage}>{verificationMessage}</Text>}
 
       <Button mode="contained" onPress={handleLogin} style={styles.loginButton}>
         Log In
@@ -273,24 +272,24 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   input: {
-    paddingLeft: 1, // Zapewnia miejsce dla ikony po lewej stronie, bez przesuwania tekstu
+    paddingLeft: 1, //  Zapewnia miejsce dla ikony, bez przesuwania tekstu na prawo
     backgroundColor: '#E0E0E0',
-    height: 55, // Utrzymuje stałą wysokość pola tekstowego
+    height: 55, // Stała wysokość pola tekstowego
   },
   inputFocused: {
     borderColor: '#6a1b9a',
     borderWidth: 1,
   },
+  inputUnfocusedText: {
+    fontSize: 15, // 1) Mniejsza czcionka dla etykiety w trybie nieaktywnym
+  },
+  icon: {
+    marginLeft: 10, // Przesunięcie ikony w prawo
+  },
   error: {
     color: 'red',
     fontSize: 14,
     textAlign: 'center',
-  },
-  verificationMessage: {
-    color: '#555',
-    fontSize: 12,
-    textAlign: 'center',
-    marginBottom: 10,
   },
   loginButton: {
     marginTop: 20,
