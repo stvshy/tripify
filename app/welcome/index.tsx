@@ -190,6 +190,7 @@ export default function WelcomeScreen() {
               placeholder: '#6a1b9a',
             }
           }}
+          underlineColor="transparent"
           left={<TextInput.Icon icon="account" size={27} style={styles.icon} />} // 2) Przesunięcie ikony w prawo
         />
       </View>
@@ -210,6 +211,7 @@ export default function WelcomeScreen() {
               placeholder: '#6a1b9a',
             }
           }}
+          underlineColor="transparent"
           left={<TextInput.Icon icon="lock" size={27} style={styles.icon} />} // 2) Przesunięcie ikony w prawo
           right={
             <TextInput.Icon
