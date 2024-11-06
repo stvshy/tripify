@@ -174,10 +174,7 @@ export default function WelcomeScreen() {
       <Text style={styles.subtitle}>Log in or create an account to start your journey!</Text>
 
       {/* Email Input */}
-      <View style={[
-        styles.inputContainer, 
-        isFocused.identifier && styles.inputFocused // Conditional styling for focus
-      ]}>
+      <View style={[styles.inputContainer, isFocused.identifier && styles.inputFocused]}>
         <TextInput
           label="Email or nickname"
           value={identifier}
@@ -185,26 +182,20 @@ export default function WelcomeScreen() {
           onFocus={() => setIsFocused({ ...isFocused, identifier: true })}
           onBlur={() => setIsFocused({ ...isFocused, identifier: false })}
           keyboardType="default"
-          style={[
-            styles.input,
-            !isFocused.identifier && styles.inputUnfocused // Smaller font size for unfocused label
-          ]}
+          style={styles.input}
           autoCapitalize="none"
           theme={{
             colors: {
-              primary: isFocused.identifier ? '#6a1b9a' : 'transparent', // Ukrycie linii, gdy nieaktywny
-              placeholder: '#6a1b9a', // Kolor placeholdera
+              primary: isFocused.identifier ? '#6a1b9a' : 'transparent',
+              placeholder: '#6a1b9a',
             }
           }}
-          left={<TextInput.Icon icon="account" size={26}/>} // Dodano ikonę konta
+          left={<TextInput.Icon icon="account" size={26} />}
         />
       </View>
 
       {/* Password Input */}
-      <View style={[
-        styles.inputContainer, 
-        isFocused.password && styles.inputFocused // Conditional styling for focus
-      ]}>
+      <View style={[styles.inputContainer, isFocused.password && styles.inputFocused]}>
         <TextInput
           label="Password"
           value={password}
@@ -212,17 +203,14 @@ export default function WelcomeScreen() {
           onFocus={() => setIsFocused({ ...isFocused, password: true })}
           onBlur={() => setIsFocused({ ...isFocused, password: false })}
           secureTextEntry={!showPassword}
-          style={[
-            styles.input,
-            !isFocused.password && styles.inputUnfocused
-          ]}
+          style={styles.input}
           theme={{
             colors: {
-              primary: isFocused.password ? '#6a1b9a' : '#999', // Placeholder color based on focus
+              primary: isFocused.password ? '#6a1b9a' : '#999',
               placeholder: '#6a1b9a',
             }
           }}
-          left={<TextInput.Icon icon="lock" />} // Dodano ikonę kłódki
+          left={<TextInput.Icon icon="lock" size={26} />}
           right={
             <TextInput.Icon
               icon={showPassword ? 'eye-off' : 'eye'}
@@ -251,7 +239,7 @@ export default function WelcomeScreen() {
 
       <Button
         mode="text"
-        onPress={handleFacebookLogin}
+        onPress={() => {}}
         style={styles.facebookButton}
         icon={() => <FontAwesome name="facebook" size={24} color="#FFF" />}
         labelStyle={styles.facebookButtonText}
@@ -280,22 +268,18 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   inputContainer: {
-    borderRadius: 25, // Adjust full border radius here
+    borderRadius: 25,
     overflow: 'hidden',
     marginBottom: 15,
   },
   input: {
-    paddingHorizontal: 54, // Increase padding for left spacing
+    paddingLeft: 1, // Zapewnia miejsce dla ikony po lewej stronie, bez przesuwania tekstu
     backgroundColor: '#E0E0E0',
-    height: 55, // Adjust height for vertical alignment of text
+    height: 55, // Utrzymuje stałą wysokość pola tekstowego
   },
   inputFocused: {
-   
-    borderColor: '#6a1b9a', // Border color when focused
+    borderColor: '#6a1b9a',
     borderWidth: 1,
-  },
-  inputUnfocused: {
-    fontSize: 15, // Zmniejszona czcionka na nie-focused
   },
   error: {
     color: 'red',
