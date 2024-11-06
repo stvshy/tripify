@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
-import { FontAwesome } from '@expo/vector-icons';
+import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LoginManager, AccessToken, GraphRequest, GraphRequestManager } from 'react-native-fbsdk-next';
 import { getAuth, FacebookAuthProvider, signInWithCredential, fetchSignInMethodsForEmail, signInWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
@@ -16,15 +16,14 @@ export default function WelcomeScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
-  const [isResendDisabled, setIsResendDisabled] = useState(false);
-  const [resendTimer, setResendTimer] = useState(0);
 
-  // New state to track focus
+  // Dodano `resendTimer` i `setResendTimer`
+  const [resendTimer, setResendTimer] = useState<number>(0);
   const [isFocused, setIsFocused] = useState({ identifier: false, password: false });
 
   useEffect(() => {
     if (resendTimer > 0) {
-      const timerId = setInterval(() => setResendTimer(prev => prev - 1), 1000);
+      const timerId = setInterval(() => setResendTimer((prev: number) => prev - 1), 1000); // Typowanie `prev` jako `number`
       return () => clearInterval(timerId);
     }
   }, [resendTimer]);
@@ -186,13 +185,18 @@ export default function WelcomeScreen() {
           onFocus={() => setIsFocused({ ...isFocused, identifier: true })}
           onBlur={() => setIsFocused({ ...isFocused, identifier: false })}
           keyboardType="default"
-          style={styles.input}
+          style={[
+            styles.input,
+            !isFocused.identifier && styles.inputUnfocused // Smaller font size for unfocused label
+          ]}
           autoCapitalize="none"
           theme={{
             colors: {
-              placeholder: isFocused.identifier ? '#6a1b9a' : '#999', // Placeholder color based on focus
+              primary: isFocused.identifier ? '#6a1b9a' : 'transparent', // Ukrycie linii, gdy nieaktywny
+              placeholder: '#6a1b9a', // Kolor placeholdera
             }
           }}
+          left={<TextInput.Icon icon="account" size={26}/>} // Dodano ikonę konta
         />
       </View>
 
@@ -208,12 +212,17 @@ export default function WelcomeScreen() {
           onFocus={() => setIsFocused({ ...isFocused, password: true })}
           onBlur={() => setIsFocused({ ...isFocused, password: false })}
           secureTextEntry={!showPassword}
-          style={styles.input}
+          style={[
+            styles.input,
+            !isFocused.password && styles.inputUnfocused
+          ]}
           theme={{
             colors: {
-              placeholder: isFocused.password ? '#6a1b9a' : '#999', // Placeholder color based on focus
+              primary: isFocused.password ? '#6a1b9a' : '#999', // Placeholder color based on focus
+              placeholder: '#6a1b9a',
             }
           }}
+          left={<TextInput.Icon icon="lock" />} // Dodano ikonę kłódki
           right={
             <TextInput.Icon
               icon={showPassword ? 'eye-off' : 'eye'}
@@ -276,13 +285,17 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   input: {
-    paddingHorizontal: 15, // Increase padding for left spacing
+    paddingHorizontal: 54, // Increase padding for left spacing
     backgroundColor: '#E0E0E0',
     height: 55, // Adjust height for vertical alignment of text
   },
   inputFocused: {
+   
     borderColor: '#6a1b9a', // Border color when focused
     borderWidth: 1,
+  },
+  inputUnfocused: {
+    fontSize: 15, // Zmniejszona czcionka na nie-focused
   },
   error: {
     color: 'red',
