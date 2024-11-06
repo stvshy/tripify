@@ -19,6 +19,9 @@ export default function WelcomeScreen() {
   const [isResendDisabled, setIsResendDisabled] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
 
+  // New state to track focus
+  const [isFocused, setIsFocused] = useState({ identifier: false, password: false });
+
   useEffect(() => {
     if (resendTimer > 0) {
       const timerId = setInterval(() => setResendTimer(prev => prev - 1), 1000);
@@ -171,28 +174,46 @@ export default function WelcomeScreen() {
       <Text style={styles.title}>Welcome to Tripify!</Text>
       <Text style={styles.subtitle}>Log in or create an account to start your journey!</Text>
 
-      {/* Container for Email input to apply rounded border */}
-      <View style={styles.inputContainer}>
+      {/* Email Input */}
+      <View style={[
+        styles.inputContainer, 
+        isFocused.identifier && styles.inputFocused // Conditional styling for focus
+      ]}>
         <TextInput
           label="Email or nickname"
           value={identifier}
           onChangeText={setIdentifier}
+          onFocus={() => setIsFocused({ ...isFocused, identifier: true })}
+          onBlur={() => setIsFocused({ ...isFocused, identifier: false })}
           keyboardType="default"
           style={styles.input}
           autoCapitalize="none"
-          theme={{ colors: { primary: '#6a1b9a' } }}
+          theme={{
+            colors: {
+              placeholder: isFocused.identifier ? '#6a1b9a' : '#999', // Placeholder color based on focus
+            }
+          }}
         />
       </View>
 
-      {/* Container for Password input to apply rounded border */}
-      <View style={styles.inputContainer}>
+      {/* Password Input */}
+      <View style={[
+        styles.inputContainer, 
+        isFocused.password && styles.inputFocused // Conditional styling for focus
+      ]}>
         <TextInput
           label="Password"
           value={password}
           onChangeText={setPassword}
+          onFocus={() => setIsFocused({ ...isFocused, password: true })}
+          onBlur={() => setIsFocused({ ...isFocused, password: false })}
           secureTextEntry={!showPassword}
           style={styles.input}
-          theme={{ colors: { primary: '#6a1b9a' } }}
+          theme={{
+            colors: {
+              placeholder: isFocused.password ? '#6a1b9a' : '#999', // Placeholder color based on focus
+            }
+          }}
           right={
             <TextInput.Icon
               icon={showPassword ? 'eye-off' : 'eye'}
@@ -250,15 +271,18 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   inputContainer: {
-    borderRadius: 20, // Full border-radius control
+    borderRadius: 25, // Adjust full border radius here
     overflow: 'hidden',
-    borderColor: '#6a1b9a', // Border color when focused
-    borderWidth: 1,
     marginBottom: 15,
   },
   input: {
-    paddingHorizontal: 15, // Padding for left and right spacing
+    paddingHorizontal: 15, // Increase padding for left spacing
     backgroundColor: '#E0E0E0',
+    height: 55, // Adjust height for vertical alignment of text
+  },
+  inputFocused: {
+    borderColor: '#6a1b9a', // Border color when focused
+    borderWidth: 1,
   },
   error: {
     color: 'red',
