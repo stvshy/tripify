@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert, Image } from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -7,6 +7,7 @@ import { LoginManager, AccessToken, GraphRequest, GraphRequestManager } from 're
 import { getAuth, FacebookAuthProvider, signInWithCredential, fetchSignInMethodsForEmail, signInWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { doc, getDoc, getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
+
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -170,6 +171,14 @@ export default function WelcomeScreen() {
 
   return (
     <View style={styles.container}>
+        {/* Kontener dla logo */}
+        <View style={styles.logoContainer}>
+        <Image 
+          source={require('../../assets/images/tripify-icon.png')}           style={styles.logo} 
+          resizeMode="contain" // Ustawienie, aby obraz nie był przycięty
+        />
+      </View>
+      {/* Tytuł powitalny */}
       <Text style={styles.title}>Welcome to Tripify!</Text>
       <Text style={styles.subtitle}>Log in or create an account to start your journey!</Text>
 
@@ -190,8 +199,15 @@ export default function WelcomeScreen() {
               placeholder: '#6a1b9a',
             }
           }}
-          underlineColor="transparent"
-          left={<TextInput.Icon icon="account" size={27} style={styles.icon} />} // 2) Przesunięcie ikony w prawo
+          underlineColor="transparent" 
+          left={
+            <TextInput.Icon 
+              icon="account" 
+              size={27} 
+              style={styles.icon}
+              color={isFocused.identifier ? '#6a1b9a' : '#606060'} // Fioletowy, gdy focused, szary w trybie unfocused
+            />
+          }
         />
       </View>
 
@@ -212,11 +228,19 @@ export default function WelcomeScreen() {
             }
           }}
           underlineColor="transparent"
-          left={<TextInput.Icon icon="lock" size={27} style={styles.icon} />} // 2) Przesunięcie ikony w prawo
+          left={
+            <TextInput.Icon 
+              icon="lock" 
+              size={27} 
+              style={styles.icon}
+              color={isFocused.password ? '#6a1b9a' : '#606060'} // Fioletowy, gdy focused, szary w trybie unfocused
+            />
+          }
           right={
             <TextInput.Icon
               icon={showPassword ? 'eye-off' : 'eye'}
               onPress={() => setShowPassword(!showPassword)}
+              color={isFocused.password ? '#6a1b9a' : '#606060'} // Fioletowy, gdy focused, szary w trybie unfocused
             />
           }
         />
@@ -224,11 +248,13 @@ export default function WelcomeScreen() {
 
       {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
 
+
+
       <Button mode="contained" onPress={handleLogin} style={styles.loginButton}>
         Log In
       </Button>
       <Button mode="contained" onPress={() => router.push('/registerChoice')} style={styles.registerButton}>
-        Sign Up
+        Create your account
       </Button>
 
       {/* Separator with 'or' */}
@@ -247,6 +273,17 @@ export default function WelcomeScreen() {
       >
         Continue with Facebook
       </Button>
+
+      <View style={styles.bottomContainer}>
+        <Button
+          mode="text"
+          onPress={() => router.push('/forgotPassword')}
+          style={styles.forgotPasswordButton}
+          labelStyle={styles.forgotPasswordLabel}
+        >
+          Forgot password?
+        </Button>
+      </View>
     </View>
   );
 }
@@ -255,7 +292,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
+  
     padding: 16,
+  },
+  logo: {
+    width: 200, // Ustaw szerokość logo
+    height: 200, // Ustaw wysokość logo
+    // marginBottom: 24, // Odstęp między logo a tytułem
+  },
+  logoContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20, // Odstęp między logo a tytułem
   },
   title: {
     fontSize: 24,
@@ -280,7 +328,7 @@ const styles = StyleSheet.create({
   },
   inputFocused: {
     borderColor: '#6a1b9a',
-    borderWidth: 1,
+    borderWidth: 2,
   },
   inputUnfocusedText: {
     fontSize: 15, // 1) Mniejsza czcionka dla etykiety w trybie nieaktywnym
@@ -294,11 +342,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   loginButton: {
-    marginTop: 20,
+    marginTop: 8,
     backgroundColor: '#6a1b9a',
   },
   registerButton: {
-    marginTop: 10,
+    marginTop: 11,
     backgroundColor: '#5a189a',
   },
   facebookButton: {
@@ -323,4 +371,17 @@ const styles = StyleSheet.create({
     color: '#555',
     fontSize: 14,
   },
+  bottomContainer: {
+    position: 'absolute',
+    bottom: 10, // Odległość od dołu ekranu
+    alignSelf: 'center',
+  },
+  forgotPasswordButton: {
+    marginTop: 10,
+  },
+  forgotPasswordLabel: {
+    fontSize: 13,
+    color: '#6a1b9a',
+  },
+  
 });
