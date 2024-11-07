@@ -300,6 +300,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
+    alignItems: 'center', // Wyrównanie w poziomie
   
     padding: 16,
   },
@@ -331,11 +332,14 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     overflow: 'hidden',
     marginBottom: 15,
+    width: width * 0.89,
+    backgroundColor: '#f0ed8f5',
+
   },
   input: {
     paddingLeft: 1, //  Zapewnia miejsce dla ikony, bez przesuwania tekstu na prawo
-    backgroundColor: '#f0e8f5',
-    height: 55, // Stała wysokość pola tekstowego
+    // backgroundColor: '#f0ed8f5',
+    height: 52, // Stała wysokość pola tekstowego
   },
   inputFocused: {
     borderColor: '#6a1b9a',
@@ -353,24 +357,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   loginButton: {
-    width: width * 0.91, // 80% szerokości ekranu
-    paddingVertical: height * 0.0008, // np. 2% wysokości ekranu na padding
+    width: width * 0.89, // 80% szerokości ekranu
+    height: height * 0.048, // np. 2% wysokości ekranu na padding
     marginTop: 8,
     backgroundColor: '#7511b5',
   },
   registerButton: {
     marginTop: 11,
     backgroundColor: '#5b0d8d',
-    width: width * 0.91, // 80% szerokości ekranu
-    paddingVertical: height * 0.0009, // np. 2% wysokości ekranu na padding
+    width: width * 0.89, // 80% szerokości ekranu
+    height: height * 0.048, // np. 2% wysokości ekranu na padding
     borderWidth: 1.1,
     borderColor: '#340850'
   },
   facebookButton: {
     backgroundColor: '#4267B2',
     // marginTop: 15,
-    width: width * 0.91, // 80% szerokości ekranu
-    paddingVertical: height * 0.0009, // np. 2% wysokości ekranu na padding
+    width: width * 0.89, // 80% szerokości ekranu
+    height: height * 0.05, // np. 2% wysokości ekranu na padding
   },
   facebookButtonText: {
     color: '#FFF',
@@ -378,7 +382,7 @@ const styles = StyleSheet.create({
   separatorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 15,
+    marginVertical: 9,
   },
   line: {
     flex: 1,
