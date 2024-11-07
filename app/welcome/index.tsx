@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, Alert, Image, ImageBackground, SafeAreaView, Dimensions  } from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -7,7 +7,8 @@ import { LoginManager, AccessToken, GraphRequest, GraphRequestManager } from 're
 import { getAuth, FacebookAuthProvider, signInWithCredential, fetchSignInMethodsForEmail, signInWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { doc, getDoc, getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
-
+import { white } from 'react-native-paper/lib/typescript/styles/themes/v2/colors';
+const { width, height } = Dimensions.get('window');
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -17,8 +18,6 @@ export default function WelcomeScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
-
-  // Dodano `resendTimer` i `setResendTimer`
   const [resendTimer, setResendTimer] = useState<number>(0);
   const [isFocused, setIsFocused] = useState({ identifier: false, password: false });
 
@@ -170,125 +169,134 @@ export default function WelcomeScreen() {
   };
 
   return (
-    <View style={styles.container}>
-        {/* Kontener dla logo */}
+    <ImageBackground 
+    source={require('../../assets/images/gradient2.jpg')}
+    style={styles.background}
+    imageStyle={{ resizeMode: 'cover', width: '140%',  height: '150%', left: -80, top: -150, transform: [{ rotate: '-10deg' }]}} // Przesuwa obraz w lewo o 50 jednostek
+  >
+    {/* Nakładka przyciemnienia */}
+    <View style={styles.overlay} />
+
+      <SafeAreaView style={styles.container}>
         <View style={styles.logoContainer}>
-        <Image 
-          source={require('../../assets/images/tripify-icon.png')}           style={styles.logo} 
-          resizeMode="contain" // Ustawienie, aby obraz nie był przycięty
-        />
-      </View>
-      {/* Tytuł powitalny */}
-      <Text style={styles.title}>Welcome to Tripify!</Text>
-      <Text style={styles.subtitle}>Log in or create an account to start your journey!</Text>
+          <Image 
+            source={require('../../assets/images/tripify-icon.png')} 
+            style={styles.logo} 
+            resizeMode="contain"
+          />
+        </View>
+        <Text style={styles.title}>Welcome to Tripify!</Text>
+        <Text style={styles.subtitle}>Log in or create an account to start your journey!</Text>
 
-      {/* Email Input */}
-      <View style={[styles.inputContainer, isFocused.identifier && styles.inputFocused]}>
-        <TextInput
-          label="Email or nickname"
-          value={identifier}
-          onChangeText={setIdentifier}
-          onFocus={() => setIsFocused({ ...isFocused, identifier: true })}
-          onBlur={() => setIsFocused({ ...isFocused, identifier: false })}
-          keyboardType="default"
-          style={[styles.input, !isFocused.identifier && styles.inputUnfocusedText]}
-          autoCapitalize="none"
-          theme={{
-            colors: {
-              primary: isFocused.identifier ? '#6a1b9a' : 'transparent', // 4) Usunięcie fioletowej linii w trybie nieaktywnym
-              placeholder: '#6a1b9a',
+        {/* Email Input */}
+        <View style={[styles.inputContainer, isFocused.identifier && styles.inputFocused]}>
+          <TextInput
+            label="Email or nickname"
+            value={identifier}
+            onChangeText={setIdentifier}
+            onFocus={() => setIsFocused({ ...isFocused, identifier: true })}
+            onBlur={() => setIsFocused({ ...isFocused, identifier: false })}
+            keyboardType="default"
+            style={[styles.input, !isFocused.identifier && styles.inputUnfocusedText]}
+            autoCapitalize="none"
+            theme={{
+              colors: {
+                primary: isFocused.identifier ? '#6a1b9a' : 'transparent',
+                placeholder: '#6a1b9a',
+              }
+            }}
+            underlineColor="transparent" 
+            left={
+              <TextInput.Icon 
+                icon="account" 
+                size={27} 
+                style={styles.icon}
+                color={isFocused.identifier ? '#6a1b9a' : '#606060'}
+              />
             }
-          }}
-          underlineColor="transparent" 
-          left={
-            <TextInput.Icon 
-              icon="account" 
-              size={27} 
-              style={styles.icon}
-              color={isFocused.identifier ? '#6a1b9a' : '#606060'} // Fioletowy, gdy focused, szary w trybie unfocused
-            />
-          }
-        />
-      </View>
+          />
+        </View>
 
-      {/* Password Input */}
-      <View style={[styles.inputContainer, isFocused.password && styles.inputFocused]}>
-        <TextInput
-          label="Password"
-          value={password}
-          onChangeText={setPassword}
-          onFocus={() => setIsFocused({ ...isFocused, password: true })}
-          onBlur={() => setIsFocused({ ...isFocused, password: false })}
-          secureTextEntry={!showPassword}
-          style={[styles.input, !isFocused.password && styles.inputUnfocusedText]}
-          theme={{
-            colors: {
-              primary: isFocused.password ? '#6a1b9a' : 'transparent', // 4) Usunięcie fioletowej linii w trybie nieaktywnym
-              placeholder: '#6a1b9a',
+        {/* Password Input */}
+        <View style={[styles.inputContainer, isFocused.password && styles.inputFocused]}>
+          <TextInput
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            onFocus={() => setIsFocused({ ...isFocused, password: true })}
+            onBlur={() => setIsFocused({ ...isFocused, password: false })}
+            secureTextEntry={!showPassword}
+            style={[styles.input, !isFocused.password && styles.inputUnfocusedText]}
+            theme={{
+              colors: {
+                primary: isFocused.password ? '#6a1b9a' : 'transparent',
+                placeholder: '#6a1b9a',
+              }
+            }}
+            underlineColor="transparent"
+            left={
+              <TextInput.Icon 
+                icon="lock" 
+                size={27} 
+                style={styles.icon}
+                color={isFocused.password ? '#6a1b9a' : '#606060'}
+              />
             }
-          }}
-          underlineColor="transparent"
-          left={
-            <TextInput.Icon 
-              icon="lock" 
-              size={27} 
-              style={styles.icon}
-              color={isFocused.password ? '#6a1b9a' : '#606060'} // Fioletowy, gdy focused, szary w trybie unfocused
-            />
-          }
-          right={
-            <TextInput.Icon
-              icon={showPassword ? 'eye-off' : 'eye'}
-              onPress={() => setShowPassword(!showPassword)}
-              color={isFocused.password ? '#6a1b9a' : '#606060'} // Fioletowy, gdy focused, szary w trybie unfocused
-            />
-          }
-        />
-      </View>
+            right={
+              <TextInput.Icon
+                icon={showPassword ? 'eye-off' : 'eye'}
+                onPress={() => setShowPassword(!showPassword)}
+                color={isFocused.password ? '#6a1b9a' : '#606060'}
+              />
+            }
+          />
+        </View>
 
-      {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
+        {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
 
+        <Button mode="contained" onPress={handleLogin} style={styles.loginButton}>
+          Log In
+        </Button>
+        <Button mode="contained" onPress={() => router.push('/registerChoice')} style={styles.registerButton}>
+          Create your account
+        </Button>
 
+        <View style={styles.separatorContainer}>
+          <View style={styles.line} />
+          <Text style={styles.orText}>or</Text>
+          <View style={styles.line} />
+        </View>
 
-      <Button mode="contained" onPress={handleLogin} style={styles.loginButton}>
-        Log In
-      </Button>
-      <Button mode="contained" onPress={() => router.push('/registerChoice')} style={styles.registerButton}>
-        Create your account
-      </Button>
-
-      {/* Separator with 'or' */}
-      <View style={styles.separatorContainer}>
-        <View style={styles.line} />
-        <Text style={styles.orText}>or</Text>
-        <View style={styles.line} />
-      </View>
-
-      <Button
-        mode="text"
-        onPress={() => {}}
-        style={styles.facebookButton}
-        icon={() => <FontAwesome name="facebook" size={24} color="#FFF" />}
-        labelStyle={styles.facebookButtonText}
-      >
-        Continue with Facebook
-      </Button>
-
-      <View style={styles.bottomContainer}>
         <Button
           mode="text"
-          onPress={() => router.push('/forgotPassword')}
-          style={styles.forgotPasswordButton}
-          labelStyle={styles.forgotPasswordLabel}
+          onPress={() => {}}
+          style={styles.facebookButton}
+          icon={() => <FontAwesome name="facebook" size={24} color="#FFF" />}
+          labelStyle={styles.facebookButtonText}
         >
-          Forgot password?
+          Continue with Facebook
         </Button>
-      </View>
-    </View>
+
+        <View style={styles.bottomContainer}>
+          <Button
+            mode="text"
+            onPress={() => router.push('/forgotPassword')}
+            style={styles.forgotPasswordButton}
+            labelStyle={styles.forgotPasswordLabel}
+          >
+            Forgot password?
+          </Button>
+        </View>
+      </SafeAreaView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)', // Półprzezroczysta nakładka, zmniejsz lub zwiększ 0.4, aby dostosować przyciemnienie
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -296,8 +304,8 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   logo: {
-    width: 200, // Ustaw szerokość logo
-    height: 200, // Ustaw wysokość logo
+    width: width * 0.5, // 50% szerokości ekranu
+    height: height * 0.2, // 20% wysokości ekranu
     // marginBottom: 24, // Odstęp między logo a tytułem
   },
   logoContainer: {
@@ -306,15 +314,18 @@ const styles = StyleSheet.create({
     marginBottom: 20, // Odstęp między logo a tytułem
   },
   title: {
-    fontSize: 24,
+    fontSize: width * 0.06, 
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 20,
+    color: '#FFEEFCFF',
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: width * 0.037, 
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 22,
+    color: '#FFE3F9D1',
+    marginTop: 7
   },
   inputContainer: {
     borderRadius: 25,
@@ -323,7 +334,7 @@ const styles = StyleSheet.create({
   },
   input: {
     paddingLeft: 1, //  Zapewnia miejsce dla ikony, bez przesuwania tekstu na prawo
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#f0e8f5',
     height: 55, // Stała wysokość pola tekstowego
   },
   inputFocused: {
@@ -342,16 +353,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   loginButton: {
+    width: width * 0.91, // 80% szerokości ekranu
+    paddingVertical: height * 0.0008, // np. 2% wysokości ekranu na padding
     marginTop: 8,
-    backgroundColor: '#6a1b9a',
+    backgroundColor: '#7511b5',
   },
   registerButton: {
     marginTop: 11,
-    backgroundColor: '#5a189a',
+    backgroundColor: '#5b0d8d',
+    width: width * 0.91, // 80% szerokości ekranu
+    paddingVertical: height * 0.0009, // np. 2% wysokości ekranu na padding
+    borderWidth: 1.1,
+    borderColor: '#340850'
   },
   facebookButton: {
     backgroundColor: '#4267B2',
-    marginTop: 15,
+    // marginTop: 15,
+    width: width * 0.91, // 80% szerokości ekranu
+    paddingVertical: height * 0.0009, // np. 2% wysokości ekranu na padding
   },
   facebookButtonText: {
     color: '#FFF',
@@ -368,7 +387,7 @@ const styles = StyleSheet.create({
   },
   orText: {
     marginHorizontal: 10,
-    color: '#555',
+    color: '#bebebe',
     fontSize: 14,
   },
   bottomContainer: {
@@ -381,7 +400,11 @@ const styles = StyleSheet.create({
   },
   forgotPasswordLabel: {
     fontSize: 13,
-    color: '#6a1b9a',
+    color: '#4a136c',
+  },
+  background: {
+    flex: 1,
+    resizeMode: 'cover',
   },
   
 });
