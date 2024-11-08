@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert, Image, ImageBackground, SafeAreaView, Dimensions  } from 'react-native';
+import { View, Text, StyleSheet, Alert, Image, ImageBackground, SafeAreaView, Dimensions, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
-import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
+import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LoginManager, AccessToken, GraphRequest, GraphRequestManager } from 'react-native-fbsdk-next';
 import { getAuth, FacebookAuthProvider, signInWithCredential, fetchSignInMethodsForEmail, signInWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
-import { doc, getDoc, getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
-import { white } from 'react-native-paper/lib/typescript/styles/themes/v2/colors';
 const { width, height } = Dimensions.get('window');
 
 export default function WelcomeScreen() {
@@ -23,7 +22,7 @@ export default function WelcomeScreen() {
 
   useEffect(() => {
     if (resendTimer > 0) {
-      const timerId = setInterval(() => setResendTimer((prev: number) => prev - 1), 1000); // Typowanie `prev` jako `number`
+      const timerId = setInterval(() => setResendTimer((prev: number) => prev - 1), 1000);
       return () => clearInterval(timerId);
     }
   }, [resendTimer]);
@@ -170,136 +169,141 @@ export default function WelcomeScreen() {
 
   return (
     <ImageBackground 
-    source={require('../../assets/images/gradient2.jpg')}
-    style={styles.background}
-    imageStyle={{ resizeMode: 'cover', width: '140%',  height: '150%', left: -80, top: -150, transform: [{ rotate: '-10deg' }]}} // Przesuwa obraz w lewo o 50 jednostek
-  >
-    {/* Nakładka przyciemnienia */}
-    <View style={styles.overlay} />
-
-      <SafeAreaView style={styles.container}>
-        <View style={styles.logoContainer}>
-          <Image 
-            source={require('../../assets/images/tripify-icon.png')} 
-            style={styles.logo} 
-            resizeMode="contain"
-          />
-        </View>
-        <Text style={styles.title}>Welcome to Tripify!</Text>
-        <Text style={styles.subtitle}>Log in or create an account to start your journey!</Text>
-
-        {/* Email Input */}
-        <View style={[styles.inputContainer, isFocused.identifier && styles.inputFocused]}>
-          <TextInput
-            label="Email or nickname"
-            value={identifier}
-            onChangeText={setIdentifier}
-            onFocus={() => setIsFocused({ ...isFocused, identifier: true })}
-            onBlur={() => setIsFocused({ ...isFocused, identifier: false })}
-            keyboardType="default"
-            style={[styles.input, !isFocused.identifier && styles.inputUnfocusedText]}
-            autoCapitalize="none"
-            theme={{
-              colors: {
-                primary: isFocused.identifier ? '#6a1b9a' : 'transparent',
-                placeholder: '#6a1b9a',
-              }
-            }}
-            underlineColor="transparent" 
-            left={
-              <TextInput.Icon 
-                icon="account" 
-                size={27} 
-                style={styles.icon}
-                color={isFocused.identifier ? '#6a1b9a' : '#606060'}
-              />
-            }
-          />
-        </View>
-
-        {/* Password Input */}
-        <View style={[styles.inputContainer, isFocused.password && styles.inputFocused]}>
-          <TextInput
-            label="Password"
-            value={password}
-            onChangeText={setPassword}
-            onFocus={() => setIsFocused({ ...isFocused, password: true })}
-            onBlur={() => setIsFocused({ ...isFocused, password: false })}
-            secureTextEntry={!showPassword}
-            style={[styles.input, !isFocused.password && styles.inputUnfocusedText]}
-            theme={{
-              colors: {
-                primary: isFocused.password ? '#6a1b9a' : 'transparent',
-                placeholder: '#6a1b9a',
-              }
-            }}
-            underlineColor="transparent"
-            left={
-              <TextInput.Icon 
-                icon="lock" 
-                size={27} 
-                style={styles.icon}
-                color={isFocused.password ? '#6a1b9a' : '#606060'}
-              />
-            }
-            right={
-              <TextInput.Icon
-                icon={showPassword ? 'eye-off' : 'eye'}
-                onPress={() => setShowPassword(!showPassword)}
-                color={isFocused.password ? '#6a1b9a' : '#606060'}
-              />
-            }
-          />
-        </View>
-
-        {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
-
-        <Button
-          mode="contained"
-          onPress={handleLogin}
-          style={styles.loginButton}
-          labelStyle={styles.buttonLabel}
+      source={require('../../assets/images/gradient2.jpg')}
+      style={styles.background}
+      imageStyle={{ resizeMode: 'cover', width: '140%', height: '150%', left: -80, top: -150, transform: [{ rotate: '-10deg' }]}}
+    >
+      <View style={styles.overlay} />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1 }}
+          keyboardShouldPersistTaps="handled"
         >
-          Log In
-        </Button>
+          <SafeAreaView style={styles.container}>
+            <View style={styles.logoContainer}>
+              <Image 
+                source={require('../../assets/images/tripify-icon.png')} 
+                style={styles.logo} 
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={styles.title}>Welcome to Tripify!</Text>
+            <Text style={styles.subtitle}>Log in or create an account to start your journey!</Text>
 
-        <Button
-          mode="contained"
-          onPress={() => router.push('/registerChoice')}
-          style={styles.registerButton}
-          labelStyle={styles.buttonLabel}
-        >
-          Create your account
-        </Button>
+            <View style={[styles.inputContainer, isFocused.identifier && styles.inputFocused]}>
+              <TextInput
+                label="Email or nickname"
+                value={identifier}
+                onChangeText={setIdentifier}
+                onFocus={() => setIsFocused({ ...isFocused, identifier: true })}
+                onBlur={() => setIsFocused({ ...isFocused, identifier: false })}
+                keyboardType="default"
+                style={[styles.input, !isFocused.identifier && styles.inputUnfocusedText]}
+                autoCapitalize="none"
+                theme={{
+                  colors: {
+                    primary: isFocused.identifier ? '#6a1b9a' : 'transparent',
+                    placeholder: '#6a1b9a',
+                  }
+                }}
+                underlineColor="transparent" 
+                left={
+                  <TextInput.Icon 
+                    icon="account" 
+                    size={27} 
+                    style={styles.icon}
+                    color={isFocused.identifier ? '#6a1b9a' : '#606060'}
+                  />
+                }
+              />
+            </View>
 
+            <View style={[styles.inputContainer, isFocused.password && styles.inputFocused]}>
+              <TextInput
+                label="Password"
+                value={password}
+                onChangeText={setPassword}
+                onFocus={() => setIsFocused({ ...isFocused, password: true })}
+                onBlur={() => setIsFocused({ ...isFocused, password: false })}
+                secureTextEntry={!showPassword}
+                style={[styles.input, !isFocused.password && styles.inputUnfocusedText]}
+                theme={{
+                  colors: {
+                    primary: isFocused.password ? '#6a1b9a' : 'transparent',
+                    placeholder: '#6a1b9a',
+                  }
+                }}
+                underlineColor="transparent"
+                left={
+                  <TextInput.Icon 
+                    icon="lock" 
+                    size={27} 
+                    style={styles.icon}
+                    color={isFocused.password ? '#6a1b9a' : '#606060'}
+                  />
+                }
+                right={
+                  <TextInput.Icon
+                    icon={showPassword ? 'eye-off' : 'eye'}
+                    onPress={() => setShowPassword(!showPassword)}
+                    color={isFocused.password ? '#6a1b9a' : '#606060'}
+                  />
+                }
+              />
+            </View>
 
-        <View style={styles.separatorContainer}>
-          <View style={styles.line} />
-          <Text style={styles.orText}>or</Text>
-          <View style={styles.line} />
-        </View>
+            {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
 
-        <Button
-          mode="text"
-          onPress={() => {}}
-          style={styles.facebookButton}
-          icon={() => <FontAwesome name="facebook" size={24} color="#FFF" />}
-          labelStyle={styles.facebookButtonText}
-        >
-          Continue with Facebook
-        </Button>
+            <Button
+              mode="contained"
+              onPress={handleLogin}
+              style={styles.loginButton}
+              labelStyle={styles.buttonLabel}
+            >
+              Log In
+            </Button>
 
-        <View style={styles.bottomContainer}>
-          <Button
-            mode="text"
-            onPress={() => router.push('/forgotPassword')}
-            style={styles.forgotPasswordButton}
-            labelStyle={styles.forgotPasswordLabel}
-          >
-            Forgot password?
-          </Button>
-        </View>
-      </SafeAreaView>
+            <Button
+              mode="contained"
+              onPress={() => router.push('/registerChoice')}
+              style={styles.registerButton}
+              labelStyle={styles.buttonLabel}
+            >
+              Create your account
+            </Button>
+
+            <View style={styles.separatorContainer}>
+              <View style={styles.line} />
+              <Text style={styles.orText}>or</Text>
+              <View style={styles.line} />
+            </View>
+
+            <Button
+              mode="text"
+              onPress={handleFacebookLogin}
+              style={styles.facebookButton}
+              icon={() => <FontAwesome name="facebook" size={24} color="#FFF" />}
+              labelStyle={styles.facebookButtonText}
+            >
+              Continue with Facebook
+            </Button>
+
+            <View style={styles.bottomContainer}>
+              <Button
+                mode="text"
+                onPress={() => router.push('/forgotPassword')}
+                style={styles.forgotPasswordButton}
+                labelStyle={styles.forgotPasswordLabel}
+              >
+                Forgot password?
+              </Button>
+            </View>
+          </SafeAreaView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </ImageBackground>
   );
 }
@@ -307,34 +311,32 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)', // Półprzezroczysta nakładka, zmniejsz lub zwiększ 0.4, aby dostosować przyciemnienie
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   container: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center', // Wyrównanie w poziomie
-  
+    alignItems: 'center',
     padding: 16,
   },
   logo: {
-    width: width * 0.5, // 50% szerokości ekranu
-    height: height * 0.2, // 20% wysokości ekranu
-    // marginBottom: 24, // Odstęp między logo a tytułem
+    width: width * 0.5,
+    height: height * 0.2,
   },
   logoContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20, // Odstęp między logo a tytułem
+    marginBottom: 20,
   },
   title: {
-    fontSize: width * 0.06, 
+    fontSize: width * 0.06,
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 20,
     color: '#FFEEFCFF',
   },
   subtitle: {
-    fontSize: width * 0.037, 
+    fontSize: width * 0.037,
     textAlign: 'center',
     marginBottom: 22,
     color: '#FFE3F9D1',
@@ -346,33 +348,31 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     width: width * 0.89,
     backgroundColor: '#f0ed8f5',
-
   },
   input: {
-    paddingLeft: 1, //  Zapewnia miejsce dla ikony, bez przesuwania tekstu na prawo
-    // backgroundColor: '#f0ed8f5',
-    height: 52, // Stała wysokość pola tekstowego
+    paddingLeft: 1,
+    height: 52,
   },
   inputFocused: {
     borderColor: '#6a1b9a',
     borderWidth: 2,
   },
   inputUnfocusedText: {
-    fontSize: 15, // 1) Mniejsza czcionka dla etykiety w trybie nieaktywnym
+    fontSize: 15,
   },
   icon: {
-    marginLeft: 10, // Przesunięcie ikony w prawo
+    marginLeft: 10,
   },
   error: {
     color: 'violet',
     fontSize: 12,
     textAlign: 'center',
-    marginTop: -5, // Reduced marginTop to bring it closer to the password field
-    marginBottom: 15, // Added marginBottom to increase space below the error message
+    marginTop: -5,
+    marginBottom: 15,
   },
   loginButton: {
     width: width * 0.89,
-    height: 40, // Further reduced height
+    height: 40,
     backgroundColor: '#7511b5',
     justifyContent: 'center',
     borderRadius: 25,
@@ -389,16 +389,15 @@ const styles = StyleSheet.create({
     borderColor: '#340850',
   },
   buttonLabel: {
-    fontSize: 12, // Reduced font size to fit smaller height
-    lineHeight: 14, // Adjusted line height
+    fontSize: 12,
+    lineHeight: 14,
     color: '#FFFFFF',
     textAlign: 'center',
   },
   facebookButton: {
     backgroundColor: '#4267B2',
-    // marginTop: 15,
-    width: width * 0.89, // 80% szerokości ekranu
-    height: height * 0.05, // np. 2% wysokości ekranu na padding
+    width: width * 0.89,
+    height: height * 0.05,
   },
   facebookButtonText: {
     color: '#FFF',
@@ -420,7 +419,7 @@ const styles = StyleSheet.create({
   },
   bottomContainer: {
     position: 'absolute',
-    bottom: 10, // Odległość od dołu ekranu
+    bottom: 10,
     alignSelf: 'center',
   },
   forgotPasswordButton: {
@@ -434,5 +433,4 @@ const styles = StyleSheet.create({
     flex: 1,
     resizeMode: 'cover',
   },
-  
 });
