@@ -215,7 +215,7 @@ export default function WelcomeScreen() {
                 left={
                   <TextInput.Icon 
                     icon="account" 
-                    size={27} 
+                    size={25} 
                     style={styles.icon}
                     color={isFocused.identifier ? '#6a1b9a' : '#606060'}
                   />
@@ -242,7 +242,7 @@ export default function WelcomeScreen() {
                 left={
                   <TextInput.Icon 
                     icon="lock" 
-                    size={27} 
+                    size={25} 
                     style={styles.icon}
                     color={isFocused.password ? '#6a1b9a' : '#606060'}
                   />
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   inputUnfocusedText: {
-    fontSize: 15,
+    fontSize: 14,
   },
   icon: {
     marginLeft: 10,

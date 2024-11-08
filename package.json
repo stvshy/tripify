@@ -13,7 +13,7 @@
     "preset": "jest-expo"
   },
   "dependencies": {
-    "@expo/vector-icons": "^14.0.3",
+    "@expo/vector-icons": "^14.0.4",
     "@firebasegen/default": "file:generated/javascript/default",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-community/cli-platform-android": "^15.0.0",
@@ -52,6 +52,7 @@
     "@types/crypto-js": "^4.2.2",
     "@types/lodash": "^4.17.10",
     "@types/react": "~18.2.79",
+    "@types/react-native-vector-icons": "^6.4.18",
     "jest": "^29.4.0",
     "jest-expo": "^51.0.0",
     "react-test-renderer": "18.2.0",

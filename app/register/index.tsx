@@ -13,7 +13,7 @@ import {
   Pressable 
 } from 'react-native';
 import { TextInput } from 'react-native-paper';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import FontAwesome from '@expo/vector-icons/FontAwesome'; // Możesz usunąć, jeśli nie jest potrzebny gdzie indziej
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../config/firebaseConfig';
 import { useRouter } from 'expo-router';
@@ -159,7 +159,7 @@ export default function RegisterScreen() {
                 resizeMode="contain"
               />
             </View>
-            <Text style={styles.title}>Create an Account in Tripify</Text>
+            <Text style={styles.title}>Create an account in Tripify</Text>
 
             {emailError && <Text style={styles.error}>{emailError}</Text>}
 
@@ -188,7 +188,7 @@ export default function RegisterScreen() {
                     icon={() => (
                       <FontAwesome 
                         name="envelope" 
-                        size={27} 
+                        size={20}  // Dostosowany rozmiar
                         color={isFocused.email ? '#6a1b9a' : '#606060'} 
                       />
                     )}
@@ -223,7 +223,7 @@ export default function RegisterScreen() {
                     icon={() => (
                       <FontAwesome 
                         name="lock" 
-                        size={27} 
+                        size={23}  // Dostosowany rozmiar
                         color={isFocused.password ? '#6a1b9a' : '#606060'} 
                       />
                     )}
@@ -232,15 +232,10 @@ export default function RegisterScreen() {
                 }
                 right={
                   <TextInput.Icon
-                    icon={() => (
-                      <FontAwesome 
-                        name={showPassword ? 'eye-slash' : 'eye'} 
-                        size={27} 
-                        color={isFocused.password ? '#6a1b9a' : '#606060'} 
-                        onPress={() => setShowPassword(!showPassword)} 
-                      />
-                    )}
-                    style={styles.iconRight}
+                    icon={showPassword ? 'eye-off' : 'eye'}
+                    size={23}
+                    onPress={() => setShowPassword(!showPassword)}
+                    color={isFocused.password ? '#6a1b9a' : '#606060'}
                   />
                 }
               />
@@ -270,7 +265,7 @@ export default function RegisterScreen() {
                     icon={() => (
                       <FontAwesome 
                         name="lock" 
-                        size={27} 
+                        size={23}  // Dostosowany rozmiar
                         color={isFocused.confirmPassword ? '#6a1b9a' : '#606060'} 
                       />
                     )}
@@ -279,15 +274,10 @@ export default function RegisterScreen() {
                 }
                 right={
                   <TextInput.Icon
-                    icon={() => (
-                      <FontAwesome 
-                        name={showConfirmPassword ? 'eye-slash' : 'eye'} 
-                        size={27} 
-                        color={isFocused.confirmPassword ? '#6a1b9a' : '#606060'} 
-                        onPress={() => setShowConfirmPassword(!showConfirmPassword)} 
-                      />
-                    )}
-                    style={styles.iconRight}
+                    icon={showConfirmPassword ? 'eye-off' : 'eye'}
+                    size={23}
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                    color={isFocused.confirmPassword ? '#6a1b9a' : '#606060'}
                   />
                 }
               />
@@ -312,7 +302,7 @@ export default function RegisterScreen() {
           {/* Footer with Buttons */}
           <View style={styles.footer}>
             <Pressable onPress={handleRegister} style={styles.registerButton}>
-              <Text style={styles.registerButtonText}>Create Account</Text>
+              <Text style={styles.registerButtonText}>Create account</Text>
             </Pressable>
 
             <Pressable onPress={() => router.push('/welcome')} style={styles.loginRedirectButton}>
@@ -382,7 +372,7 @@ const styles = StyleSheet.create({
     color: '#FFEEFCFF',
   },
   inputContainer: {
-    borderRadius: 28,
+    borderRadius: 28, // Zwiększony borderRadius dla lepszej estetyki
     overflow: 'hidden',
     marginBottom: 13,
     width: width * 0.89,
@@ -393,10 +383,10 @@ const styles = StyleSheet.create({
   input: {
     paddingLeft: 1,
     height: 52,
-    fontSize: 15,
+    fontSize: 14,
   },
   inputFocused: {
-    borderColor: '#6a1b9a',
+    borderColor: '#6a1b9a', // Kolor obramowania w stanie fokusu
   },
   inputUnfocusedText: {
     // Możesz dodać dodatkowe style dla tekstu w unfocused state, jeśli potrzebujesz
@@ -412,7 +402,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   error: {
-    color: 'violet',
+    color: 'violet', // Upewnij się, że kolor pasuje do reszty aplikacji
     marginBottom: 10,
     fontSize: 12,
     textAlign: 'center',
