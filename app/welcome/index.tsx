@@ -401,6 +401,8 @@ const styles = StyleSheet.create({
   },
   facebookButtonText: {
     color: '#FFF',
+    fontSize: 12,
+    lineHeight: 18,
   },
   separatorContainer: {
     flexDirection: 'row',
