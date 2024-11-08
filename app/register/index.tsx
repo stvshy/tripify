@@ -130,15 +130,15 @@ export default function RegisterScreen() {
 
   return (
     <ImageBackground 
-      source={require('../../assets/images/gradient2.jpg')}
+      source={require('../../assets/images/gradient4.png')}
       style={styles.background}
       imageStyle={{ 
         resizeMode: 'cover', 
-        width: '140%', 
-        height: '150%', 
-        left: -80, 
-        top: -150, 
-        transform: [{ rotate: '-10deg' }] 
+        // width: '140%', 
+        // height: '120%', 
+        // left: 20, 
+        // top: -130, 
+        // transform: [{ rotate: '28deg' }] 
       }}
     >
       <View style={styles.overlay} />
@@ -362,14 +362,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
-    marginTop: 20, // Zmniejszony margines górny dla lepszego rozmieszczenia
+    marginTop: 40, // Zmniejszony margines górny dla lepszego rozmieszczenia
   },
   title: {
     fontSize: width * 0.06, // Zastosowanie proporcjonalnej wielkości
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 23,
     color: '#FFEEFCFF',
+    marginTop: 5,
   },
   inputContainer: {
     borderRadius: 28, // Zwiększony borderRadius dla lepszej estetyki
@@ -408,6 +409,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   requirementsContainer: {
+    marginTop: 13,
     marginBottom: 20,
     width: '90%',
   },
