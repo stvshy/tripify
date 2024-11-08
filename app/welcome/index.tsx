@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     borderRadius: 25,
     overflow: 'hidden',
-    marginBottom: 15,
+    marginBottom: 13,
     width: width * 0.89,
     backgroundColor: '#f0ed8f5',
   },
