@@ -365,8 +365,10 @@ const styles = StyleSheet.create({
   },
   error: {
     color: 'violet',
-    fontSize: 14,
+    fontSize: 12,
     textAlign: 'center',
+    marginTop: -5, // Reduced marginTop to bring it closer to the password field
+    marginBottom: 15, // Added marginBottom to increase space below the error message
   },
   loginButton: {
     width: width * 0.89,
