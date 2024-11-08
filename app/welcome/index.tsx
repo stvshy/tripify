@@ -254,12 +254,24 @@ export default function WelcomeScreen() {
 
         {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
 
-        <Button mode="contained" onPress={handleLogin} style={styles.loginButton}>
+        <Button
+          mode="contained"
+          onPress={handleLogin}
+          style={styles.loginButton}
+          labelStyle={styles.buttonLabel}
+        >
           Log In
         </Button>
-        <Button mode="contained" onPress={() => router.push('/registerChoice')} style={styles.registerButton}>
+
+        <Button
+          mode="contained"
+          onPress={() => router.push('/registerChoice')}
+          style={styles.registerButton}
+          labelStyle={styles.buttonLabel}
+        >
           Create your account
         </Button>
+
 
         <View style={styles.separatorContainer}>
           <View style={styles.line} />
@@ -357,18 +369,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   loginButton: {
-    width: width * 0.89, // 80% szerokości ekranu
-    height: height * 0.048, // np. 2% wysokości ekranu na padding
-    marginTop: 8,
+    width: width * 0.89,
+    height: 44, // Reduced height for the button
     backgroundColor: '#7511b5',
+    justifyContent: 'center', // Center content vertically
+    borderRadius: 25,
+    marginTop: 8,
   },
   registerButton: {
-    marginTop: 11,
+    width: width * 0.89,
+    height: 44, // Reduced height for the button
     backgroundColor: '#5b0d8d',
-    width: width * 0.89, // 80% szerokości ekranu
-    height: height * 0.048, // np. 2% wysokości ekranu na padding
+    justifyContent: 'center',
+    borderRadius: 25,
+    marginTop: 11,
     borderWidth: 1.1,
-    borderColor: '#340850'
+    borderColor: '#340850',
+  },
+  buttonLabel: {
+    fontSize: 13, // Adjusted font size
+    lineHeight: 16, // Slightly larger than fontSize to prevent clipping
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
   facebookButton: {
     backgroundColor: '#4267B2',

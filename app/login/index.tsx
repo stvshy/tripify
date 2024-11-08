@@ -157,14 +157,6 @@ return (
             />
         }
     />
-    <Button
-        mode="text"
-        onPress={() => router.push('/forgotPassword')}
-        style={styles.forgotPasswordButton}
-        labelStyle={styles.forgotPasswordLabel} // Styl tekstu przycisku
-        >
-        Forgot password?
-    </Button>
 
 
     {/* Wyświetlanie komunikatów */}
@@ -186,8 +178,11 @@ return (
     <Button mode="contained" onPress={handleLogin} style={styles.button}>
       Log In
     </Button>
+    
   </View>
+  
 );
+
 }
 
 const styles = StyleSheet.create({
