@@ -270,7 +270,7 @@ export default function WelcomeScreen() {
 
             <Button
               mode="contained"
-              onPress={() => router.push('/registerChoice')}
+              onPress={() => router.push('/register')}
               style={styles.registerButton}
               labelStyle={styles.buttonLabel}
             >
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: width * 0.037,
     textAlign: 'center',
-    marginBottom: 22,
+    marginBottom: 20,
     color: '#FFE3F9D1',
     marginTop: 7
   },
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
     height: height * 0.05,
     justifyContent: 'center',
     borderRadius: 25,
-    marginTop: 10, 
+    // marginTop: 10, 
   },
   facebookButtonText: {
     color: '#FFF',

@@ -1,13 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, Pressable, Dimensions } from 'react-native';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  Image, 
+  ImageBackground, 
+  SafeAreaView, 
+  Dimensions, 
+  KeyboardAvoidingView, 
+  Platform, 
+  ScrollView, 
+  Pressable 
+} from 'react-native';
 import { TextInput } from 'react-native-paper';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../config/firebaseConfig';
 import { useRouter } from 'expo-router';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { getFirestore, setDoc, doc, serverTimestamp } from 'firebase/firestore';
 
-const { width: screenWidth } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 const db = getFirestore();
 
 export default function RegisterScreen() {
@@ -25,6 +37,12 @@ export default function RegisterScreen() {
     specialChar: false,
     upperCase: false,
     number: false,
+  });
+
+  const [isFocused, setIsFocused] = useState({
+    email: false,
+    password: false,
+    confirmPassword: false,
   });
 
   useEffect(() => {
@@ -59,7 +77,10 @@ export default function RegisterScreen() {
       return;
     }
 
-    if (!passwordRequirements.length || !passwordRequirements.specialChar || !passwordRequirements.upperCase || !passwordRequirements.number) {
+    if (!passwordRequirements.length || 
+        !passwordRequirements.specialChar || 
+        !passwordRequirements.upperCase || 
+        !passwordRequirements.number) {
       setErrorMessage('Password does not meet all requirements.');
       return;
     }
@@ -102,82 +123,205 @@ export default function RegisterScreen() {
     <FontAwesome
       name={isValid ? 'check-circle' : 'times-circle'}
       size={18}
-      color={isValid ? 'green' : 'red'}
-      style={styles.icon}
+      color={isValid ? '#059c78' : '#a43267'}
+      style={styles.iconRequirement}
     />
   );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Create an Account in Tripify</Text>
+    <ImageBackground 
+      source={require('../../assets/images/gradient2.jpg')}
+      style={styles.background}
+      imageStyle={{ 
+        resizeMode: 'cover', 
+        width: '140%', 
+        height: '150%', 
+        left: -80, 
+        top: -150, 
+        transform: [{ rotate: '-10deg' }] 
+      }}
+    >
+      <View style={styles.overlay} />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
+        <SafeAreaView style={styles.container}>
+          <ScrollView
+            contentContainerStyle={styles.scrollViewContent}
+            keyboardShouldPersistTaps="handled"
+            style={styles.scrollView}
+          >
+            <View style={styles.logoContainer}>
+              <Image 
+                source={require('../../assets/images/tripify-icon.png')} 
+                style={styles.logo} 
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={styles.title}>Create an Account in Tripify</Text>
 
-      {emailError && <Text style={styles.error}>{emailError}</Text>}
+            {emailError && <Text style={styles.error}>{emailError}</Text>}
 
-      <TextInput
-        label="Email"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        style={[styles.input, styles.roundedInput]}
-        underlineColor="transparent"
-        error={!!emailError}
-        mode="outlined"
-        autoCapitalize="none" 
-      />
+            {/* Email Input */}
+            <View style={[styles.inputContainer, isFocused.email && styles.inputFocused]}>
+              <TextInput
+                label="Email"
+                value={email}
+                onChangeText={setEmail}
+                onFocus={() => setIsFocused({ ...isFocused, email: true })}
+                onBlur={() => setIsFocused({ ...isFocused, email: false })}
+                keyboardType="email-address"
+                style={[styles.input, !isFocused.email && styles.inputUnfocusedText]}
+                theme={{
+                  colors: {
+                    primary: isFocused.email ? '#6a1b9a' : 'transparent',
+                    placeholder: '#6a1b9a',
+                    background: '#f0ed8f5',
+                    text: '#000',
+                    error: 'red',
+                  },
+                }}
+                underlineColor="transparent" 
+                left={
+                  <TextInput.Icon 
+                    icon={() => (
+                      <FontAwesome 
+                        name="envelope" 
+                        size={27} 
+                        color={isFocused.email ? '#6a1b9a' : '#606060'} 
+                      />
+                    )}
+                    style={styles.iconLeft}
+                  />
+                }
+                autoCapitalize="none" 
+              />
+            </View>
 
-      <TextInput
-        label="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry={!showPassword}
-        style={[styles.input, styles.roundedInput]}
-        underlineColor="transparent"
-        mode="outlined"
-        right={
-          <TextInput.Icon
-            icon={showPassword ? 'eye-off' : 'eye'}
-            onPress={() => setShowPassword(!showPassword)}
-          />
-        }
-      />
+            {/* Password Input */}
+            <View style={[styles.inputContainer, isFocused.password && styles.inputFocused]}>
+              <TextInput
+                label="Password"
+                value={password}
+                onChangeText={setPassword}
+                onFocus={() => setIsFocused({ ...isFocused, password: true })}
+                onBlur={() => setIsFocused({ ...isFocused, password: false })}
+                secureTextEntry={!showPassword}
+                style={[styles.input, !isFocused.password && styles.inputUnfocusedText]}
+                theme={{
+                  colors: {
+                    primary: isFocused.password ? '#6a1b9a' : 'transparent',
+                    placeholder: '#6a1b9a',
+                    background: '#f0ed8f5',
+                    text: '#000',
+                  },
+                }}
+                underlineColor="transparent"
+                left={
+                  <TextInput.Icon 
+                    icon={() => (
+                      <FontAwesome 
+                        name="lock" 
+                        size={27} 
+                        color={isFocused.password ? '#6a1b9a' : '#606060'} 
+                      />
+                    )}
+                    style={styles.iconLeft}
+                  />
+                }
+                right={
+                  <TextInput.Icon
+                    icon={() => (
+                      <FontAwesome 
+                        name={showPassword ? 'eye-slash' : 'eye'} 
+                        size={27} 
+                        color={isFocused.password ? '#6a1b9a' : '#606060'} 
+                        onPress={() => setShowPassword(!showPassword)} 
+                      />
+                    )}
+                    style={styles.iconRight}
+                  />
+                }
+              />
+            </View>
 
-      <TextInput
-        label="Confirm Password"
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-        secureTextEntry={!showConfirmPassword}
-        style={[styles.input, styles.roundedInput]}
-        underlineColor="transparent"
-        mode="outlined"
-        right={
-          <TextInput.Icon
-            icon={showConfirmPassword ? 'eye-off' : 'eye'}
-            onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-          />
-        }
-      />
+            {/* Confirm Password Input */}
+            <View style={[styles.inputContainer, isFocused.confirmPassword && styles.inputFocused]}>
+              <TextInput
+                label="Confirm Password"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                onFocus={() => setIsFocused({ ...isFocused, confirmPassword: true })}
+                onBlur={() => setIsFocused({ ...isFocused, confirmPassword: false })}
+                secureTextEntry={!showConfirmPassword}
+                style={[styles.input, !isFocused.confirmPassword && styles.inputUnfocusedText]}
+                theme={{
+                  colors: {
+                    primary: isFocused.confirmPassword ? '#6a1b9a' : 'transparent',
+                    placeholder: '#6a1b9a',
+                    background: '#f0ed8f5',
+                    text: '#000',
+                  },
+                }}
+                underlineColor="transparent"
+                left={
+                  <TextInput.Icon 
+                    icon={() => (
+                      <FontAwesome 
+                        name="lock" 
+                        size={27} 
+                        color={isFocused.confirmPassword ? '#6a1b9a' : '#606060'} 
+                      />
+                    )}
+                    style={styles.iconLeft}
+                  />
+                }
+                right={
+                  <TextInput.Icon
+                    icon={() => (
+                      <FontAwesome 
+                        name={showConfirmPassword ? 'eye-slash' : 'eye'} 
+                        size={27} 
+                        color={isFocused.confirmPassword ? '#6a1b9a' : '#606060'} 
+                        onPress={() => setShowConfirmPassword(!showConfirmPassword)} 
+                      />
+                    )}
+                    style={styles.iconRight}
+                  />
+                }
+              />
+            </View>
 
-      <View style={styles.requirementsContainer}>
-        {Object.entries(passwordRequirements).map(([key, value]) => (
-          <View style={styles.requirementRow} key={key}>
-            {renderValidationIcon(value)}
-            <Text style={[styles.requirementText, value ? styles.valid : styles.invalid]}>
-              {getRequirementText(key)}
-            </Text>
+            {/* Password Requirements */}
+            <View style={styles.requirementsContainer}>
+              {Object.entries(passwordRequirements).map(([key, value]) => (
+                <View style={styles.requirementRow} key={key}>
+                  {renderValidationIcon(value)}
+                  <Text style={[styles.requirementText, value ? styles.valid : styles.invalid]}>
+                    {getRequirementText(key)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Error Message */}
+            {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
+          </ScrollView>
+          
+          {/* Footer with Buttons */}
+          <View style={styles.footer}>
+            <Pressable onPress={handleRegister} style={styles.registerButton}>
+              <Text style={styles.registerButtonText}>Create Account</Text>
+            </Pressable>
+
+            <Pressable onPress={() => router.push('/welcome')} style={styles.loginRedirectButton}>
+              <Text style={styles.loginRedirectText}>Already have an account? Log in</Text>
+            </Pressable>
           </View>
-        ))}
-      </View>
-
-      {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
-
-      <Pressable onPress={handleRegister} style={styles.button}>
-        <Text style={styles.buttonText}>Create Account</Text>
-      </Pressable>
-
-      <Pressable onPress={() => router.push('/login')} style={styles.button}>
-        <Text style={styles.buttonText}>Already have an account? Log in</Text>
-      </Pressable>
-    </View>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
+    </ImageBackground>
   );
 }
 
@@ -197,61 +341,131 @@ const getRequirementText = (key: string) => {
 };
 
 const styles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  background: {
+    flex: 1,
+    resizeMode: 'cover',
+  },
   container: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'space-between', // Rozmieszczenie zawartości od góry do dołu
+    alignItems: 'center',
     padding: 16,
+    paddingBottom: 10, // Mniejszy padding na dole, kontrola przez footer
+  },
+  scrollView: {
+    width: '100%', // Upewnij się, że ScrollView zajmuje całą szerokość
+  },
+  scrollViewContent: {
+    flexGrow: 1,
+    justifyContent: 'center', // Możesz dostosować w razie potrzeby
+    alignItems: 'center',
+  },
+  logo: {
+    width: width * 0.5,
+    height: height * 0.2,
+  },
+  logoContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    marginTop: 20, // Zmniejszony margines górny dla lepszego rozmieszczenia
   },
   title: {
-    marginBottom: 20,
-    fontSize: 24,
+    fontSize: width * 0.06, // Zastosowanie proporcjonalnej wielkości
     fontWeight: 'bold',
     textAlign: 'center',
+    marginBottom: 20,
+    color: '#FFEEFCFF',
+  },
+  inputContainer: {
+    borderRadius: 28,
+    overflow: 'hidden',
+    marginBottom: 13,
+    width: width * 0.89,
+    backgroundColor: '#f0ed8f5',
+    borderWidth: 2,
+    borderColor: 'transparent', // Domyślny kolor obramowania
   },
   input: {
-    marginBottom: 16,
-    fontSize: 14,
-    backgroundColor: '#F3E5F5',
+    paddingLeft: 1,
+    height: 52,
+    fontSize: 15,
   },
-  roundedInput: {
-    borderRadius: 20,
+  inputFocused: {
+    borderColor: '#6a1b9a',
+  },
+  inputUnfocusedText: {
+    // Możesz dodać dodatkowe style dla tekstu w unfocused state, jeśli potrzebujesz
+  },
+  iconLeft: {
+    marginLeft: 10,
+  },
+  iconRight: {
+    marginRight: 10,
+  },
+  iconRequirement: {
+    marginRight: 8,
+    fontSize: 16,
   },
   error: {
-    color: 'red',
+    color: 'violet',
     marginBottom: 10,
     fontSize: 12,
-  },
-  button: {
-    backgroundColor: '#007AFF',
-    padding: 10,
-    alignItems: 'center',
-    marginTop: 10,
-    borderRadius: 20,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    textAlign: 'center',
   },
   requirementsContainer: {
     marginBottom: 20,
-    maxWidth: '90%',
+    width: '90%',
   },
   requirementRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 5,
   },
-  icon: {
-    marginRight: 8,
-    fontSize: 16,
-  },
   requirementText: {
     fontSize: 12,
   },
   valid: {
-    color: 'green',
+    color: '#50baa1',
   },
   invalid: {
-    color: 'red',
+    color: 'violet',
+  },
+  footer: {
+    width: '100%', // Upewnij się, że footer zajmuje całą szerokość
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  registerButton: {
+    backgroundColor: '#7511b5',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    alignItems: 'center',
+    borderRadius: 25,
+    width: '90%',
+    marginBottom: 10,
+    elevation: 2, // Dodanie cienia dla efektu uniesienia (Android)
+    shadowColor: '#000', // Dodanie cienia dla efektu uniesienia (iOS)
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  registerButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  loginRedirectButton: {
+    paddingVertical: 10,
+    marginBottom: -5,
+  },
+  loginRedirectText: {
+    color: '#4a136c',
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
