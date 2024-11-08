@@ -315,9 +315,10 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start', // Zmienione z 'center' na 'flex-start'
     alignItems: 'center',
     padding: 16,
+    paddingBottom: 30, // Dodany padding na dole
   },
   logo: {
     width: width * 0.5,
@@ -327,6 +328,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
+    marginTop: 63,
   },
   title: {
     fontSize: width * 0.06,
@@ -398,6 +400,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#4267B2',
     width: width * 0.89,
     height: height * 0.05,
+    justifyContent: 'center',
+    borderRadius: 25,
+    marginTop: 10, // Dodany margines górny
   },
   facebookButtonText: {
     color: '#FFF',
@@ -408,6 +413,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginVertical: 9,
+    width: '100%', // Dodany width
   },
   line: {
     flex: 1,
@@ -420,12 +426,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   bottomContainer: {
-    position: 'absolute',
-    bottom: 10,
-    alignSelf: 'center',
+    marginTop: 20, // Usunięto pozycjonowanie absolutne, dodano margines górny
+    alignItems: 'center',
+    marginBottom: -30,
   },
   forgotPasswordButton: {
-    marginTop: 10,
+    marginTop: 30,
+    // marginBottom: -20,
   },
   forgotPasswordLabel: {
     fontSize: 13,
