@@ -7,6 +7,7 @@ import { LoginManager, AccessToken, GraphRequest, GraphRequestManager } from 're
 import { getAuth, FacebookAuthProvider, signInWithCredential, fetchSignInMethodsForEmail, signInWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
+
 const { width, height } = Dimensions.get('window');
 
 export default function WelcomeScreen() {
@@ -178,11 +179,12 @@ export default function WelcomeScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1 }}
-          keyboardShouldPersistTaps="handled"
-        >
-          <SafeAreaView style={styles.container}>
+        <SafeAreaView style={styles.container}>
+          <ScrollView
+            contentContainerStyle={{ flexGrow: 1 }}
+            keyboardShouldPersistTaps="handled"
+            style={styles.scrollView}
+          >
             <View style={styles.logoContainer}>
               <Image 
                 source={require('../../assets/images/tripify-icon.png')} 
@@ -290,19 +292,19 @@ export default function WelcomeScreen() {
             >
               Continue with Facebook
             </Button>
-
-            <View style={styles.bottomContainer}>
-              <Button
-                mode="text"
-                onPress={() => router.push('/forgotPassword')}
-                style={styles.forgotPasswordButton}
-                labelStyle={styles.forgotPasswordLabel}
-              >
-                Forgot password?
-              </Button>
-            </View>
-          </SafeAreaView>
-        </ScrollView>
+          </ScrollView>
+          
+          <View style={styles.footer}>
+            <Button
+              mode="text"
+              onPress={() => router.push('/forgotPassword')}
+              style={styles.forgotPasswordButton}
+              labelStyle={styles.forgotPasswordLabel}
+            >
+              Forgot password?
+            </Button>
+          </View>
+        </SafeAreaView>
       </KeyboardAvoidingView>
     </ImageBackground>
   );
@@ -315,10 +317,13 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    justifyContent: 'flex-start', // Zmienione z 'center' na 'flex-start'
+    justifyContent: 'space-between', 
     alignItems: 'center',
     padding: 16,
-    paddingBottom: 30, // Dodany padding na dole
+    paddingBottom: 10,
+  },
+  scrollView: {
+    width: '100%', 
   },
   logo: {
     width: width * 0.5,
@@ -402,7 +407,7 @@ const styles = StyleSheet.create({
     height: height * 0.05,
     justifyContent: 'center',
     borderRadius: 25,
-    marginTop: 10, // Dodany margines górny
+    marginTop: 10, 
   },
   facebookButtonText: {
     color: '#FFF',
@@ -413,7 +418,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginVertical: 9,
-    width: '100%', // Dodany width
+    width: '100%', 
   },
   line: {
     flex: 1,
@@ -425,14 +430,13 @@ const styles = StyleSheet.create({
     color: '#bebebe',
     fontSize: 14,
   },
-  bottomContainer: {
-    marginTop: 20, // Usunięto pozycjonowanie absolutne, dodano margines górny
+  footer: {
+    width: '100%', 
     alignItems: 'center',
-    marginBottom: -30,
+    paddingVertical: 10,
   },
   forgotPasswordButton: {
-    marginTop: 30,
-    // marginBottom: -20,
+   
   },
   forgotPasswordLabel: {
     fontSize: 13,

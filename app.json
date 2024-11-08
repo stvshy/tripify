@@ -17,7 +17,7 @@
       "bundleIdentifier": "com.matisp6.tripify"
     },
     "android": {
-      "windowSoftInputMode": "adjustResize",
+      // "windowSoftInputMode": "adjustResize",
       "package": "com.matisp6.tripify",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
