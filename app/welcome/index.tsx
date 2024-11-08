@@ -364,21 +364,21 @@ const styles = StyleSheet.create({
     marginLeft: 10, // Przesunięcie ikony w prawo
   },
   error: {
-    color: 'red',
+    color: 'violet',
     fontSize: 14,
     textAlign: 'center',
   },
   loginButton: {
     width: width * 0.89,
-    height: 44, // Reduced height for the button
+    height: 40, // Further reduced height
     backgroundColor: '#7511b5',
-    justifyContent: 'center', // Center content vertically
+    justifyContent: 'center',
     borderRadius: 25,
     marginTop: 8,
   },
   registerButton: {
     width: width * 0.89,
-    height: 44, // Reduced height for the button
+    height: 40,
     backgroundColor: '#5b0d8d',
     justifyContent: 'center',
     borderRadius: 25,
@@ -387,8 +387,8 @@ const styles = StyleSheet.create({
     borderColor: '#340850',
   },
   buttonLabel: {
-    fontSize: 13, // Adjusted font size
-    lineHeight: 16, // Slightly larger than fontSize to prevent clipping
+    fontSize: 12, // Reduced font size to fit smaller height
+    lineHeight: 14, // Adjusted line height
     color: '#FFFFFF',
     textAlign: 'center',
   },
