@@ -170,9 +170,9 @@ export default function WelcomeScreen() {
 
   return (
     <ImageBackground 
-      source={require('../../assets/images/gradient2.jpg')}
+      source={require('../../assets/images/gradient5.png')}
       style={styles.background}
-      imageStyle={{ resizeMode: 'cover', width: '140%', height: '150%', left: -80, top: -150, transform: [{ rotate: '-10deg' }]}}
+      imageStyle={{ resizeMode: 'cover'}}
     >
       <View style={styles.overlay} />
       <KeyboardAvoidingView
@@ -313,7 +313,7 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 253, 0.11)',
   },
   container: {
     flex: 1,

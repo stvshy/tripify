@@ -411,6 +411,7 @@ const styles = StyleSheet.create({
   requirementsContainer: {
     marginTop: 13,
     marginBottom: 20,
+    marginLeft: -14,
     width: '90%',
   },
   requirementRow: {
