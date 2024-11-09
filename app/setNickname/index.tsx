@@ -121,10 +121,7 @@ export default function SetNicknameScreen() {
         const userDocRef = doc(db, 'users', user.uid);
         await setDoc(userDocRef, { nickname: nickname.toLowerCase(), emailSentAt: Date.now() }, { merge: true });
         setNickname(nickname);
-        // Wyślij e-mail weryfikacyjny i ustaw licznik
-        await sendEmailVerification(user);
-        setVerificationMessage("A verification link has been sent to your email. Please verify to continue.");
-        setResendTimer(60); // Ustawienie 60-sekundowego licznika
+
         router.replace('/success');
       }
     } catch (error) {

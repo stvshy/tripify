@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { TextInput } from 'react-native-paper';
 import FontAwesome from '@expo/vector-icons/FontAwesome'; // Możesz usunąć, jeśli nie jest potrzebny gdzie indziej
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { auth } from '../config/firebaseConfig';
 import { useRouter } from 'expo-router';
 import { getFirestore, setDoc, doc, serverTimestamp } from 'firebase/firestore';
@@ -38,12 +38,21 @@ export default function RegisterScreen() {
     upperCase: false,
     number: false,
   });
+  const [resendTimer, setResendTimer] = useState(0);
 
   const [isFocused, setIsFocused] = useState({
     email: false,
     password: false,
     confirmPassword: false,
   });
+
+ // Timer odliczający czas do ponownego wysłania maila
+ useEffect(() => {
+  if (resendTimer > 0) {
+    const timerId = setInterval(() => setResendTimer((prev) => prev - 1), 1000);
+    return () => clearInterval(timerId);
+  }
+}, [resendTimer]);
 
   useEffect(() => {
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -100,8 +109,12 @@ export default function RegisterScreen() {
         authProvider: 'email'
       });
 
+      // Wysłanie e-maila weryfikacyjnego
+      await sendEmailVerification(user);
       setErrorMessage(null);
+      setResendTimer(60); // Ustawienie timera na 60 sekund;
       router.replace('/setNickname'); // Proceed to nickname screen
+      
     } catch (error: any) {
       switch (error.code) {
         case 'auth/email-already-in-use':
