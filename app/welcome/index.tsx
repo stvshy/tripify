@@ -103,11 +103,23 @@ export default function WelcomeScreen() {
             setVerificationMessage("Your account has not yet been verified. Please check your email inbox for the verification link.");
             // setIsResendDisabled(false); // Umożliwia ponowne wysłanie wiadomości
             return;
+        }  // Sprawdzamy, czy użytkownik ma ustawiony nickname
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+    
+        if (userDoc.exists()) {
+          const nickname = userDoc.data()?.nickname;
+          if (!nickname) {
+            // Jeśli nickname nie jest ustawiony, przekieruj do setNickname
+            router.replace('/setNickname');
+          } else {
+            // Jeśli nickname jest ustawiony, przejdź do głównej strony
+            router.replace('/');
+          }
         }
-  
-        router.replace('/');
-    } catch (error: any) {
+      } catch (error: any) {
         console.log("Login error:", error.code, error.message);
+        
 
         if (error.code === 'auth/too-many-requests') {
             setErrorMessage('Too many login attempts. Try again later.');
@@ -190,7 +202,7 @@ export default function WelcomeScreen() {
       if (userDoc.exists() && userDoc.data()?.nickname) {
         router.replace('/');
       } else {
-        router.replace('/setNicknameFacebook');
+        router.replace('/setNickname');
       }
     } catch (error: any) {
       console.error('Facebook login error:', error);
