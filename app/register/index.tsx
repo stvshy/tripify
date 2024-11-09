@@ -159,7 +159,7 @@ export default function RegisterScreen() {
                 resizeMode="contain"
               />
             </View>
-            <Text style={styles.title}>Create an account in Tripify</Text>
+            <Text style={styles.title}>Create an Account in Tripify</Text>
 
             {emailError && <Text style={styles.error}>{emailError}</Text>}
 

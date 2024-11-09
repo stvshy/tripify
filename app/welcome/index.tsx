@@ -197,7 +197,7 @@ export default function WelcomeScreen() {
 
             <View style={[styles.inputContainer, isFocused.identifier && styles.inputFocused]}>
               <TextInput
-                label="Email or nickname"
+                label="Email or Nickname"
                 value={identifier}
                 onChangeText={setIdentifier}
                 onFocus={() => setIsFocused({ ...isFocused, identifier: true })}
@@ -265,7 +265,7 @@ export default function WelcomeScreen() {
               style={styles.loginButton}
               labelStyle={styles.buttonLabel}
             >
-              Log In
+              Log in
             </Button>
 
             <Button
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
     borderColor: '#340850',
   },
   buttonLabel: {
-    fontSize: 12,
+    fontSize: 12.5,
     lineHeight: 14,
     color: '#FFFFFF',
     textAlign: 'center',
@@ -404,14 +404,14 @@ const styles = StyleSheet.create({
   facebookButton: {
     backgroundColor: '#4267B2',
     width: width * 0.89,
-    height: height * 0.05,
+    height: height * 0.055,
     justifyContent: 'center',
     borderRadius: 25,
     // marginTop: 10, 
   },
   facebookButtonText: {
     color: '#FFF',
-    fontSize: 12,
+    fontSize: 12.5,
     lineHeight: 18,
   },
   separatorContainer: {
