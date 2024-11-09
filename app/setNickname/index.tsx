@@ -43,9 +43,7 @@ export default function SetNicknameScreen() {
  
   useEffect(() => {
     const backAction = () => {
-      Alert.alert("Hold on!", "You must set your nickname to continue.", [
-        { text: "OK", onPress: () => null }
-      ]);
+      setErrorMessage("You must set your nickname to continue.");
       return true; // Zatrzymuje akcję cofania
     };
 
