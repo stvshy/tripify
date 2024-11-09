@@ -10,11 +10,13 @@ import {
   KeyboardAvoidingView, 
   Platform, 
   ScrollView, 
-  Pressable 
+  Pressable,
+  Alert,
+  BackHandler
 } from 'react-native';
 import { TextInput } from 'react-native-paper';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { getFirestore, doc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDocs, collection, query, where, getDoc } from 'firebase/firestore';
 import { sendEmailVerification } from 'firebase/auth';
 import { auth } from '../config/firebaseConfig';
 import { useRouter } from 'expo-router';
@@ -38,7 +40,38 @@ export default function SetNicknameScreen() {
       return () => clearInterval(timerId);
     }
   }, [resendTimer]);
+ 
+  useEffect(() => {
+    const backAction = () => {
+      Alert.alert("Hold on!", "You must set your nickname to continue.", [
+        { text: "OK", onPress: () => null }
+      ]);
+      return true; // Zatrzymuje akcję cofania
+    };
 
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, []);
+
+  // Sprawdzenie, czy użytkownik ma już ustawiony nickname
+  useEffect(() => {
+    const checkUserNickname = async () => {
+      const user = auth.currentUser;
+      if (user) {
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists() && userDoc.data()?.nickname) {
+          router.replace('/'); // Przekieruj na stronę główną, jeśli nick jest już ustawiony
+        }
+      }
+    };
+    checkUserNickname();
+  }, [router]);
+  
   const validateNickname = async (nickname: string) => {
     const trimmedNickname = nickname.trim();
     if (!/^[a-zA-Z0-9]*$/.test(trimmedNickname)) {
