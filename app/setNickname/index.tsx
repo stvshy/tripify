@@ -1,12 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet } from 'react-native';
-import { Button } from 'react-native-paper';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  Image, 
+  ImageBackground, 
+  SafeAreaView, 
+  Dimensions, 
+  KeyboardAvoidingView, 
+  Platform, 
+  ScrollView, 
+  Pressable 
+} from 'react-native';
+import { TextInput } from 'react-native-paper';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { getFirestore, doc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
 import { sendEmailVerification } from 'firebase/auth';
 import { auth } from '../config/firebaseConfig';
 import { useRouter } from 'expo-router';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 
+const { width, height } = Dimensions.get('window');
 const db = getFirestore();
 
 export default function SetNicknameScreen() {
@@ -14,7 +27,8 @@ export default function SetNicknameScreen() {
   const [isNicknameValid, setIsNicknameValid] = useState<null | boolean>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
-  const [resendTimer, setResendTimer] = useState(0); // Dodany licznik 60 sekund
+  const [resendTimer, setResendTimer] = useState(0);
+  const [isFocused, setIsFocused] = useState({ nickname: false });
   const router = useRouter();
 
   // Zmniejsz licznik co sekundę
@@ -94,56 +108,234 @@ export default function SetNicknameScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Choose a Nickname</Text>
-      <View style={[
-        styles.inputContainer,
-        isNicknameValid === true ? styles.inputValid : isNicknameValid === false ? styles.inputInvalid : {},
-      ]}>
-        <TextInput
-          placeholder="Nickname"
-          value={nickname}
-          onChangeText={handleNicknameChange}
-          style={styles.input}
-          maxLength={24}
-          autoCapitalize="none" 
-        />
-        {isNicknameValid === true && (
-          <FontAwesome name="check-circle" size={20} color="green" style={styles.icon} />
-        )}
-        {isNicknameValid === false && (
-          <FontAwesome name="times-circle" size={20} color="red" style={styles.icon} />
-        )}
-      </View>
-      {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
-      {verificationMessage && <Text style={styles.verificationMessage}>{verificationMessage}</Text>}
-      
-      <Button mode="contained" onPress={handleSetNickname} disabled={resendTimer > 0}>
-        {resendTimer > 0 ? `Save Nickname (Resend in ${resendTimer}s)` : 'Save Nickname'}
-      </Button>
-    </View>
+    <ImageBackground 
+      source={require('../../assets/images/gradient2.jpg')}
+      style={styles.background}
+      imageStyle={{ 
+        resizeMode: 'cover', 
+        width: '140%', 
+        height: '150%', 
+        left: -80, 
+        top: -150, 
+        transform: [{ rotate: '-10deg' }] 
+      }}
+    >
+      <View style={styles.overlay} />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
+        <SafeAreaView style={styles.container}>
+          <ScrollView
+            contentContainerStyle={styles.scrollViewContent}
+            keyboardShouldPersistTaps="handled"
+            style={styles.scrollView}
+          >
+            <View style={styles.logoContainer}>
+              <Image 
+                source={require('../../assets/images/tripify-icon.png')} 
+                style={styles.logo} 
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={styles.title}>Choose a Nickname</Text>
+            <Text style={styles.subtitle}>Please enter a unique nickname to continue.</Text>
+
+            {/* Nickname Input */}
+            <View style={[styles.inputContainer, isFocused.nickname && styles.inputFocused]}>
+              <TextInput
+                label="Nickname"
+                value={nickname}
+                onChangeText={handleNicknameChange}
+                onFocus={() => setIsFocused({ ...isFocused, nickname: true })}
+                onBlur={() => setIsFocused({ ...isFocused, nickname: false })}
+                style={[styles.input, !isFocused.nickname && styles.inputUnfocusedText]}
+                theme={{
+                  colors: {
+                    primary: isFocused.nickname ? '#6a1b9a' : 'transparent',
+                    placeholder: '#6a1b9a',
+                    background: '#f0ed8f5',
+                    text: '#000',
+                    error: 'red',
+                  },
+                }}
+                underlineColor="transparent" 
+                left={
+                  <TextInput.Icon 
+                    icon={() => (
+                      <FontAwesome 
+                        name="user" 
+                        size={20}  
+                        color={isFocused.nickname ? '#6a1b9a' : '#606060'} 
+                      />
+                    )}
+                    style={styles.iconLeft}
+                  />
+                }
+                autoCapitalize="none" 
+                right={
+                  isNicknameValid !== null && (
+                    <TextInput.Icon 
+                      icon={() => (
+                        <FontAwesome 
+                          name={isNicknameValid ? "check-circle" : "times-circle"} 
+                          size={20} 
+                          color={isNicknameValid ? "#0ab958" : "#b41151"} 
+                        />
+                      )}
+                      style={styles.iconRight}
+                    />
+                  )
+                }
+              />
+            </View>
+
+            {/* Komunikaty */}
+            {errorMessage && <Text style={styles.errorMessage}>{errorMessage}</Text>}
+            {verificationMessage && <Text style={styles.successMessage}>{verificationMessage}</Text>}
+
+          </ScrollView>
+          
+          {/* Footer with Buttons */}
+          <View style={styles.footer}>
+            <Pressable onPress={handleSetNickname} style={styles.sendButton} disabled={resendTimer > 0}>
+              <Text style={styles.sendButtonText}>
+                {resendTimer > 0 ? `Save Nickname (Resend in ${resendTimer}s)` : 'Save Nickname'}
+              </Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 16 },
-  title: { fontSize: 24, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  background: {
+    flex: 1,
+    resizeMode: 'cover',
+  },
+  container: {
+    flex: 1,
+    justifyContent: 'space-between', // Distribute content from top to bottom
+    alignItems: 'center',
+    padding: 16,
+    paddingBottom: 10, // Smaller bottom padding, controlled by footer
+  },
+  scrollView: {
+    width: '100%', // Ensure ScrollView takes full width
+  },
+  scrollViewContent: {
+    flexGrow: 1,
+    justifyContent: 'center', // Adjust as needed
+    alignItems: 'center',
+  },
+  logo: {
+    width: width * 0.5,
+    height: height * 0.2,
+  },
+  logoContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    marginTop: 20, // Reduced top margin for better placement
+  },
+  title: {
+    fontSize: width * 0.06, // Proportional size
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 10, // Reduced bottom margin to accommodate subtitle
+    color: '#FFEEFCFF',
+  },
+  subtitle: {
+    fontSize: width * 0.04, // Slightly smaller than title
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#FFE3F9D1',
+    marginTop: 5,
+  },
   inputContainer: {
+    width: width * 0.89,
+    backgroundColor: '#f0ed8f5',
+    borderRadius: 28, // Increased borderRadius for better aesthetics
+    overflow: 'hidden',
+    marginBottom: 13,
+    borderWidth: 2,
+    borderColor: 'transparent', // Default border color
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 8,
-    marginBottom: 10,
-    paddingHorizontal: 10,
+
   },
   input: {
     flex: 1,
-    paddingVertical: 8,
-    fontSize: 16,
+    paddingLeft: 10,
+    height: 52,
+    fontSize: 15,
   },
-  inputValid: { borderColor: 'green' },
-  inputInvalid: { borderColor: 'red' },
-  icon: { marginLeft: 8 },
-  error: { color: 'red', marginBottom: 10, textAlign: 'center' },
-  verificationMessage: { color: '#555', fontSize: 12 },
+  inputFocused: {
+    borderColor: '#6a1b9a', // Border color when focused
+  },
+  inputUnfocusedText: {
+    // Additional styles for unfocused state text if needed
+  },
+  iconLeft: {
+    marginLeft: 10,
+  },
+  validationIcon: {
+    // marginRight: -10,
+    // marginLeft: 10,
+    
+  },
+  successMessage: {
+    color: '#50baa1',
+    textAlign: 'center',
+    marginBottom: 16,
+    fontSize: 12,
+  },
+  errorMessage: {
+    color: 'violet',
+    textAlign: 'center',
+    marginBottom: 16,
+    fontSize: 12,
+  },
+  footer: {
+    width: '100%', // Ensure footer takes full width
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  sendButton: {
+    backgroundColor: '#7511b5',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    alignItems: 'center',
+    borderRadius: 25,
+    width: '90%',
+    marginBottom: 10,
+    elevation: 2, // Shadow effect for Android
+    shadowColor: '#000', // Shadow effect for iOS
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  sendButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  backButton: {
+    paddingVertical: 10,
+    marginBottom: -5,
+  },
+  backButtonText: {
+    color: '#4a136c',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  iconRight: {
+    // marginLeft: 10,
+  },
 });

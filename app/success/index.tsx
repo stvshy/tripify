@@ -36,7 +36,7 @@ export default function RegistrationSuccessScreen() {
 
     const timer = setTimeout(async () => {
       await auth.signOut();
-      router.replace('/login');
+      router.replace('/welcome');
     }, 7000);
 
     return () => {
@@ -48,7 +48,7 @@ export default function RegistrationSuccessScreen() {
   return (
     <View style={styles.container}>
       <FontAwesome name="check-circle" size={100} color="green" />
-      <Text style={styles.message}>Account Created Successfully!</Text>
+      <Text style={styles.message}>Account created successfully!</Text>
       <Text style={styles.subMessage}>Please verify your email to log in.</Text>
     </View>
   );

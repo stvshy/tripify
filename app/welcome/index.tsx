@@ -7,6 +7,9 @@ import { LoginManager, AccessToken, GraphRequest, GraphRequestManager } from 're
 import { getAuth, FacebookAuthProvider, signInWithCredential, fetchSignInMethodsForEmail, signInWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
+import { LinearGradient } from 'expo-linear-gradient';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+
 
 const { width, height } = Dimensions.get('window');
 
@@ -169,11 +172,17 @@ export default function WelcomeScreen() {
   };
 
   return (
-    <ImageBackground 
+    <ImageBackground
       source={require('../../assets/images/gradient5.png')}
       style={styles.background}
-      imageStyle={{ resizeMode: 'cover'}}
+      imageStyle={{ resizeMode: 'cover', width: '110%', height: '110%' }}
     >
+      {/* Bardziej neutralny gradient, aby nie wpływać na kolory */}
+      <LinearGradient
+        colors={['rgba(255, 255, 255, 0.05)', 'rgba(255, 255, 255, 0)']}
+        style={StyleSheet.absoluteFillObject}
+      />
+
       <View style={styles.overlay} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -313,7 +322,7 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 253, 0.11)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
   container: {
     flex: 1,
@@ -356,6 +365,7 @@ const styles = StyleSheet.create({
     width: width * 0.89,
     backgroundColor: '#f0ed8f5',
   },
+  
   input: {
     paddingLeft: 1,
     height: 52,

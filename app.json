@@ -17,7 +17,6 @@
       "bundleIdentifier": "com.matisp6.tripify"
     },
     "android": {
-      // "windowSoftInputMode": "adjustResize",
       "package": "com.matisp6.tripify",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
@@ -49,7 +48,8 @@
           "iosUserTrackingPermission": "This identifier will be used to deliver personalized ads to you."
         }
       ],
-      "expo-router"
+      "expo-router",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true
