@@ -38,11 +38,11 @@ export default function TabLayout() {
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setLoading(true);
       if (currentUser) {
         setUser(currentUser);
-        fetchNickname(currentUser.uid); // Fetch the nickname once user is authenticated
+        await fetchNickname(currentUser.uid);
       } else {
         setUser(null);
         router.replace('/welcome');
@@ -51,6 +51,16 @@ export default function TabLayout() {
     });
     return () => unsubscribe();
   }, [router]);
+  
+  // Sprawdzenie po pobraniu nickname
+  useEffect(() => {
+    if (user && nickname === null && !loading) {
+      router.replace('/setNickname');
+    }
+  }, [nickname, user, loading, router]);
+  
+  
+
 
   if (loading) {
     return (

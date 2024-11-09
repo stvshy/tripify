@@ -5,12 +5,12 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LoginManager, AccessToken, GraphRequest, GraphRequestManager } from 'react-native-fbsdk-next';
 import { getAuth, FacebookAuthProvider, signInWithCredential, fetchSignInMethodsForEmail, signInWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../config/firebaseConfig';
+import { doc, getDoc, collection, query, where, getDocs, getFirestore } from 'firebase/firestore';
+import { auth } from '../config/firebaseConfig';
 import { LinearGradient } from 'expo-linear-gradient';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
-
+const db = getFirestore();
 const { width, height } = Dimensions.get('window');
 
 export default function WelcomeScreen() {
@@ -60,52 +60,79 @@ export default function WelcomeScreen() {
     if (!password || !validatePassword()) return;
   
     try {
-      let email = identifier.toLowerCase();
+        // Konwersja `identifier` na małe litery tuż przed sprawdzeniem
+        let email = identifier.toLowerCase();
   
-      if (!isEmail(email)) {
-        const usersRef = collection(db, 'users');
-        const q = query(usersRef, where('nickname', '==', email));
-        const querySnapshot = await getDocs(q);
+        if (!isEmail(email)) {
+            const usersRef = collection(db, 'users');
+            const q = query(usersRef, where('nickname', '==', email));
+            const querySnapshot = await getDocs(q);
   
-        if (querySnapshot.empty) {
-          setErrorMessage('No account found with this nickname.');
-          return;
+            if (querySnapshot.empty) {
+                setErrorMessage('No account found with this nickname.');
+                return;
+            }
+  
+            const userData = querySnapshot.docs[0].data();
+            email = userData.email;
+
+
+            // Sprawdzenie, ile sekund zostało do odblokowania
+            const emailSentAt = userData.emailSentAt;
+            if (emailSentAt) {
+                const elapsedSeconds = Math.floor((Date.now() - emailSentAt) / 1000);
+                const remainingTime = 60 - elapsedSeconds;
+                if (remainingTime > 0) {
+                setResendTimer(remainingTime); // Uruchom licznik z pozostałym czasem
+                }
+            }
         }
   
-        const userData = querySnapshot.docs[0].data();
-        email = userData.email;
-      }
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
   
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-  
-      if (!user.emailVerified) {
-        if (!verificationMessage) {
-          try {
-            await sendEmailVerification(user);
-          } catch (emailError) {
-            console.error("Failed to send verification email:", emailError);
-          }
+        if (!user.emailVerified) {
+            if (!verificationMessage) {
+                try {
+                    await sendEmailVerification(user);
+                } catch (emailError) {
+                    console.error("Failed to send verification email:", emailError);
+                }
+            }
+            setErrorMessage("Please verify your email to log in.");
+            setVerificationMessage("Your account has not yet been verified. Please check your email inbox for the verification link.");
+            // setIsResendDisabled(false); // Umożliwia ponowne wysłanie wiadomości
+            return;
         }
-        setErrorMessage("Please verify your email to log in.");
-        setVerificationMessage("Check your email inbox for the verification link.");
-        return;
-      }
   
-      router.replace('/');
+        router.replace('/');
     } catch (error: any) {
-      console.error("Login error:", error.code, error.message);
-      if (error.code === 'auth/too-many-requests') {
-        setErrorMessage('Too many login attempts. Try again later.');
-      } else if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email') {
-        setErrorMessage('No account was found with this email or nickname.');
-      } else if (error.code === 'auth/wrong-password') {
-        setErrorMessage('The password you entered is incorrect.');
-      } else {
-        setErrorMessage('Login failed. Please try again.');
-      }
+        console.log("Login error:", error.code, error.message);
+
+        if (error.code === 'auth/too-many-requests') {
+            setErrorMessage('Too many login attempts. Try again later.');
+        } else if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email') {
+            setErrorMessage('No account was found with this email or nickname.');
+        } else if (error.code === 'auth/wrong-password') {
+            setErrorMessage('The password you entered is incorrect.');
+        } else {
+            setErrorMessage('The password you entered is incorrect.');
+        }
     }
   };
+    // Funkcja ponownego wysyłania maila
+    const resendVerificationEmail = async () => {
+      const user = auth.currentUser;
+      if (user && !user.emailVerified && resendTimer === 0) {
+        try {
+          await sendEmailVerification(user);
+          setVerificationMessage("Verification email resent. Please check your inbox.");
+          setResendTimer(60);
+        } catch (error) {
+          console.error("Error resending email verification:", error);
+        }
+      }
+    };
 
   const handleFacebookLogin = async () => {
     try {
@@ -266,7 +293,23 @@ export default function WelcomeScreen() {
               />
             </View>
 
+               {/* Wyświetlanie komunikatów */}
             {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
+            {verificationMessage && (
+              <>
+                <Text style={styles.verificationMessage}>{verificationMessage}</Text>
+                <Button
+                  mode="text"
+                  onPress={resendVerificationEmail}
+                  disabled={resendTimer > 0}
+                  style={styles.resendButton}
+                  labelStyle={{ color: resendTimer > 0 ? '#A68EAC' : '#e9bfec' }} // Ustaw kolor tekstu
+                >
+                  {resendTimer > 0 ? `Resend Verification Email (${resendTimer}s)` : '- Resend Verification Email -'}
+                </Button>
+              </>
+            )}
+
 
             <Button
               mode="contained"
@@ -333,6 +376,15 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     width: '100%', 
+  },
+  resendButton: {
+    marginTop: 6,
+    color: '#B10CBD'
+  },
+  verificationMessage: {
+    color: '#da94df',
+    fontSize: 12,
+    textAlign: 'center',
   },
   logo: {
     width: width * 0.5,
