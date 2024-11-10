@@ -14,7 +14,7 @@ import {
   Keyboard 
 } from 'react-native';
 import { TextInput } from 'react-native-paper';
-import FontAwesome from '@expo/vector-icons/FontAwesome'; // Możesz usunąć, jeśli nie jest potrzebny gdzie indziej
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { auth } from '../config/firebaseConfig';
 import { useRouter } from 'expo-router';
@@ -31,24 +31,7 @@ export default function RegisterScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
-  const [paddingBottom, setPaddingBottom] = useState(0);
   const router = useRouter();
-
-
-
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
-      setPaddingBottom(0); // Ustawienie paddingu na 0, gdy klawiatura jest otwarta
-    });
-    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      setPaddingBottom(20); // Przywrócenie domyślnego paddingu, gdy klawiatura jest zamknięta
-    });
-
-    return () => {
-      keyboardDidShowListener.remove();
-      keyboardDidHideListener.remove();
-    };
-  }, []);
 
   const [passwordRequirements, setPasswordRequirements] = useState({
     length: false,
@@ -64,13 +47,13 @@ export default function RegisterScreen() {
     confirmPassword: false,
   });
 
- // Timer odliczający czas do ponownego wysłania maila
- useEffect(() => {
-  if (resendTimer > 0) {
-    const timerId = setInterval(() => setResendTimer((prev) => prev - 1), 1000);
-    return () => clearInterval(timerId);
-  }
-}, [resendTimer]);
+  // Timer odliczający czas do ponownego wysłania maila
+  useEffect(() => {
+    if (resendTimer > 0) {
+      const timerId = setInterval(() => setResendTimer((prev) => prev - 1), 1000);
+      return () => clearInterval(timerId);
+    }
+  }, [resendTimer]);
 
   useEffect(() => {
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -168,11 +151,11 @@ export default function RegisterScreen() {
       }}
     >
       <View style={styles.overlay} />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
-       <SafeAreaView style={[styles.container, { paddingBottom }]}>
+      <SafeAreaView style={styles.container}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.keyboardAvoidingView}
+        >
           <ScrollView
             contentContainerStyle={styles.scrollViewContent}
             keyboardShouldPersistTaps="handled"
@@ -323,22 +306,20 @@ export default function RegisterScreen() {
 
             {/* Error Message */}
             {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
-          
-          
-          {/* Footer with Buttons */}
-          <View style={styles.footer}>
-            <Pressable onPress={handleRegister} style={styles.registerButton}>
-              <Text style={styles.registerButtonText}>Create account</Text>
-            </Pressable>
-
-            <Pressable onPress={() => router.push('/welcome')} style={styles.loginRedirectButton}>
-              <Text style={styles.loginRedirectText}>Already have an account? Log in</Text>
-            </Pressable>
-          </View>
-
           </ScrollView>
-        </SafeAreaView>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+
+        {/* Footer with Buttons */}
+        <View style={styles.footer}>
+          <Pressable onPress={handleRegister} style={styles.registerButton}>
+            <Text style={styles.registerButtonText}>Create account</Text>
+          </Pressable>
+
+          <Pressable onPress={() => router.push('/welcome')} style={styles.loginRedirectButton}>
+            <Text style={styles.loginRedirectText}>Already have an account? Log in</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
     </ImageBackground>
   );
 }
@@ -372,25 +353,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between', // Rozmieszczenie zawartości od góry do dołu
     alignItems: 'center',
     padding: 16,
-    // paddingBottom: 0, // Mniejszy padding na dole, kontrola przez footer
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+    width: '100%',
   },
   scrollView: {
     width: '100%', // Upewnij się, że ScrollView zajmuje całą szerokość
   },
   scrollViewContent: {
     flexGrow: 1,
-    justifyContent: 'center', // Możesz dostosować w razie potrzeby
+    justifyContent: 'center',
     alignItems: 'center',
   },
   logo: {
-    width: width * 0.5,
-    height: height * 0.2,
+    width: '50%', // Procentowa szerokość
+    height: height * 0.2, // Możesz dostosować, jeśli chcesz bardziej responsywne
   },
   logoContainer: {
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
-    marginTop: 40, // Zmniejszony margines górny dla lepszego rozmieszczenia
+    marginTop: height * 0.077, // Zmniejszony margines górny dla lepszego rozmieszczenia
+    width: '100%',
   },
   title: {
     fontSize: width * 0.06, // Zastosowanie proporcjonalnej wielkości
@@ -399,6 +384,7 @@ const styles = StyleSheet.create({
     marginBottom: 23,
     color: '#FFEEFCFF',
     marginTop: 5,
+    width: '100%',
   },
   inputContainer: {
     borderRadius: 28, // Zwiększony borderRadius dla lepszej estetyki
@@ -435,12 +421,12 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     fontSize: 12,
     textAlign: 'center',
+    width: '90%',
   },
   requirementsContainer: {
     marginTop: 13,
     marginBottom: 20,
-    marginLeft: -14,
-    width: '90%',
+    width: width * 0.88,
   },
   requirementRow: {
     flexDirection: 'row',
@@ -459,7 +445,8 @@ const styles = StyleSheet.create({
   footer: {
     width: '100%', // Upewnij się, że footer zajmuje całą szerokość
     alignItems: 'center',
-    paddingVertical: 8
+    paddingVertical: 8,
+    // Możesz dodać tło lub inne style, jeśli potrzebujesz
   },
   registerButton: {
     backgroundColor: '#7511b5',
@@ -482,7 +469,6 @@ const styles = StyleSheet.create({
   },
   loginRedirectButton: {
     paddingVertical: 10,
-    marginBottom: -18,
     marginTop: 2,
   },
   loginRedirectText: {

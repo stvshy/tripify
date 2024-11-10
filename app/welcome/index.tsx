@@ -385,6 +385,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     paddingBottom: 10,
+    marginLeft: 5,//zmienione
   },
   scrollView: {
     width: '100%', 
