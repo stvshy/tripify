@@ -471,9 +471,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between', 
     alignItems: 'center',
-    padding: 16,
+    // padding: 16,
     paddingBottom: 10,
-    marginLeft: 5, // zmienione
+    // marginLeft: 5, // zmienione
     marginTop: height * 0.015
   },
   scrollView: {
@@ -517,12 +517,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 13,
     width: width * 0.89,
-    backgroundColor: '#f0ed8f5',
+    justifyContent: 'center', // Wyśrodkowanie w pionie
+    alignSelf: 'center', // Wyśrodkowanie na środku ekranu
   },
   
   input: {
     paddingLeft: 1,
-    height: 52,
   },
   inputFocused: {
     borderColor: '#6a1b9a',
@@ -548,6 +548,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 25,
     marginTop: 8,
+    alignSelf: 'center', // Wyśrodkowanie na środku ekranu
   },
   registerButton: {
     width: width * 0.89,
@@ -558,6 +559,7 @@ const styles = StyleSheet.create({
     marginTop: 11,
     borderWidth: 1.1,
     borderColor: '#340850',
+    alignSelf: 'center', // Wyśrodkowanie na środku ekranu
   },
   buttonLabel: {
     fontSize: 12.5,
@@ -572,6 +574,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 25,
     // marginTop: 10, 
+    alignSelf: 'center', // Wyśrodkowanie na środku ekranu
   },
   facebookButtonText: {
     color: '#FFF',
