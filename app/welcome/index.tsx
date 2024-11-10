@@ -1,21 +1,54 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert, Image, ImageBackground, SafeAreaView, Dimensions, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  Alert, 
+  Image, 
+  ImageBackground, 
+  SafeAreaView, 
+  Dimensions, 
+  KeyboardAvoidingView, 
+  Platform, 
+  ScrollView 
+} from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { LoginManager, AccessToken, GraphRequest, GraphRequestManager } from 'react-native-fbsdk-next';
-import { getAuth, FacebookAuthProvider, signInWithCredential, fetchSignInMethodsForEmail, signInWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
-import { doc, getDoc, collection, query, where, getDocs, getFirestore } from 'firebase/firestore';
-import { auth } from '../config/firebaseConfig';
+import { 
+  LoginManager, 
+  AccessToken, 
+  GraphRequest, 
+  GraphRequestManager 
+} from 'react-native-fbsdk-next';
+import { 
+  getAuth, 
+  FacebookAuthProvider, 
+  signInWithCredential, 
+  fetchSignInMethodsForEmail, 
+  signInWithEmailAndPassword, 
+  sendEmailVerification 
+} from 'firebase/auth';
+import { 
+  doc, 
+  getDoc, 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  getFirestore, 
+  updateDoc 
+} from 'firebase/firestore';
+import { auth, db } from '../config/firebaseConfig'; // Upewnij się, że eksportujesz db z firebaseConfig
 import { LinearGradient } from 'expo-linear-gradient';
-import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+// Usuń nieużywane importy, jeśli nie są potrzebne
+// import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
-const db = getFirestore();
 const { width, height } = Dimensions.get('window');
 
 export default function WelcomeScreen() {
   const router = useRouter();
-  const auth = getAuth();
+  // const auth = getAuth(); // Zakomentowane, ponieważ importujesz auth z firebaseConfig
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -23,6 +56,7 @@ export default function WelcomeScreen() {
   const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
   const [resendTimer, setResendTimer] = useState<number>(0);
   const [isFocused, setIsFocused] = useState({ identifier: false, password: false });
+  const [isLoading, setIsLoading] = useState<boolean>(false); // Dodany spinner
 
   useEffect(() => {
     if (resendTimer > 0) {
@@ -56,95 +90,114 @@ export default function WelcomeScreen() {
   const handleLogin = async () => {
     setErrorMessage(null);
     setVerificationMessage(null);
-  
-    if (!password || !validatePassword()) return;
-  
+    setIsLoading(true); // Rozpoczęcie ładowania
+
+    if (!password || !validatePassword()) {
+      console.log("Password validation failed");
+      setIsLoading(false);
+      return;
+    }
+
+    const emailLower = identifier.toLowerCase();
+    const identifierIsEmail = isEmail(emailLower);
+    let email = emailLower;
+
+    console.log(`Identifier: ${identifier}, Email Lowercased: ${emailLower}, Is Email: ${identifierIsEmail}`);
+
     try {
-        // Konwersja `identifier` na małe litery tuż przed sprawdzeniem
-        let email = identifier.toLowerCase();
+      if (!identifierIsEmail) {
+        console.log("Identifier is a nickname");
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('nickname', '==', email));
+        const querySnapshot = await getDocs(q);
   
-        if (!isEmail(email)) {
-            const usersRef = collection(db, 'users');
-            const q = query(usersRef, where('nickname', '==', email));
-            const querySnapshot = await getDocs(q);
-  
-            if (querySnapshot.empty) {
-                setErrorMessage('No account found with this nickname.');
-                return;
-            }
-  
-            const userData = querySnapshot.docs[0].data();
-            email = userData.email;
-
-
-            // Sprawdzenie, ile sekund zostało do odblokowania
-            const emailSentAt = userData.emailSentAt;
-            if (emailSentAt) {
-                const elapsedSeconds = Math.floor((Date.now() - emailSentAt) / 1000);
-                const remainingTime = 60 - elapsedSeconds;
-                if (remainingTime > 0) {
-                setResendTimer(remainingTime); // Uruchom licznik z pozostałym czasem
-                }
-            }
+        if (querySnapshot.empty) {
+          setErrorMessage('No account found with this nickname.');
+          console.log("No account found with this nickname");
+          setIsLoading(false);
+          return;
         }
   
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
+        const userData = querySnapshot.docs[0].data();
+        email = userData.email;
+        console.log("Email found from nickname:", email);
   
-        if (!user.emailVerified) {
-            if (!verificationMessage) {
-                try {
-                    await sendEmailVerification(user);
-                } catch (emailError) {
-                    console.error("Failed to send verification email:", emailError);
-                }
-            }
-            setErrorMessage("Please verify your email to log in.");
-            setVerificationMessage("Your account has not yet been verified. Please check your email inbox for the verification link.");
-            // setIsResendDisabled(false); // Umożliwia ponowne wysłanie wiadomości
-            return;
-        }  // Sprawdzamy, czy użytkownik ma ustawiony nickname
-        const userDocRef = doc(db, 'users', user.uid);
-        const userDoc = await getDoc(userDocRef);
-    
-        if (userDoc.exists()) {
-          const nickname = userDoc.data()?.nickname;
-          if (!nickname) {
-            // Jeśli nickname nie jest ustawiony, przekieruj do setNickname
-            router.replace('/setNickname');
-          } else {
-            // Jeśli nickname jest ustawiony, przejdź do głównej strony
-            router.replace('/');
+        const emailSentAt = userData.emailSentAt;
+        if (emailSentAt) {
+          const elapsedSeconds = Math.floor((Date.now() - emailSentAt) / 1000);
+          const remainingTime = 60 - elapsedSeconds;
+          if (remainingTime > 0) {
+            setResendTimer(remainingTime);
+            console.log("Resend timer set to:", remainingTime);
           }
         }
-      } catch (error: any) {
-        console.log("Login error:", error.code, error.message);
-        
+      }
+  
 
-        if (error.code === 'auth/too-many-requests') {
-            setErrorMessage('Too many login attempts. Try again later.');
-        } else if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email') {
-            setErrorMessage('No account was found with this email or nickname.');
-        } else if (error.code === 'auth/wrong-password') {
-            setErrorMessage('The password you entered is incorrect.');
-        } else {
-            setErrorMessage('The password you entered is incorrect.');
+      console.log("Attempting to sign in with email:", email);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      console.log("User signed in:", user.uid);
+
+      if (!user.emailVerified) {
+        console.log("Email not verified");
+        if (!verificationMessage) {
+          try {
+            await sendEmailVerification(user);
+            await updateDoc(doc(db, 'users', user.uid), {
+              emailSentAt: Date.now(),
+            });
+            console.log("Verification email sent and emailSentAt updated");
+          } catch (emailError) {
+            console.error("Failed to send verification email:", emailError);
+          }
         }
-    }
-  };
-    // Funkcja ponownego wysyłania maila
-    const resendVerificationEmail = async () => {
-      const user = auth.currentUser;
-      if (user && !user.emailVerified && resendTimer === 0) {
-        try {
-          await sendEmailVerification(user);
-          setVerificationMessage("Verification email resent. Please check your inbox.");
-          setResendTimer(60);
-        } catch (error) {
-          console.error("Error resending email verification:", error);
+        setErrorMessage("Please verify your email to log in.");
+        setVerificationMessage("Your account has not yet been verified. Please check your email inbox for the verification link.");
+        setIsLoading(false);
+        return;
+      }
+
+      console.log("Email verified, checking nickname");
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDoc = await getDoc(userDocRef);
+      if (userDoc.exists()) {
+        const nickname = userDoc.data()?.nickname;
+        if (!nickname) {
+          router.replace('/setNickname');
+          console.log("Redirecting to setNickname");
+        } else {
+          router.replace('/');
+          console.log("Redirecting to home");
         }
       }
-    };
+    } catch (error: any) {
+      console.log("Login error:", error.code, error.message);
+
+      if (error.code === 'auth/too-many-requests') {
+          setErrorMessage('Too many login attempts. Try again later.');
+      } else if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email') {
+          setErrorMessage('No account was found with this email or nickname.');
+      } else if (error.code === 'auth/wrong-password') {
+          setErrorMessage('The password you entered is incorrect.');
+      } else {
+          setErrorMessage('The password or login you entered is incorrect.');
+      }
+  }
+};
+  // Funkcja ponownego wysyłania maila
+  const resendVerificationEmail = async () => {
+    const user = auth.currentUser;
+    if (user && !user.emailVerified && resendTimer === 0) {
+      try {
+        await sendEmailVerification(user);
+        setVerificationMessage("Verification email resent. Please check your inbox.");
+        setResendTimer(60);
+      } catch (error) {
+        console.error("Error resending email verification:", error);
+      }
+    }
+  };
 
   const handleFacebookLogin = async () => {
     try {
@@ -305,7 +358,7 @@ export default function WelcomeScreen() {
               />
             </View>
 
-               {/* Wyświetlanie komunikatów */}
+            {/* Wyświetlanie komunikatów */}
             {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
             {verificationMessage && (
               <>
@@ -322,12 +375,12 @@ export default function WelcomeScreen() {
               </>
             )}
 
-
             <Button
               mode="contained"
               onPress={handleLogin}
               style={styles.loginButton}
               labelStyle={styles.buttonLabel}
+              loading={isLoading} // Dodany spinner
             >
               Log in
             </Button>
@@ -385,8 +438,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     paddingBottom: 10,
-    marginLeft: 5,//zmienione
-    marginTop: height*0.015
+    marginLeft: 5, // zmienione
+    marginTop: height * 0.015
   },
   scrollView: {
     width: '100%', 
