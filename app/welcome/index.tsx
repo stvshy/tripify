@@ -507,7 +507,8 @@ const styles = StyleSheet.create({
   footer: {
     width: '100%', 
     alignItems: 'center',
-    paddingVertical: 10,
+    marginTop: -5,
+    marginBottom: -10,
   },
   forgotPasswordButton: {
    

@@ -10,7 +10,8 @@ import {
   KeyboardAvoidingView, 
   Platform, 
   ScrollView, 
-  Pressable 
+  Pressable,
+  Keyboard 
 } from 'react-native';
 import { TextInput } from 'react-native-paper';
 import FontAwesome from '@expo/vector-icons/FontAwesome'; // Możesz usunąć, jeśli nie jest potrzebny gdzie indziej
@@ -30,7 +31,24 @@ export default function RegisterScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [paddingBottom, setPaddingBottom] = useState(0);
   const router = useRouter();
+
+
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      setPaddingBottom(0); // Ustawienie paddingu na 0, gdy klawiatura jest otwarta
+    });
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setPaddingBottom(20); // Przywrócenie domyślnego paddingu, gdy klawiatura jest zamknięta
+    });
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
   const [passwordRequirements, setPasswordRequirements] = useState({
     length: false,
@@ -147,11 +165,6 @@ export default function RegisterScreen() {
       style={styles.background}
       imageStyle={{ 
         resizeMode: 'cover', 
-        // width: '140%', 
-        // height: '120%', 
-        // left: 20, 
-        // top: -130, 
-        // transform: [{ rotate: '28deg' }] 
       }}
     >
       <View style={styles.overlay} />
@@ -159,7 +172,7 @@ export default function RegisterScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
-        <SafeAreaView style={styles.container}>
+       <SafeAreaView style={[styles.container, { paddingBottom }]}>
           <ScrollView
             contentContainerStyle={styles.scrollViewContent}
             keyboardShouldPersistTaps="handled"
@@ -310,7 +323,7 @@ export default function RegisterScreen() {
 
             {/* Error Message */}
             {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
-          </ScrollView>
+          
           
           {/* Footer with Buttons */}
           <View style={styles.footer}>
@@ -322,6 +335,8 @@ export default function RegisterScreen() {
               <Text style={styles.loginRedirectText}>Already have an account? Log in</Text>
             </Pressable>
           </View>
+
+          </ScrollView>
         </SafeAreaView>
       </KeyboardAvoidingView>
     </ImageBackground>
@@ -357,7 +372,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between', // Rozmieszczenie zawartości od góry do dołu
     alignItems: 'center',
     padding: 16,
-    paddingBottom: 10, // Mniejszy padding na dole, kontrola przez footer
+    // paddingBottom: 0, // Mniejszy padding na dole, kontrola przez footer
   },
   scrollView: {
     width: '100%', // Upewnij się, że ScrollView zajmuje całą szerokość
@@ -444,7 +459,7 @@ const styles = StyleSheet.create({
   footer: {
     width: '100%', // Upewnij się, że footer zajmuje całą szerokość
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 8
   },
   registerButton: {
     backgroundColor: '#7511b5',
@@ -453,7 +468,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 25,
     width: '90%',
-    marginBottom: 10,
+    marginBottom: 3,
     elevation: 2, // Dodanie cienia dla efektu uniesienia (Android)
     shadowColor: '#000', // Dodanie cienia dla efektu uniesienia (iOS)
     shadowOffset: { width: 0, height: 2 },
@@ -467,7 +482,8 @@ const styles = StyleSheet.create({
   },
   loginRedirectButton: {
     paddingVertical: 10,
-    marginBottom: -5,
+    marginBottom: -18,
+    marginTop: 2,
   },
   loginRedirectText: {
     color: '#4a136c',
