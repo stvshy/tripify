@@ -1,23 +1,12 @@
-// RootLayout.tsx
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DefaultTheme } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
-import 'react-native-reanimated';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { auth } from './config/firebaseConfig';
-import { Pressable, Text, View, StyleSheet } from 'react-native';
-
-// Custom theme with a fixed electric blue background color
-const CustomTheme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    background: '#0EE7FE', // Electric blue background
-  },
-};
+import { View, StyleSheet, ImageBackground, Image, ActivityIndicator } from 'react-native';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -28,37 +17,59 @@ export default function RootLayout() {
   });
 
   const [user, setUser] = useState<User | null>(null);
+  const [appIsReady, setAppIsReady] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    if (error) throw error;
+    if (error) {
+      console.error("Font loading error:", error);
+      return;
+    }
   }, [error]);
 
+  // Sprawdzanie stanu zalogowania użytkownika
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      console.log("Auth state changed:", currentUser);
       setUser(currentUser);
+
       if (!currentUser) {
+        console.log("No user found, navigating to /welcome");
         router.push('/welcome');
+      } else {
+        console.log("User found, navigating to /");
+        router.push('/');
       }
     });
 
     return () => unsubscribe();
   }, [router]);
 
+  // Ukrycie splash screena po załadowaniu czcionek
   useEffect(() => {
     if (loaded) {
+      setAppIsReady(true);
       SplashScreen.hideAsync();
     }
   }, [loaded]);
 
-  if (!loaded) {
-    return null;
+  // Ekran ładowania
+  if (!loaded || !appIsReady) {
+    return (
+      <ImageBackground
+        source={require('../assets/images/gradient5.png')}
+        style={styles.background}
+      >
+        <View style={styles.centerContainer}>
+          <Image source={require('../assets/images/tripify-icon.png')} style={styles.logo} />
+          <ActivityIndicator size="large" color="#FFF" style={styles.loader} />
+        </View>
+      </ImageBackground>
+    );
   }
 
   return (
-    <View style={styles.container}>
-      <RootLayoutNav user={user} />
-    </View>
+    <RootLayoutNav user={user} />
   );
 }
 
@@ -75,14 +86,9 @@ function RootLayoutNav({ user }: { user: User | null }) {
   };
 
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: CustomTheme.colors.background } }}>
+    <Stack screenOptions={{ headerShown: false }}>
       {user ? (
-        <Stack.Screen
-          name="(tabs)"
-          options={{
-            headerShown: false,
-          }}
-        />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       ) : (
         <Stack.Screen name="welcome" options={{ headerShown: false }} />
       )}
@@ -92,8 +98,22 @@ function RootLayoutNav({ user }: { user: User | null }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  background: {
     flex: 1,
-    backgroundColor: CustomTheme.colors.background, // Fixed electric blue color
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  centerContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    flex: 1,
+  },
+  logo: {
+    width: 120,
+    height: 120,
+    marginBottom: 20,
+  },
+  loader: {
+    marginTop: 20,
   },
 });
