@@ -57,6 +57,7 @@ export default function WelcomeScreen() {
   const [resendTimer, setResendTimer] = useState<number>(0);
   const [isFocused, setIsFocused] = useState({ identifier: false, password: false });
   const [isLoading, setIsLoading] = useState<boolean>(false); // Dodany spinner
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   useEffect(() => {
     if (resendTimer > 0) {
@@ -65,7 +66,22 @@ export default function WelcomeScreen() {
     }
   }, [resendTimer]);
 
+
+  useEffect(() => {
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (identifier && isEmail(identifier.trim().toLowerCase())) {
+      setEmailError(emailPattern.test(identifier.trim().toLowerCase()) ? null : 'Please enter a valid email address.');
+    } else {
+      setEmailError(null);
+    }
+  }, [identifier]);
+
+  
   const validatePassword = () => {
+    if (password.length === 0) {
+      setErrorMessage('Please enter your password.');
+      return false;
+    }
     if (password.length < 6) {
       setErrorMessage('Your password must contain at least 6 characters.');
       return false;
@@ -92,15 +108,32 @@ export default function WelcomeScreen() {
     setVerificationMessage(null);
     setIsLoading(true); // Rozpoczęcie ładowania
 
-    if (!password || !validatePassword()) {
-      console.log("Password validation failed");
+     // Walidacja identyfikatora (e-mail lub pseudonim)
+    const emailLower = identifier.trim().toLowerCase();
+    const identifierIsEmail = isEmail(emailLower);
+
+    if (identifier.length === 0) {
+      setErrorMessage('Please enter your email or nickname.');
       setIsLoading(false);
       return;
     }
+      // Walidacja hasła
+  if (password.length === 0) {
+    setErrorMessage('Please enter your password.');
+    setIsLoading(false);
+    return;
+  }
 
-    const emailLower = identifier.toLowerCase();
-    const identifierIsEmail = isEmail(emailLower);
+  
+  if (!validatePassword()) {
+    console.log("Password validation failed");
+    setIsLoading(false);
+    return;
+  }
+
     let email = emailLower;
+
+      // Walidacja formatu e-maila, jeśli identyfikator jest e-mailem
 
     console.log(`Identifier: ${identifier}, Email Lowercased: ${emailLower}, Is Email: ${identifierIsEmail}`);
 
@@ -183,6 +216,8 @@ export default function WelcomeScreen() {
       } else {
           setErrorMessage('The password or login you entered is incorrect.');
       }
+  } finally {
+    setIsLoading(false); // Zakończenie ładowania
   }
 };
   // Funkcja ponownego wysyłania maila
@@ -503,8 +538,8 @@ const styles = StyleSheet.create({
     color: 'violet',
     fontSize: 12,
     textAlign: 'center',
-    marginTop: -5,
-    marginBottom: 15,
+    // marginTop: -5,
+    marginBottom: 5,
   },
   loginButton: {
     width: width * 0.89,
