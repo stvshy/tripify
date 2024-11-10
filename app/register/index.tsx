@@ -31,7 +31,12 @@ export default function RegisterScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
-  const scrollViewMarginBottom = errorMessage ? -20 : 0;
+  const scrollViewPaddingBottom = errorMessage ? 50 : 0;
+  const scrollViewMarginTop = errorMessage ? 0 : 0;
+  const scrollViewPaddingTop = errorMessage ? height*0.022 : 0;
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+  const requirementPaddingBottom = isKeyboardVisible ? 20 : 0;
+
 
   const router = useRouter();
 
@@ -70,6 +75,27 @@ export default function RegisterScreen() {
       number: /[0-9]/.test(password),
     });
   }, [password]);
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      () => {
+        setKeyboardVisible(true); // Klawiatura jest widoczna
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => {
+        setKeyboardVisible(false); // Klawiatura została ukryta
+      }
+    );
+  
+    // Czyszczenie nasłuchiwaczy po odmontowaniu komponentu
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
+  
 
   const handleRegister = async () => {
     setErrorMessage(null);
@@ -161,7 +187,7 @@ export default function RegisterScreen() {
           <ScrollView
             contentContainerStyle={styles.scrollViewContent}
             keyboardShouldPersistTaps="handled"
-            style={[styles.scrollView, { marginBottom: scrollViewMarginBottom }]}
+            style={[styles.scrollView, {paddingTop: scrollViewPaddingTop}]}
           >
             <View style={styles.logoContainer}>
               <Image 
@@ -295,7 +321,7 @@ export default function RegisterScreen() {
             </View>
 
             {/* Password Requirements */}
-            <View style={styles.requirementsContainer}>
+            <View style={[styles.requirementsContainer, { paddingBottom: requirementPaddingBottom}]}>
               {Object.entries(passwordRequirements).map(([key, value]) => (
                 <View style={styles.requirementRow} key={key}>
                   {renderValidationIcon(value)}
@@ -494,5 +520,8 @@ const styles = StyleSheet.create({
     color: '#4a136c',
     fontSize: 14,
     textAlign: 'center',
+  },
+  scrollViewWithError: {
+    marginBottom: 60, // Bazowy margines + 20 pikseli
   },
 });
