@@ -31,6 +31,8 @@ export default function RegisterScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const scrollViewMarginBottom = errorMessage ? -20 : 0;
+
   const router = useRouter();
 
   const [passwordRequirements, setPasswordRequirements] = useState({
@@ -159,7 +161,7 @@ export default function RegisterScreen() {
           <ScrollView
             contentContainerStyle={styles.scrollViewContent}
             keyboardShouldPersistTaps="handled"
-            style={styles.scrollView}
+            style={[styles.scrollView, { marginBottom: scrollViewMarginBottom }]}
           >
             <View style={styles.logoContainer}>
               <Image 
@@ -170,7 +172,7 @@ export default function RegisterScreen() {
             </View>
             <Text style={styles.title}>Create an Account in Tripify</Text>
 
-            {emailError && <Text style={styles.error}>{emailError}</Text>}
+            {emailError && <Text style={styles.errorTop}>{emailError}</Text>}
 
             {/* Email Input */}
             <View style={[styles.inputContainer, isFocused.email && styles.inputFocused]}>
@@ -305,12 +307,13 @@ export default function RegisterScreen() {
             </View>
 
             {/* Error Message */}
-            {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
+            {/* {errorMessage && <Text style={styles.error}>{errorMessage}</Text>} */}
           </ScrollView>
         </KeyboardAvoidingView>
 
         {/* Footer with Buttons */}
         <View style={styles.footer}>
+        {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
           <Pressable onPress={handleRegister} style={styles.registerButton}>
             <Text style={styles.registerButtonText}>Create account</Text>
           </Pressable>
@@ -365,6 +368,8 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    // marginTop: 10,
+    // marginBottom: 5
   },
   logo: {
     width: '50%', // Procentowa szerokość
@@ -374,7 +379,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
-    marginTop: height * 0.077, // Zmniejszony margines górny dla lepszego rozmieszczenia
+    marginTop: height * 0.065, // Zmniejszony margines górny dla lepszego rozmieszczenia
     width: '100%',
   },
   title: {
@@ -418,10 +423,22 @@ const styles = StyleSheet.create({
   },
   error: {
     color: 'violet', // Upewnij się, że kolor pasuje do reszty aplikacji
-    marginBottom: 10,
+    marginBottom: -3,
     fontSize: 12,
     textAlign: 'center',
     width: '90%',
+    paddingVertical: 15
+    // height: height * 0.01
+  },
+  errorTop: {
+    color: 'violet', // Upewnij się, że kolor pasuje do reszty aplikacji
+    marginBottom: 9,
+    marginTop: -10,
+    fontSize: 12,
+    textAlign: 'center',
+    width: '90%',
+    // paddingVertical: 15
+    // height: height * 0.01
   },
   requirementsContainer: {
     marginTop: 13,
@@ -445,7 +462,8 @@ const styles = StyleSheet.create({
   footer: {
     width: '100%', // Upewnij się, że footer zajmuje całą szerokość
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingTop: 9,
+    paddingBottom: 3,
     // Możesz dodać tło lub inne style, jeśli potrzebujesz
   },
   registerButton: {
@@ -455,7 +473,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 25,
     width: '90%',
-    marginBottom: 3,
+    marginBottom: -2,
     elevation: 2, // Dodanie cienia dla efektu uniesienia (Android)
     shadowColor: '#000', // Dodanie cienia dla efektu uniesienia (iOS)
     shadowOffset: { width: 0, height: 2 },
@@ -468,8 +486,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   loginRedirectButton: {
-    paddingVertical: 10,
+    paddingTop: 10,
     marginTop: 2,
+    marginBottom: -5
   },
   loginRedirectText: {
     color: '#4a136c',
