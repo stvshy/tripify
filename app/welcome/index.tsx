@@ -386,6 +386,7 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 10,
     marginLeft: 5,//zmienione
+    marginTop: height*0.015
   },
   scrollView: {
     width: '100%', 
@@ -454,7 +455,7 @@ const styles = StyleSheet.create({
   },
   loginButton: {
     width: width * 0.89,
-    height: 40,
+    height: height * 0.054,
     backgroundColor: '#7511b5',
     justifyContent: 'center',
     borderRadius: 25,
@@ -462,7 +463,7 @@ const styles = StyleSheet.create({
   },
   registerButton: {
     width: width * 0.89,
-    height: 40,
+    height: height * 0.054,
     backgroundColor: '#5b0d8d',
     justifyContent: 'center',
     borderRadius: 25,
@@ -479,7 +480,7 @@ const styles = StyleSheet.create({
   facebookButton: {
     backgroundColor: '#4267B2',
     width: width * 0.89,
-    height: height * 0.055,
+    height: height * 0.054,
     justifyContent: 'center',
     borderRadius: 25,
     // marginTop: 10, 
