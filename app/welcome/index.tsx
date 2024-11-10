@@ -195,7 +195,15 @@ export default function WelcomeScreen() {
       const userDocRef = doc(db, 'users', user.uid);
       const userDoc = await getDoc(userDocRef);
       if (userDoc.exists()) {
-        const nickname = userDoc.data()?.nickname;
+        const userData = userDoc.data();
+        const nickname = userData?.nickname;
+        const isVerified = userData?.isVerified;
+        // Sprawdzenie, czy użytkownik jest już zweryfikowany
+        if (isVerified === false) {
+          console.log("Updating isVerified to true");
+          await updateDoc(userDocRef, { isVerified: true });
+        }
+        // Przekierowanie użytkownika w zależności od obecności pseudonimu
         if (!nickname) {
           router.replace('/setNickname');
           console.log("Redirecting to setNickname");
@@ -348,6 +356,7 @@ export default function WelcomeScreen() {
                   }
                 }}
                 underlineColor="transparent" 
+                textAlignVertical="center" // Wyśrodkowanie tekstu w pionie
                 left={
                   <TextInput.Icon 
                     icon="account" 
@@ -375,6 +384,7 @@ export default function WelcomeScreen() {
                   }
                 }}
                 underlineColor="transparent"
+                textAlignVertical="center" // Wyśrodkowanie tekstu w pionie
                 left={
                   <TextInput.Icon 
                     icon="lock" 
@@ -519,10 +529,15 @@ const styles = StyleSheet.create({
     width: width * 0.89,
     justifyContent: 'center', // Wyśrodkowanie w pionie
     alignSelf: 'center', // Wyśrodkowanie na środku ekranu
+    
   },
   
   input: {
+    height: height * 0.07, // Zwiększona wysokość pola tekstowego
+    fontSize: height * 0.022, // Większy rozmiar czcionki
     paddingLeft: 1,
+    textAlignVertical: 'center', // Wyrównanie tekstu w pionie
+    // lineHeight: height * 0.1, // Kontrola pionowego wyrównania tekstu
   },
   inputFocused: {
     borderColor: '#6a1b9a',
