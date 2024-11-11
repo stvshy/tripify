@@ -5,8 +5,9 @@ import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { auth } from './config/firebaseConfig';
+import { auth, db } from './config/firebaseConfig';
 import { View, StyleSheet, ImageBackground, Image, ActivityIndicator } from 'react-native';
+import { doc, getDoc } from 'firebase/firestore';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -29,21 +30,37 @@ export default function RootLayout() {
 
   // Sprawdzanie stanu zalogowania użytkownika
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      console.log("Auth state changed:", currentUser);
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
-
-      if (!currentUser) {
-        console.log("No user found, navigating to /welcome");
-        router.push('/welcome');
+  
+      if (currentUser) {
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        const userDoc = await getDoc(userDocRef);
+  
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const isVerified = currentUser.emailVerified;
+          const nickname = userData?.nickname;
+          const firstLoginComplete = userData?.firstLoginComplete;
+  
+          if (!isVerified) {
+            router.replace('/welcome');
+          } else if (!nickname) {
+            router.replace('/setNickname');
+          } else if (!firstLoginComplete) {
+            router.replace('/chooseCountries');
+          } else {
+            router.replace('/');
+          }
+        }
       } else {
-        console.log("User found, navigating to /");
-        router.push('/');
+        router.replace('/welcome');
       }
     });
-
+  
     return () => unsubscribe();
   }, [router]);
+  
 
   // Ukrycie splash screena po załadowaniu czcionek
   useEffect(() => {

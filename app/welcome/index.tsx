@@ -197,21 +197,40 @@ export default function WelcomeScreen() {
       if (userDoc.exists()) {
         const userData = userDoc.data();
         const nickname = userData?.nickname;
-        const isVerified = userData?.isVerified;
-        // Sprawdzenie, czy użytkownik jest już zweryfikowany
-        if (isVerified === false) {
-          console.log("Updating isVerified to true");
-          await updateDoc(userDocRef, { isVerified: true });
-        }
-        // Przekierowanie użytkownika w zależności od obecności pseudonimu
-        if (!nickname) {
-          router.replace('/setNickname');
-          console.log("Redirecting to setNickname");
-        } else {
-          router.replace('/');
-          console.log("Redirecting to home");
-        }
+        const isVerifiedInDb = userData?.isVerified;
+        const firstLoginComplete = userData?.firstLoginComplete;
+       // Jeśli użytkownik potwierdził e-mail, ale `isVerified` jest `false` w Firestore, zaktualizuj to pole
+      if (!isVerifiedInDb && user.emailVerified) {
+        await updateDoc(userDocRef, { isVerified: true });
+        console.log("User verified in Firestore.");
       }
+
+      // Sprawdzenie warunków w odpowiedniej kolejności:
+      if (!user.emailVerified) {
+        console.log("Email not verified, redirecting to welcome");
+        router.replace('/welcome');
+        return;
+      }
+
+      if (!nickname) {
+        console.log("Nickname not set, redirecting to setNickname");
+        router.replace('/setNickname');
+        return;
+      }
+
+      if (user.emailVerified && isVerifiedInDb && nickname && !firstLoginComplete) {
+        console.log("User needs to complete country selection, redirecting to chooseCountries");
+        router.replace('/chooseCountries');
+        return;
+      }
+
+      // Jeśli użytkownik spełnia wszystkie warunki, przekieruj na stronę główną
+      if (user.emailVerified && isVerifiedInDb && nickname && firstLoginComplete) {
+        console.log("All conditions met, redirecting to home");
+        router.replace('/');
+        return;
+      }
+    }
     } catch (error: any) {
       console.log("Login error:", error.code, error.message);
 

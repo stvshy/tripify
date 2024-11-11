@@ -1,51 +1,78 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { auth } from '../config/firebaseConfig';
+import { auth, db } from '../config/firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function RegistrationSuccessScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [isVerified, setIsVerified] = useState(false);
   const [countdown, setCountdown] = useState(7);
+  const [showSuccessScreen, setShowSuccessScreen] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // Sprawdzamy, czy e-mail użytkownika jest zweryfikowany
+        // Sprawdzenie, czy użytkownik zweryfikował e-mail
         await user.reload();
-        setIsVerified(user.emailVerified);
+        const emailVerified = user.emailVerified;
+        setIsVerified(emailVerified);
+
+        if (emailVerified) {
+          // Sprawdzenie w Firestore czy użytkownik przeszedł ekran wyboru krajów
+          const userDocRef = doc(db, 'users', user.uid);
+          const userDoc = await getDoc(userDocRef);
+
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            const firstLoginComplete = userData?.firstLoginComplete;
+
+            // Jeśli użytkownik nie przeszedł wyboru krajów, ustaw przekierowanie
+            if (!firstLoginComplete) {
+              setTimeout(() => {
+                router.replace('/chooseCountries');
+              }, 7000);
+              return;
+            }
+          }
+          // Jeśli wszystko jest poprawne, przekieruj do strony głównej po odliczaniu
+          setTimeout(() => {
+            router.replace('/');
+          }, 7000);
+        } else {
+          // Jeśli e-mail nie jest zweryfikowany, przekieruj do welcome po odliczaniu
+          setTimeout(() => {
+            router.replace('/welcome');
+          }, 7000);
+        }
+      } else {
+        setTimeout(() => {
+          router.replace('/welcome');
+        }, 7000);
       }
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
-  // Odliczanie czasu przed przekierowaniem
+  // Timer do odliczania przed przekierowaniem
   useEffect(() => {
     if (!loading) {
       const interval = setInterval(() => {
         setCountdown((prev) => prev - 1);
       }, 1000);
 
-      // Po zakończeniu odliczania przekieruj użytkownika
-      const timer = setTimeout(() => {
-        if (isVerified) {
-          router.replace('/');
-        } else {
-          router.replace('/welcome');
-        }
-      }, 7000);
+      if (countdown === 0) {
+        setShowSuccessScreen(false);
+      }
 
-      return () => {
-        clearInterval(interval);
-        clearTimeout(timer);
-      };
+      return () => clearInterval(interval);
     }
-  }, [loading, isVerified, router]);
+  }, [loading, countdown]);
 
   if (loading) {
     return (
@@ -55,20 +82,24 @@ export default function RegistrationSuccessScreen() {
     );
   }
 
-  return (
-    <View style={styles.container}>
-      <FontAwesome name="check-circle" size={100} color="green" />
-      {isVerified ? (
-        <Text style={styles.message}>Account Created and Verified Successfully!</Text>
-      ) : (
-        <>
-          <Text style={styles.message}>Account Created Successfully!</Text>
-          <Text style={styles.subMessage}>Please verify your email to log in.</Text>
-        </>
-      )}
-      <Text style={styles.countdown}>Redirecting in {countdown} seconds...</Text>
-    </View>
-  );
+  if (showSuccessScreen) {
+    return (
+      <View style={styles.container}>
+        <FontAwesome name="check-circle" size={100} color="green" />
+        {isVerified ? (
+          <Text style={styles.message}>Account Created and Verified Successfully!</Text>
+        ) : (
+          <>
+            <Text style={styles.message}>Account Created Successfully!</Text>
+            <Text style={styles.subMessage}>Please verify your email to log in.</Text>
+          </>
+        )}
+        <Text style={styles.countdown}>Redirecting in {countdown} seconds...</Text>
+      </View>
+    );
+  }
+
+  return null;
 }
 
 const styles = StyleSheet.create({

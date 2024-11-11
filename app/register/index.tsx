@@ -135,7 +135,8 @@ export default function RegisterScreen() {
         nickname: null,
         isVerified: false,
         createdAt: serverTimestamp(),
-        authProvider: 'email'
+        authProvider: 'email',
+        firstLoginCompleted: false
       });
 
       // Wysłanie e-maila weryfikacyjnego

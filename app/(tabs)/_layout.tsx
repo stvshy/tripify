@@ -22,19 +22,16 @@ export default function TabLayout() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [nickname, setNickname] = useState<string | null>(null); // Store nickname
+  const [userData, setUserData] = useState<any>(null);
   const router = useRouter();
 
-  // Fetch the nickname from Firestore
-  const fetchNickname = async (userId: string) => {
-    try {
-      const userDoc = await getDoc(doc(db, 'users', userId));
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-        setNickname(data.nickname || null);
-      }
-    } catch (error) {
-      console.error("Error fetching nickname:", error);
+  const fetchUserData = async (userId: string) => {
+    const userDocRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userDocRef);
+    if (userDoc.exists()) {
+      return userDoc.data();
     }
+    return null;
   };
 
   useEffect(() => {
@@ -42,9 +39,11 @@ export default function TabLayout() {
       setLoading(true);
       if (currentUser) {
         setUser(currentUser);
-        await fetchNickname(currentUser.uid);
+        const data = await fetchUserData(currentUser.uid);
+        setUserData(data);
       } else {
         setUser(null);
+        setUserData(null);
         router.replace('/welcome');
       }
       setLoading(false);
@@ -52,15 +51,43 @@ export default function TabLayout() {
     return () => unsubscribe();
   }, [router]);
   
-  // Sprawdzenie po pobraniu nickname
   useEffect(() => {
-    if (user && nickname === null && !loading) {
-      router.replace('/setNickname');
-    }
-  }, [nickname, user, loading, router]);
-  
-  
+    if (!loading && user && userData) {
+      const {  nickname, firstLoginComplete } = userData;
 
+      // Sprawdź status weryfikacji użytkownika
+      if (!user.emailVerified) {
+        router.replace('/welcome');
+        return;
+      }
+
+      // Sprawdź, czy użytkownik ustawił nick
+      if (!nickname) {
+        router.replace('/setNickname');
+        return;
+      }
+
+      // Sprawdź, czy użytkownik wybrał kraje
+      if (!firstLoginComplete) {
+        router.replace('/chooseCountries');
+        return;
+      }
+    }
+  }, [user, userData, loading, router]);
+
+  useEffect(() => {
+    const fetchNickname = async () => {
+      if (user) {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setNickname(data.nickname || null);
+        }
+      }
+    };
+    fetchNickname();
+  }, [user]);
+  
 
   if (loading) {
     return (
@@ -90,7 +117,7 @@ export default function TabLayout() {
         headerShown: true,
         headerTitle: () => (
           <Text style={{ fontSize: 17 }}>
-            {nickname ?? user.email} {/* Display nickname or email if nickname is unavailable */}
+              {nickname ? nickname : 'Welcome'}
           </Text>
         ),
         headerRight: () => (
