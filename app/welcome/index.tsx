@@ -177,9 +177,7 @@ export default function WelcomeScreen() {
         if (!verificationMessage) {
           try {
             await sendEmailVerification(user);
-            await updateDoc(doc(db, 'users', user.uid), {
-              emailSentAt: Date.now(),
-            });
+            await updateDoc(doc(db, 'users', user.uid), {emailSentAt: Date.now()});
             console.log("Verification email sent and emailSentAt updated");
           } catch (emailError) {
             console.error("Failed to send verification email:", emailError);
@@ -191,7 +189,7 @@ export default function WelcomeScreen() {
         return;
       }
 
-      console.log("Email verified, checking nickname");
+
       const userDocRef = doc(db, 'users', user.uid);
       const userDoc = await getDoc(userDocRef);
       if (userDoc.exists()) {
@@ -205,12 +203,12 @@ export default function WelcomeScreen() {
         console.log("User verified in Firestore.");
       }
 
-      // Sprawdzenie warunków w odpowiedniej kolejności:
-      if (!user.emailVerified) {
-        console.log("Email not verified, redirecting to welcome");
-        router.replace('/welcome');
-        return;
-      }
+      // // Sprawdzenie warunków w odpowiedniej kolejności:
+      // if (!user.emailVerified) {
+      //   console.log("Email not verified, redirecting to welcome");
+      //   router.replace('/welcome');
+      //   return;
+      // }
 
       if (!nickname) {
         console.log("Nickname not set, redirecting to setNickname");
@@ -218,18 +216,16 @@ export default function WelcomeScreen() {
         return;
       }
 
-      if (user.emailVerified && isVerifiedInDb && nickname && !firstLoginComplete) {
+      if (!firstLoginComplete) {
         console.log("User needs to complete country selection, redirecting to chooseCountries");
         router.replace('/chooseCountries');
         return;
       }
 
-      // Jeśli użytkownik spełnia wszystkie warunki, przekieruj na stronę główną
-      if (user.emailVerified && isVerifiedInDb && nickname && firstLoginComplete) {
-        console.log("All conditions met, redirecting to home");
+
         router.replace('/');
         return;
-      }
+  
     }
     } catch (error: any) {
       console.log("Login error:", error.code, error.message);

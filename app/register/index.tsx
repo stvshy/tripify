@@ -13,7 +13,7 @@ import {
   Pressable,
   Keyboard 
 } from 'react-native';
-import { TextInput } from 'react-native-paper';
+import { ActivityIndicator, TextInput } from 'react-native-paper';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { auth } from '../config/firebaseConfig';
@@ -36,6 +36,7 @@ export default function RegisterScreen() {
   const scrollViewPaddingTop = errorMessage ? height*0.022 : 0;
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
   const requirementPaddingBottom = isKeyboardVisible ? 20 : 0;
+  const [isLoading, setIsLoading] = useState(false);
 
 
   const router = useRouter();
@@ -99,19 +100,23 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     setErrorMessage(null);
+    setIsLoading(true); // Ustawienie spinnera na "true"
 
     if (!email) {
       setErrorMessage('Please enter your email address.');
+      setIsLoading(false);
       return;
     }
 
     if (!password) {
       setErrorMessage('Please enter a password.');
+      setIsLoading(false);
       return;
     }
 
     if (password !== confirmPassword) {
       setErrorMessage('Passwords do not match.');
+      setIsLoading(false);
       return;
     }
 
@@ -120,6 +125,7 @@ export default function RegisterScreen() {
         !passwordRequirements.upperCase || 
         !passwordRequirements.number) {
       setErrorMessage('Password does not meet all requirements.');
+      setIsLoading(false);
       return;
     }
 
@@ -136,7 +142,7 @@ export default function RegisterScreen() {
         isVerified: false,
         createdAt: serverTimestamp(),
         authProvider: 'email',
-        firstLoginCompleted: false
+        firstLoginComplete: false
       });
 
       // Wysłanie e-maila weryfikacyjnego
@@ -159,6 +165,8 @@ export default function RegisterScreen() {
         default:
           setErrorMessage('An unknown error occurred. Please try again.');
       }
+    } finally {
+      setIsLoading(false); // Wyłączenie spinnera po zakończeniu
     }
   };
 
@@ -341,9 +349,22 @@ export default function RegisterScreen() {
         {/* Footer with Buttons */}
         <View style={styles.footer}>
         {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
-          <Pressable onPress={handleRegister} style={styles.registerButton}>
+        <Pressable 
+          onPress={handleRegister} 
+          style={[styles.registerButton, isLoading && { opacity: 0.7 }]}
+          disabled={isLoading} // Wyłączenie przycisku podczas ładowania
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
             <Text style={styles.registerButtonText}>Create account</Text>
-          </Pressable>
+            {isLoading && (
+              <ActivityIndicator 
+                size="small" 
+                color="#FFF" 
+                style={{ marginLeft: 8, transform: [{ scale: 0.6 }] }}
+              />
+            )}
+          </View>
+        </Pressable>
 
           <Pressable onPress={() => router.push('/welcome')} style={styles.loginRedirectButton}>
             <Text style={styles.loginRedirectText}>Already have an account? Log in</Text>
