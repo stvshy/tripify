@@ -10,11 +10,16 @@
     "splash": {
       "image": "./assets/images/gradient5.png",
       "resizeMode": "cover",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#000000"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.matisp6.tripify"
+      "bundleIdentifier": "com.matisp6.tripify",
+      "splash": {
+        "image": "./assets/images/gradient5.png",
+        "resizeMode": "cover",
+        "backgroundColor": "#000000"
+      }
     },
     "android": {
       "package": "com.matisp6.tripify",
@@ -22,12 +27,18 @@
         "foregroundImage": "./assets/images/tripify-icon.png",
         "backgroundColor": "#00000000"
       },
+      "splash": {
+        "image": "./assets/images/gradient5.png",
+        "resizeMode": "cover",
+        "backgroundColor": "#000000"
+      },
       "permissions": [
         "com.facebook.permission.FACEBOOK_LOGIN",
         "INTERNET",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"
       ]
+    
     },
     "web": {
       "bundler": "metro",

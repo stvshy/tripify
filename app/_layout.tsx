@@ -62,16 +62,20 @@ export default function RootLayout() {
   }, [router]);
   
 
-  // Ukrycie splash screena po załadowaniu czcionek
+
+  // Ukrywanie splash screena po załadowaniu czcionek i danych
   useEffect(() => {
-    if (loaded) {
-      setAppIsReady(true);
-      SplashScreen.hideAsync();
-    }
+    const prepareApp = async () => {
+      if (loaded) {
+        await SplashScreen.hideAsync(); // Ukrycie splash screena
+        setAppIsReady(true);
+      }
+    };
+    prepareApp();
   }, [loaded]);
 
-  // Ekran ładowania
-  if (!loaded || !appIsReady) {
+  // Ekran ładowania, gdy czcionki lub dane nie są gotowe
+  if (!appIsReady) {
     return (
       <ImageBackground
         source={require('../assets/images/gradient5.png')}

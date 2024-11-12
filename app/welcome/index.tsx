@@ -203,12 +203,6 @@ export default function WelcomeScreen() {
         console.log("User verified in Firestore.");
       }
 
-      // // Sprawdzenie warunków w odpowiedniej kolejności:
-      // if (!user.emailVerified) {
-      //   console.log("Email not verified, redirecting to welcome");
-      //   router.replace('/welcome');
-      //   return;
-      // }
 
       if (!nickname) {
         console.log("Nickname not set, redirecting to setNickname");
