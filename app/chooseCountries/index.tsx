@@ -13,6 +13,7 @@ import {
   Platform,
   SafeAreaView,
   Keyboard,
+  Animated,
 } from 'react-native';
 import { TextInput as PaperTextInput, Checkbox, Switch, useTheme } from 'react-native-paper';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -76,6 +77,9 @@ export default function ChooseCountriesScreen() {
   
   // State to track keyboard visibility
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+  
+  // Animated value for footer opacity
+  const footerOpacity = useState(new Animated.Value(1))[0];
 
   // Przetwarzanie danych krajów
   const processedCountries = useMemo(() => {
@@ -168,12 +172,22 @@ export default function ChooseCountriesScreen() {
       'keyboardDidShow',
       () => {
         setKeyboardVisible(true);
+        Animated.timing(footerOpacity, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
       }
     );
     const keyboardDidHideListener = Keyboard.addListener(
       'keyboardDidHide',
       () => {
         setKeyboardVisible(false);
+        Animated.timing(footerOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
       }
     );
 
@@ -181,7 +195,7 @@ export default function ChooseCountriesScreen() {
       keyboardDidShowListener.remove();
       keyboardDidHideListener.remove();
     };
-  }, []);
+  }, [footerOpacity]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -265,7 +279,7 @@ export default function ChooseCountriesScreen() {
             maxToRenderPerBatch={20}
             windowSize={21}
             getItemLayout={(data, index) => ({
-              length: 50,
+              length: 50, // Stała wysokość elementu
               offset: 50 * index,
               index,
             })}
@@ -274,20 +288,18 @@ export default function ChooseCountriesScreen() {
       </KeyboardAvoidingView>
 
       {/* Przycisk Save and Continue */}
-      {!isKeyboardVisible && (
-        <View style={styles.footer}>
-          <Pressable 
-            onPress={handleSaveCountries} 
-            style={[
-              styles.saveButton, 
-              selectedCountries.length === 0 && styles.saveButtonDisabled
-            ]}
-            disabled={selectedCountries.length === 0}
-          >
-            <Text style={styles.saveButtonText}>Save and Continue</Text>
-          </Pressable>
-        </View>
-      )}
+      <Animated.View style={[styles.footer, { opacity: footerOpacity }]}>
+        <Pressable 
+          onPress={handleSaveCountries} 
+          style={[
+            styles.saveButton, 
+            selectedCountries.length === 0 && styles.saveButtonDisabled
+          ]}
+          disabled={selectedCountries.length === 0}
+        >
+          <Text style={styles.saveButtonText}>Save and Continue</Text>
+        </Pressable>
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -342,7 +354,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     paddingLeft: 10,
-    height: 50, // Upewnij się, że wysokość pasuje
+    height: 50, // Stała wysokość, musi odpowiadać getItemLayout
     fontSize: 14,
     backgroundColor: 'transparent', // Usuń tło z TextInput
     borderRadius: 0, // Usuń wewnętrzny borderRadius
@@ -364,7 +376,7 @@ const styles = StyleSheet.create({
   countryItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    height: 50, // Stała wysokość
     paddingHorizontal: 8,
     borderBottomWidth: 0.5,
     borderBottomColor: '#ccc',
