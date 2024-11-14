@@ -8,6 +8,7 @@ import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { auth, db } from './config/firebaseConfig';
 import { View, StyleSheet, ImageBackground, Image, ActivityIndicator } from 'react-native';
 import { doc, getDoc } from 'firebase/firestore';
+import LoadingScreen from '@/components/LoadingScreen';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -71,7 +72,7 @@ export default function RootLayout() {
 
     prepareApp();
   }, [fontsLoaded]);
-  
+
   // Ukrywanie splash screena po załadowaniu czcionek i danych
 // Use 'fontsLoaded' consistently
 // useEffect(() => {
@@ -87,19 +88,10 @@ export default function RootLayout() {
 
   // Ekran ładowania, gdy czcionki lub dane nie są gotowe
 
-  if (!appIsReady || !initialRouteName) {
-    return (
-      <ImageBackground
-        source={require('../assets/images/gradient5.png')}
-        style={styles.background}
-      >
-        <View style={styles.centerContainer}>
-          <Image source={require('../assets/images/tripify-icon.png')} style={styles.logo} />
-          <ActivityIndicator size="large" color="#FFF" style={styles.loader} />
-        </View>
-        </ImageBackground>
-    );
-  }
+// With this:
+if (!appIsReady || !initialRouteName) {
+  return <LoadingScreen />;
+}
 
   return (
     <Stack initialRouteName={initialRouteName} screenOptions={{ headerShown: false }}>

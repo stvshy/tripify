@@ -148,37 +148,59 @@ export default function WelcomeScreen() {
         const userData = querySnapshot.docs[0].data();
         email = userData.email;
         console.log("Email found from nickname:", email);
-  
-        const emailSentAt = userData.emailSentAt;
-        if (emailSentAt) {
-          const elapsedSeconds = Math.floor((Date.now() - emailSentAt) / 1000);
-          const remainingTime = 60 - elapsedSeconds;
-          if (remainingTime > 0) {
-            setResendTimer(remainingTime);
-            console.log("Resend timer set to:", remainingTime);
-          }
+      } else {
+        // Obsługa przypadku, gdy identyfikator to e-mail
+        const signInMethods = await fetchSignInMethodsForEmail(auth, email);
+        if (signInMethods.length === 0) {
+          // Brak konta z tym e-mailem
+          setErrorMessage('No account was found with this email.');
+          setIsLoading(false);
+          return;
         }
       }
   
-
       console.log("Attempting to sign in with email:", email);
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       console.log("User signed in:", user.uid);
-
+  
       if (!user.emailVerified) {
         console.log("Email not verified");
-        if (!verificationMessage) {
-          try {
-            await sendEmailVerification(user);
-            await updateDoc(doc(db, 'users', user.uid), {emailSentAt: Date.now()});
-            console.log("Verification email sent and emailSentAt updated");
-          } catch (emailError) {
-            console.error("Failed to send verification email:", emailError);
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+  
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+  
+          // Sprawdź, kiedy ostatnio wysłano e-mail weryfikacyjny
+          const emailSentAt = userData.emailSentAt;
+          if (emailSentAt) {
+            const elapsedSeconds = Math.floor((Date.now() - emailSentAt) / 1000);
+            const remainingTime = 60 - elapsedSeconds;
+            if (remainingTime > 0) {
+              setResendTimer(remainingTime);
+              console.log("Resend timer set to:", remainingTime);
+            }
+          }
+  
+          // Jeśli jeszcze nie wysłano e-maila lub cooldown minął, wyślij e-mail
+          if (!emailSentAt || (Date.now() - emailSentAt) / 1000 >= 60) {
+            try {
+              await sendEmailVerification(user);
+              await updateDoc(userDocRef, { emailSentAt: Date.now() });
+              console.log("Verification email sent and emailSentAt updated");
+              setVerificationMessage("A verification email has been sent to your email address. Please verify to log in.");
+              setResendTimer(60); // Ustaw cooldown na 60 sekund
+            } catch (emailError) {
+              console.error("Failed to send verification email:", emailError);
+              setErrorMessage("Failed to send verification email. Please try again later.");
+            }
+          } else {
+            setVerificationMessage("Your account has not yet been verified. Please check your email inbox for the verification link.");
           }
         }
+  
         setErrorMessage("Please verify your email to log in.");
-        setVerificationMessage("Your account has not yet been verified. Please check your email inbox for the verification link.");
         setIsLoading(false);
         return;
       }
@@ -201,17 +223,20 @@ export default function WelcomeScreen() {
       if (!nickname) {
         console.log("Nickname not set, redirecting to setNickname");
         router.replace('/setNickname');
+        setIsLoading(false);
         return;
       }
 
       if (!firstLoginComplete) {
         console.log("User needs to complete country selection, redirecting to chooseCountries");
         router.replace('/chooseCountries');
+        setIsLoading(false);
         return;
       }
 
 
         router.replace('/');
+        setIsLoading(false);
         return;
   
     }
@@ -225,7 +250,7 @@ export default function WelcomeScreen() {
       } else if (error.code === 'auth/wrong-password') {
           setErrorMessage('The password you entered is incorrect.');
       } else {
-          setErrorMessage('The password or login you entered is incorrect.');
+          setErrorMessage('The password you entered is incorrect.');
       }
   } finally {
     setIsLoading(false); // Zakończenie ładowania
@@ -237,13 +262,16 @@ export default function WelcomeScreen() {
     if (user && !user.emailVerified && resendTimer === 0) {
       try {
         await sendEmailVerification(user);
+        await updateDoc(doc(db, 'users', user.uid), { emailSentAt: Date.now() });
         setVerificationMessage("Verification email resent. Please check your inbox.");
         setResendTimer(60);
       } catch (error) {
         console.error("Error resending email verification:", error);
+        setErrorMessage("Failed to resend verification email. Please try again later.");
       }
     }
   };
+  
 
   const handleFacebookLogin = async () => {
     try {

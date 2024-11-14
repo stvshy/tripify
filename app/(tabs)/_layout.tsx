@@ -7,6 +7,7 @@ import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { auth } from '../config/firebaseConfig';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import LoadingScreen from '@/components/LoadingScreen';
 
 const db = getFirestore();
 
@@ -66,11 +67,7 @@ export default function TabLayout() {
   }, [router]);
 
   if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={Colors[colorScheme ?? 'light'].tint} />
-      </View>
-    );
+    return <LoadingScreen showLogo={false} />; // Set showLogo to false if you don't want the logo
   }
 
   if (!user) {
