@@ -1,72 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { auth, db } from '../config/firebaseConfig';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { router } from 'expo-router';
-import { doc, getDoc } from 'firebase/firestore';
 
 export default function HomeScreen() {
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [user, setUser] = useState(auth.currentUser);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setUserEmail(currentUser?.email || null);
-    });
-
-    return unsubscribe;
-  }, []);
-
-  useEffect(() => {
-    const checkUserStatus = async () => {
-      if (user) {
-        const userDocRef = doc(db, 'users', user.uid);
-        const userDoc = await getDoc(userDocRef);
-  
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          const isVerified = user.emailVerified;
-          const nickname = userData?.nickname;
-          const firstLoginComplete = userData?.firstLoginComplete;
-
-          if (!isVerified) {
-            router.replace('/welcome');
-            return;
-          }
-          if (!nickname) {
-            router.replace('/setNickname');
-            return;
-          }
-          if (!firstLoginComplete) {
-            router.replace('/chooseCountries');
-            return;
-          }
-        }
-      } else {
-        router.replace('/welcome');
-      }
-    };
-
-    if (user) {
-      checkUserStatus();
-    }
-  }, [user]);
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      setUserEmail(null);
-      setUser(null);
-      router.replace('/welcome');
-    } catch (error) {
-      console.error('Błąd wylogowania', error);
-    }
-  };
-
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Witamy w aplikacji Tripify!</Text>
+      <Text style={styles.title}>Welcome to Tripify!</Text>
     </View>
   );
 }

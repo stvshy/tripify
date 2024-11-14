@@ -125,12 +125,6 @@ export default function WelcomeScreen() {
   }
 
   
-  if (!validatePassword()) {
-    console.log("Password validation failed");
-    setIsLoading(false);
-    return;
-  }
-
     let email = emailLower;
 
       // Walidacja formatu e-maila, jeśli identyfikator jest e-mailem

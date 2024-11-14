@@ -11,71 +11,83 @@ import { doc, getDoc } from 'firebase/firestore';
 
 SplashScreen.preventAutoHideAsync();
 
+
 export default function RootLayout() {
-  const [loaded, error] = useFonts({
+  const [fontsLoaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     ...FontAwesome.font,
   });
 
-  const [user, setUser] = useState<User | null>(null);
   const [appIsReady, setAppIsReady] = useState(false);
-  const router = useRouter();
+  const [initialRouteName, setInitialRouteName] = useState<string | null>(null);
+
 
   useEffect(() => {
-    if (error) {
-      console.error("Font loading error:", error);
-      return;
-    }
-  }, [error]);
+    const prepareApp = async () => {
+      // Wait for fonts to load
+      if (!fontsLoaded) return;
 
-  // Sprawdzanie stanu zalogowania użytkownika
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-  
+      let currentUser = auth.currentUser;
+
+      // Wait for auth state to be determined
+      if (currentUser === null) {
+        currentUser = await new Promise((resolve) => {
+          const unsubscribe = auth.onAuthStateChanged((user) => {
+            unsubscribe();
+            resolve(user);
+          });
+        });
+      }
+
       if (currentUser) {
         const userDocRef = doc(db, 'users', currentUser.uid);
         const userDoc = await getDoc(userDocRef);
-  
+
         if (userDoc.exists()) {
           const userData = userDoc.data();
           const isVerified = currentUser.emailVerified;
           const nickname = userData?.nickname;
           const firstLoginComplete = userData?.firstLoginComplete;
-  
+
           if (!isVerified) {
-            router.replace('/welcome');
+            setInitialRouteName('verifyEmail');
           } else if (!nickname) {
-            router.replace('/setNickname');
+            setInitialRouteName('setNickname');
           } else if (!firstLoginComplete) {
-            router.replace('/chooseCountries');
+            setInitialRouteName('chooseCountries');
           } else {
-            router.replace('/');
+            setInitialRouteName('(tabs)');
           }
+        } else {
+          setInitialRouteName('welcome');
         }
       } else {
-        router.replace('/welcome');
+        setInitialRouteName('welcome');
       }
-    });
-  
-    return () => unsubscribe();
-  }, [router]);
-  
 
-
-  // Ukrywanie splash screena po załadowaniu czcionek i danych
-  useEffect(() => {
-    const prepareApp = async () => {
-      if (loaded) {
-        await SplashScreen.hideAsync(); // Ukrycie splash screena
-        setAppIsReady(true);
-      }
+      setAppIsReady(true);
+      await SplashScreen.hideAsync();
     };
+
     prepareApp();
-  }, [loaded]);
+  }, [fontsLoaded]);
+  
+  // Ukrywanie splash screena po załadowaniu czcionek i danych
+// Use 'fontsLoaded' consistently
+// useEffect(() => {
+//   const prepareApp = async () => {
+//     if (fontsLoaded) {
+//       await SplashScreen.hideAsync(); // Ukrycie splash screena
+//       setAppIsReady(true);
+//     }
+//   };
+//   prepareApp();
+// }, [fontsLoaded]);
+
 
   // Ekran ładowania, gdy czcionki lub dane nie są gotowe
-  if (!appIsReady) {
+
+  if (!appIsReady || !initialRouteName) {
     return (
       <ImageBackground
         source={require('../assets/images/gradient5.png')}
@@ -85,35 +97,13 @@ export default function RootLayout() {
           <Image source={require('../assets/images/tripify-icon.png')} style={styles.logo} />
           <ActivityIndicator size="large" color="#FFF" style={styles.loader} />
         </View>
-      </ImageBackground>
+        </ImageBackground>
     );
   }
 
   return (
-    <RootLayoutNav user={user} />
-  );
-}
-
-function RootLayoutNav({ user }: { user: User | null }) {
-  const router = useRouter();
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      router.replace('/welcome');
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
-  };
-
-  return (
-    <Stack screenOptions={{ headerShown: false }}>
-      {user ? (
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      ) : (
-        <Stack.Screen name="welcome" options={{ headerShown: false }} />
-      )}
-      <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+    <Stack initialRouteName={initialRouteName} screenOptions={{ headerShown: false }}>
+      {/* Your Stack Screens */}
     </Stack>
   );
 }

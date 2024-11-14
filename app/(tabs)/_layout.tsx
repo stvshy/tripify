@@ -19,75 +19,51 @@ function TabBarIcon(props: {
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(auth.currentUser);
   const [loading, setLoading] = useState(true);
-  const [nickname, setNickname] = useState<string | null>(null); // Store nickname
-  const [userData, setUserData] = useState<any>(null);
+  const [nickname, setNickname] = useState<string | null>(null);
   const router = useRouter();
-
-  const fetchUserData = async (userId: string) => {
-    const userDocRef = doc(db, 'users', userId);
-    const userDoc = await getDoc(userDocRef);
-    if (userDoc.exists()) {
-      return userDoc.data();
-    }
-    return null;
-  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setLoading(true);
       if (currentUser) {
-        setUser(currentUser);
-        const data = await fetchUserData(currentUser.uid);
-        setUserData(data);
+        if (!currentUser.emailVerified) {
+          router.replace('/verifyEmail');
+          setLoading(false);
+          return;
+        }
+
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const nickname = userData?.nickname;
+          const firstLoginComplete = userData?.firstLoginComplete;
+
+          if (!nickname) {
+            router.replace('/setNickname');
+            setLoading(false);
+            return;
+          }
+
+          if (!firstLoginComplete) {
+            router.replace('/chooseCountries');
+            setLoading(false);
+            return;
+          }
+
+          setUser(currentUser);
+          setNickname(nickname);
+        } else {
+          router.replace('/welcome');
+        }
       } else {
-        setUser(null);
-        setUserData(null);
         router.replace('/welcome');
       }
       setLoading(false);
     });
     return () => unsubscribe();
   }, [router]);
-  
-  useEffect(() => {
-    if (!loading && user && userData) {
-      const {  nickname, firstLoginComplete } = userData;
-
-      // Sprawdź status weryfikacji użytkownika
-      if (!user.emailVerified) {
-        router.replace('/welcome');
-        return;
-      }
-
-      // Sprawdź, czy użytkownik ustawił nick
-      if (!nickname) {
-        router.replace('/setNickname');
-        return;
-      }
-
-      // Sprawdź, czy użytkownik wybrał kraje
-      if (!firstLoginComplete) {
-        router.replace('/chooseCountries');
-        return;
-      }
-    }
-  }, [user, userData, loading, router]);
-
-  useEffect(() => {
-    const fetchNickname = async () => {
-      if (user) {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setNickname(data.nickname || null);
-        }
-      }
-    };
-    fetchNickname();
-  }, [user]);
-  
 
   if (loading) {
     return (
@@ -117,7 +93,7 @@ export default function TabLayout() {
         headerShown: true,
         headerTitle: () => (
           <Text style={{ fontSize: 17 }}>
-              {nickname ? nickname : 'Welcome'}
+            {nickname ? nickname : 'Welcome'}
           </Text>
         ),
         headerRight: () => (
@@ -135,14 +111,14 @@ export default function TabLayout() {
         name="index"
         options={{
           title: '',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
         }}
       />
       <Tabs.Screen
         name="two"
         options={{
           title: '',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
         }}
       />
     </Tabs>

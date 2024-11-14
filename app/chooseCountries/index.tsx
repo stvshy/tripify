@@ -26,7 +26,7 @@ export default function ChooseCountriesScreen() {
         countriesVisited: selectedCountries,
         firstLoginComplete: true,
       });
-      router.replace('(tabs)');
+      router.replace('/');
     }
   };
 
