@@ -13,7 +13,6 @@ import {
   Platform,
   SafeAreaView,
   Keyboard,
-  Animated,
 } from 'react-native';
 import { TextInput as PaperTextInput, Checkbox, Switch, useTheme } from 'react-native-paper';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -77,9 +76,6 @@ export default function ChooseCountriesScreen() {
   
   // State to track keyboard visibility
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
-  
-  // Animated value for footer opacity
-  const footerOpacity = useState(new Animated.Value(1))[0];
 
   // Przetwarzanie danych krajów
   const processedCountries = useMemo(() => {
@@ -172,22 +168,12 @@ export default function ChooseCountriesScreen() {
       'keyboardDidShow',
       () => {
         setKeyboardVisible(true);
-        Animated.timing(footerOpacity, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }).start();
       }
     );
     const keyboardDidHideListener = Keyboard.addListener(
       'keyboardDidHide',
       () => {
         setKeyboardVisible(false);
-        Animated.timing(footerOpacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }).start();
       }
     );
 
@@ -195,7 +181,7 @@ export default function ChooseCountriesScreen() {
       keyboardDidShowListener.remove();
       keyboardDidHideListener.remove();
     };
-  }, [footerOpacity]);
+  }, []);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -274,7 +260,6 @@ export default function ChooseCountriesScreen() {
               </View>
             }
             style={styles.sectionList}
-            contentContainerStyle={{ paddingBottom: 100 }} // Zapewnia przestrzeń dla przycisku
             initialNumToRender={20}
             maxToRenderPerBatch={20}
             windowSize={21}
@@ -288,7 +273,13 @@ export default function ChooseCountriesScreen() {
       </KeyboardAvoidingView>
 
       {/* Przycisk Save and Continue */}
-      <Animated.View style={[styles.footer, { opacity: footerOpacity }]}>
+      <View 
+        style={[
+          styles.footer, 
+          isKeyboardVisible ? styles.footerHidden : styles.footerVisible
+        ]}
+        pointerEvents={isKeyboardVisible ? 'none' : 'auto'}
+      >
         <Pressable 
           onPress={handleSaveCountries} 
           style={[
@@ -299,7 +290,7 @@ export default function ChooseCountriesScreen() {
         >
           <Text style={styles.saveButtonText}>Save and Continue</Text>
         </Pressable>
-      </Animated.View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -313,7 +304,7 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingTop: 20,
     flexDirection: 'column',
-    justifyContent: 'space-between', // Rozmieszczenie zawartości od góry do dołu
+    justifyContent: 'flex-start', // Rozmieszczenie zawartości od góry
   },
   header: {
     width: '100%',
@@ -399,10 +390,19 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   footer: {
-    width: '100%',
+    position: 'absolute', // Absolutne pozycjonowanie
+    bottom: 0,
+    left: 0,
+    right: 0,
     alignItems: 'center',
     paddingVertical: 10,
     backgroundColor: 'transparent', // Transparent footer
+  },
+  footerHidden: {
+    opacity: 0,
+  },
+  footerVisible: {
+    opacity: 1,
   },
   saveButton: {
     backgroundColor: '#7511b5',
