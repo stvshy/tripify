@@ -1,6 +1,6 @@
 // app/chooseCountries/index.tsx
 
-import React, { useState, useMemo, useCallback, useContext } from 'react';
+import React, { useState, useMemo, useCallback, useContext, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
+  Keyboard,
 } from 'react-native';
 import { TextInput as PaperTextInput, Checkbox, Switch, useTheme } from 'react-native-paper';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -25,10 +26,6 @@ import { ThemeContext } from '../config/ThemeContext';
 const { width, height } = Dimensions.get('window');
 
 type Continent = 'Africa' | 'Americas (North)' | 'Americas (South)' | 'Asia' | 'Europe' | 'Oceania' | 'Antarctica';
-
-interface ChooseCountriesScreenProps {
-  // Usuń toggleTheme i currentTheme z propsów
-}
 
 // Funkcja do określania kontynentu na podstawie regionu i subregionu
 const getContinent = (region: string, subregion: string): Continent => {
@@ -75,6 +72,10 @@ export default function ChooseCountriesScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const { toggleTheme, isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme(); // Hook z react-native-paper
+  const [isFocused, setIsFocused] = useState(false); // Boolean for search input focus
+  
+  // State to track keyboard visibility
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
 
   // Przetwarzanie danych krajów
   const processedCountries = useMemo(() => {
@@ -141,101 +142,139 @@ export default function ChooseCountriesScreen() {
     }
   };
 
-  const renderCountryItem = useCallback(({ item }: { item: typeof countries[0] }) => (
-    <CountryItem 
-      item={item} 
-      onSelect={handleSelectCountry} 
-      isSelected={selectedCountries.includes(item.name.common)} 
-    />
-  ), [handleSelectCountry, selectedCountries]);
+  const renderCountryItem = useCallback(
+    ({ item }: { item: typeof countries[0] }) => (
+      <CountryItem 
+        item={item} 
+        onSelect={handleSelectCountry} 
+        isSelected={selectedCountries.includes(item.name.common)} 
+      />
+    ), 
+    [handleSelectCountry, selectedCountries]
+  );
 
-  const renderSectionHeader = useCallback(({ section }: { section: { title: string } }) => (
-    <View style={[styles.sectionHeader, { backgroundColor: theme.colors.surface }]}>
-      <Text style={[styles.sectionHeaderText, { color: theme.colors.primary }]}>{section.title}</Text>
-    </View>
-  ), [theme.colors.surface, theme.colors.primary]);
+  const renderSectionHeader = useCallback(
+    ({ section }: { section: { title: string } }) => (
+      <View style={[styles.sectionHeader, { backgroundColor: theme.colors.surface }]}>
+        <Text style={[styles.sectionHeaderText, { color: theme.colors.primary }]}>{section.title}</Text>
+      </View>
+    ), 
+    [theme.colors.surface, theme.colors.primary]
+  );
+
+  // Obsługa klawiatury, aby przycisk się chował
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      () => {
+        setKeyboardVisible(true);
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => {
+        setKeyboardVisible(false);
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.keyboardAvoidingView}
-    >
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        {/* Nagłówek z tytułem i przełącznikiem motywu */}
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.colors.primary }]}>Select Countries You Have Visited</Text>
-          <View style={styles.themeSwitchContainer}>
-            <Text style={styles.themeIcon}>
-              {isDarkTheme ? '🌙' : '☀️'}
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardAvoidingView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 20} // Dostosuj w zależności od potrzeb
+      >
+        <View style={{ flex: 1 }}>
+          {/* Nagłówek z tytułem i przełącznikiem motywu */}
+          <View style={styles.header}>
+            <Text style={[styles.title, { color: theme.colors.primary }]}>
+              Select Countries You Have Visited
             </Text>
-            <Switch
-              value={isDarkTheme}
-              onValueChange={() => {
-                console.log('Switch toggled');
-                toggleTheme();
+            <View style={styles.themeSwitchContainer}>
+              <Text style={styles.themeIcon}>
+                {isDarkTheme ? '🌙' : '☀️'}
+              </Text>
+              <Switch
+                value={isDarkTheme}
+                onValueChange={() => {
+                  console.log('Switch toggled');
+                  toggleTheme();
+                }}
+                color="#6a1b9a"
+              />
+            </View>
+          </View>
+
+          {/* Pasek Wyszukiwania */}
+          <View style={[styles.inputContainer, isFocused && styles.inputFocused]}>
+            <PaperTextInput
+              label="Search Country"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              mode="flat" // Użyj trybu 'flat' zamiast 'outlined'
+              style={styles.input}
+              theme={{
+                colors: {
+                  primary: isFocused ? '#6a1b9a' : '#ccc', // Zmiana koloru primary na domyślny border color
+                  placeholder: '#6a1b9a',
+                  background: 'transparent', // Usuń tło z TextInput
+                  text: '#000',
+                  error: 'red',
+                },
               }}
-              color="#6a1b9a"
+              underlineColor="transparent"
+              left={
+                <PaperTextInput.Icon
+                  icon={() => (
+                    <FontAwesome
+                      name="search"
+                      size={20}
+                      color={isFocused ? '#6a1b9a' : '#606060'}
+                    />
+                  )}
+                  style={styles.iconLeft}
+                />
+              }
+              autoCapitalize="none"
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
             />
           </View>
+
+          {/* Lista Krajów */}
+          <SectionList
+            sections={processedCountries}
+            keyExtractor={(item) => item.cca3}
+            renderItem={renderCountryItem}
+            renderSectionHeader={renderSectionHeader}
+            stickySectionHeadersEnabled={false}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>No countries found.</Text>
+              </View>
+            }
+            style={styles.sectionList}
+            contentContainerStyle={{ paddingBottom: 100 }} // Zapewnia przestrzeń dla przycisku
+            initialNumToRender={20}
+            maxToRenderPerBatch={20}
+            windowSize={21}
+            getItemLayout={(data, index) => ({
+              length: 50,
+              offset: 50 * index,
+              index,
+            })}
+          />
         </View>
+      </KeyboardAvoidingView>
 
-        {/* Pasek Wyszukiwania */}
-        <PaperTextInput
-          label="Search Country"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          mode="outlined"
-          style={styles.searchBar}
-          theme={{
-            colors: {
-              primary: '#6a1b9a',
-              placeholder: '#6a1b9a',
-              background: theme.colors.surface,
-              onSurface: theme.colors.onSurface, // Poprawka: 'text' na 'onSurface'
-              error: 'red',
-            },
-          }}
-          underlineColor="transparent" 
-          left={
-            <PaperTextInput.Icon 
-              icon={() => (
-                <FontAwesome 
-                  name="search" 
-                  size={20}  
-                  color="#6a1b9a" 
-                />
-              )}
-              style={styles.iconLeft}
-            />
-          }
-          autoCapitalize="none" 
-        />
-
-        {/* Lista Krajów */}
-        <SectionList
-          sections={processedCountries}
-          keyExtractor={(item) => item.cca3}
-          renderItem={renderCountryItem}
-          renderSectionHeader={renderSectionHeader}
-          stickySectionHeadersEnabled
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No countries found.</Text>
-            </View>
-          }
-          style={styles.sectionList}
-          contentContainerStyle={{ paddingBottom: 20 }} // Dodaje odstęp na dole listy
-          initialNumToRender={20} // Optymalizacja początkowej liczby renderowanych elementów
-          maxToRenderPerBatch={20}
-          windowSize={21}
-          getItemLayout={(data, index) => ({
-            length: 50, // Przykładowa wysokość elementu; dostosuj w razie potrzeby
-            offset: 50 * index,
-            index,
-          })}
-        />
-        
-        {/* Przycisk Zapisz i Kontynuuj */}
+      {/* Przycisk Save and Continue */}
+      {!isKeyboardVisible && (
         <View style={styles.footer}>
           <Pressable 
             onPress={handleSaveCountries} 
@@ -248,8 +287,8 @@ export default function ChooseCountriesScreen() {
             <Text style={styles.saveButtonText}>Save and Continue</Text>
           </Pressable>
         </View>
-      </SafeAreaView>
-    </KeyboardAvoidingView>
+      )}
+    </SafeAreaView>
   );
 }
 
@@ -260,7 +299,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    paddingTop: 20, // Dodaj padding na górze, aby obniżyć tytuł
+    paddingTop: 20,
+    flexDirection: 'column',
+    justifyContent: 'space-between', // Rozmieszczenie zawartości od góry do dołu
   },
   header: {
     width: '100%',
@@ -274,33 +315,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   themeIcon: {
-    fontSize: 24,
+    fontSize: 20,
     marginRight: 8,
   },
   title: {
-    fontSize: 20, // Zwiększony rozmiar fontu dla lepszej widoczności
+    fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'left',
     flex: 1,
-    marginRight: 10, // Dodaj odstęp między tytułem a przełącznikiem
+    marginRight: 10,
   },
-  searchBar: {
-    width: '100%',
-    marginBottom: 12,
-    backgroundColor: 'transparent', // Ustawiono na transparent, ponieważ background kolor jest ustawiany w theme
+  inputContainer: {
+    width: width * 0.89,
+    backgroundColor: '#f0ed8f5',
     borderRadius: 28, // Zwiększony borderRadius dla lepszej estetyki
+    overflow: 'hidden',
+    marginBottom: 13,
     borderWidth: 2,
-    borderColor: 'transparent', // Domyślny kolor obramowania
-    height: 52, // Ustawienie wysokości dla spójności z innymi polami
-    fontSize: 15, // Ustawienie rozmiaru czcionki dla spójności
+    borderColor: '#ccc', // Domyślny kolor obramowania
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  inputFocused: {
+    borderColor: '#6a1b9a', // Kolor obramowania w stanie fokusu
+  },
+  input: {
+    flex: 1,
+    paddingLeft: 10,
+    height: 50, // Upewnij się, że wysokość pasuje
+    fontSize: 14,
+    backgroundColor: 'transparent', // Usuń tło z TextInput
+    borderRadius: 0, // Usuń wewnętrzny borderRadius
+    color: '#000', // Upewnij się, że tekst jest widoczny
   },
   iconLeft: {
     marginLeft: 10,
   },
   sectionHeader: {
-    paddingVertical: 4,
+    paddingVertical: 6,
     paddingHorizontal: 8,
     width: '100%',
+    backgroundColor: '#f0f0f0',
   },
   sectionHeaderText: {
     fontSize: 16,
@@ -313,7 +368,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderBottomWidth: 0.5,
     borderBottomColor: '#ccc',
-    width: '100%',
   },
   flagContainer: {
     marginRight: 12,
@@ -324,6 +378,20 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
   },
+  emptyContainer: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  footer: {
+    width: '100%',
+    alignItems: 'center',
+    paddingVertical: 10,
+    backgroundColor: 'transparent', // Transparent footer
+  },
   saveButton: {
     backgroundColor: '#7511b5',
     paddingVertical: 12,
@@ -331,9 +399,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 25,
     width: '90%',
-    marginBottom: 10,
-    elevation: 2, // Efekt cienia dla Android
-    shadowColor: '#000', // Efekt cienia dla iOS
+    elevation: 2, // Dodanie cienia dla efektu uniesienia (Android)
+    shadowColor: '#000', // Dodanie cienia dla efektu uniesienia (iOS)
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
@@ -346,21 +413,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  footer: {
-    width: '100%', // Upewnij się, że footer zajmuje pełną szerokość
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  emptyContainer: {
-    padding: 16,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#666',
-  },
   sectionList: {
     flex: 1,
-    width: '100%',
   },
 });
