@@ -13,6 +13,7 @@ import {
   Platform,
   SafeAreaView,
   Keyboard,
+  Animated,
 } from 'react-native';
 import { TextInput as PaperTextInput, Checkbox, Switch, useTheme } from 'react-native-paper';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -23,7 +24,7 @@ import countries from 'world-countries';
 import { FontAwesome } from '@expo/vector-icons';
 import { ThemeContext } from '../config/ThemeContext';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 type Continent = 'Africa' | 'Americas (North)' | 'Americas (South)' | 'Asia' | 'Europe' | 'Oceania' | 'Antarctica';
 
@@ -73,9 +74,42 @@ export default function ChooseCountriesScreen() {
   const { toggleTheme, isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme(); // Hook z react-native-paper
   const [isFocused, setIsFocused] = useState(false); // Boolean for search input focus
-  
-  // State to track keyboard visibility
-  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false); // State to track keyboard visibility
+
+  // Animacja dla przycisku
+  const fadeAnim = useState(new Animated.Value(1))[0]; // Domyślnie widoczny
+
+  // Nasłuchiwanie zdarzeń klawiatury
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const keyboardShowListener = Keyboard.addListener(showEvent, () => {
+      console.log('Keyboard shown');
+      setKeyboardVisible(true);
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 100, // Krótki czas trwania dla szybkiego ukrycia
+        useNativeDriver: true,
+      }).start();
+    });
+
+    const keyboardHideListener = Keyboard.addListener(hideEvent, () => {
+      console.log('Keyboard hidden');
+      setKeyboardVisible(false);
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    // Czyszczenie nasłuchiwaczy przy odmontowaniu komponentu
+    return () => {
+      keyboardShowListener.remove();
+      keyboardHideListener.remove();
+    };
+  }, [fadeAnim]);
 
   // Przetwarzanie danych krajów
   const processedCountries = useMemo(() => {
@@ -162,27 +196,6 @@ export default function ChooseCountriesScreen() {
     [theme.colors.surface, theme.colors.primary]
   );
 
-  // Obsługa klawiatury, aby przycisk się chował
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener(
-      'keyboardDidShow',
-      () => {
-        setKeyboardVisible(true);
-      }
-    );
-    const keyboardDidHideListener = Keyboard.addListener(
-      'keyboardDidHide',
-      () => {
-        setKeyboardVisible(false);
-      }
-    );
-
-    return () => {
-      keyboardDidShowListener.remove();
-      keyboardDidHideListener.remove();
-    };
-  }, []);
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <KeyboardAvoidingView
@@ -242,8 +255,14 @@ export default function ChooseCountriesScreen() {
                 />
               }
               autoCapitalize="none"
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
+              onFocus={() => {
+                setIsFocused(true);
+                // Usunięcie setKeyboardVisible tutaj
+              }}
+              onBlur={() => {
+                setIsFocused(false);
+                // Usunięcie setKeyboardVisible tutaj
+              }}
             />
           </View>
 
@@ -272,14 +291,19 @@ export default function ChooseCountriesScreen() {
         </View>
       </KeyboardAvoidingView>
 
-      {/* Przycisk Save and Continue */}
-      <View 
-        style={[
-          styles.footer, 
-          isKeyboardVisible ? styles.footerHidden : styles.footerVisible
-        ]}
-        pointerEvents={isKeyboardVisible ? 'none' : 'auto'}
-      >
+      {/* Przycisk Save and Continue z animacją */}
+      <Animated.View style={[
+        styles.footer,
+        {
+          opacity: fadeAnim,
+          transform: [{
+            translateY: fadeAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [50, 0], // Opcjonalne przesunięcie
+            })
+          }]
+        }
+      ]}>
         <Pressable 
           onPress={handleSaveCountries} 
           style={[
@@ -290,7 +314,7 @@ export default function ChooseCountriesScreen() {
         >
           <Text style={styles.saveButtonText}>Save and Continue</Text>
         </Pressable>
-      </View>
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -304,7 +328,6 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingTop: 20,
     flexDirection: 'column',
-    justifyContent: 'flex-start', // Rozmieszczenie zawartości od góry
   },
   header: {
     width: '100%',
@@ -367,7 +390,7 @@ const styles = StyleSheet.create({
   countryItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 50, // Stała wysokość
+    height: 50,
     paddingHorizontal: 8,
     borderBottomWidth: 0.5,
     borderBottomColor: '#ccc',
@@ -397,12 +420,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     backgroundColor: 'transparent', // Transparent footer
-  },
-  footerHidden: {
-    opacity: 0,
-  },
-  footerVisible: {
-    opacity: 1,
+    zIndex: 1000, // Wyższy zIndex aby upewnić się, że jest nad innymi elementami
   },
   saveButton: {
     backgroundColor: '#7511b5',
