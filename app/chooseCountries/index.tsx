@@ -24,9 +24,9 @@ import countries from 'world-countries';
 import { FontAwesome } from '@expo/vector-icons';
 import { ThemeContext } from '../config/ThemeContext';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
-type Continent = 'Africa' | 'Americas (North)' | 'Americas (South)' | 'Asia' | 'Europe' | 'Oceania' | 'Antarctica';
+type Continent = 'Africa' | 'North America' | 'South America' | 'Asia' | 'Europe' | 'Oceania' | 'Antarctica';
 
 // Funkcja do określania kontynentu na podstawie regionu i subregionu
 const getContinent = (region: string, subregion: string): Continent => {
@@ -35,9 +35,9 @@ const getContinent = (region: string, subregion: string): Continent => {
       return 'Africa';
     case 'Americas':
       if (subregion.includes('South')) {
-        return 'Americas (South)';
+        return 'South America';
       } else {
-        return 'Americas (North)';
+        return 'North America';
       }
     case 'Asia':
       return 'Asia';
@@ -76,9 +76,9 @@ export default function ChooseCountriesScreen() {
   const [isFocused, setIsFocused] = useState(false); // Boolean for search input focus
   const [isKeyboardVisible, setKeyboardVisible] = useState(false); // State to track keyboard visibility
 
-  // Animacja dla przycisku
+ // Animacja dla przycisku
   const fadeAnim = useState(new Animated.Value(1))[0]; // Domyślnie widoczny
-
+  
   // Nasłuchiwanie zdarzeń klawiatury
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -207,7 +207,7 @@ export default function ChooseCountriesScreen() {
           {/* Nagłówek z tytułem i przełącznikiem motywu */}
           <View style={styles.header}>
             <Text style={[styles.title, { color: theme.colors.primary }]}>
-              Select Countries You Have Visited
+              Select countries you've visited
             </Text>
             <View style={styles.themeSwitchContainer}>
               <Text style={styles.themeIcon}>
@@ -257,11 +257,11 @@ export default function ChooseCountriesScreen() {
               autoCapitalize="none"
               onFocus={() => {
                 setIsFocused(true);
-                // Usunięcie setKeyboardVisible tutaj
+                setKeyboardVisible(true);
               }}
               onBlur={() => {
                 setIsFocused(false);
-                // Usunięcie setKeyboardVisible tutaj
+                setKeyboardVisible(false);
               }}
             />
           </View>
@@ -291,29 +291,26 @@ export default function ChooseCountriesScreen() {
         </View>
       </KeyboardAvoidingView>
 
-      {/* Przycisk Save and Continue z animacją */}
+      {/* Przycisk Save and Continue */}
       <Animated.View style={[
         styles.footer,
-        {
-          opacity: fadeAnim,
-          transform: [{
-            translateY: fadeAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [50, 0], // Opcjonalne przesunięcie
-            })
-          }]
-        }
+        { opacity: fadeAnim, transform: [{ translateY: fadeAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [50, 0], // Opcjonalne przesunięcie
+        }) }] }
       ]}>
-        <Pressable 
-          onPress={handleSaveCountries} 
-          style={[
-            styles.saveButton, 
-            selectedCountries.length === 0 && styles.saveButtonDisabled
-          ]}
-          disabled={selectedCountries.length === 0}
-        >
-          <Text style={styles.saveButtonText}>Save and Continue</Text>
-        </Pressable>
+        {!isKeyboardVisible && (
+          <Pressable 
+            onPress={handleSaveCountries} 
+            style={[
+              styles.saveButton, 
+              selectedCountries.length === 0 && styles.saveButtonDisabled
+            ]}
+            disabled={selectedCountries.length === 0}
+          >
+            <Text style={styles.saveButtonText}>Save and Continue</Text>
+          </Pressable>
+        )}
       </Animated.View>
     </SafeAreaView>
   );
@@ -325,8 +322,8 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    padding: 16,
-    paddingTop: 20,
+    padding: 13,
+    // paddingTop: 20,
     flexDirection: 'column',
   },
   header: {
@@ -334,25 +331,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: -5,
+    marginTop: 10
   },
   themeSwitchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginRight: 18
   },
   themeIcon: {
     fontSize: 20,
-    marginRight: 8,
+    // marginRight: 1,
   },
   title: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: 'bold',
     textAlign: 'left',
     flex: 1,
     marginRight: 10,
+    marginLeft: 18
   },
   inputContainer: {
-    width: width * 0.89,
+    width: width * 0.90,
     backgroundColor: '#f0ed8f5',
     borderRadius: 28, // Zwiększony borderRadius dla lepszej estetyki
     overflow: 'hidden',
@@ -361,6 +361,8 @@ const styles = StyleSheet.create({
     borderColor: '#ccc', // Domyślny kolor obramowania
     flexDirection: 'row',
     alignItems: 'center',
+    height: height * 0.075,
+    marginLeft: 4
   },
   inputFocused: {
     borderColor: '#6a1b9a', // Kolor obramowania w stanie fokusu
@@ -390,7 +392,7 @@ const styles = StyleSheet.create({
   countryItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 50,
+    height: 50, // Stała wysokość
     paddingHorizontal: 8,
     borderBottomWidth: 0.5,
     borderBottomColor: '#ccc',
@@ -420,7 +422,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     backgroundColor: 'transparent', // Transparent footer
-    zIndex: 1000, // Wyższy zIndex aby upewnić się, że jest nad innymi elementami
+    zIndex: 100, // Upewnij się, że przycisk jest nad innymi elementami
   },
   saveButton: {
     backgroundColor: '#7511b5',
