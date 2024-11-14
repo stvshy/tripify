@@ -1,6 +1,6 @@
 // app/chooseCountries/index.tsx
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useContext } from 'react';
 import { 
   View, 
   Text, 
@@ -8,35 +8,29 @@ import {
   Pressable, 
   StyleSheet, 
   Alert, 
-  ImageBackground,
+  Dimensions, 
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
-  ScrollView,
-  Dimensions,
 } from 'react-native';
-import { TextInput, Button, Checkbox } from 'react-native-paper';
+import { TextInput as PaperTextInput, Checkbox, Switch, useTheme } from 'react-native-paper';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
 import { auth, db } from '../config/firebaseConfig';
 import CountryFlag from 'react-native-country-flag';
 import countries from 'world-countries';
 import { FontAwesome } from '@expo/vector-icons';
+import { ThemeContext } from '../config/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
 
 type Continent = 'Africa' | 'Americas (North)' | 'Americas (South)' | 'Asia' | 'Europe' | 'Oceania' | 'Antarctica';
 
-const continentsMap: Record<string, Continent> = {
-  Africa: 'Africa',
-  Americas: 'Americas (North)', // Initial mapping, will adjust below
-  Asia: 'Asia',
-  Europe: 'Europe',
-  Oceania: 'Oceania',
-  Antarctic: 'Antarctica',
-};
+interface ChooseCountriesScreenProps {
+  // Usuń toggleTheme i currentTheme z propsów
+}
 
-// Funkcja do mapowania regionów na kontynenty, z podziałem Ameryk
+// Funkcja do określania kontynentu na podstawie regionu i subregionu
 const getContinent = (region: string, subregion: string): Continent => {
   switch (region) {
     case 'Africa':
@@ -56,14 +50,31 @@ const getContinent = (region: string, subregion: string): Continent => {
     case 'Antarctic':
       return 'Antarctica';
     default:
-      return 'Africa'; // Domyślnie Africa, można zmienić na 'Other'
+      return 'Africa'; // Możesz zmienić na 'Other' jeśli potrzebujesz
   }
 };
+
+// Memoizowany komponent dla pojedynczego kraju
+const CountryItem = React.memo(({ item, onSelect, isSelected }: { item: typeof countries[0], onSelect: (name: string) => void, isSelected: boolean }) => (
+  <Pressable onPress={() => onSelect(item.name.common)} style={styles.countryItem}>
+    <View style={styles.flagContainer}>
+      <CountryFlag isoCode={item.cca2} size={25} />
+    </View>
+    <Text style={styles.countryText}>{item.name.common}</Text>
+    <Checkbox
+      status={isSelected ? 'checked' : 'unchecked'}
+      onPress={() => onSelect(item.name.common)}
+      color="#6a1b9a"
+    />
+  </Pressable>
+));
 
 export default function ChooseCountriesScreen() {
   const router = useRouter();
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const { toggleTheme, isDarkTheme } = useContext(ThemeContext);
+  const theme = useTheme(); // Hook z react-native-paper
 
   // Przetwarzanie danych krajów
   const processedCountries = useMemo(() => {
@@ -95,13 +106,15 @@ export default function ChooseCountriesScreen() {
     return sections;
   }, [searchQuery]);
 
-  const handleSelectCountry = (countryName: string) => {
-    if (selectedCountries.includes(countryName)) {
-      setSelectedCountries(selectedCountries.filter((c) => c !== countryName));
-    } else {
-      setSelectedCountries([...selectedCountries, countryName]);
-    }
-  };
+  const handleSelectCountry = useCallback((countryName: string) => {
+    setSelectedCountries((prevSelected) => {
+      if (prevSelected.includes(countryName)) {
+        return prevSelected.filter((c) => c !== countryName);
+      } else {
+        return [...prevSelected, countryName];
+      }
+    });
+  }, []);
 
   const handleSaveCountries = async () => {
     const user = auth.currentUser;
@@ -128,187 +141,163 @@ export default function ChooseCountriesScreen() {
     }
   };
 
-  const renderCountryItem = ({ item }: { item: typeof countries[0] }) => (
-    <Pressable
-      onPress={() => handleSelectCountry(item.name.common)}
-      style={styles.countryItem}
-    >
-      <View style={styles.flagContainer}>
-        <CountryFlag isoCode={item.cca2} size={25} />
-      </View>
-      <Text style={styles.countryText}>{item.name.common}</Text>
-      <Checkbox
-        status={selectedCountries.includes(item.name.common) ? 'checked' : 'unchecked'}
-        onPress={() => handleSelectCountry(item.name.common)}
-      />
-    </Pressable>
-  );
+  const renderCountryItem = useCallback(({ item }: { item: typeof countries[0] }) => (
+    <CountryItem 
+      item={item} 
+      onSelect={handleSelectCountry} 
+      isSelected={selectedCountries.includes(item.name.common)} 
+    />
+  ), [handleSelectCountry, selectedCountries]);
 
-  const renderSectionHeader = ({ section }: { section: { title: string } }) => (
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionHeaderText}>{section.title}</Text>
+  const renderSectionHeader = useCallback(({ section }: { section: { title: string } }) => (
+    <View style={[styles.sectionHeader, { backgroundColor: theme.colors.surface }]}>
+      <Text style={[styles.sectionHeaderText, { color: theme.colors.primary }]}>{section.title}</Text>
     </View>
-  );
+  ), [theme.colors.surface, theme.colors.primary]);
 
   return (
-    <ImageBackground 
-      source={require('../../assets/images/gradient2.jpg')}
-      style={styles.background}
-      imageStyle={{ 
-        resizeMode: 'cover', 
-        width: '140%', 
-        height: '150%', 
-        left: -80, 
-        top: -150, 
-        transform: [{ rotate: '-10deg' }] 
-      }}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={styles.keyboardAvoidingView}
     >
-      <View style={styles.overlay} />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
-        <SafeAreaView style={styles.container}>
-          <ScrollView
-            contentContainerStyle={styles.scrollViewContent}
-            keyboardShouldPersistTaps="handled"
-            style={styles.scrollView}
-          >
-
-            <Text style={styles.title}>Select Countries You Have Visited</Text>
-            
-            {/* Pasek Wyszukiwania */}
-            <View style={[styles.inputContainer, searchQuery.length > 0 && styles.inputFocused]}>
-              <TextInput
-                label="Search Country"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                onFocus={() => {}}
-                onBlur={() => {}}
-                mode="outlined"
-                style={[styles.input, !searchQuery.length && styles.inputUnfocusedText]}
-                theme={{
-                  colors: {
-                    primary: '#6a1b9a',
-                    placeholder: '#6a1b9a',
-                    background: '#f0ed8f5',
-                    text: '#000',
-                    error: 'red',
-                  },
-                }}
-                underlineColor="transparent" 
-                left={
-                  <TextInput.Icon 
-                    icon="magnify" // Poprawione z 'name' na 'icon'
-                    style={styles.iconLeft}
-                  />
-                }
-                autoCapitalize="none" 
-              />
-            </View>
-
-            {/* Lista Krajów */}
-            <SectionList
-              sections={processedCountries}
-              keyExtractor={(item) => item.cca3}
-              renderItem={renderCountryItem}
-              renderSectionHeader={renderSectionHeader}
-              stickySectionHeadersEnabled
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>No countries found.</Text>
-                </View>
-              }
-              style={styles.sectionList}
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        {/* Nagłówek z tytułem i przełącznikiem motywu */}
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: theme.colors.primary }]}>Select Countries You Have Visited</Text>
+          <View style={styles.themeSwitchContainer}>
+            <Text style={styles.themeIcon}>
+              {isDarkTheme ? '🌙' : '☀️'}
+            </Text>
+            <Switch
+              value={isDarkTheme}
+              onValueChange={() => {
+                console.log('Switch toggled');
+                toggleTheme();
+              }}
+              color="#6a1b9a"
             />
-
-          </ScrollView>
-          
-          {/* Przycisk Zapisz i Kontynuuj */}
-          <View style={styles.footer}>
-            <Pressable 
-              onPress={handleSaveCountries} 
-              style={[
-                styles.saveButton, 
-                selectedCountries.length === 0 && styles.saveButtonDisabled
-              ]}
-              disabled={selectedCountries.length === 0}
-            >
-              <Text style={styles.saveButtonText}>Save and Continue</Text>
-            </Pressable>
           </View>
-        </SafeAreaView>
-      </KeyboardAvoidingView>
-    </ImageBackground>
+        </View>
+
+        {/* Pasek Wyszukiwania */}
+        <PaperTextInput
+          label="Search Country"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          mode="outlined"
+          style={styles.searchBar}
+          theme={{
+            colors: {
+              primary: '#6a1b9a',
+              placeholder: '#6a1b9a',
+              background: theme.colors.surface,
+              onSurface: theme.colors.onSurface, // Poprawka: 'text' na 'onSurface'
+              error: 'red',
+            },
+          }}
+          underlineColor="transparent" 
+          left={
+            <PaperTextInput.Icon 
+              icon={() => (
+                <FontAwesome 
+                  name="search" 
+                  size={20}  
+                  color="#6a1b9a" 
+                />
+              )}
+              style={styles.iconLeft}
+            />
+          }
+          autoCapitalize="none" 
+        />
+
+        {/* Lista Krajów */}
+        <SectionList
+          sections={processedCountries}
+          keyExtractor={(item) => item.cca3}
+          renderItem={renderCountryItem}
+          renderSectionHeader={renderSectionHeader}
+          stickySectionHeadersEnabled
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No countries found.</Text>
+            </View>
+          }
+          style={styles.sectionList}
+          contentContainerStyle={{ paddingBottom: 20 }} // Dodaje odstęp na dole listy
+          initialNumToRender={20} // Optymalizacja początkowej liczby renderowanych elementów
+          maxToRenderPerBatch={20}
+          windowSize={21}
+          getItemLayout={(data, index) => ({
+            length: 50, // Przykładowa wysokość elementu; dostosuj w razie potrzeby
+            offset: 50 * index,
+            index,
+          })}
+        />
+        
+        {/* Przycisk Zapisz i Kontynuuj */}
+        <View style={styles.footer}>
+          <Pressable 
+            onPress={handleSaveCountries} 
+            style={[
+              styles.saveButton, 
+              selectedCountries.length === 0 && styles.saveButtonDisabled
+            ]}
+            disabled={selectedCountries.length === 0}
+          >
+            <Text style={styles.saveButtonText}>Save and Continue</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  background: {
+  keyboardAvoidingView: {
     flex: 1,
-    resizeMode: 'cover',
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   container: {
     flex: 1,
-    justifyContent: 'space-between', // Rozłożenie treści od góry do dołu
-    alignItems: 'center',
     padding: 16,
-    paddingBottom: 10, // Mniejsze paddingi na dole, kontrolowane przez footer
+    paddingTop: 20, // Dodaj padding na górze, aby obniżyć tytuł
   },
-  scrollView: {
-    width: '100%', // Upewnij się, że ScrollView zajmuje pełną szerokość
+  header: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
   },
-  scrollViewContent: {
-    flexGrow: 1,
-    justifyContent: 'center', // Dostosuj według potrzeb
+  themeSwitchContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  logoContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-    marginTop: 20, // Zmniejszony margines górny dla lepszego rozmieszczenia
-  },
-  logo: {
-    width: width * 0.5,
-    height: height * 0.2,
+  themeIcon: {
+    fontSize: 24,
+    marginRight: 8,
   },
   title: {
-    fontSize: 18,
+    fontSize: 20, // Zwiększony rozmiar fontu dla lepszej widoczności
     fontWeight: 'bold',
-    marginBottom: 12,
-    textAlign: 'center',
-    color: '#FFEEFCFF',
+    textAlign: 'left',
+    flex: 1,
+    marginRight: 10, // Dodaj odstęp między tytułem a przełącznikiem
   },
-  inputContainer: {
+  searchBar: {
+    width: '100%',
+    marginBottom: 12,
+    backgroundColor: 'transparent', // Ustawiono na transparent, ponieważ background kolor jest ustawiany w theme
     borderRadius: 28, // Zwiększony borderRadius dla lepszej estetyki
-    overflow: 'hidden',
-    marginBottom: 13,
-    width: width * 0.89,
-    backgroundColor: '#f0ed8f5',
     borderWidth: 2,
     borderColor: 'transparent', // Domyślny kolor obramowania
-  },
-  input: {
-    paddingLeft: 1,
-    height: 52,
-    fontSize: 15,
-  },
-  inputFocused: {
-    borderColor: '#6a1b9a', // Kolor obramowania po skupieniu
-  },
-  inputUnfocusedText: {
-    // Dodatkowe style dla tekstu w stanie nieaktywnym, jeśli potrzebne
+    height: 52, // Ustawienie wysokości dla spójności z innymi polami
+    fontSize: 15, // Ustawienie rozmiaru czcionki dla spójności
   },
   iconLeft: {
     marginLeft: 10,
   },
   sectionHeader: {
-    backgroundColor: '#f2f2f2',
     paddingVertical: 4,
     paddingHorizontal: 8,
     width: '100%',
@@ -316,7 +305,6 @@ const styles = StyleSheet.create({
   sectionHeaderText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#6a1b9a',
   },
   countryItem: {
     flexDirection: 'row',
@@ -335,7 +323,6 @@ const styles = StyleSheet.create({
   countryText: {
     flex: 1,
     fontSize: 16,
-    color: '#000',
   },
   saveButton: {
     backgroundColor: '#7511b5',
@@ -373,7 +360,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   sectionList: {
+    flex: 1,
     width: '100%',
-    marginBottom: 20,
   },
 });

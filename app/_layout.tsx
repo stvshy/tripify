@@ -9,6 +9,7 @@ import { auth, db } from './config/firebaseConfig';
 import { View, StyleSheet, ImageBackground, Image, ActivityIndicator } from 'react-native';
 import { doc, getDoc } from 'firebase/firestore';
 import LoadingScreen from '@/components/LoadingScreen';
+import { ThemeProvider } from './config/ThemeContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -73,31 +74,18 @@ export default function RootLayout() {
     prepareApp();
   }, [fontsLoaded]);
 
-  // Ukrywanie splash screena po załadowaniu czcionek i danych
-// Use 'fontsLoaded' consistently
-// useEffect(() => {
-//   const prepareApp = async () => {
-//     if (fontsLoaded) {
-//       await SplashScreen.hideAsync(); // Ukrycie splash screena
-//       setAppIsReady(true);
-//     }
-//   };
-//   prepareApp();
-// }, [fontsLoaded]);
 
-
-  // Ekran ładowania, gdy czcionki lub dane nie są gotowe
-
-// With this:
 if (!appIsReady || !initialRouteName) {
   return <LoadingScreen />;
 }
 
-  return (
+return (
+  <ThemeProvider>
     <Stack initialRouteName={initialRouteName} screenOptions={{ headerShown: false }}>
-      {/* Your Stack Screens */}
+      {/* Twoje Stack Screens */}
     </Stack>
-  );
+  </ThemeProvider>
+);
 }
 
 const styles = StyleSheet.create({
