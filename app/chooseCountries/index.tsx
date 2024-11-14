@@ -77,39 +77,35 @@ export default function ChooseCountriesScreen() {
   const [isKeyboardVisible, setKeyboardVisible] = useState(false); // State to track keyboard visibility
 
  // Animacja dla przycisku
-  const fadeAnim = useState(new Animated.Value(1))[0]; // Domyślnie widoczny
+  // const fadeAnim = useState(new Animated.Value(1))[0]; // Domyślnie widoczny
   
-  // Nasłuchiwanie zdarzeń klawiatury
-  useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+ // Nasłuchiwanie stanu klawiatury
+ useEffect(() => {
+  const keyboardShowListener = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+  const keyboardHideListener = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
 
-    const keyboardShowListener = Keyboard.addListener(showEvent, () => {
-      console.log('Keyboard shown');
-      setKeyboardVisible(true);
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 100, // Krótki czas trwania dla szybkiego ukrycia
-        useNativeDriver: true,
-      }).start();
-    });
+  return () => {
+    keyboardShowListener.remove();
+    keyboardHideListener.remove();
+  };
+}, []);
 
-    const keyboardHideListener = Keyboard.addListener(hideEvent, () => {
-      console.log('Keyboard hidden');
-      setKeyboardVisible(false);
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }).start();
-    });
+  //   const keyboardHideListener = Keyboard.addListener(hideEvent, () => {
+  //     console.log('Keyboard hidden');
+  //     setKeyboardVisible(false);
+  //     Animated.timing(fadeAnim, {
+  //       toValue: 1,
+  //       duration: 100,
+  //       useNativeDriver: true,
+  //     }).start();
+  //   });
 
-    // Czyszczenie nasłuchiwaczy przy odmontowaniu komponentu
-    return () => {
-      keyboardShowListener.remove();
-      keyboardHideListener.remove();
-    };
-  }, [fadeAnim]);
+  //   // Czyszczenie nasłuchiwaczy przy odmontowaniu komponentu
+  //   return () => {
+  //     keyboardShowListener.remove();
+  //     keyboardHideListener.remove();
+  //   };
+  // }, [fadeAnim]);
 
   // Przetwarzanie danych krajów
   const processedCountries = useMemo(() => {
@@ -150,15 +146,13 @@ export default function ChooseCountriesScreen() {
       }
     });
   }, []);
-
   const handleSaveCountries = async () => {
+    if (selectedCountries.length === 0) {
+      Alert.alert('No Selection', 'Please select at least one country.');
+      return;
+    }
     const user = auth.currentUser;
     if (user) {
-      if (selectedCountries.length === 0) {
-        Alert.alert('No Selection', 'Please select at least one country.');
-        return;
-      }
-
       try {
         const userDocRef = doc(db, 'users', user.uid);
         await updateDoc(userDocRef, {
@@ -175,6 +169,7 @@ export default function ChooseCountriesScreen() {
       router.replace('/welcome');
     }
   };
+
 
   const renderCountryItem = useCallback(
     ({ item }: { item: typeof countries[0] }) => (
@@ -201,7 +196,7 @@ export default function ChooseCountriesScreen() {
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardAvoidingView}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 20} // Dostosuj w zależności od potrzeb
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 20}
       >
         <View style={{ flex: 1 }}>
           {/* Nagłówek z tytułem i przełącznikiem motywu */}
@@ -210,110 +205,71 @@ export default function ChooseCountriesScreen() {
               Select countries you've visited
             </Text>
             <View style={styles.themeSwitchContainer}>
-              <Text style={styles.themeIcon}>
-                {isDarkTheme ? '🌙' : '☀️'}
-              </Text>
+              <Text style={styles.themeIcon}>{isDarkTheme ? '🌙' : '☀️'}</Text>
               <Switch
                 value={isDarkTheme}
-                onValueChange={() => {
-                  console.log('Switch toggled');
-                  toggleTheme();
-                }}
+                onValueChange={toggleTheme}
                 color="#6a1b9a"
               />
             </View>
           </View>
-
-          {/* Pasek Wyszukiwania */}
+  
+          {/* Pasek wyszukiwania */}
           <View style={[styles.inputContainer, isFocused && styles.inputFocused]}>
             <PaperTextInput
               label="Search Country"
               value={searchQuery}
               onChangeText={setSearchQuery}
-              mode="flat" // Użyj trybu 'flat' zamiast 'outlined'
+              mode="flat"
               style={styles.input}
               theme={{
                 colors: {
-                  primary: isFocused ? '#6a1b9a' : '#ccc', // Zmiana koloru primary na domyślny border color
-                  placeholder: '#6a1b9a',
-                  background: 'transparent', // Usuń tło z TextInput
+                  primary: isFocused ? '#6a1b9a' : '#ccc',
+                  background: 'transparent',
                   text: '#000',
-                  error: 'red',
                 },
               }}
               underlineColor="transparent"
               left={
                 <PaperTextInput.Icon
-                  icon={() => (
-                    <FontAwesome
-                      name="search"
-                      size={20}
-                      color={isFocused ? '#6a1b9a' : '#606060'}
-                    />
-                  )}
+                  icon={() => <FontAwesome name="search" size={20} color={isFocused ? '#6a1b9a' : '#606060'} />}
                   style={styles.iconLeft}
                 />
               }
               autoCapitalize="none"
-              onFocus={() => {
-                setIsFocused(true);
-                setKeyboardVisible(true);
-              }}
-              onBlur={() => {
-                setIsFocused(false);
-                setKeyboardVisible(false);
-              }}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
             />
           </View>
-
-          {/* Lista Krajów */}
+  
+          {/* Lista krajów */}
           <SectionList
             sections={processedCountries}
             keyExtractor={(item) => item.cca3}
             renderItem={renderCountryItem}
             renderSectionHeader={renderSectionHeader}
             stickySectionHeadersEnabled={false}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No countries found.</Text>
-              </View>
-            }
+            ListEmptyComponent={<View style={styles.emptyContainer}><Text style={styles.emptyText}>No countries found.</Text></View>}
             style={styles.sectionList}
-            initialNumToRender={20}
-            maxToRenderPerBatch={20}
-            windowSize={21}
-            getItemLayout={(data, index) => ({
-              length: 50, // Stała wysokość elementu
-              offset: 50 * index,
-              index,
-            })}
           />
         </View>
-      </KeyboardAvoidingView>
-
-      {/* Przycisk Save and Continue */}
-      <Animated.View style={[
-        styles.footer,
-        { opacity: fadeAnim, transform: [{ translateY: fadeAnim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [50, 0], // Opcjonalne przesunięcie
-        }) }] }
-      ]}>
+  
+        {/* Przycisk Save and Continue */}
         {!isKeyboardVisible && (
-          <Pressable 
-            onPress={handleSaveCountries} 
-            style={[
-              styles.saveButton, 
-              selectedCountries.length === 0 && styles.saveButtonDisabled
-            ]}
-            disabled={selectedCountries.length === 0}
-          >
-            <Text style={styles.saveButtonText}>Save and Continue</Text>
-          </Pressable>
+          <View style={styles.footer}>
+            <Pressable
+              onPress={handleSaveCountries}
+              style={[styles.saveButton, selectedCountries.length === 0 && styles.saveButtonDisabled]}
+              disabled={selectedCountries.length === 0}
+            >
+              <Text style={styles.saveButtonText}>Save and Continue</Text>
+            </Pressable>
+          </View>
         )}
-      </Animated.View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
+  
 }
 
 const styles = StyleSheet.create({
