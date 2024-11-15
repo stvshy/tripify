@@ -450,11 +450,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff', // Domyślne tło (możesz dostosować)
   },
   sectionHeader: {
-    paddingVertical: 6,
+    paddingVertical: 4,
     paddingHorizontal: 8,
     width: '100%',
     backgroundColor: '#f0f0f0',
-    marginLeft: 7
+    marginLeft: 7,
+    marginTop: 7
   },
   sectionHeaderText: {
     fontSize: 16,
