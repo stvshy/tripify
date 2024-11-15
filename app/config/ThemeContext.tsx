@@ -1,5 +1,3 @@
-// app/config/ThemeContext.tsx
-
 import React, { createContext, useState, useMemo, ReactNode } from 'react';
 import {
   MD3DarkTheme as PaperDarkTheme,
@@ -41,3 +39,4 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
     </ThemeContext.Provider>
   );
 };
+

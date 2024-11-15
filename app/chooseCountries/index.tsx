@@ -244,7 +244,7 @@ export default function ChooseCountriesScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.surface }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardAvoidingView}
@@ -340,6 +340,7 @@ export default function ChooseCountriesScreen() {
                     }),
                   },
                 ],
+                bottom: isInputFocused ? -styles.saveButton.marginBottom-2 : 0,
               },
             ]}
           >
@@ -495,13 +496,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     alignItems: 'center',
     borderRadius: 25,
-    width: '78%',
+    width: '80%',
     elevation: 2, // Dodanie cienia dla efektu uniesienia (Android)
     shadowColor: '#000', // Dodanie cienia dla efektu uniesienia (iOS)
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    marginBottom: 10
+    marginBottom: 17
   },
   saveButtonDisabled: {
     backgroundColor: '#a68eac',
