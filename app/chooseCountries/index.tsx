@@ -12,6 +12,7 @@ import {
   SafeAreaView,
   Keyboard,
   Animated,
+  TouchableOpacity,
 } from 'react-native';
 import { TextInput as PaperTextInput, Checkbox, Switch, useTheme } from 'react-native-paper';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -26,44 +27,62 @@ const { width, height } = Dimensions.get('window');
 
 type Continent = 'Africa' | 'North America' | 'South America' | 'Asia' | 'Europe' | 'Oceania' | 'Antarctica';
 
-// Funkcja do określania kontynentu na podstawie regionu i subregionu
+
+// Funkcja do określania kontynentu
 const getContinent = (region: string, subregion: string): Continent => {
   switch (region) {
-    case 'Africa':
-      return 'Africa';
-    case 'Americas':
-      if (subregion.includes('South')) {
-        return 'South America';
-      } else {
-        return 'North America';
-      }
-    case 'Asia':
-      return 'Asia';
-    case 'Europe':
-      return 'Europe';
-    case 'Oceania':
-      return 'Oceania';
-    case 'Antarctic':
-      return 'Antarctica';
-    default:
-      return 'Africa'; // Możesz zmienić na 'Other' jeśli potrzebujesz
+    case 'Africa': return 'Africa';
+    case 'Americas': return subregion.includes('South') ? 'South America' : 'North America';
+    case 'Asia': return 'Asia';
+    case 'Europe': return 'Europe';
+    case 'Oceania': return 'Oceania';
+    case 'Antarctic': return 'Antarctica';
+    default: return 'Africa';
   }
 };
 
 // Memoizowany komponent dla pojedynczego kraju
-const CountryItem = React.memo(({ item, onSelect, isSelected }: { item: typeof countries[0], onSelect: (name: string) => void, isSelected: boolean }) => (
-  <Pressable onPress={() => onSelect(item.name.common)} style={styles.countryItem}>
-    <View style={styles.flagContainer}>
-      <CountryFlag isoCode={item.cca2} size={25} />
-    </View>
-    <Text style={styles.countryText}>{item.name.common}</Text>
-    <Checkbox
-      status={isSelected ? 'checked' : 'unchecked'}
-      onPress={() => onSelect(item.name.common)}
-      color="#6a1b9a"
-    />
-  </Pressable>
-));
+const CountryItem = React.memo(function CountryItem({
+  item,
+  onSelect,
+  isSelected,
+}: {
+  item: typeof countries[0];
+  onSelect: (name: string) => void;
+  isSelected: boolean;
+}) {
+  // Zmienna stanu dla animacji
+  const scaleValue = useState(new Animated.Value(1))[0];
+
+  // Funkcja obsługująca animację
+  const handlePress = () => {
+    Animated.sequence([
+      Animated.timing(scaleValue, { toValue: 0.8, duration: 100, useNativeDriver: true }),
+      Animated.timing(scaleValue, { toValue: 1, duration: 100, useNativeDriver: true }),
+    ]).start();
+    onSelect(item.name.common);
+  };
+
+  return (
+    <Pressable onPress={handlePress} style={styles.countryItem}>
+      <View style={styles.flagContainer}>
+        <View style={styles.roundedFlag}>
+          <CountryFlag isoCode={item.cca2} size={25} />
+        </View>
+      </View>
+      <Text style={styles.countryText}>{item.name.common}</Text>
+      <Animated.View
+        style={[
+          styles.roundCheckbox,
+          isSelected ? styles.roundCheckboxChecked : styles.roundCheckboxUnchecked,
+          { transform: [{ scale: scaleValue }] },
+        ]}
+      >
+        {isSelected && <FontAwesome name="check" size={12} color="#fff" />}
+      </Animated.View>
+    </Pressable>
+  );
+});
 
 export default function ChooseCountriesScreen() {
   const router = useRouter();
@@ -438,5 +457,37 @@ const styles = StyleSheet.create({
   sectionList: {
     flex: 1,
   },
+  roundedFlag: {
+    borderRadius: 5, // Połowa rozmiaru flagi, aby uzyskać zaokrąglenie
+    overflow: 'hidden',
+  },
+  // roundCheckbox: {
+  //   width: 24,
+  //   height: 24,
+  //   borderRadius: 12, // Połowa szerokości, aby uzyskać kształt koła
+  //   borderWidth: 2,
+  //   borderColor: '#6a1b9a', // Kolor obramowania
+  //   alignItems: 'center',
+  //   justifyContent: 'center',
+  //   overflow: 'hidden',
+  // },
+
+  roundCheckbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roundCheckboxChecked: {
+    backgroundColor: '#6a1b9a',
+    borderColor: '#6a1b9a',
+  },
+  roundCheckboxUnchecked: {
+    borderColor: '#ccc',
+    backgroundColor: 'transparent',
+  },
+  
 });
 
