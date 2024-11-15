@@ -33,7 +33,8 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
       ...PaperDefaultTheme,
       colors: {
         ...PaperDefaultTheme.colors,
-        surface: '#ffffff'
+        surface: '#ffffff',
+        // Możesz dostosować inne kolory tutaj
       }
     }),
     [isDarkTheme]
@@ -44,4 +45,4 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
       <PaperProvider theme={theme}>{children}</PaperProvider>
     </ThemeContext.Provider>
   );
-};
+}; 

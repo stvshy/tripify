@@ -52,10 +52,9 @@ const CountryItem = React.memo(function CountryItem({
   onSelect: (name: string) => void;
   isSelected: boolean;
 }) {
-  // Animacja dla checkboxa
+  const theme = useTheme(); // Uzyskaj aktualny motyw
   const scaleValue = useState(new Animated.Value(1))[0];
 
-  // Funkcja obsługująca animację checkboxa
   const handleCheckboxPress = () => {
     Animated.sequence([
       Animated.timing(scaleValue, { toValue: 0.8, duration: 80, useNativeDriver: true }),
@@ -64,7 +63,6 @@ const CountryItem = React.memo(function CountryItem({
     onSelect(item.name.common);
   };
 
-  // Funkcja obsługująca podświetlenie elementu
   const handlePress = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     handleCheckboxPress();
@@ -72,39 +70,35 @@ const CountryItem = React.memo(function CountryItem({
 
   return (
     <Pressable onPress={handlePress}>
-      {/* Zewnętrzny kontener rozciągający się na pełną szerokość */}
-      <View style={styles.countryItemContainer}>
-        {/* Zastosowanie warunkowego tła dla zaznaczonych elementów */}
+      <View style={[styles.countryItemContainer, { backgroundColor: theme.colors.surface }]}>
         <View
           style={[
             styles.countryItem,
-            isSelected && styles.highlightedItem,
+            isSelected && { backgroundColor: theme.colors.primaryContainer }, // Użyj koloru z motywu
           ]}
         >
-          {/* Flaga z borderem */}
           <View style={[styles.flagContainer, styles.flagWithBorder]}>
             <CountryFlag isoCode={item.cca2} size={25} />
           </View>
 
-          {/* Nazwa kraju */}
-          <Text style={styles.countryText}>{item.name.common}</Text>
+          <Text style={[styles.countryText, { color: theme.colors.onSurface }]}>{item.name.common}</Text>
 
-          {/* Checkbox z animacją */}
           <Animated.View
             style={[
               styles.roundCheckbox,
-              isSelected ? styles.roundCheckboxChecked : styles.roundCheckboxUnchecked,
+              isSelected 
+                ? { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary } 
+                : { borderColor: theme.colors.outline },
               { transform: [{ scale: scaleValue }] },
             ]}
           >
-            {isSelected && <FontAwesome name="check" size={12} color="#fff" />}
+            {isSelected && <FontAwesome name="check" size={12} color={theme.colors.onPrimary} />}
           </Animated.View>
         </View>
       </View>
     </Pressable>
   );
 });
-
 
 
 
