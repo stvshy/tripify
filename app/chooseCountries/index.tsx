@@ -22,9 +22,8 @@ import { useRouter } from 'expo-router';
 import { auth, db } from '../config/firebaseConfig';
 import CountryFlag from 'react-native-country-flag';
 import countries from 'world-countries';
-import { FontAwesome } from '@expo/vector-icons';
 import { ThemeContext } from '../config/ThemeContext';
-
+import { FontAwesome, MaterialIcons } from '@expo/vector-icons'; 
 const { width, height } = Dimensions.get('window');
 
 type Continent = 'Africa' | 'North America' | 'South America' | 'Asia' | 'Europe' | 'Oceania' | 'Antarctica';
@@ -137,6 +136,7 @@ export default function ChooseCountriesScreen() {
  // Animacja dla przycisku
   const fadeAnim = useState(new Animated.Value(1))[0]; // Domyślnie widoczny
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const [scaleValue] = useState(new Animated.Value(1));
  // Nasłuchiwanie stanu klawiatury
  useEffect(() => {
   const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -206,7 +206,25 @@ export default function ChooseCountriesScreen() {
       }
     });
   };
-  
+
+
+const handleToggleTheme = () => {
+  Animated.sequence([
+    Animated.timing(scaleValue, {
+      toValue: 0.9,
+      duration: 100,
+      useNativeDriver: true,
+    }),
+    Animated.timing(scaleValue, {
+      toValue: 1,
+      duration: 100,
+      useNativeDriver: true,
+    }),
+  ]).start(() => {
+    toggleTheme();
+  });
+};
+
   
   const handleSaveCountries = async () => {
     if (selectedCountries.length === 0) {
@@ -230,10 +248,6 @@ export default function ChooseCountriesScreen() {
       Alert.alert('Not Logged In', 'User is not authenticated.');
       router.replace('/welcome');
     }
-  };
-
-  const handlePressItem = (countryName: string) => {
-    handleSelectCountry(countryName);
   };
   
   const renderCountryItem = useCallback(
@@ -259,7 +273,6 @@ export default function ChooseCountriesScreen() {
     [theme.colors.surface, theme.colors.primary]
   );
  // Definiowanie dynamicznych kolorów separatorów
- const separatorColor = theme.dark ? theme.colors.outline : '#ccc';
  return (
   <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
     <KeyboardAvoidingView
@@ -268,62 +281,71 @@ export default function ChooseCountriesScreen() {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 20}
     >
       <View style={{ flex: 1 }}>
+        {/* Nagłówek */}
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.colors.primary }]}>
             Select countries you've visited
           </Text>
-          <View style={styles.themeSwitchContainer}>
-            <Text style={styles.themeIcon}>{isDarkTheme ? '🌙' : '☀️'}</Text>
-            <Switch
-              value={isDarkTheme}
-              onValueChange={toggleTheme}
-              color={theme.colors.primary}
-            />
-          </View>
+          {/* Możesz tutaj pozostawić przełącznik motywu lub usunąć, jeśli umieszczasz go obok input */}
         </View>
 
-        <View style={[
-            styles.inputContainer, 
-            isFocused && { borderColor: theme.colors.primary }
-          ]}>
-          <PaperTextInput
-            label="Search Country"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            mode="flat"
-            style={styles.input}
-            theme={{
-              colors: {
-                primary: isFocused ? theme.colors.primary : theme.colors.outline,
-                background: 'transparent',
-                text: theme.colors.onSurface,
-              },
-            }}
-            underlineColor="transparent"
-            left={
-              <PaperTextInput.Icon
-                icon={() => <FontAwesome name="search" size={20} color={isFocused ? theme.colors.primary : theme.colors.outline} />}
-                style={styles.iconLeft}
-              />
-            }
-            autoCapitalize="none"
-            onFocus={() => {
-              setIsInputFocused(true);
-              setIsFocused(true);
-              fadeAnim.setValue(0);
-            }}
-            onBlur={() => {
-              setIsInputFocused(false);
-              setIsFocused(false);
-              Animated.timing(fadeAnim, {
-                toValue: 1,
-                duration: 300,
-                useNativeDriver: true,
-              }).start();
-            }}
-          />
-        </View>
+        <View style={styles.searchAndToggleContainer}>
+  <PaperTextInput
+    label="Select countries you've visied"
+    value={searchQuery}
+    onChangeText={setSearchQuery}
+    mode="flat"
+    style={styles.input}
+    theme={{
+      colors: {
+        primary: theme.colors.primary,
+        background: 'transparent',
+        text: theme.colors.onSurface,
+      },
+    }}
+    underlineColor="transparent"
+    left={
+      <PaperTextInput.Icon
+        icon={() => <FontAwesome name="search" size={20} color={isFocused ? theme.colors.primary : theme.colors.outline} />}
+        style={styles.iconLeft}
+      />
+    }
+    autoCapitalize="none"
+    onFocus={() => {
+      setIsInputFocused(true);
+      setIsFocused(true);
+      fadeAnim.setValue(0);
+    }}
+    onBlur={() => {
+      setIsInputFocused(false);
+      setIsFocused(false);
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }}
+  />
 
+  {/* Okrągły przycisk do przełączania motywu */}
+  <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
+    <Pressable
+      onPress={handleToggleTheme}
+      style={[
+        styles.toggleButton,
+        { backgroundColor: theme.colors.primary },
+      ]}
+    >
+      {isDarkTheme ? (
+        <MaterialIcons name="dark-mode" size={24} color={theme.colors.onPrimary} />
+      ) : (
+        <MaterialIcons name="light-mode" size={24} color={theme.colors.onPrimary} />
+      )}
+    </Pressable>
+  </Animated.View>
+</View>
+
+        {/* Lista krajów */}
         <View style={{ flex: 1, marginBottom: -20 }}>
           <SectionList
             sections={processedCountries}
@@ -341,6 +363,7 @@ export default function ChooseCountriesScreen() {
           />
         </View>
 
+        {/* Przycisk "Save and Continue" */}
         <Animated.View
           style={[
             styles.footer,
@@ -363,10 +386,11 @@ export default function ChooseCountriesScreen() {
             style={[
               styles.saveButton,
               selectedCountries.length === 0 && styles.saveButtonDisabled,
+              selectedCountries.length > 0 ? { backgroundColor: theme.colors.primary } : {},
             ]}
             disabled={selectedCountries.length === 0}
           >
-            <Text style={styles.saveButtonText}>Save and Continue</Text>
+            <Text style={[styles.saveButtonText, { color: theme.colors.onPrimary }]}>Save and Continue</Text>
           </Pressable>
         </Animated.View>
       </View>
@@ -393,6 +417,13 @@ const styles = StyleSheet.create({
     marginBottom: -5,
     marginTop: 10,
     paddingHorizontal: 13, // Przeniesienie paddingu tutaj
+  },
+  searchAndToggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center', // Wyśrodkowanie w poziomie
+    marginHorizontal: 13,
+    marginBottom: 13,
   },
   themeSwitchContainer: {
     flexDirection: 'row',
@@ -422,13 +453,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0ed8f5',
     borderRadius: 28, // Zwiększony borderRadius dla lepszej estetyki
     overflow: 'hidden',
-    marginBottom: 13,
+    // marginBottom: 13,
     borderWidth: 2,
     borderColor: '#ccc', // Domyślny kolor obramowania
     flexDirection: 'row',
     alignItems: 'center',
     height: height * 0.075,
-    alignSelf: 'center', // Dodano to, aby wyśrodkować pole
+    flex: 1, // Rozciągnięcie na dostępne miejsce
+  },
+  toggleButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20, // Okrągły
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 10, // Odstęp między polem a przyciskiem
   },
   inputFocused: {
     borderColor: '#6a1b9a', // Kolor obramowania w stanie fokusu
