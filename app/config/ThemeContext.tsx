@@ -29,7 +29,13 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
   };
 
   const theme: MD3Theme = useMemo(
-    () => (isDarkTheme ? PaperDarkTheme : PaperDefaultTheme),
+    () => (isDarkTheme ? PaperDarkTheme : {
+      ...PaperDefaultTheme,
+      colors: {
+        ...PaperDefaultTheme.colors,
+        surface: '#ffffff'
+      }
+    }),
     [isDarkTheme]
   );
 
@@ -39,4 +45,3 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
     </ThemeContext.Provider>
   );
 };
-
