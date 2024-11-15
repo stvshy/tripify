@@ -17,17 +17,17 @@ import {
   LayoutAnimation,
 } from 'react-native';
 import { TextInput as PaperTextInput, Checkbox, Switch, useTheme } from 'react-native-paper';
+import { FontAwesome, MaterialIcons } from '@expo/vector-icons'; 
 import { doc, updateDoc } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
 import { auth, db } from '../config/firebaseConfig';
 import CountryFlag from 'react-native-country-flag';
 import countries from 'world-countries';
 import { ThemeContext } from '../config/ThemeContext';
-import { FontAwesome, MaterialIcons } from '@expo/vector-icons'; 
+
 const { width, height } = Dimensions.get('window');
 
 type Continent = 'Africa' | 'North America' | 'South America' | 'Asia' | 'Europe' | 'Oceania' | 'Antarctica';
-
 
 // Funkcja do określania kontynentu
 const getContinent = (region: string, subregion: string): Continent => {
@@ -120,10 +120,6 @@ const CountryItem = React.memo(function CountryItem({
   );
 });
 
-
-
-
-
 export default function ChooseCountriesScreen() {
   const router = useRouter();
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
@@ -131,41 +127,55 @@ export default function ChooseCountriesScreen() {
   const { toggleTheme, isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme(); // Hook z react-native-paper
   const [isFocused, setIsFocused] = useState(false); // Boolean for search input focus
-  const [isKeyboardVisible, setKeyboardVisible] = useState(true); // State to track keyboard visibility
-  const [highlightedItem, setHighlightedItem] = useState<string | null>(null);
- // Animacja dla przycisku
   const fadeAnim = useState(new Animated.Value(1))[0]; // Domyślnie widoczny
   const [isInputFocused, setIsInputFocused] = useState(false);
+
+  // Dodaj tutaj scaleValue i handleToggleTheme
   const [scaleValue] = useState(new Animated.Value(1));
- // Nasłuchiwanie stanu klawiatury
- useEffect(() => {
-  const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-  const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
-  if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-    UIManager.setLayoutAnimationEnabledExperimental(true);
-  }
-  const keyboardShowListener = Keyboard.addListener(showEvent, () => {
-    // Natychmiast ukrywamy przycisk, gdy klawiatura się wysuwa
-    if (isInputFocused) {
-      fadeAnim.setValue(0);
-    }
-  });
-
-  const keyboardHideListener = Keyboard.addListener(hideEvent, () => {
-    // Animowane pojawienie się przycisku po schowaniu klawiatury
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  });
-
-  return () => {
-    keyboardShowListener.remove();
-    keyboardHideListener.remove();
+  const handleToggleTheme = () => {
+    Animated.sequence([
+      Animated.timing(scaleValue, {
+        toValue: 0.9,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleValue, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      toggleTheme();
+    });
   };
-}, [fadeAnim, isInputFocused]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+    const keyboardShowListener = Keyboard.addListener(showEvent, () => {
+      if (isInputFocused) {
+        fadeAnim.setValue(0);
+      }
+    });
+
+    const keyboardHideListener = Keyboard.addListener(hideEvent, () => {
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    return () => {
+      keyboardShowListener.remove();
+      keyboardHideListener.remove();
+    };
+  }, [fadeAnim, isInputFocused]);
 
   // Przetwarzanie danych krajów
   const processedCountries = useMemo(() => {
@@ -207,25 +217,6 @@ export default function ChooseCountriesScreen() {
     });
   };
 
-
-const handleToggleTheme = () => {
-  Animated.sequence([
-    Animated.timing(scaleValue, {
-      toValue: 0.9,
-      duration: 100,
-      useNativeDriver: true,
-    }),
-    Animated.timing(scaleValue, {
-      toValue: 1,
-      duration: 100,
-      useNativeDriver: true,
-    }),
-  ]).start(() => {
-    toggleTheme();
-  });
-};
-
-  
   const handleSaveCountries = async () => {
     if (selectedCountries.length === 0) {
       Alert.alert('No Selection', 'Please select at least one country.');
@@ -249,7 +240,7 @@ const handleToggleTheme = () => {
       router.replace('/welcome');
     }
   };
-  
+
   const renderCountryItem = useCallback(
     ({ item }: { item: typeof countries[0] }) => (
       <CountryItem
@@ -260,9 +251,6 @@ const handleToggleTheme = () => {
     ),
     [selectedCountries]
   );
-  
-  
-  
 
   const renderSectionHeader = useCallback(
     ({ section }: { section: { title: string } }) => (
@@ -272,131 +260,144 @@ const handleToggleTheme = () => {
     ), 
     [theme.colors.surface, theme.colors.primary]
   );
- // Definiowanie dynamicznych kolorów separatorów
- return (
-  <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.keyboardAvoidingView}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 20}
-    >
-      <View style={{ flex: 1 }}>
-        {/* Nagłówek */}
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.colors.primary }]}>
-            Select countries you've visited
-          </Text>
-          {/* Możesz tutaj pozostawić przełącznik motywu lub usunąć, jeśli umieszczasz go obok input */}
-        </View>
 
-        <View style={styles.searchAndToggleContainer}>
-  <PaperTextInput
-    label="Select countries you've visied"
-    value={searchQuery}
-    onChangeText={setSearchQuery}
-    mode="flat"
-    style={styles.input}
-    theme={{
-      colors: {
-        primary: theme.colors.primary,
-        background: 'transparent',
-        text: theme.colors.onSurface,
-      },
-    }}
-    underlineColor="transparent"
-    left={
-      <PaperTextInput.Icon
-        icon={() => <FontAwesome name="search" size={20} color={isFocused ? theme.colors.primary : theme.colors.outline} />}
-        style={styles.iconLeft}
-      />
-    }
-    autoCapitalize="none"
-    onFocus={() => {
-      setIsInputFocused(true);
-      setIsFocused(true);
-      fadeAnim.setValue(0);
-    }}
-    onBlur={() => {
-      setIsInputFocused(false);
-      setIsFocused(false);
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    }}
-  />
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardAvoidingView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 20}
+      >
+        <View style={{ flex: 1 }}>
+          {/* Nagłówek */}
+          <View style={styles.header}>
+            <Text style={[styles.title, { color: theme.colors.primary }]}>
+              Select countries you've visited
+            </Text>
+            <View style={styles.themeSwitchContainer}>
+              <Text style={styles.themeIcon}>{isDarkTheme ? '🌙' : '☀️'}</Text>
+              <Switch
+                value={isDarkTheme}
+                onValueChange={toggleTheme}
+                color={theme.colors.primary}
+              />
+            </View>
+          </View>
 
-  {/* Okrągły przycisk do przełączania motywu */}
-  <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
-    <Pressable
-      onPress={handleToggleTheme}
-      style={[
-        styles.toggleButton,
-        { backgroundColor: theme.colors.primary },
-      ]}
-    >
-      {isDarkTheme ? (
-        <MaterialIcons name="dark-mode" size={24} color={theme.colors.onPrimary} />
-      ) : (
-        <MaterialIcons name="light-mode" size={24} color={theme.colors.onPrimary} />
-      )}
-    </Pressable>
-  </Animated.View>
-</View>
+          {/* Pasek wyszukiwania i przycisk przełączania motywu */}
+          <View style={styles.searchAndToggleContainer}>
+            <View style={[
+                styles.inputContainer, 
+                isFocused && { borderColor: theme.colors.primary }
+              ]}>
+              <PaperTextInput
+                label="Search Country"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                mode="flat"
+                style={styles.input}
+                theme={{
+                  colors: {
+                    primary: isFocused ? theme.colors.primary : theme.colors.outline,
+                    background: 'transparent',
+                    text: theme.colors.onSurface,
+                  },
+                }}
+                underlineColor="transparent"
+                left={
+                  <PaperTextInput.Icon
+                    icon={() => <FontAwesome name="search" size={20} color={isFocused ? theme.colors.primary : theme.colors.outline} />}
+                    style={styles.iconLeft}
+                  />
+                }
+                autoCapitalize="none"
+                onFocus={() => {
+                  setIsInputFocused(true);
+                  setIsFocused(true);
+                  fadeAnim.setValue(0);
+                }}
+                onBlur={() => {
+                  setIsInputFocused(false);
+                  setIsFocused(false);
+                  Animated.timing(fadeAnim, {
+                    toValue: 1,
+                    duration: 300,
+                    useNativeDriver: true,
+                  }).start();
+                }}
+              />
+            </View>
 
-        {/* Lista krajów */}
-        <View style={{ flex: 1, marginBottom: -20 }}>
-          <SectionList
-            sections={processedCountries}
-            keyExtractor={(item) => item.cca3}
-            renderItem={renderCountryItem}
-            renderSectionHeader={renderSectionHeader}
-            stickySectionHeadersEnabled={false}
-            contentContainerStyle={{ paddingBottom: 80 }}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No countries found.</Text>
-              </View>
-            }
-            style={{ flex: 1 }}
-          />
-        </View>
+            {/* Okrągły przycisk do przełączania motywu */}
+            <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
+              <Pressable
+                onPress={handleToggleTheme}
+                style={[
+                  styles.toggleButton,
+                  { backgroundColor: theme.colors.primary },
+                ]}
+              >
+                {isDarkTheme ? (
+                  <MaterialIcons name="dark-mode" size={24} color={theme.colors.onPrimary} />
+                ) : (
+                  <MaterialIcons name="light-mode" size={24} color={theme.colors.onPrimary} />
+                )}
+              </Pressable>
+            </Animated.View>
+          </View>
 
-        {/* Przycisk "Save and Continue" */}
-        <Animated.View
-          style={[
-            styles.footer,
-            {
-              opacity: fadeAnim,
-              transform: [
-                {
-                  translateY: fadeAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [50, 0],
-                  }),
-                },
-              ],
-              bottom: isInputFocused ? -styles.saveButton.marginBottom - 2 : 0,
-            },
-          ]}
-        >
-          <Pressable
-            onPress={handleSaveCountries}
+          {/* Lista krajów */}
+          <View style={{ flex: 1, marginBottom: -20 }}>
+            <SectionList
+              sections={processedCountries}
+              keyExtractor={(item) => item.cca3}
+              renderItem={renderCountryItem}
+              renderSectionHeader={renderSectionHeader}
+              stickySectionHeadersEnabled={false}
+              contentContainerStyle={{ paddingBottom: 80 }}
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>No countries found.</Text>
+                </View>
+              }
+              style={{ flex: 1 }}
+            />
+          </View>
+
+          {/* Przycisk "Save and Continue" */}
+          <Animated.View
             style={[
-              styles.saveButton,
-              selectedCountries.length === 0 && styles.saveButtonDisabled,
-              selectedCountries.length > 0 ? { backgroundColor: theme.colors.primary } : {},
+              styles.footer,
+              {
+                opacity: fadeAnim,
+                transform: [
+                  {
+                    translateY: fadeAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [50, 0],
+                    }),
+                  },
+                ],
+                bottom: isInputFocused ? -styles.saveButton.marginBottom - 2 : 0,
+              },
             ]}
-            disabled={selectedCountries.length === 0}
           >
-            <Text style={[styles.saveButtonText, { color: theme.colors.onPrimary }]}>Save and Continue</Text>
-          </Pressable>
-        </Animated.View>
-      </View>
-    </KeyboardAvoidingView>
-  </SafeAreaView>
-);
+            <Pressable
+              onPress={handleSaveCountries}
+              style={[
+                styles.saveButton,
+                selectedCountries.length === 0 && styles.saveButtonDisabled,
+                selectedCountries.length > 0 ? { backgroundColor: theme.colors.primary } : {},
+              ]}
+              disabled={selectedCountries.length === 0}
+            >
+              <Text style={[styles.saveButtonText, { color: theme.colors.onPrimary }]}>Save and Continue</Text>
+            </Pressable>
+          </Animated.View>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -407,7 +408,6 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 0,
     paddingTop: 20,
-    // flexDirection: 'column',
   },
   header: {
     width: '100%',
@@ -418,13 +418,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingHorizontal: 13, // Przeniesienie paddingu tutaj
   },
-  searchAndToggleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center', // Wyśrodkowanie w poziomie
-    marginHorizontal: 13,
-    marginBottom: 13,
-  },
   themeSwitchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -432,11 +425,9 @@ const styles = StyleSheet.create({
   },
   themeIcon: {
     fontSize: 20,
-    // marginRight: 1,
   },
   flagWithBorder: {
     borderWidth: 1,
-    // borderColor: '#ccc',
     borderRadius: 5,
     overflow: 'hidden',
   },
@@ -448,17 +439,23 @@ const styles = StyleSheet.create({
     marginRight: 10,
     marginLeft: 18
   },
+  searchAndToggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center', // Wyśrodkowanie w poziomie
+    marginHorizontal: 13,
+    marginBottom: 13,
+  },
   inputContainer: {
-    width: width * 0.90,
+    width: width * 0.80, // Dostosowane do miejsca na przycisk
     backgroundColor: '#f0ed8f5',
     borderRadius: 28, // Zwiększony borderRadius dla lepszej estetyki
     overflow: 'hidden',
-    // marginBottom: 13,
     borderWidth: 2,
     borderColor: '#ccc', // Domyślny kolor obramowania
     flexDirection: 'row',
     alignItems: 'center',
-    height: height * 0.075,
+    height: height * 0.06,
     flex: 1, // Rozciągnięcie na dostępne miejsce
   },
   toggleButton: {
@@ -475,7 +472,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     paddingLeft: 10,
-    height: 50, // Stała wysokość, musi odpowiadać getItemLayout
+    height: 50, // Stała wysokość
     fontSize: 14,
     backgroundColor: 'transparent', // Usuń tło z TextInput
     borderRadius: 0, // Usuń wewnętrzny borderRadius
@@ -484,7 +481,7 @@ const styles = StyleSheet.create({
   iconLeft: {
     marginLeft: 10,
   },
-   countryItemContainer: {
+  countryItemContainer: {
     width: '100%',
     backgroundColor: '#fff', // Domyślne tło (możesz dostosować)
   },
@@ -502,7 +499,6 @@ const styles = StyleSheet.create({
   },
   highlightedItem: {
     backgroundColor: '#f5f5f5', // Szary kolor dla zaznaczonych krajów
-    
   },
   countryItem: {
     flexDirection: 'row',
@@ -510,7 +506,6 @@ const styles = StyleSheet.create({
     height: 50, // Stała wysokość
     paddingHorizontal: 8,
     borderBottomWidth: 0.5,
-    // borderBottomColor: '#ccc',
   },
   flagContainer: {
     marginRight: 10,
@@ -518,7 +513,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 7
-
   },
   countryText: {
     flex: 1,
@@ -539,8 +533,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: 'center',
-    // paddingVertical: -10,
-    marginBottom: -6,
     backgroundColor: 'transparent', // Transparent footer
     zIndex: 100, // Upewnij się, że przycisk jest nad innymi elementami
   },
@@ -558,7 +550,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     marginBottom: 17
   },
-  saveButtonDisabled: { //    rgba(117, 17, 181, 0.5)
+  saveButtonDisabled: { // rgba(117, 17, 181, 0.5)
     backgroundColor: 'rgba(117, 17, 181, 0.25)', // 25% przezroczystości
   },
   saveButtonText: {
@@ -573,7 +565,6 @@ const styles = StyleSheet.create({
     borderRadius: 5, // Połowa rozmiaru flagi, aby uzyskać zaokrąglenie
     overflow: 'hidden',
   },
-
   roundCheckbox: {
     width: 20,
     height: 20,
@@ -592,4 +583,3 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
 });
-
