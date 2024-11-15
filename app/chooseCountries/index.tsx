@@ -51,26 +51,36 @@ const CountryItem = React.memo(function CountryItem({
   onSelect: (name: string) => void;
   isSelected: boolean;
 }) {
-  // Zmienna stanu dla animacji
+  // Zmienna stanu dla animacji checkboxa
   const scaleValue = useState(new Animated.Value(1))[0];
 
-  // Funkcja obsługująca animację
+  // Funkcja obsługująca animację przy kliknięciu
   const handlePress = () => {
     Animated.sequence([
       Animated.timing(scaleValue, { toValue: 0.8, duration: 100, useNativeDriver: true }),
       Animated.timing(scaleValue, { toValue: 1, duration: 100, useNativeDriver: true }),
     ]).start();
-    onSelect(item.name.common);
+
+    onSelect(item.name.common); // Zaznaczamy lub odznaczamy kraj
   };
 
   return (
-    <Pressable onPress={handlePress} style={styles.countryItem}>
-      <View style={styles.flagContainer}>
-        <View style={styles.roundedFlag}>
-          <CountryFlag isoCode={item.cca2} size={25} />
-        </View>
+    <Pressable
+      onPress={handlePress}
+      style={[
+        styles.countryItem,
+        isSelected && styles.highlightedItem,
+      ]}
+    >
+      {/* Flaga z borderem */}
+      <View style={[styles.flagContainer, styles.flagWithBorder]}>
+        <CountryFlag isoCode={item.cca2} size={25} />
       </View>
+
+      {/* Nazwa kraju */}
       <Text style={styles.countryText}>{item.name.common}</Text>
+
+      {/* Checkbox z animacją */}
       <Animated.View
         style={[
           styles.roundCheckbox,
@@ -84,6 +94,8 @@ const CountryItem = React.memo(function CountryItem({
   );
 });
 
+
+
 export default function ChooseCountriesScreen() {
   const router = useRouter();
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
@@ -92,7 +104,7 @@ export default function ChooseCountriesScreen() {
   const theme = useTheme(); // Hook z react-native-paper
   const [isFocused, setIsFocused] = useState(false); // Boolean for search input focus
   const [isKeyboardVisible, setKeyboardVisible] = useState(true); // State to track keyboard visibility
-
+  const [highlightedItem, setHighlightedItem] = useState<string | null>(null);
  // Animacja dla przycisku
   const fadeAnim = useState(new Animated.Value(1))[0]; // Domyślnie widoczny
   const [isInputFocused, setIsInputFocused] = useState(false);
@@ -153,7 +165,7 @@ export default function ChooseCountriesScreen() {
     return sections;
   }, [searchQuery]);
 
-  const handleSelectCountry = useCallback((countryName: string) => {
+  const handleSelectCountry = (countryName: string) => {
     setSelectedCountries((prevSelected) => {
       if (prevSelected.includes(countryName)) {
         return prevSelected.filter((c) => c !== countryName);
@@ -161,7 +173,9 @@ export default function ChooseCountriesScreen() {
         return [...prevSelected, countryName];
       }
     });
-  }, []);
+  };
+  
+  
   const handleSaveCountries = async () => {
     if (selectedCountries.length === 0) {
       Alert.alert('No Selection', 'Please select at least one country.');
@@ -186,17 +200,23 @@ export default function ChooseCountriesScreen() {
     }
   };
 
-
+  const handlePressItem = (countryName: string) => {
+    handleSelectCountry(countryName);
+  };
+  
   const renderCountryItem = useCallback(
     ({ item }: { item: typeof countries[0] }) => (
-      <CountryItem 
-        item={item} 
-        onSelect={handleSelectCountry} 
-        isSelected={selectedCountries.includes(item.name.common)} 
+      <CountryItem
+        item={item}
+        onSelect={handleSelectCountry}
+        isSelected={selectedCountries.includes(item.name.common)}
       />
-    ), 
-    [handleSelectCountry, selectedCountries]
+    ),
+    [selectedCountries]
   );
+  
+  
+  
 
   const renderSectionHeader = useCallback(
     ({ section }: { section: { title: string } }) => (
@@ -351,6 +371,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     // marginRight: 1,
   },
+  flagWithBorder: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+    overflow: 'hidden',
+  },
   title: {
     fontSize: 15,
     fontWeight: 'bold',
@@ -397,6 +423,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  highlightedItem: {
+    backgroundColor: '#f5f5f5', // Szary kolor dla zaznaczonych krajów
+  },
   countryItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -409,10 +438,13 @@ const styles = StyleSheet.create({
     marginRight: 12,
     width: 30,
     alignItems: 'center',
+    justifyContent: 'center',
+
   },
   countryText: {
     flex: 1,
     fontSize: 16,
+    marginLeft: 5
   },
   emptyContainer: {
     padding: 16,
@@ -461,16 +493,6 @@ const styles = StyleSheet.create({
     borderRadius: 5, // Połowa rozmiaru flagi, aby uzyskać zaokrąglenie
     overflow: 'hidden',
   },
-  // roundCheckbox: {
-  //   width: 24,
-  //   height: 24,
-  //   borderRadius: 12, // Połowa szerokości, aby uzyskać kształt koła
-  //   borderWidth: 2,
-  //   borderColor: '#6a1b9a', // Kolor obramowania
-  //   alignItems: 'center',
-  //   justifyContent: 'center',
-  //   overflow: 'hidden',
-  // },
 
   roundCheckbox: {
     width: 20,
@@ -488,6 +510,5 @@ const styles = StyleSheet.create({
     borderColor: '#ccc',
     backgroundColor: 'transparent',
   },
-  
 });
 
