@@ -13,6 +13,8 @@ import {
   Keyboard,
   Animated,
   TouchableOpacity,
+  UIManager,
+  LayoutAnimation,
 } from 'react-native';
 import { TextInput as PaperTextInput, Checkbox, Switch, useTheme } from 'react-native-paper';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -51,48 +53,55 @@ const CountryItem = React.memo(function CountryItem({
   onSelect: (name: string) => void;
   isSelected: boolean;
 }) {
-  // Zmienna stanu dla animacji checkboxa
+  // Animacja dla checkboxa
   const scaleValue = useState(new Animated.Value(1))[0];
 
-  // Funkcja obsługująca animację przy kliknięciu
-  const handlePress = () => {
+  // Funkcja obsługująca animację checkboxa
+  const handleCheckboxPress = () => {
     Animated.sequence([
-      Animated.timing(scaleValue, { toValue: 0.8, duration: 100, useNativeDriver: true }),
-      Animated.timing(scaleValue, { toValue: 1, duration: 100, useNativeDriver: true }),
+      Animated.timing(scaleValue, { toValue: 0.8, duration: 80, useNativeDriver: true }),
+      Animated.timing(scaleValue, { toValue: 1, duration: 80, useNativeDriver: true }),
     ]).start();
+    onSelect(item.name.common);
+  };
 
-    onSelect(item.name.common); // Zaznaczamy lub odznaczamy kraj
+  // Funkcja obsługująca podświetlenie elementu
+  const handlePress = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    handleCheckboxPress();
   };
 
   return (
-    <Pressable
-      onPress={handlePress}
-      style={[
-        styles.countryItem,
-        isSelected && styles.highlightedItem,
-      ]}
-    >
-      {/* Flaga z borderem */}
-      <View style={[styles.flagContainer, styles.flagWithBorder]}>
-        <CountryFlag isoCode={item.cca2} size={25} />
-      </View>
-
-      {/* Nazwa kraju */}
-      <Text style={styles.countryText}>{item.name.common}</Text>
-
-      {/* Checkbox z animacją */}
-      <Animated.View
+    <Pressable onPress={handlePress}>
+      <View
         style={[
-          styles.roundCheckbox,
-          isSelected ? styles.roundCheckboxChecked : styles.roundCheckboxUnchecked,
-          { transform: [{ scale: scaleValue }] },
+          styles.countryItem,
+          isSelected && styles.highlightedItem,
         ]}
       >
-        {isSelected && <FontAwesome name="check" size={12} color="#fff" />}
-      </Animated.View>
+        {/* Flaga z borderem */}
+        <View style={[styles.flagContainer, styles.flagWithBorder]}>
+          <CountryFlag isoCode={item.cca2} size={25} />
+        </View>
+
+        {/* Nazwa kraju */}
+        <Text style={styles.countryText}>{item.name.common}</Text>
+
+        {/* Checkbox z animacją */}
+        <Animated.View
+          style={[
+            styles.roundCheckbox,
+            isSelected ? styles.roundCheckboxChecked : styles.roundCheckboxUnchecked,
+            { transform: [{ scale: scaleValue }] },
+          ]}
+        >
+          {isSelected && <FontAwesome name="check" size={12} color="#fff" />}
+        </Animated.View>
+      </View>
     </Pressable>
   );
 });
+
 
 
 
@@ -113,6 +122,9 @@ export default function ChooseCountriesScreen() {
   const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
   const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
+  if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  }
   const keyboardShowListener = Keyboard.addListener(showEvent, () => {
     // Natychmiast ukrywamy przycisk, gdy klawiatura się wysuwa
     if (isInputFocused) {
