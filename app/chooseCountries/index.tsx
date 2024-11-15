@@ -213,7 +213,8 @@ export default function ChooseCountriesScreen() {
           </View>
   
           {/* Pasek wyszukiwania */}
-          <View style={[styles.inputContainer, isFocused && styles.inputFocused]}>
+          <View style={[styles.inputContainer, isFocused && { borderColor: '#6a1b9a' }]}>
+
             <PaperTextInput
               label="Search Country"
               value={searchQuery}
@@ -237,10 +238,12 @@ export default function ChooseCountriesScreen() {
               autoCapitalize="none"
               onFocus={() => {
                 setIsInputFocused(true);
+                setIsFocused(true); // Ustawienie stanu fokus
                 fadeAnim.setValue(0);
               }}
               onBlur={() => {
                 setIsInputFocused(false);
+                setIsFocused(false); // Zresetowanie stanu fokus
                 Animated.timing(fadeAnim, {
                   toValue: 1,
                   duration: 300,
@@ -436,3 +439,4 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+
