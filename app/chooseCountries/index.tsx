@@ -12,11 +12,12 @@ import {
   SafeAreaView,
   Keyboard,
   Animated,
-  TouchableOpacity,
   UIManager,
   LayoutAnimation,
+  Modal,
+  TouchableOpacity,
 } from 'react-native';
-import { TextInput as PaperTextInput, Checkbox, Switch, useTheme } from 'react-native-paper';
+import { TextInput as PaperTextInput, useTheme } from 'react-native-paper';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons'; 
 import { doc, updateDoc } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
@@ -24,6 +25,7 @@ import { auth, db } from '../config/firebaseConfig';
 import CountryFlag from 'react-native-country-flag';
 import countries from 'world-countries';
 import { ThemeContext } from '../config/ThemeContext';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Opcjonalnie, jeśli chcesz użyć AsyncStorage
 
 const { width, height } = Dimensions.get('window');
 
@@ -129,9 +131,34 @@ export default function ChooseCountriesScreen() {
   const [isFocused, setIsFocused] = useState(false); // Boolean for search input focus
   const fadeAnim = useState(new Animated.Value(1))[0]; // Domyślnie widoczny
   const [isInputFocused, setIsInputFocused] = useState(false);
-
-  // Dodaj tutaj scaleValue i handleToggleTheme
   const [scaleValue] = useState(new Animated.Value(1));
+
+  // State for popup visibility
+  const [isPopupVisible, setIsPopupVisible] = useState(true);
+
+  useEffect(() => {
+    const checkPopup = async () => {
+      try {
+        const value = await AsyncStorage.getItem('hasShownPopup');
+        if (value !== null) {
+          setIsPopupVisible(false);
+        }
+      } catch (e) {
+        console.error('Failed to load popup status.');
+      }
+    };
+
+    checkPopup();
+  }, []);
+
+  const handleClosePopup = async () => {
+    setIsPopupVisible(false);
+    try {
+      await AsyncStorage.setItem('hasShownPopup', 'true');
+    } catch (e) {
+      console.error('Failed to save popup status.');
+    }
+  };
 
   const handleToggleTheme = () => {
     Animated.sequence([
@@ -263,6 +290,31 @@ export default function ChooseCountriesScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {/* Popup Informacyjny */}
+      <Modal
+        transparent={true}
+        visible={isPopupVisible}
+        animationType="slide"
+        onRequestClose={handleClosePopup}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[styles.modalTitle, { color: theme.colors.primary }]}>
+              Hey Traveller!
+            </Text>
+            <Text style={[styles.modalText, { color: theme.colors.onSurface }]}>
+              Please choose the countries you have visited from the list below.
+            </Text>
+            <TouchableOpacity
+              onPress={handleClosePopup}
+              style={[styles.modalButton, { backgroundColor: theme.colors.primary }]}
+            >
+              <Text style={[styles.modalButtonText, { color: theme.colors.onPrimary }]}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardAvoidingView}
@@ -271,24 +323,15 @@ export default function ChooseCountriesScreen() {
         <View style={{ flex: 1 }}>
           {/* Nagłówek */}
           <View style={styles.header}>
-            <Text style={[styles.title, { color: theme.colors.primary }]}>
-              Select countries you've visited
-            </Text>
-            <View style={styles.themeSwitchContainer}>
-              <Text style={styles.themeIcon}>{isDarkTheme ? '🌙' : '☀️'}</Text>
-              <Switch
-                value={isDarkTheme}
-                onValueChange={toggleTheme}
-                color={theme.colors.primary}
-              />
-            </View>
+            {/* Usunięty tekst nagłówka */}
+            {/* Możesz dodać tutaj logo lub inne elementy, jeśli potrzebujesz */}
           </View>
 
           {/* Pasek wyszukiwania i przycisk przełączania motywu */}
           <View style={styles.searchAndToggleContainer}>
             <View style={[
                 styles.inputContainer, 
-                isFocused && { borderColor: theme.colors.primary }
+                isFocused && styles.inputFocused
               ]}>
               <PaperTextInput
                 label="Search Country"
@@ -411,33 +454,9 @@ const styles = StyleSheet.create({
   },
   header: {
     width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: -5,
-    marginTop: 10,
-    paddingHorizontal: 13, // Przeniesienie paddingu tutaj
-  },
-  themeSwitchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 18
-  },
-  themeIcon: {
-    fontSize: 20,
-  },
-  flagWithBorder: {
-    borderWidth: 1,
-    borderRadius: 5,
-    overflow: 'hidden',
-  },
-  title: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    textAlign: 'left',
-    flex: 1,
-    marginRight: 10,
-    marginLeft: 18
+    marginBottom: 10,
+    paddingHorizontal: 13,
   },
   searchAndToggleContainer: {
     flexDirection: 'row',
@@ -445,6 +464,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center', // Wyśrodkowanie w poziomie
     marginHorizontal: 13,
     marginBottom: 13,
+    marginTop: 10
   },
   inputContainer: {
     width: width * 0.80, // Dostosowane do miejsca na przycisk
@@ -455,13 +475,13 @@ const styles = StyleSheet.create({
     borderColor: '#ccc', // Domyślny kolor obramowania
     flexDirection: 'row',
     alignItems: 'center',
-    height: height * 0.06,
+    height: height * 0.06, // 6% wysokości ekranu
     flex: 1, // Rozciągnięcie na dostępne miejsce
   },
   toggleButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20, // Okrągły
+    width: height * 0.06, // Dostosowane do wysokości pola wyszukiwania
+    height: height * 0.06, // Dostosowane do wysokości pola wyszukiwania
+    borderRadius: height * 0.06 / 2, // Okrągły
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 10, // Odstęp między polem a przyciskiem
@@ -491,11 +511,16 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: '#f0f0f0',
     marginLeft: 7,
-    marginTop: 7
+    marginTop: 7,
   },
   sectionHeaderText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  flagWithBorder: {
+    borderWidth: 1,
+    borderRadius: 5,
+    overflow: 'hidden',
   },
   highlightedItem: {
     backgroundColor: '#f5f5f5', // Szary kolor dla zaznaczonych krajów
@@ -512,12 +537,12 @@ const styles = StyleSheet.create({
     width: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 7
+    marginLeft: 7,
   },
   countryText: {
     flex: 1,
     fontSize: 16,
-    marginLeft: 5
+    marginLeft: 5,
   },
   emptyContainer: {
     padding: 16,
@@ -548,7 +573,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    marginBottom: 17
+    marginBottom: 17,
   },
   saveButtonDisabled: { // rgba(117, 17, 181, 0.5)
     backgroundColor: 'rgba(117, 17, 181, 0.25)', // 25% przezroczystości
@@ -572,7 +597,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 7
+    marginRight: 7,
   },
   roundCheckboxChecked: {
     backgroundColor: '#6a1b9a',
@@ -581,5 +606,42 @@ const styles = StyleSheet.create({
   roundCheckboxUnchecked: {
     borderColor: '#ccc',
     backgroundColor: 'transparent',
+  },
+  // Styles for Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)', // Przyciemnione tło
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: width * 0.8,
+    padding: 20,
+    borderRadius: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  modalText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  modalButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
