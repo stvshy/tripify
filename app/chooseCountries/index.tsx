@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     height: height * 0.075,
-    marginLeft: 13
+    alignSelf: 'center', // Dodano to, aby wyśrodkować pole
   },
   inputFocused: {
     borderColor: '#6a1b9a', // Kolor obramowania w stanie fokusu
