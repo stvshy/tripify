@@ -43,7 +43,6 @@ const getContinent = (region: string, subregion: string): Continent => {
   }
 };
 
-// Memoizowany komponent dla pojedynczego kraju
 const CountryItem = React.memo(function CountryItem({
   item,
   onSelect,
@@ -73,34 +72,39 @@ const CountryItem = React.memo(function CountryItem({
 
   return (
     <Pressable onPress={handlePress}>
-      <View
-        style={[
-          styles.countryItem,
-          isSelected && styles.highlightedItem,
-        ]}
-      >
-        {/* Flaga z borderem */}
-        <View style={[styles.flagContainer, styles.flagWithBorder]}>
-          <CountryFlag isoCode={item.cca2} size={25} />
-        </View>
-
-        {/* Nazwa kraju */}
-        <Text style={styles.countryText}>{item.name.common}</Text>
-
-        {/* Checkbox z animacją */}
-        <Animated.View
+      {/* Zewnętrzny kontener rozciągający się na pełną szerokość */}
+      <View style={styles.countryItemContainer}>
+        {/* Zastosowanie warunkowego tła dla zaznaczonych elementów */}
+        <View
           style={[
-            styles.roundCheckbox,
-            isSelected ? styles.roundCheckboxChecked : styles.roundCheckboxUnchecked,
-            { transform: [{ scale: scaleValue }] },
+            styles.countryItem,
+            isSelected && styles.highlightedItem,
           ]}
         >
-          {isSelected && <FontAwesome name="check" size={12} color="#fff" />}
-        </Animated.View>
+          {/* Flaga z borderem */}
+          <View style={[styles.flagContainer, styles.flagWithBorder]}>
+            <CountryFlag isoCode={item.cca2} size={25} />
+          </View>
+
+          {/* Nazwa kraju */}
+          <Text style={styles.countryText}>{item.name.common}</Text>
+
+          {/* Checkbox z animacją */}
+          <Animated.View
+            style={[
+              styles.roundCheckbox,
+              isSelected ? styles.roundCheckboxChecked : styles.roundCheckboxUnchecked,
+              { transform: [{ scale: scaleValue }] },
+            ]}
+          >
+            {isSelected && <FontAwesome name="check" size={12} color="#fff" />}
+          </Animated.View>
+        </View>
       </View>
     </Pressable>
   );
 });
+
 
 
 
@@ -362,8 +366,8 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    padding: 13,
-    // paddingTop: 20,
+    padding: 0,
+    paddingTop: 20,
     // flexDirection: 'column',
   },
   header: {
@@ -372,7 +376,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: -5,
-    marginTop: 10
+    marginTop: 10,
+    paddingHorizontal: 13, // Przeniesienie paddingu tutaj
   },
   themeSwitchContainer: {
     flexDirection: 'row',
@@ -408,7 +413,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     height: height * 0.075,
-    marginLeft: 4
+    marginLeft: 13
   },
   inputFocused: {
     borderColor: '#6a1b9a', // Kolor obramowania w stanie fokusu
@@ -425,11 +430,16 @@ const styles = StyleSheet.create({
   iconLeft: {
     marginLeft: 10,
   },
+   countryItemContainer: {
+    width: '100%',
+    backgroundColor: '#fff', // Domyślne tło (możesz dostosować)
+  },
   sectionHeader: {
     paddingVertical: 6,
     paddingHorizontal: 8,
     width: '100%',
     backgroundColor: '#f0f0f0',
+    marginLeft: 7
   },
   sectionHeaderText: {
     fontSize: 16,
@@ -437,6 +447,7 @@ const styles = StyleSheet.create({
   },
   highlightedItem: {
     backgroundColor: '#f5f5f5', // Szary kolor dla zaznaczonych krajów
+    
   },
   countryItem: {
     flexDirection: 'row',
@@ -447,10 +458,11 @@ const styles = StyleSheet.create({
     borderBottomColor: '#ccc',
   },
   flagContainer: {
-    marginRight: 12,
+    marginRight: 10,
     width: 30,
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: 7
 
   },
   countryText: {
@@ -479,16 +491,17 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     backgroundColor: '#7511b5',
-    paddingVertical: 12,
+    paddingVertical: 11,
     paddingHorizontal: 30,
     alignItems: 'center',
     borderRadius: 25,
-    width: '92%',
+    width: '78%',
     elevation: 2, // Dodanie cienia dla efektu uniesienia (Android)
     shadowColor: '#000', // Dodanie cienia dla efektu uniesienia (iOS)
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
+    marginBottom: 10
   },
   saveButtonDisabled: {
     backgroundColor: '#a68eac',
@@ -513,6 +526,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 7
   },
   roundCheckboxChecked: {
     backgroundColor: '#6a1b9a',
