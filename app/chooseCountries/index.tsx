@@ -74,38 +74,37 @@ export default function ChooseCountriesScreen() {
   const { toggleTheme, isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme(); // Hook z react-native-paper
   const [isFocused, setIsFocused] = useState(false); // Boolean for search input focus
-  const [isKeyboardVisible, setKeyboardVisible] = useState(false); // State to track keyboard visibility
+  const [isKeyboardVisible, setKeyboardVisible] = useState(true); // State to track keyboard visibility
 
  // Animacja dla przycisku
-  // const fadeAnim = useState(new Animated.Value(1))[0]; // Domyślnie widoczny
-  
+  const fadeAnim = useState(new Animated.Value(1))[0]; // Domyślnie widoczny
+  const [isInputFocused, setIsInputFocused] = useState(false);
  // Nasłuchiwanie stanu klawiatury
  useEffect(() => {
-  const keyboardShowListener = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
-  const keyboardHideListener = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
+  const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+  const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+  const keyboardShowListener = Keyboard.addListener(showEvent, () => {
+    // Natychmiast ukrywamy przycisk, gdy klawiatura się wysuwa
+    if (isInputFocused) {
+      fadeAnim.setValue(0);
+    }
+  });
+
+  const keyboardHideListener = Keyboard.addListener(hideEvent, () => {
+    // Animowane pojawienie się przycisku po schowaniu klawiatury
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  });
 
   return () => {
     keyboardShowListener.remove();
     keyboardHideListener.remove();
   };
-}, []);
-
-  //   const keyboardHideListener = Keyboard.addListener(hideEvent, () => {
-  //     console.log('Keyboard hidden');
-  //     setKeyboardVisible(false);
-  //     Animated.timing(fadeAnim, {
-  //       toValue: 1,
-  //       duration: 100,
-  //       useNativeDriver: true,
-  //     }).start();
-  //   });
-
-  //   // Czyszczenie nasłuchiwaczy przy odmontowaniu komponentu
-  //   return () => {
-  //     keyboardShowListener.remove();
-  //     keyboardHideListener.remove();
-  //   };
-  // }, [fadeAnim]);
+}, [fadeAnim, isInputFocused]);
 
   // Przetwarzanie danych krajów
   const processedCountries = useMemo(() => {
@@ -237,8 +236,19 @@ export default function ChooseCountriesScreen() {
                 />
               }
               autoCapitalize="none"
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
+              onFocus={() => {
+                setIsInputFocused(true);
+                fadeAnim.setValue(0); // Ukrywamy przycisk natychmiast
+              }}
+              onBlur={() => {
+                setIsInputFocused(false);
+                // Animowane pojawienie się przycisku po zamknięciu klawiatury
+                Animated.timing(fadeAnim, {
+                  toValue: 1,
+                  duration: 300,
+                  useNativeDriver: true,
+                }).start();
+              }}
             />
           </View>
   
@@ -249,23 +259,43 @@ export default function ChooseCountriesScreen() {
             renderItem={renderCountryItem}
             renderSectionHeader={renderSectionHeader}
             stickySectionHeadersEnabled={false}
-            ListEmptyComponent={<View style={styles.emptyContainer}><Text style={styles.emptyText}>No countries found.</Text></View>}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>No countries found.</Text>
+              </View>
+            }
             style={styles.sectionList}
           />
         </View>
   
-        {/* Przycisk Save and Continue */}
-        {!isKeyboardVisible && (
-          <View style={styles.footer}>
-            <Pressable
-              onPress={handleSaveCountries}
-              style={[styles.saveButton, selectedCountries.length === 0 && styles.saveButtonDisabled]}
-              disabled={selectedCountries.length === 0}
-            >
-              <Text style={styles.saveButtonText}>Save and Continue</Text>
-            </Pressable>
-          </View>
-        )}
+        {/* Przycisk "Save and Continue" */}
+        <Animated.View
+          style={[
+            styles.footer,
+            {
+              opacity: fadeAnim,
+              transform: [
+                {
+                  translateY: fadeAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [50, 0], // Przycisk wyjeżdża z dołu
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <Pressable
+            onPress={handleSaveCountries}
+            style={[
+              styles.saveButton,
+              selectedCountries.length === 0 && styles.saveButtonDisabled,
+            ]}
+            disabled={selectedCountries.length === 0}
+          >
+            <Text style={styles.saveButtonText}>Save and Continue</Text>
+          </Pressable>
+        </Animated.View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
