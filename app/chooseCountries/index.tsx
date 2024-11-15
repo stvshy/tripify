@@ -52,7 +52,7 @@ const CountryItem = React.memo(function CountryItem({
   onSelect: (name: string) => void;
   isSelected: boolean;
 }) {
-  const theme = useTheme(); // Uzyskaj aktualny motyw
+  const theme = useTheme();
   const scaleValue = useState(new Animated.Value(1))[0];
 
   const handleCheckboxPress = () => {
@@ -68,16 +68,36 @@ const CountryItem = React.memo(function CountryItem({
     handleCheckboxPress();
   };
 
+  // Kolory dynamiczne na podstawie motywu
+  const selectedBackgroundColor = isSelected
+    ? theme.colors.surfaceVariant
+    : theme.colors.surface;
+
+  const flagBorderColor = theme.colors.outline;
+
+  const checkboxBackgroundColor = isSelected
+    ? theme.colors.primary
+    : 'transparent';
+
+  const checkboxBorderColor = isSelected
+    ? theme.colors.primary
+    : theme.colors.outline;
+
+  const checkboxIconColor = isSelected
+    ? theme.colors.onPrimary
+    : 'transparent';
+
   return (
     <Pressable onPress={handlePress}>
       <View style={[styles.countryItemContainer, { backgroundColor: theme.colors.surface }]}>
         <View
           style={[
             styles.countryItem,
-            isSelected && { backgroundColor: theme.colors.primaryContainer }, // Użyj koloru z motywu
+            isSelected && { backgroundColor: selectedBackgroundColor },
+            { borderBottomColor: theme.colors.outline },
           ]}
         >
-          <View style={[styles.flagContainer, styles.flagWithBorder]}>
+          <View style={[styles.flagContainer, styles.flagWithBorder, { borderColor: flagBorderColor }]}>
             <CountryFlag isoCode={item.cca2} size={25} />
           </View>
 
@@ -86,19 +106,21 @@ const CountryItem = React.memo(function CountryItem({
           <Animated.View
             style={[
               styles.roundCheckbox,
-              isSelected 
-                ? { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary } 
-                : { borderColor: theme.colors.outline },
-              { transform: [{ scale: scaleValue }] },
+              {
+                backgroundColor: checkboxBackgroundColor,
+                borderColor: checkboxBorderColor,
+                transform: [{ scale: scaleValue }],
+              },
             ]}
           >
-            {isSelected && <FontAwesome name="check" size={12} color={theme.colors.onPrimary} />}
+            {isSelected && <FontAwesome name="check" size={12} color={checkboxIconColor} />}
           </Animated.View>
         </View>
       </View>
     </Pressable>
   );
 });
+
 
 
 
@@ -236,123 +258,121 @@ export default function ChooseCountriesScreen() {
     ), 
     [theme.colors.surface, theme.colors.primary]
   );
-
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.surface }]}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.keyboardAvoidingView}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 20}
-      >
-        {/* Kontener, który rozciąga się na całą wysokość */}
-        <View style={{ flex: 1 }}>
-          {/* Nagłówek z tytułem i przełącznikiem motywu */}
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: theme.colors.primary }]}>
-              Select countries you've visited
-            </Text>
-            <View style={styles.themeSwitchContainer}>
-              <Text style={styles.themeIcon}>{isDarkTheme ? '🌙' : '☀️'}</Text>
-              <Switch
-                value={isDarkTheme}
-                onValueChange={toggleTheme}
-                color="#6a1b9a"
-              />
-            </View>
-          </View>
-  
-          {/* Pasek wyszukiwania */}
-          <View style={[styles.inputContainer, isFocused && { borderColor: '#6a1b9a' }]}>
-
-            <PaperTextInput
-              label="Search Country"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              mode="flat"
-              style={styles.input}
-              theme={{
-                colors: {
-                  primary: isFocused ? '#6a1b9a' : '#ccc',
-                  background: 'transparent',
-                  text: '#000',
-                },
-              }}
-              underlineColor="transparent"
-              left={
-                <PaperTextInput.Icon
-                  icon={() => <FontAwesome name="search" size={20} color={isFocused ? '#6a1b9a' : '#606060'} />}
-                  style={styles.iconLeft}
-                />
-              }
-              autoCapitalize="none"
-              onFocus={() => {
-                setIsInputFocused(true);
-                setIsFocused(true); // Ustawienie stanu fokus
-                fadeAnim.setValue(0);
-              }}
-              onBlur={() => {
-                setIsInputFocused(false);
-                setIsFocused(false); // Zresetowanie stanu fokus
-                Animated.timing(fadeAnim, {
-                  toValue: 1,
-                  duration: 300,
-                  useNativeDriver: true,
-                }).start();
-              }}
+ // Definiowanie dynamicznych kolorów separatorów
+ const separatorColor = theme.dark ? theme.colors.outline : '#ccc';
+ return (
+  <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={styles.keyboardAvoidingView}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 20}
+    >
+      <View style={{ flex: 1 }}>
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: theme.colors.primary }]}>
+            Select countries you've visited
+          </Text>
+          <View style={styles.themeSwitchContainer}>
+            <Text style={styles.themeIcon}>{isDarkTheme ? '🌙' : '☀️'}</Text>
+            <Switch
+              value={isDarkTheme}
+              onValueChange={toggleTheme}
+              color={theme.colors.primary}
             />
           </View>
-  
-          {/* Lista krajów wewnątrz kontenera */}
-          <View style={{ flex: 1, marginBottom: -20  }}>
-            <SectionList
-              sections={processedCountries}
-              keyExtractor={(item) => item.cca3}
-              renderItem={renderCountryItem}
-              renderSectionHeader={renderSectionHeader}
-              stickySectionHeadersEnabled={false}
-              contentContainerStyle={{ paddingBottom: 80 }}
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>No countries found.</Text>
-                </View>
-              }
-              style={{ flex: 1 }}
-            />
-          </View>
-  
-          {/* Przycisk "Save and Continue" absolutnie pozycjonowany */}
-          <Animated.View
-            style={[
-              styles.footer,
-              {
-                opacity: fadeAnim,
-                transform: [
-                  {
-                    translateY: fadeAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [50, 0],
-                    }),
-                  },
-                ],
-                bottom: isInputFocused ? -styles.saveButton.marginBottom-2 : 0,
-              },
-            ]}
-          >
-            <Pressable
-              onPress={handleSaveCountries}
-              style={[
-                styles.saveButton,
-                selectedCountries.length === 0 && styles.saveButtonDisabled,
-              ]}
-              disabled={selectedCountries.length === 0}
-            >
-              <Text style={styles.saveButtonText}>Save and Continue</Text>
-            </Pressable>
-          </Animated.View>
         </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
-  );
+
+        <View style={[
+            styles.inputContainer, 
+            isFocused && { borderColor: theme.colors.primary }
+          ]}>
+          <PaperTextInput
+            label="Search Country"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            mode="flat"
+            style={styles.input}
+            theme={{
+              colors: {
+                primary: isFocused ? theme.colors.primary : theme.colors.outline,
+                background: 'transparent',
+                text: theme.colors.onSurface,
+              },
+            }}
+            underlineColor="transparent"
+            left={
+              <PaperTextInput.Icon
+                icon={() => <FontAwesome name="search" size={20} color={isFocused ? theme.colors.primary : theme.colors.outline} />}
+                style={styles.iconLeft}
+              />
+            }
+            autoCapitalize="none"
+            onFocus={() => {
+              setIsInputFocused(true);
+              setIsFocused(true);
+              fadeAnim.setValue(0);
+            }}
+            onBlur={() => {
+              setIsInputFocused(false);
+              setIsFocused(false);
+              Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 300,
+                useNativeDriver: true,
+              }).start();
+            }}
+          />
+        </View>
+
+        <View style={{ flex: 1, marginBottom: -20 }}>
+          <SectionList
+            sections={processedCountries}
+            keyExtractor={(item) => item.cca3}
+            renderItem={renderCountryItem}
+            renderSectionHeader={renderSectionHeader}
+            stickySectionHeadersEnabled={false}
+            contentContainerStyle={{ paddingBottom: 80 }}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>No countries found.</Text>
+              </View>
+            }
+            style={{ flex: 1 }}
+          />
+        </View>
+
+        <Animated.View
+          style={[
+            styles.footer,
+            {
+              opacity: fadeAnim,
+              transform: [
+                {
+                  translateY: fadeAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [50, 0],
+                  }),
+                },
+              ],
+              bottom: isInputFocused ? -styles.saveButton.marginBottom - 2 : 0,
+            },
+          ]}
+        >
+          <Pressable
+            onPress={handleSaveCountries}
+            style={[
+              styles.saveButton,
+              selectedCountries.length === 0 && styles.saveButtonDisabled,
+            ]}
+            disabled={selectedCountries.length === 0}
+          >
+            <Text style={styles.saveButtonText}>Save and Continue</Text>
+          </Pressable>
+        </Animated.View>
+      </View>
+    </KeyboardAvoidingView>
+  </SafeAreaView>
+);
 }
 
 const styles = StyleSheet.create({
@@ -385,7 +405,7 @@ const styles = StyleSheet.create({
   },
   flagWithBorder: {
     borderWidth: 1,
-    borderColor: '#ccc',
+    // borderColor: '#ccc',
     borderRadius: 5,
     overflow: 'hidden',
   },
@@ -450,7 +470,7 @@ const styles = StyleSheet.create({
     height: 50, // Stała wysokość
     paddingHorizontal: 8,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#ccc',
+    // borderBottomColor: '#ccc',
   },
   flagContainer: {
     marginRight: 10,
