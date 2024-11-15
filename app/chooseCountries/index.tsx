@@ -1,5 +1,3 @@
-// app/chooseCountries/index.tsx
-
 import React, { useState, useMemo, useCallback, useContext, useEffect } from 'react';
 import { 
   View, 
@@ -197,6 +195,7 @@ export default function ChooseCountriesScreen() {
         style={styles.keyboardAvoidingView}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 20}
       >
+        {/* Kontener, który rozciąga się na całą wysokość */}
         <View style={{ flex: 1 }}>
           {/* Nagłówek z tytułem i przełącznikiem motywu */}
           <View style={styles.header}>
@@ -238,11 +237,10 @@ export default function ChooseCountriesScreen() {
               autoCapitalize="none"
               onFocus={() => {
                 setIsInputFocused(true);
-                fadeAnim.setValue(0); // Ukrywamy przycisk natychmiast
+                fadeAnim.setValue(0);
               }}
               onBlur={() => {
                 setIsInputFocused(false);
-                // Animowane pojawienie się przycisku po zamknięciu klawiatury
                 Animated.timing(fadeAnim, {
                   toValue: 1,
                   duration: 300,
@@ -252,54 +250,56 @@ export default function ChooseCountriesScreen() {
             />
           </View>
   
-          {/* Lista krajów */}
-          <SectionList
-            sections={processedCountries}
-            keyExtractor={(item) => item.cca3}
-            renderItem={renderCountryItem}
-            renderSectionHeader={renderSectionHeader}
-            stickySectionHeadersEnabled={false}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No countries found.</Text>
-              </View>
-            }
-            style={styles.sectionList}
-          />
-        </View>
+          {/* Lista krajów wewnątrz kontenera */}
+          <View style={{ flex: 1, marginBottom: -20  }}>
+            <SectionList
+              sections={processedCountries}
+              keyExtractor={(item) => item.cca3}
+              renderItem={renderCountryItem}
+              renderSectionHeader={renderSectionHeader}
+              stickySectionHeadersEnabled={false}
+              contentContainerStyle={{ paddingBottom: 80 }}
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>No countries found.</Text>
+                </View>
+              }
+              style={{ flex: 1 }}
+            />
+          </View>
   
-        {/* Przycisk "Save and Continue" */}
-        <Animated.View
-          style={[
-            styles.footer,
-            {
-              opacity: fadeAnim,
-              transform: [
-                {
-                  translateY: fadeAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [50, 0], // Przycisk wyjeżdża z dołu
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <Pressable
-            onPress={handleSaveCountries}
+          {/* Przycisk "Save and Continue" absolutnie pozycjonowany */}
+          <Animated.View
             style={[
-              styles.saveButton,
-              selectedCountries.length === 0 && styles.saveButtonDisabled,
+              styles.footer,
+              {
+                opacity: fadeAnim,
+                transform: [
+                  {
+                    translateY: fadeAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [50, 0],
+                    }),
+                  },
+                ],
+              },
             ]}
-            disabled={selectedCountries.length === 0}
           >
-            <Text style={styles.saveButtonText}>Save and Continue</Text>
-          </Pressable>
-        </Animated.View>
+            <Pressable
+              onPress={handleSaveCountries}
+              style={[
+                styles.saveButton,
+                selectedCountries.length === 0 && styles.saveButtonDisabled,
+              ]}
+              disabled={selectedCountries.length === 0}
+            >
+              <Text style={styles.saveButtonText}>Save and Continue</Text>
+            </Pressable>
+          </Animated.View>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
-  
 }
 
 const styles = StyleSheet.create({
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 13,
     // paddingTop: 20,
-    flexDirection: 'column',
+    // flexDirection: 'column',
   },
   header: {
     width: '100%',
@@ -406,7 +406,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: 'center',
-    paddingVertical: 10,
+    // paddingVertical: -10,
+    marginBottom: -6,
     backgroundColor: 'transparent', // Transparent footer
     zIndex: 100, // Upewnij się, że przycisk jest nad innymi elementami
   },
@@ -416,7 +417,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     alignItems: 'center',
     borderRadius: 25,
-    width: '90%',
+    width: '92%',
     elevation: 2, // Dodanie cienia dla efektu uniesienia (Android)
     shadowColor: '#000', // Dodanie cienia dla efektu uniesienia (iOS)
     shadowOffset: { width: 0, height: 2 },
