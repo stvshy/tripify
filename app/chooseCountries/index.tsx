@@ -518,8 +518,8 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     marginBottom: 17
   },
-  saveButtonDisabled: {
-    backgroundColor: '#a68eac',
+  saveButtonDisabled: { //    rgba(117, 17, 181, 0.5)
+    backgroundColor: 'rgba(117, 17, 181, 0.25)', // 25% przezroczystości
   },
   saveButtonText: {
     color: '#FFFFFF',
