@@ -54,6 +54,7 @@ const CountryItem = React.memo(function CountryItem({
   isSelected: boolean;
 }) {
   const theme = useTheme();
+  const { isDarkTheme } = useContext(ThemeContext); // Pobierz isDarkTheme z kontekstu
   const scaleValue = useState(new Animated.Value(1))[0];
 
   const handleCheckboxPress = () => {
@@ -69,24 +70,24 @@ const CountryItem = React.memo(function CountryItem({
     handleCheckboxPress();
   };
 
-  // Kolory dynamiczne na podstawie motywu
+ // Kolory dynamiczne na podstawie motywu
   const selectedBackgroundColor = isSelected
-    ? theme.colors.surfaceVariant
-    : theme.colors.surface;
+  ? theme.colors.surfaceVariant
+  : theme.colors.surface;
 
   const flagBorderColor = theme.colors.outline;
 
   const checkboxBackgroundColor = isSelected
-    ? theme.colors.primary
-    : 'transparent';
+  ? theme.colors.primary
+  : 'transparent';
 
   const checkboxBorderColor = isSelected
-    ? theme.colors.primary
-    : theme.colors.outline;
+  ? theme.colors.primary
+  : theme.colors.outline;
 
   const checkboxIconColor = isSelected
-    ? theme.colors.onPrimary
-    : 'transparent';
+  ? theme.colors.onPrimary
+  : 'transparent';
 
   return (
     <Pressable onPress={handlePress}>
@@ -353,6 +354,15 @@ export default function ChooseCountriesScreen() {
                     style={styles.iconLeft}
                   />
                 }
+                right={
+                  searchQuery ? (
+                    <PaperTextInput.Icon
+                      icon={() => <MaterialIcons name="close" size={17} color={theme.colors.outline} />} // Zmniejszono rozmiar ikony do 16
+                      onPress={() => setSearchQuery('')}
+                    />
+                  ) : null
+                }
+                
                 autoCapitalize="none"
                 onFocus={() => {
                   setIsInputFocused(true);
@@ -464,7 +474,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center', // Wyśrodkowanie w poziomie
     marginHorizontal: 13,
     marginBottom: 13,
-    marginTop: 10
+    marginTop: 10,
   },
   inputContainer: {
     width: width * 0.80, // Dostosowane do miejsca na przycisk
