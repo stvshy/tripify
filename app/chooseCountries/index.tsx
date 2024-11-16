@@ -131,12 +131,10 @@ export default function ChooseCountriesScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const { toggleTheme, isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme();
-  const [isFocused, setIsFocused] = useState(false);
+  const [isFocused, setIsFocused] = useState(false); // Boolean for search input focus
   const fadeAnim = useMemo(() => new Animated.Value(1), []);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const scaleValue = useMemo(() => new Animated.Value(1), []);
-
-  // State for popup visibility
   const [isPopupVisible, setIsPopupVisible] = useState(true);
 
   useEffect(() => {
@@ -326,8 +324,6 @@ export default function ChooseCountriesScreen() {
         <View style={{ flex: 1 }}>
           {/* Nagłówek */}
           <View style={styles.header}>
-            {/* Usunięty tekst nagłówka */}
-            {/* Możesz dodać tutaj logo lub inne elementy, jeśli potrzebujesz */}
           </View>
 
           {/* Pasek wyszukiwania i przycisk przełączania motywu */}
