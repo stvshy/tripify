@@ -421,7 +421,7 @@ export default function ChooseCountriesScreen() {
                     }),
                   },
                 ],
-                bottom: isInputFocused ? -styles.saveButton.marginBottom - 2 : 0,
+                bottom: isInputFocused ? -styles.saveButton.marginBottom - 5 : 0,
               },
             ]}
           >
@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    marginBottom: 17,
+    marginBottom: 15,
   },
   saveButtonDisabled: { // rgba(117, 17, 181, 0.5)
     backgroundColor: 'rgba(117, 17, 181, 0.25)', // 25% przezroczystości
