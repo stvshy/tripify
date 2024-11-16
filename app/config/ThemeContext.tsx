@@ -48,7 +48,7 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
         colors: {
           ...PaperDefaultTheme.colors,
           primary: '#9d23ea', // Fioletowy kolor przycisku i innych elementów w trybie jasnym
-          surfaceVariant: '#f5f4f4', // Jaśniejsze tło dla zaznaczonych elementów w trybie jasnym
+          surfaceVariant: '#f0efef', // Jaśniejsze tło dla zaznaczonych elementów w trybie jasnym
           outline: '#cccccc', // Jasne obramowanie flag i separatorów w trybie jasnym
           // Możesz dodać inne dostosowane kolory tutaj
         },

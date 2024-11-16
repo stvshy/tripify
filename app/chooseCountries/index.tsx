@@ -54,7 +54,7 @@ const CountryItem = React.memo(function CountryItem({
   isSelected: boolean;
 }) {
   const theme = useTheme();
-  const { isDarkTheme } = useContext(ThemeContext); // Pobierz isDarkTheme z kontekstu
+  const { isDarkTheme } = useContext(ThemeContext);
   const scaleValue = useState(new Animated.Value(1))[0];
 
   const handleCheckboxPress = () => {
@@ -70,33 +70,35 @@ const CountryItem = React.memo(function CountryItem({
     handleCheckboxPress();
   };
 
- // Kolory dynamiczne na podstawie motywu
+  // Kolory dynamiczne na podstawie motywu
   const selectedBackgroundColor = isSelected
-  ? theme.colors.surfaceVariant
-  : theme.colors.surface;
+    ? theme.colors.surfaceVariant
+    : theme.colors.surface;
 
   const flagBorderColor = theme.colors.outline;
 
   const checkboxBackgroundColor = isSelected
-  ? theme.colors.primary
-  : 'transparent';
+    ? theme.colors.primary
+    : 'transparent';
 
   const checkboxBorderColor = isSelected
-  ? theme.colors.primary
-  : theme.colors.outline;
+    ? theme.colors.primary
+    : theme.colors.outline;
 
   const checkboxIconColor = isSelected
-  ? theme.colors.onPrimary
-  : 'transparent';
+    ? theme.colors.onPrimary
+    : 'transparent';
 
   return (
     <Pressable onPress={handlePress}>
-      <View style={[styles.countryItemContainer, { backgroundColor: theme.colors.surface }]}>
+      <View style={styles.countryItemContainer}>
         <View
           style={[
             styles.countryItem,
-            isSelected && { backgroundColor: selectedBackgroundColor },
-            { borderBottomColor: theme.colors.outline },
+            {
+              backgroundColor: selectedBackgroundColor,
+              borderRadius: isSelected ? 4 : 8, // Większe zaokrąglenie, gdy wybrane
+            },
           ]}
         >
           <View style={[styles.flagContainer, styles.flagWithBorder, { borderColor: flagBorderColor }]}>
@@ -496,6 +498,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: 7, // Odstęp między polem a przyciskiem
   },
+  selectedCountryContainer: {
+    backgroundColor: '#e0f7fa', // Jasny niebieski lub dowolny kolor podświetlenia
+    borderRadius: 10, // Zaokrąglenie rogów
+    marginHorizontal: 10, // Dostosowanie marginesów, aby zaokrąglenia były widoczne
+    marginVertical: 5,
+    padding: 5,
+    // Opcjonalnie dodaj cień dla lepszego efektu
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2, // Tylko dla Androida
+  },
+  selectedCountryItem: {
+    backgroundColor: '#b2ebf2', // Trochę ciemniejszy kolor dla wewnętrznego obszaru
+    borderRadius: 8, // Drobne zaokrąglenie wewnątrz kontenera
+    padding: 10,
+  },  
   inputFocused: {
     borderColor: '#6a1b9a', // Kolor obramowania w stanie fokusu
   },
@@ -513,7 +533,7 @@ const styles = StyleSheet.create({
   },
   countryItemContainer: {
     width: '100%',
-    backgroundColor: '#fff', // Domyślne tło (możesz dostosować)
+    backgroundColor: 'transparent', // Domyślne tło (możesz dostosować)
   },
   sectionHeader: {
     paddingVertical: 4,
@@ -541,6 +561,7 @@ const styles = StyleSheet.create({
     height: 50, // Stała wysokość
     paddingHorizontal: 8,
     borderBottomWidth: 0.5,
+    borderBottomColor: '#ccc',
   },
   flagContainer: {
     marginRight: 10,
