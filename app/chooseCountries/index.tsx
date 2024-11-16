@@ -477,7 +477,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   inputContainer: {
-    width: width * 0.80, // Dostosowane do miejsca na przycisk
+    width: width * 0.82, // Dostosowane do miejsca na przycisk
     backgroundColor: '#f0ed8f5',
     borderRadius: 28, // Zwiększony borderRadius dla lepszej estetyki
     overflow: 'hidden',
@@ -489,12 +489,12 @@ const styles = StyleSheet.create({
     flex: 1, // Rozciągnięcie na dostępne miejsce
   },
   toggleButton: {
-    width: height * 0.062, // Dostosowane do wysokości pola wyszukiwania
-    height: height * 0.062, // Dostosowane do wysokości pola wyszukiwania
-    borderRadius: height * 0.062 / 2, // Okrągły
+    width: height * 0.0615, // Dostosowane do wysokości pola wyszukiwania
+    height: height * 0.0615, // Dostosowane do wysokości pola wyszukiwania
+    borderRadius: height * 0.0615 / 2, // Okrągły
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 10, // Odstęp między polem a przyciskiem
+    marginLeft: 7, // Odstęp między polem a przyciskiem
   },
   inputFocused: {
     borderColor: '#6a1b9a', // Kolor obramowania w stanie fokusu
@@ -583,7 +583,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    marginBottom: 15,
+    marginBottom: 13,
   },
   saveButtonDisabled: { // rgba(117, 17, 181, 0.5)
     backgroundColor: 'rgba(117, 17, 181, 0.25)', // 25% przezroczystości
