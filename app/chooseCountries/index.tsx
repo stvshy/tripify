@@ -485,13 +485,13 @@ const styles = StyleSheet.create({
     borderColor: '#ccc', // Domyślny kolor obramowania
     flexDirection: 'row',
     alignItems: 'center',
-    height: height * 0.06, // 6% wysokości ekranu
+    height: height * 0.062, // 6% wysokości ekranu
     flex: 1, // Rozciągnięcie na dostępne miejsce
   },
   toggleButton: {
-    width: height * 0.06, // Dostosowane do wysokości pola wyszukiwania
-    height: height * 0.06, // Dostosowane do wysokości pola wyszukiwania
-    borderRadius: height * 0.06 / 2, // Okrągły
+    width: height * 0.062, // Dostosowane do wysokości pola wyszukiwania
+    height: height * 0.062, // Dostosowane do wysokości pola wyszukiwania
+    borderRadius: height * 0.062 / 2, // Okrągły
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 10, // Odstęp między polem a przyciskiem
