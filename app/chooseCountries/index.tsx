@@ -25,7 +25,7 @@ import { auth, db } from '../config/firebaseConfig';
 import CountryFlag from 'react-native-country-flag';
 import countries from 'world-countries';
 import { ThemeContext } from '../config/ThemeContext';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Opcjonalnie, jeśli chcesz użyć AsyncStorage
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -55,20 +55,20 @@ const CountryItem = React.memo(function CountryItem({
 }) {
   const theme = useTheme();
   const { isDarkTheme } = useContext(ThemeContext);
-  const scaleValue = useState(new Animated.Value(1))[0];
+  const scaleValue = useMemo(() => new Animated.Value(1), []);
 
-  const handleCheckboxPress = () => {
+  const handleCheckboxPress = useCallback(() => {
     Animated.sequence([
       Animated.timing(scaleValue, { toValue: 0.8, duration: 80, useNativeDriver: true }),
       Animated.timing(scaleValue, { toValue: 1, duration: 80, useNativeDriver: true }),
     ]).start();
     onSelect(item.name.common);
-  };
+  }, [scaleValue, onSelect, item.name.common]);
 
-  const handlePress = () => {
+  const handlePress = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     handleCheckboxPress();
-  };
+  }, [handleCheckboxPress]);
 
   // Kolory dynamiczne na podstawie motywu
   const selectedBackgroundColor = isSelected
@@ -130,11 +130,11 @@ export default function ChooseCountriesScreen() {
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const { toggleTheme, isDarkTheme } = useContext(ThemeContext);
-  const theme = useTheme(); // Hook z react-native-paper
-  const [isFocused, setIsFocused] = useState(false); // Boolean for search input focus
-  const fadeAnim = useState(new Animated.Value(1))[0]; // Domyślnie widoczny
+  const theme = useTheme();
+  const [isFocused, setIsFocused] = useState(false);
+  const fadeAnim = useMemo(() => new Animated.Value(1), []);
   const [isInputFocused, setIsInputFocused] = useState(false);
-  const [scaleValue] = useState(new Animated.Value(1));
+  const scaleValue = useMemo(() => new Animated.Value(1), []);
 
   // State for popup visibility
   const [isPopupVisible, setIsPopupVisible] = useState(true);
@@ -154,16 +154,16 @@ export default function ChooseCountriesScreen() {
     checkPopup();
   }, []);
 
-  const handleClosePopup = async () => {
+  const handleClosePopup = useCallback(async () => {
     setIsPopupVisible(false);
     try {
       await AsyncStorage.setItem('hasShownPopup', 'true');
     } catch (e) {
       console.error('Failed to save popup status.');
     }
-  };
+  }, []);
 
-  const handleToggleTheme = () => {
+  const handleToggleTheme = useCallback(() => {
     Animated.sequence([
       Animated.timing(scaleValue, {
         toValue: 0.9,
@@ -178,7 +178,7 @@ export default function ChooseCountriesScreen() {
     ]).start(() => {
       toggleTheme();
     });
-  };
+  }, [scaleValue, toggleTheme]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -237,7 +237,7 @@ export default function ChooseCountriesScreen() {
     return sections;
   }, [searchQuery]);
 
-  const handleSelectCountry = (countryName: string) => {
+  const handleSelectCountry = useCallback((countryName: string) => {
     setSelectedCountries((prevSelected) => {
       if (prevSelected.includes(countryName)) {
         return prevSelected.filter((c) => c !== countryName);
@@ -245,9 +245,9 @@ export default function ChooseCountriesScreen() {
         return [...prevSelected, countryName];
       }
     });
-  };
+  }, []);
 
-  const handleSaveCountries = async () => {
+  const handleSaveCountries = useCallback(async () => {
     if (selectedCountries.length === 0) {
       Alert.alert('No Selection', 'Please select at least one country.');
       return;
@@ -269,7 +269,7 @@ export default function ChooseCountriesScreen() {
       Alert.alert('Not Logged In', 'User is not authenticated.');
       router.replace('/welcome');
     }
-  };
+  }, [selectedCountries, router]);
 
   const renderCountryItem = useCallback(
     ({ item }: { item: typeof countries[0] }) => (
@@ -279,7 +279,7 @@ export default function ChooseCountriesScreen() {
         isSelected={selectedCountries.includes(item.name.common)}
       />
     ),
-    [selectedCountries]
+    [handleSelectCountry, selectedCountries]
   );
 
   const renderSectionHeader = useCallback(
