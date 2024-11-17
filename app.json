@@ -4,7 +4,7 @@
     "slug": "tripify",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/tripify-icon.png",
+    "icon": "./assets/images/tripify-icon-1024x1024.png",
     "scheme": "fb517197711280428",
     "userInterfaceStyle": "automatic",
     "splash": {

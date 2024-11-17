@@ -25,7 +25,13 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
+<<<<<<< HEAD
     ".expo/types/react-native-svg.d.ts"
+=======
+    "declaration.d.ts"
+>>>>>>> 54ebf18823b8da1af0e20c99ca4027a189683d80
   ],
+  "exclude": ["node_modules", "babel.config.js", "metro.config.js", "jest.config.js"],
+  
   "extends": "expo/tsconfig.base"
 }

@@ -235,16 +235,16 @@ export default function ChooseCountriesScreen() {
     return sections;
   }, [searchQuery]);
 
-  const handleSelectCountry = useCallback((countryName: string) => {
+  const handleSelectCountry = useCallback((countryCode: string) => {
     setSelectedCountries((prevSelected) => {
-      if (prevSelected.includes(countryName)) {
-        return prevSelected.filter((c) => c !== countryName);
+      if (prevSelected.includes(countryCode)) {
+        return prevSelected.filter((c) => c !== countryCode);
       } else {
-        return [...prevSelected, countryName];
+        return [...prevSelected, countryCode];
       }
     });
   }, []);
-
+  
   const handleSaveCountries = useCallback(async () => {
     if (selectedCountries.length === 0) {
       Alert.alert('No Selection', 'Please select at least one country.');
@@ -255,9 +255,9 @@ export default function ChooseCountriesScreen() {
       try {
         const userDocRef = doc(db, 'users', user.uid);
         await updateDoc(userDocRef, {
-          countriesVisited: selectedCountries,
+          countriesVisited: selectedCountries, 
           firstLoginComplete: true,
-        });
+        });        
         router.replace('/');
       } catch (error) {
         console.error('Error saving countries:', error);
@@ -274,11 +274,11 @@ export default function ChooseCountriesScreen() {
       <CountryItem
         item={item}
         onSelect={handleSelectCountry}
-        isSelected={selectedCountries.includes(item.name.common)}
+        isSelected={selectedCountries.includes(item.cca2)}
       />
     ),
     [handleSelectCountry, selectedCountries]
-  );
+  );  
 
   const renderSectionHeader = useCallback(
     ({ section }: { section: { title: string } }) => (
