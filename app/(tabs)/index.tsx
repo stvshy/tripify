@@ -4,7 +4,7 @@ import React, { useEffect, useState, useContext } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { auth, db } from '../config/firebaseConfig'; // Upewnij się, że ścieżka jest poprawna
 import { doc, getDoc } from 'firebase/firestore';
-import InteractiveMap from '../../components/InteractiveMap'; // Upewnij się, że ścieżka jest poprawna
+// import InteractiveMap from '../../components/InteractiveMap'; // Upewnij się, że ścieżka jest poprawna
 import { ThemeContext } from '../config/ThemeContext';
 import { useTheme } from 'react-native-paper';
 
@@ -59,13 +59,13 @@ export default function HomeScreen() {
       </View>
 
       {/* Interaktywna Mapa */}
-      <InteractiveMap 
+      {/* <InteractiveMap 
         selectedCountries={selectedCountries} 
         onCountryPress={(code) => {
           // Opcjonalnie: Możesz dodać logikę, np. nawigację do szczegółów kraju
           console.log(`Country pressed: ${code}`);
         }} 
-      />
+      /> */}
     </View>
   );
 }
