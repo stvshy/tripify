@@ -24,7 +24,8 @@
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts"
+    "expo-env.d.ts",
+    ".expo/types/react-native-svg.d.ts"
   ],
   "extends": "expo/tsconfig.base"
 }
