@@ -1,14 +1,15 @@
 // components/InteractiveMap.tsx
+
 import React, { useContext, forwardRef, useImperativeHandle, useRef } from 'react';
 import { StyleSheet, View, Dimensions } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { ThemeContext } from '../app/config/ThemeContext';
 import { captureRef } from 'react-native-view-shot';
-import countriesData from '../assets/maps/countries.json'; // Import pliku JSON z krajami
-import { Country, CountriesData } from '../.expo/types/country'; // Import zdefiniowanych typów
+import countriesData from '../assets/maps/countries.json';
+import { Country, CountriesData } from '../.expo/types/country';
 
 interface InteractiveMapProps {
-  selectedCountries: string[];
+  selectedCountries: string[]; // Tablica kodów krajów (cca2)
   onCountryPress: (countryCode: string) => void;
 }
 
@@ -41,7 +42,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     const getCountryFill = (countryCode: string) => {
       const isVisited = selectedCountries.includes(countryCode);
       console.log(`Kraj: ${countryCode}, odwiedzony: ${isVisited}`);
-      return isVisited ? '#0000FF' : themeColor;
+      return isVisited ? '#0000FF' : themeColor; // Możesz zmienić kolory na bardziej pasujące
     };
 
     return (
@@ -52,24 +53,21 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
           viewBox="0 0 2000 1001" // Dostosuj do rozmiarów Twojej mapy SVG
         >
           {data.countries.map((country: Country, index: number) => {
-            // Ustal unikalny klucz
-            const key = country.id || `country-${index}-${country.class}`;
+            const countryCode = country.id;
 
-            // Ustal kod kraju; jeśli `id` jest null, możesz użyć innego unikalnego identyfikatora
-            const countryCode = country.id || `class-${country.class}-${index}`;
+            if (!countryCode || countryCode.startsWith('UNKNOWN-')) {
+              // Pomijamy kraje bez kodu lub z przypisanym UNKNOWN id
+              return null;
+            }
 
             return (
               <Path
-                key={key}
+                key={`${countryCode}-${index}`} // Używamy kodu i indeksu jako klucz
                 d={country.path}
-                fill={country.id ? getCountryFill(country.id) : themeColor}
+                fill={getCountryFill(countryCode)}
                 stroke="#FFFFFF"
                 strokeWidth={1}
-                onPress={() => {
-                  if (country.id) {
-                    onCountryPress(country.id);
-                  }
-                }}
+                onPress={() => onCountryPress(countryCode)}
               />
             );
           })}
@@ -81,6 +79,11 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',

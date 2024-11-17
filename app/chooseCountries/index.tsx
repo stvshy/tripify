@@ -50,7 +50,7 @@ const CountryItem = React.memo(function CountryItem({
   isSelected,
 }: {
   item: typeof countries[0];
-  onSelect: (name: string) => void;
+  onSelect: (countryCode: string) => void;
   isSelected: boolean;
 }) {
   const theme = useTheme();
@@ -62,8 +62,8 @@ const CountryItem = React.memo(function CountryItem({
       Animated.timing(scaleValue, { toValue: 0.8, duration: 80, useNativeDriver: true }),
       Animated.timing(scaleValue, { toValue: 1, duration: 80, useNativeDriver: true }),
     ]).start();
-    onSelect(item.name.common);
-  }, [scaleValue, onSelect, item.name.common]);
+    onSelect(item.cca2); // Przekazujemy cca2 zamiast name.common
+  }, [scaleValue, onSelect, item.cca2]);
 
   const handlePress = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -245,6 +245,7 @@ export default function ChooseCountriesScreen() {
     });
   }, []);
   
+
   const handleSaveCountries = useCallback(async () => {
     if (selectedCountries.length === 0) {
       Alert.alert('No Selection', 'Please select at least one country.');
@@ -255,9 +256,9 @@ export default function ChooseCountriesScreen() {
       try {
         const userDocRef = doc(db, 'users', user.uid);
         await updateDoc(userDocRef, {
-          countriesVisited: selectedCountries, 
+          countriesVisited: selectedCountries,
           firstLoginComplete: true,
-        });        
+        });
         router.replace('/');
       } catch (error) {
         console.error('Error saving countries:', error);
@@ -273,12 +274,12 @@ export default function ChooseCountriesScreen() {
     ({ item }: { item: typeof countries[0] }) => (
       <CountryItem
         item={item}
-        onSelect={handleSelectCountry}
+        onSelect={(countryCode) => handleSelectCountry(countryCode)}
         isSelected={selectedCountries.includes(item.cca2)}
       />
     ),
     [handleSelectCountry, selectedCountries]
-  );  
+  );
 
   const renderSectionHeader = useCallback(
     ({ section }: { section: { title: string } }) => (
