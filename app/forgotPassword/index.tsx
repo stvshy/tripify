@@ -27,7 +27,10 @@ export default function ForgotPasswordScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isFocused, setIsFocused] = useState({ email: false });
   const router = useRouter();
+  const backgroundImage = Image.resolveAssetSource(require('../../assets/images/gradient2.jpg'));
 
+
+  
   const handlePasswordReset = async () => {
     setMessage(null);
     setError(null);

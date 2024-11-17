@@ -1,8 +1,7 @@
 import React, { useContext, forwardRef, useImperativeHandle, useRef } from 'react';
-import { StyleSheet, Dimensions, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
-import WorldMap from '../assets/world.svg';
+import { StyleSheet, View, Dimensions } from 'react-native';
 import { ThemeContext } from '../app/config/ThemeContext';
+import WorldMap from '../assets/world.svg'; // Import pliku SVG jako komponent
 import { captureRef } from 'react-native-view-shot';
 
 interface InteractiveMapProps {
@@ -14,7 +13,7 @@ export interface InteractiveMapRef {
   capture: () => Promise<string | null>;
 }
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
   ({ selectedCountries, onCountryPress }, ref) => {
@@ -32,9 +31,36 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       },
     }));
 
+    // Funkcja do ustalania koloru kraju
+    const getCountryFill = (countryCode: string) => {
+      const isVisited = selectedCountries.includes(countryCode);
+      console.log(`Kraj: ${countryCode}, odwiedzony: ${isVisited}`);
+      return isVisited ? '#0000FF' : themeColor;
+    };
+    
+
     return (
       <View ref={mapViewRef} style={styles.container}>
-        <WorldMap width={width * 0.9} height={(width * 0.9) * 0.5} />
+        {/* Renderowanie SVG mapy */}
+        <WorldMap
+          width={width}
+          height={height}
+          preserveAspectRatio="xMidYMid meet"
+        >
+          {/* Przykład jak dodać obsługę kliknięcia na kraje */}
+          <g>
+            <path
+              d="M20,20L40,40L60,20Z" // Przykładowy path
+              fill={getCountryFill('US')}
+              onTouchStart={() => onCountryPress('US')}
+            />
+            <path
+              d="M60,60L80,80L100,60Z" // Przykładowy path
+              fill={getCountryFill('FR')}
+              onTouchStart={() => onCountryPress('FR')}
+            />
+          </g>
+        </WorldMap>
       </View>
     );
   }
@@ -42,9 +68,9 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 10,
   },
 });
 
