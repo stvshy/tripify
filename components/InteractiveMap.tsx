@@ -149,39 +149,42 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     // Przywracamy przycisk resetu
     const resetMap = () => {
       scale.value = withTiming(1, { duration: 300 });
-      translateX.value = withTiming(initialTranslateX, { duration: 300 });
-      translateY.value = withTiming(initialTranslateY, { duration: 300 });
-    };
+      translateX.value = withTiming(0, { duration: 300 });
+      translateY.value = withTiming(0, { duration: 300 });
+    };    
     
 
     return (
-<GestureHandlerRootView style={[styles.container, style]}>
-  <GestureDetector gesture={Gesture.Simultaneous(pinchGesture, panGesture)}>
-    <Animated.View style={styles.container}>
-      <Animated.View style={animatedStyle}>
-        <View ref={mapViewRef} style={styles.mapContainer}>
-          <Svg width="100%" height="100%" viewBox="232 0 1700 857" preserveAspectRatio="xMidYMid meet">
-            {data.countries.map((country: Country, index: number) => {
-              const countryCode = country.id;
-              if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
-              return (
-                <Path
-                  key={`${countryCode}-${index}`}
-                  d={country.path}
-                  fill={getCountryFill(countryCode)}
-                  stroke="#FFFFFF"
-                  strokeWidth={1}
-                  onPress={() => onCountryPress(countryCode)}
-                />
-              );
-            })}
-          </Svg>
-        </View>
-      </Animated.View>
-    </Animated.View>
-  </GestureDetector>
-</GestureHandlerRootView>
-
+      <GestureHandlerRootView style={[styles.container, style]}>
+        <GestureDetector gesture={Gesture.Simultaneous(pinchGesture, panGesture)}>
+          <Animated.View style={styles.container}>
+            <Animated.View style={animatedStyle}>
+              <View ref={mapViewRef} style={styles.mapContainer}>
+                <Svg width="100%" height="100%" viewBox="232 0 1700 857" preserveAspectRatio="xMidYMid meet">
+                  {data.countries.map((country: Country, index: number) => {
+                    const countryCode = country.id;
+                    if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
+                    return (
+                      <Path
+                        key={`${countryCode}-${index}`}
+                        d={country.path}
+                        fill={getCountryFill(countryCode)}
+                        stroke="#FFFFFF"
+                        strokeWidth={1}
+                        onPress={() => onCountryPress(countryCode)}
+                        />
+                      );
+                    })}
+                  </Svg>
+                </View>
+              </Animated.View>
+            </Animated.View>
+          </GestureDetector>
+          {/* Przycisk resetu */}
+          <TouchableOpacity style={styles.resetButton} onPress={resetMap}>
+            <Text style={styles.resetButtonText}>Reset</Text>
+          </TouchableOpacity>
+        </GestureHandlerRootView>
     );
   }
 );
@@ -205,6 +208,7 @@ const styles = StyleSheet.create({
   resetButtonText: {
     color: '#fff',
     fontWeight: 'bold',
+    fontSize: 16,
   },
 });
 
