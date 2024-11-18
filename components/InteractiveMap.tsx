@@ -36,6 +36,10 @@ export interface InteractiveMapRef {
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
 
+// Stałe wartości przesunięcia są teraz ustawione na 0
+const initialTranslateX = 0;
+const initialTranslateY = 0;
+
 const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
   ({ selectedCountries, onCountryPress, style }, ref) => {
     const { isDarkTheme } = useContext(ThemeContext);
@@ -60,24 +64,31 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       return isVisited ? '#00d7fc' : '#b2b7bf';
     };
 
+    // Inicjalizacja wartości przesunięcia i skali
     const scale = useSharedValue(1);
-    const translateX = useSharedValue(0);
-    const translateY = useSharedValue(0);
+    const translateX = useSharedValue(initialTranslateX);
+    const translateY = useSharedValue(initialTranslateY);
 
-    // Dodanie typów do funkcji clamp
+    // Funkcja clamp
     const clamp = (value: number, min: number, max: number): number => {
       'worklet';
       return Math.min(Math.max(value, min), max);
     };
 
+    // Handler dla gestu pinch
     const pinchHandler = useAnimatedGestureHandler<PinchGestureHandlerGestureEvent, { startScale: number }>({
       onStart: (_, ctx) => {
         ctx.startScale = scale.value;
       },
       onActive: (event, ctx) => {
         scale.value = ctx.startScale * event.scale;
+        // Zapobieganie oddalaniu poniżej skali 1
+        if (scale.value < 1) {
+          scale.value = 1;
+        }
       },
       onEnd: () => {
+        // Ogranicz skalę między 1 a 4
         if (scale.value < 1) {
           scale.value = withTiming(1);
         } else if (scale.value > 4) {
@@ -86,22 +97,30 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       },
     });
 
+    // Handler dla gestu pan
     const panHandler = useAnimatedGestureHandler<PanGestureHandlerGestureEvent, { startX: number; startY: number }>({
       onStart: (_, ctx) => {
         ctx.startX = translateX.value;
         ctx.startY = translateY.value;
       },
       onActive: (event, ctx) => {
-        const newTranslateX = ctx.startX + event.translationX;
-        const newTranslateY = ctx.startY + event.translationY;
+        let newTranslateX = ctx.startX + event.translationX;
+        let newTranslateY = ctx.startY + event.translationY;
 
+        // Oblicz granice przesuwania na podstawie skali i rozmiaru ekranu
         const maxTranslateX = (windowWidth * (scale.value - 1)) / 2;
         const minTranslateX = -maxTranslateX;
         const maxTranslateY = (windowHeight * (scale.value - 1)) / 2;
         const minTranslateY = -maxTranslateY;
 
-        translateX.value = clamp(newTranslateX, minTranslateX, maxTranslateX);
-        translateY.value = clamp(newTranslateY, minTranslateY, maxTranslateY);
+        // Ograniczenie przesuwania w pionie (góra/dół)
+        newTranslateY = clamp(newTranslateY, minTranslateY, maxTranslateY);
+
+        // Ograniczenie przesuwania w poziomie (lewo/prawo)
+        newTranslateX = clamp(newTranslateX, minTranslateX, maxTranslateX);
+
+        translateX.value = newTranslateX;
+        translateY.value = newTranslateY;
       },
       onEnd: (event) => {
         const maxTranslateX = (windowWidth * (scale.value - 1)) / 2;
@@ -118,6 +137,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       },
     });
 
+    // Styl animowany dla transformacji
     const animatedStyle = useAnimatedStyle(() => ({
       transform: [
         { translateX: translateX.value },
@@ -126,34 +146,45 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       ],
     }));
 
+    // Funkcja resetująca mapę do początkowego stanu
     const resetMap = () => {
       scale.value = withTiming(1);
-      translateX.value = withTiming(0);
-      translateY.value = withTiming(0);
+      translateX.value = withTiming(initialTranslateX);
+      translateY.value = withTiming(initialTranslateY);
+      console.log(`Map Reset - Scale: 1, TranslateX: ${initialTranslateX}, TranslateY: ${initialTranslateY}`);
     };
+
+    // Referencje dla gestów
+    const panRef = useRef();
+    const pinchRef = useRef();
 
     return (
       <GestureHandlerRootView style={[styles.container, style]}>
-        <PanGestureHandler onGestureEvent={panHandler}>
+        <PanGestureHandler
+          onGestureEvent={panHandler}
+          ref={panRef}
+          simultaneousHandlers={pinchRef}
+        >
           <Animated.View style={styles.container}>
-            <PinchGestureHandler onGestureEvent={pinchHandler}>
+            <PinchGestureHandler
+              onGestureEvent={pinchHandler}
+              ref={pinchRef}
+              simultaneousHandlers={panRef}
+            >
               <Animated.View style={styles.container}>
                 <Animated.View style={animatedStyle}>
                   <View ref={mapViewRef} style={styles.mapContainer}>
                     <Svg
-                      width={windowWidth}
-                      height={windowHeight}
-                      viewBox={`${232 - translateX.value / scale.value} ${0 - translateY.value / scale.value} ${1700 / scale.value} ${857 / scale.value}`}
-                      preserveAspectRatio="xMidYMid meet"
+                      width="100%"
+                      height="100%"
+                      viewBox="232 0 1700 857" // Upewnij się, że viewBox centralizuje mapę
+                      preserveAspectRatio="xMidYMid meet" // Utrzymuje proporcje i centrowanie
                     >
                       {data.countries.map((country: Country, index: number) => {
                         const countryCode = country.id;
-                        console.log(`Rendering country: ${country.name} with code: ${countryCode}`);
-
                         if (!countryCode || countryCode.startsWith('UNKNOWN-')) {
                           return null;
                         }
-
                         return (
                           <Path
                             key={`${countryCode}-${index}`}
