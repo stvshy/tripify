@@ -4,18 +4,9 @@ import Svg, { Path } from 'react-native-svg';
 import { ThemeContext } from '../app/config/ThemeContext';
 import { captureRef } from 'react-native-view-shot';
 import countriesData from '../assets/maps/countries.json';
-import { interpolate } from 'react-native-reanimated';
+import { interpolate, withSpring } from 'react-native-reanimated';
 import { Country, CountriesData } from '../.expo/types/country';
-
-import {
-  GestureHandlerRootView,
-  PanGestureHandler,
-  PinchGestureHandler,
-  GestureDetector,
-  Gesture,
-  PanGestureHandlerGestureEvent,
-  PinchGestureHandlerGestureEvent,
-} from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, GestureHandlerRootView, GestureUpdateEvent, GestureStateChangeEvent, PanGestureHandlerEventPayload, PinchGestureHandlerEventPayload } from 'react-native-gesture-handler';
 import Animated, {
   useAnimatedGestureHandler,
   useAnimatedStyle,
@@ -79,63 +70,71 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     // Pan gesture handler
     const panRef = useRef(null);
     const pinchRef = useRef(null);
+    const startScale = useSharedValue(1);
+    const startX = useSharedValue(0);
+    const startY = useSharedValue(0);
     
-    const pinchHandler = useAnimatedGestureHandler<PinchGestureHandlerGestureEvent, { startScale: number, startX: number, startY: number }>({
-      onStart: (event, ctx) => {
-        ctx.startScale = scale.value;
-        ctx.startX = translateX.value;
-        ctx.startY = translateY.value;
+    const pinchGesture = Gesture.Pinch()
+      .onStart((event) => {
+        startScale.value = scale.value;
+        startX.value = translateX.value;
+        startY.value = translateY.value;
         focalX.value = event.focalX;
         focalY.value = event.focalY;
-      },
-      onActive: (event, ctx) => {
-        const scaleFactor = ctx.startScale * event.scale;
-        scale.value = Math.max(1, Math.min(6, scaleFactor)); // Zwiększony maksymalny zoom
+      })
+      .onUpdate((event) => {
+        const newScale = startScale.value * event.scale;
+        scale.value = Math.max(1, Math.min(6, newScale));
     
-        // Oblicz przesunięcie z uwzględnieniem punktu ogniskowego
+        const scaleFactor = scale.value / startScale.value;
         const zoomTranslateX = focalX.value - windowWidth / 2;
         const zoomTranslateY = focalY.value - windowHeight / 2;
     
-        translateX.value = ctx.startX - zoomTranslateX * (scale.value / ctx.startScale - 1);
-        translateY.value = ctx.startY - zoomTranslateY * (scale.value / ctx.startScale - 1);
-      },
-      onEnd: () => {
-        // Płynne zakończenie przybliżania
-        if (scale.value > 6) {
-          scale.value = withTiming(6);
-        } else if (scale.value < 1) {
+        translateX.value = startX.value - zoomTranslateX * (scaleFactor - 1);
+        translateY.value = startY.value - zoomTranslateY * (scaleFactor - 1);
+    
+        const maxTranslateY = (windowHeight * (scale.value - 1)) / 4;
+        translateY.value = clamp(translateY.value, -maxTranslateY, maxTranslateY);
+      })
+      .onEnd(() => {
+        if (scale.value < 1) {
           scale.value = withTiming(1);
+        } else if (scale.value > 6) {
+          scale.value = withTiming(6);
         }
-      },
-    });
-    const panHandler = useAnimatedGestureHandler<PanGestureHandlerGestureEvent, { startX: number; startY: number }>({
-      onStart: (_, ctx) => {
-        ctx.startX = translateX.value;
-        ctx.startY = translateY.value;
-      },
-      onActive: (event, ctx) => {
+      });
+    
+    const panStartX = useSharedValue(0);
+    const panStartY = useSharedValue(0);
+    
+    const panGesture = Gesture.Pan()
+      .onStart(() => {
+        panStartX.value = translateX.value;
+        panStartY.value = translateY.value;
+      })
+      .onUpdate((event) => {
         const maxTranslateX = (windowWidth * (scale.value - 1)) / 2;
-        const maxTranslateY = (windowHeight * (scale.value - 1)) / 2;
+        const maxTranslateY = (windowHeight * (scale.value - 1)) / 4;
         const minTranslateX = -maxTranslateX;
         const minTranslateY = -maxTranslateY;
     
-        translateX.value = clamp(ctx.startX + event.translationX, minTranslateX, maxTranslateX);
-        translateY.value = clamp(ctx.startY + event.translationY, minTranslateY, maxTranslateY);
-      },
-      onEnd: (event) => {
+        translateX.value = clamp(panStartX.value + event.translationX, minTranslateX, maxTranslateX);
+        translateY.value = clamp(panStartY.value + event.translationY, minTranslateY, maxTranslateY);
+      })
+      .onEnd((event) => {
         const maxTranslateX = (windowWidth * (scale.value - 1)) / 2;
-        const maxTranslateY = (windowHeight * (scale.value - 1)) / 2;
+        const maxTranslateY = (windowHeight * (scale.value - 1)) / 4;
     
         translateX.value = withDecay({
-          velocity: event.velocityX * 0.8,
+          velocity: event.velocityX,
           clamp: [-maxTranslateX, maxTranslateX],
         });
         translateY.value = withDecay({
-          velocity: event.velocityY * 0.8,
+          velocity: event.velocityY,
           clamp: [-maxTranslateY, maxTranslateY],
         });
-      },
-    });
+      });
+    
     
     // Definicja stylu animowanego
     const animatedStyle = useAnimatedStyle(() => ({
@@ -156,40 +155,33 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     
 
     return (
-      <GestureHandlerRootView style={[styles.container, style]}>
-      <PanGestureHandler onGestureEvent={panHandler} ref={panRef} simultaneousHandlers={pinchRef}>
-        <Animated.View style={styles.container}>
-          <PinchGestureHandler onGestureEvent={pinchHandler} ref={pinchRef} simultaneousHandlers={panRef}>
-            <Animated.View style={styles.container}>
-              <Animated.View style={animatedStyle}>
-                <View ref={mapViewRef} style={styles.mapContainer}>
-                  <Svg width="100%" height="100%" viewBox="232 0 1700 857" preserveAspectRatio="xMidYMid meet">
-                    {data.countries.map((country: Country, index: number) => {
-                      const countryCode = country.id;
-                      if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
-                      return (
-                        <Path
-                          key={`${countryCode}-${index}`}
-                          d={country.path}
-                          fill={getCountryFill(countryCode)}
-                          stroke="#FFFFFF"
-                          strokeWidth={1}
-                          onPress={() => onCountryPress(countryCode)}
-                        />
-                      );
-                    })}
-                  </Svg>
-                </View>
-              </Animated.View>
-            </Animated.View>
-          </PinchGestureHandler>
-        </Animated.View>
-      </PanGestureHandler>
-      <TouchableOpacity style={styles.resetButton} onPress={resetMap}>
-        <Text style={styles.resetButtonText}>Reset</Text>
-      </TouchableOpacity>
-    </GestureHandlerRootView>
-    
+<GestureHandlerRootView style={[styles.container, style]}>
+  <GestureDetector gesture={Gesture.Simultaneous(pinchGesture, panGesture)}>
+    <Animated.View style={styles.container}>
+      <Animated.View style={animatedStyle}>
+        <View ref={mapViewRef} style={styles.mapContainer}>
+          <Svg width="100%" height="100%" viewBox="232 0 1700 857" preserveAspectRatio="xMidYMid meet">
+            {data.countries.map((country: Country, index: number) => {
+              const countryCode = country.id;
+              if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
+              return (
+                <Path
+                  key={`${countryCode}-${index}`}
+                  d={country.path}
+                  fill={getCountryFill(countryCode)}
+                  stroke="#FFFFFF"
+                  strokeWidth={1}
+                  onPress={() => onCountryPress(countryCode)}
+                />
+              );
+            })}
+          </Svg>
+        </View>
+      </Animated.View>
+    </Animated.View>
+  </GestureDetector>
+</GestureHandlerRootView>
+
     );
   }
 );
