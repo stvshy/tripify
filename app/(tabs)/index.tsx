@@ -1,12 +1,11 @@
 // screens/IndexScreen.tsx
-import React, { useState, useEffect, useCallback, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useContext, useRef } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import InteractiveMap, { InteractiveMapRef } from '../../components/InteractiveMap';
 import { useFocusEffect } from '@react-navigation/native';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebaseConfig';
 import { ThemeContext } from '../config/ThemeContext';
-import { useRef } from 'react';
 
 export default function IndexScreen() {
   const { isDarkTheme } = useContext(ThemeContext);
@@ -65,6 +64,7 @@ export default function IndexScreen() {
         ref={mapRef}
         selectedCountries={selectedCountries}
         onCountryPress={handleCountryPress}
+        style={styles.map} // Przekazanie stylu do InteractiveMap
       />
     </View>
   );
@@ -73,10 +73,17 @@ export default function IndexScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    width: '100%', // Zapewnia pełną szerokość
+    height: '100%', // Zapewnia pełną wysokość
   },
   loadingContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  map: {
+    flex: 1,
+    width: '100%', // Zapewnia, że mapa zajmuje pełną szerokość kontenera
+    height: '100%', // Zapewnia, że mapa zajmuje pełną wysokość kontenera
   },
 });

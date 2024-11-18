@@ -1,7 +1,7 @@
 // components/InteractiveMap.tsx
 
 import React, { useContext, forwardRef, useImperativeHandle, useRef } from 'react';
-import { StyleSheet, View, Dimensions } from 'react-native';
+import { StyleSheet, View, Dimensions, StyleProp, ViewStyle } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { ThemeContext } from '../app/config/ThemeContext';
 import { captureRef } from 'react-native-view-shot';
@@ -11,6 +11,7 @@ import { Country, CountriesData } from '../.expo/types/country';
 interface InteractiveMapProps {
   selectedCountries: string[]; // Tablica kodów krajów (cca2)
   onCountryPress: (countryCode: string) => void;
+  style?: StyleProp<ViewStyle>; // Akceptowanie stylu z zewnątrz
 }
 
 export interface InteractiveMapRef {
@@ -50,7 +51,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         <Svg
           width={width}
           height={height}
-          viewBox="0 0 2000 857" // Dostosuj do rozmiarów Twojej mapy SVG
+          viewBox="232 0 1700 857"// Dostosuj do rozmiarów Twojej mapy SVG
         >
         {data.countries.map((country: Country, index: number) => {
         const countryCode = country.id;
