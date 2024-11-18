@@ -3,10 +3,11 @@
 import fs from 'fs';
 import path from 'path';
 import { parseStringPromise, ParserOptions } from 'xml2js';
-import { getCountryCodeByName } from '../utils/countryCodeMapper';
+import getCountryCodeByName from '../utils/countryCodeMapper';
+import worldCountries from 'world-countries';
 
 // Definicja interfejsów
-interface Country {
+interface CountryData {
   id: string;
   name: string;
   class: string | null;
@@ -14,7 +15,7 @@ interface Country {
 }
 
 interface CountriesData {
-  countries: Country[];
+  countries: CountryData[];
 }
 
 // Funkcja rekurencyjna do ekstrakcji wszystkich <path> elementów
@@ -34,9 +35,51 @@ const extractPaths = (obj: any, paths: any[] = []): any[] => {
   return paths;
 };
 
+// Funkcja do ekstrakcji kodu kraju z atrybutów
+const extractCountryCode = (
+  idAttribute: string | undefined,
+  nameAttribute: string | undefined,
+  classAttribute: string | undefined
+): string | null => {
+  // 1. Sprawdź idAttribute
+  if (idAttribute) {
+    const code = getCountryCodeByName(idAttribute);
+    if (!code.startsWith('UNKNOWN-')) {
+      return code;
+    }
+  }
+
+  // 2. Sprawdź nameAttribute
+  if (nameAttribute) {
+    const code = getCountryCodeByName(nameAttribute);
+    if (!code.startsWith('UNKNOWN-')) {
+      return code;
+    }
+  }
+
+  // 3. Sprawdź classAttribute jako cały ciąg
+  if (classAttribute) {
+    const code = getCountryCodeByName(classAttribute);
+    if (!code.startsWith('UNKNOWN-')) {
+      return code;
+    }
+
+    // 4. Jeśli classAttribute zawiera wiele klas, spróbuj mapować każdą oddzielnie
+    const classNames = classAttribute.split(' ');
+    for (const className of classNames) {
+      const code = getCountryCodeByName(className);
+      if (!code.startsWith('UNKNOWN-')) {
+        return code;
+      }
+    }
+  }
+
+  return null;
+};
+
 // Ścieżki do plików
-const svgFilePath = path.join(__dirname, '../assets/maps/world.svg'); // Ścieżka do oryginalnego SVG
-const outputJsonPath = path.join(__dirname, '../assets/maps/countries.json'); // Ścieżka do output JSON
+const svgFilePath = path.join(__dirname, '../assets/maps/world.svg');
+const outputJsonPath = path.join(__dirname, '../assets/maps/countries.json');
 
 // Główna funkcja generująca countries.json
 const generateCountriesJson = async () => {
@@ -64,42 +107,44 @@ const generateCountriesJson = async () => {
 
     console.log(`Znaleziono ${paths.length} ścieżek w SVG.`);
 
-    const countries: Country[] = [];
+    const countries: CountryData[] = [];
 
     paths.forEach((p, index) => {
       const attributes = p.$;
-      const classAttribute: string | undefined = attributes.class;
       const idAttribute: string | undefined = attributes.id;
+      const nameAttribute: string | undefined = attributes.name;
+      const classAttribute: string | undefined = attributes.class;
       const d: string | undefined = attributes.d;
 
-      if (!classAttribute && !idAttribute) {
-        console.warn(`Ścieżka ${index} nie ma klasy ani id. Pomijam.`);
+      if (!d) {
+        console.warn(`Ścieżka ${index} nie ma atrybutu 'd'. Pomijam.`);
         return;
       }
 
-      // Prefer 'class' nad 'id' dla nazwy kraju
-      let countryName: string | undefined;
+      const countryCode = extractCountryCode(idAttribute, nameAttribute, classAttribute);
 
-      if (classAttribute) {
-        const classNames = classAttribute.split(' ');
-        countryName = classNames[classNames.length - 1]; // Pobiera ostatnią klasę jako nazwę kraju
-      } else if (idAttribute) {
-        countryName = idAttribute;
+      let countryName: string;
+
+      if (countryCode && !countryCode.startsWith('UNKNOWN-')) {
+        const country = worldCountries.find(
+          (c) => c.cca2.toLowerCase() === countryCode.toLowerCase()
+        );
+        countryName = country ? country.name.common : 'Unknown';
+      } else {
+        // Jeżeli nie udało się znaleźć countryCode, spróbuj użyć nameAttribute lub classAttribute
+        if (nameAttribute) {
+          countryName = nameAttribute;
+        } else if (classAttribute) {
+          countryName = classAttribute;
+        } else if (idAttribute) {
+          countryName = idAttribute;
+        } else {
+          countryName = 'Unknown';
+        }
       }
 
-      if (!countryName || !d) {
-        console.warn(`Ścieżka ${index} nie ma nazwy kraju lub atrybutu 'd'. Pomijam.`);
-        return;
-      }
-
-      const countryCode = getCountryCodeByName(countryName);
-
-      if (countryCode.startsWith('UNKNOWN-')) {
-        console.warn(`Ścieżka ${index}: Nieznany kod kraju dla: ${countryName}`);
-      }
-
-      const country: Country = {
-        id: countryCode,
+      const country: CountryData = {
+        id: countryCode || `UNKNOWN-${countryName}`,
         name: countryName,
         class: classAttribute || null,
         path: d.trim(),
