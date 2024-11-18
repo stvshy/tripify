@@ -42,7 +42,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     const getCountryFill = (countryCode: string) => {
       const isVisited = selectedCountries.includes(countryCode);
       console.log(`Kraj: ${countryCode}, odwiedzony: ${isVisited}`);
-      return isVisited ? '#0000FF' : themeColor; // Możesz zmienić kolory na bardziej pasujące
+      return isVisited ? '#00d7fc' : '#b2b7bf'; // Możesz zmienić kolory na bardziej pasujące
     };
 
     return (
@@ -50,27 +50,29 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         <Svg
           width={width}
           height={height}
-          viewBox="0 0 2000 1001" // Dostosuj do rozmiarów Twojej mapy SVG
+          viewBox="0 0 2000 857" // Dostosuj do rozmiarów Twojej mapy SVG
         >
-          {data.countries.map((country: Country, index: number) => {
-            const countryCode = country.id;
+        {data.countries.map((country: Country, index: number) => {
+        const countryCode = country.id;
+        console.log(`Rendering country: ${country.name} with code: ${countryCode}`);
 
-            if (!countryCode || countryCode.startsWith('UNKNOWN-')) {
-              // Pomijamy kraje bez kodu lub z przypisanym UNKNOWN id
-              return null;
-            }
+        if (!countryCode || countryCode.startsWith('UNKNOWN-')) {
+          // Pomijamy kraje bez kodu lub z przypisanym UNKNOWN id
+          return null;
+        }
 
-            return (
-              <Path
-                key={`${countryCode}-${index}`} // Używamy kodu i indeksu jako klucz
-                d={country.path}
-                fill={getCountryFill(countryCode)}
-                stroke="#FFFFFF"
-                strokeWidth={1}
-                onPress={() => onCountryPress(countryCode)}
-              />
-            );
-          })}
+        return (
+          <Path
+            key={`${countryCode}-${index}`} // Używamy kodu i indeksu jako klucz
+            d={country.path}
+            fill={getCountryFill(countryCode)}
+            stroke="#FFFFFF"
+            strokeWidth={1}
+            onPress={() => onCountryPress(countryCode)}
+          />
+        );
+      })}
+
         </Svg>
       </View>
     );

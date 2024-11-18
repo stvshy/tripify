@@ -1,4 +1,4 @@
-// countryCodeMapper.ts
+// utils/countryCodeMapper.ts
 
 import countries from 'world-countries';
 
@@ -7,10 +7,9 @@ const countryNameToCodeMap: { [key: string]: string } = {
   'russian federation': 'RU',
   'federated states of micronesia': 'FM',
   'são tomé and principe': 'ST',
-  'canary islands (spain)': 'IC',
-  'faeroe islands': 'FO',
+  'canary islands (spain)': 'ES', // Przypisujemy do Hiszpanii
+  'faroe islands': 'FO',
   'united states virgin islands': 'VI',
-  'netherlands antilles': 'AN',
   'saint pierre and miquelon': 'PM',
   'wallis and futuna': 'WF',
   'new caledonia': 'NC',
@@ -18,6 +17,10 @@ const countryNameToCodeMap: { [key: string]: string } = {
   'french guiana': 'GF',
   'martinique': 'MQ',
   'guadeloupe': 'GP',
+  // Dodaj inne potrzebne mapowania tutaj
+  'chile': 'CL',
+  'france': 'FR',
+  // Upewnij się, że dodajesz wszystkie kraje, które występują w SVG
 };
 
 // Funkcja do mapowania nazwy kraju na kod `cca2`
@@ -31,7 +34,7 @@ export const getCountryCodeByName = (name: string): string => {
 
   // Przeszukaj standardowe dane z `world-countries`
   const country = countries.find(
-    (country) => 
+    (country) =>
       country.name.common.toLowerCase() === normalizedName ||
       country.name.official.toLowerCase() === normalizedName
   );
