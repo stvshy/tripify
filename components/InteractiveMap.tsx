@@ -18,10 +18,8 @@ export interface InteractiveMapRef {
   capture: () => Promise<string | null>;
 }
 
-const { width, height } = Dimensions.get('window');
-
 const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
-  ({ selectedCountries, onCountryPress }, ref) => {
+  ({ selectedCountries, onCountryPress, style }, ref) => {
     const { isDarkTheme } = useContext(ThemeContext);
     const themeColor = isDarkTheme ? '#ffffff' : '#000000';
     const mapViewRef = useRef<View>(null);
@@ -47,33 +45,32 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     };
 
     return (
-      <View ref={mapViewRef} style={styles.container}>
+      <View ref={mapViewRef} style={[styles.container, style]}>
         <Svg
-          width={width}
-          height={height}
-          viewBox="232 0 1700 857"// Dostosuj do rozmiarów Twojej mapy SVG
+          style={styles.svg}
+          viewBox="232 0 1700 857" // Upewnij się, że viewBox odpowiada oryginalnym wymiarom SVG
+          preserveAspectRatio="xMidYMid meet" // Utrzymuje proporcje i centrowanie
         >
-        {data.countries.map((country: Country, index: number) => {
-        const countryCode = country.id;
-        console.log(`Rendering country: ${country.name} with code: ${countryCode}`);
+          {data.countries.map((country: Country, index: number) => {
+            const countryCode = country.id;
+            console.log(`Rendering country: ${country.name} with code: ${countryCode}`);
 
-        if (!countryCode || countryCode.startsWith('UNKNOWN-')) {
-          // Pomijamy kraje bez kodu lub z przypisanym UNKNOWN id
-          return null;
-        }
+            if (!countryCode || countryCode.startsWith('UNKNOWN-')) {
+              // Pomijamy kraje bez kodu lub z przypisanym UNKNOWN id
+              return null;
+            }
 
-        return (
-          <Path
-            key={`${countryCode}-${index}`} // Używamy kodu i indeksu jako klucz
-            d={country.path}
-            fill={getCountryFill(countryCode)}
-            stroke="#FFFFFF"
-            strokeWidth={1}
-            onPress={() => onCountryPress(countryCode)}
-          />
-        );
-      })}
-
+            return (
+              <Path
+                key={`${countryCode}-${index}`} // Używamy kodu i indeksu jako klucz
+                d={country.path}
+                fill={getCountryFill(countryCode)}
+                stroke="#FFFFFF"
+                strokeWidth={1}
+                onPress={() => onCountryPress(countryCode)}
+              />
+            );
+          })}
         </Svg>
       </View>
     );
@@ -83,8 +80,11 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    // Możesz dodać padding lub margin, jeśli potrzebujesz
+  },
+  svg: {
+    width: '100%',
+    height: '100%',
   },
   loadingContainer: {
     flex: 1,
