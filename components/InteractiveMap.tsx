@@ -6,7 +6,7 @@ import { captureRef } from 'react-native-view-shot';
 import countriesData from '../assets/maps/countries.json';
 import { interpolate, withSpring } from 'react-native-reanimated';
 import { Country, CountriesData } from '../.expo/types/country';
-import { Gesture, GestureDetector, GestureHandlerRootView, GestureUpdateEvent, GestureStateChangeEvent, PanGestureHandlerEventPayload, PinchGestureHandlerEventPayload } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   useAnimatedGestureHandler,
   useAnimatedStyle,
@@ -65,66 +65,60 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       return Math.min(Math.max(value, min), max);
     };
 
-    // Pinch gesture handler with improved state managem
-
-    // Pan gesture handler
-    const panRef = useRef(null);
+    // Referencje do gestów
     const pinchRef = useRef(null);
+    const panRef = useRef(null);
     const startScale = useSharedValue(1);
     const startX = useSharedValue(0);
     const startY = useSharedValue(0);
-    
+
+    // Definicja gestu pinch
     const pinchGesture = Gesture.Pinch()
-      .onStart((event) => {
+      .onBegin((event) => {
         startScale.value = scale.value;
-        startX.value = translateX.value;
-        startY.value = translateY.value;
         focalX.value = event.focalX;
         focalY.value = event.focalY;
       })
       .onUpdate((event) => {
         const newScale = startScale.value * event.scale;
-        scale.value = Math.max(1, Math.min(6, newScale));
-    
+        scale.value = clamp(newScale, 1, 6);
+
+        // Obliczanie przesunięcia na podstawie punktu skupienia
         const scaleFactor = scale.value / startScale.value;
-        const zoomTranslateX = focalX.value - windowWidth / 2;
-        const zoomTranslateY = focalY.value - windowHeight / 2;
-    
-        translateX.value = startX.value - zoomTranslateX * (scaleFactor - 1);
-        translateY.value = startY.value - zoomTranslateY * (scaleFactor - 1);
-    
+        translateX.value = translateX.value - (focalX.value - windowWidth / 2) * (scaleFactor - 1);
+        translateY.value = translateY.value - (focalY.value - windowHeight / 2) * (scaleFactor - 1);
+
         const maxTranslateY = (windowHeight * (scale.value - 1)) / 4;
         translateY.value = clamp(translateY.value, -maxTranslateY, maxTranslateY);
       })
       .onEnd(() => {
+        // Zapewnienie, że skala pozostaje w dozwolonym zakresie
         if (scale.value < 1) {
           scale.value = withTiming(1);
         } else if (scale.value > 6) {
           scale.value = withTiming(6);
         }
       });
-    
-    const panStartX = useSharedValue(0);
-    const panStartY = useSharedValue(0);
-    
+
+    // Definicja gestu pan
     const panGesture = Gesture.Pan()
-      .onStart(() => {
-        panStartX.value = translateX.value;
-        panStartY.value = translateY.value;
+      .onBegin(() => {
+        startX.value = translateX.value;
+        startY.value = translateY.value;
       })
       .onUpdate((event) => {
         const maxTranslateX = (windowWidth * (scale.value - 1)) / 2;
         const maxTranslateY = (windowHeight * (scale.value - 1)) / 4;
         const minTranslateX = -maxTranslateX;
         const minTranslateY = -maxTranslateY;
-    
-        translateX.value = clamp(panStartX.value + event.translationX, minTranslateX, maxTranslateX);
-        translateY.value = clamp(panStartY.value + event.translationY, minTranslateY, maxTranslateY);
+
+        translateX.value = clamp(startX.value + event.translationX, minTranslateX, maxTranslateX);
+        translateY.value = clamp(startY.value + event.translationY, minTranslateY, maxTranslateY);
       })
       .onEnd((event) => {
         const maxTranslateX = (windowWidth * (scale.value - 1)) / 2;
         const maxTranslateY = (windowHeight * (scale.value - 1)) / 4;
-    
+
         translateX.value = withDecay({
           velocity: event.velocityX,
           clamp: [-maxTranslateX, maxTranslateX],
@@ -134,9 +128,11 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
           clamp: [-maxTranslateY, maxTranslateY],
         });
       });
-    
-    
-    // Definicja stylu animowanego
+
+    // Połączenie gestów pinch i pan, aby działały jednocześnie
+    const composedGesture = Gesture.Simultaneous(pinchGesture, panGesture);
+
+    // Styl animowany dla mapy
     const animatedStyle = useAnimatedStyle(() => ({
       transform: [
         { translateX: translateX.value },
@@ -145,18 +141,16 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       ],
     }));
 
-    
-    // Przywracamy przycisk resetu
+    // Funkcja resetująca mapę
     const resetMap = () => {
       scale.value = withTiming(1, { duration: 300 });
       translateX.value = withTiming(0, { duration: 300 });
       translateY.value = withTiming(0, { duration: 300 });
-    };    
-    
+    };
 
     return (
       <GestureHandlerRootView style={[styles.container, style]}>
-        <GestureDetector gesture={Gesture.Simultaneous(pinchGesture, panGesture)}>
+        <GestureDetector gesture={composedGesture}>
           <Animated.View style={styles.container}>
             <Animated.View style={animatedStyle}>
               <View ref={mapViewRef} style={styles.mapContainer}>
@@ -172,19 +166,19 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                         stroke="#FFFFFF"
                         strokeWidth={1}
                         onPress={() => onCountryPress(countryCode)}
-                        />
-                      );
-                    })}
-                  </Svg>
-                </View>
-              </Animated.View>
+                      />
+                    );
+                  })}
+                </Svg>
+              </View>
             </Animated.View>
-          </GestureDetector>
-          {/* Przycisk resetu */}
-          <TouchableOpacity style={styles.resetButton} onPress={resetMap}>
-            <Text style={styles.resetButtonText}>Reset</Text>
-          </TouchableOpacity>
-        </GestureHandlerRootView>
+          </Animated.View>
+        </GestureDetector>
+        {/* Przycisk resetu */}
+        <TouchableOpacity style={styles.resetButton} onPress={resetMap}>
+          <Text style={styles.resetButtonText}>Reset</Text>
+        </TouchableOpacity>
+      </GestureHandlerRootView>
     );
   }
 );
