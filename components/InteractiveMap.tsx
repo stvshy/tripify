@@ -1,7 +1,7 @@
 // components/InteractiveMap.tsx
 
 import React, { useContext, forwardRef, useImperativeHandle, useRef } from 'react';
-import { StyleSheet, View, Dimensions, StyleProp, ViewStyle, TouchableOpacity, Text  } from 'react-native';
+import { StyleSheet, View, Dimensions, StyleProp, ViewStyle, TouchableOpacity, Text } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { ThemeContext } from '../app/config/ThemeContext';
 import { captureRef } from 'react-native-view-shot';
@@ -17,7 +17,6 @@ import {
 } from 'react-native-gesture-handler';
 import Animated, {
   useAnimatedGestureHandler,
-  useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -25,9 +24,9 @@ import Animated, {
 } from 'react-native-reanimated';
 
 interface InteractiveMapProps {
-  selectedCountries: string[]; // Tablica kodów krajów (cca2)
+  selectedCountries: string[];
   onCountryPress: (countryCode: string) => void;
-  style?: StyleProp<ViewStyle>; // Akceptowanie stylu z zewnątrz
+  style?: StyleProp<ViewStyle>;
 }
 
 export interface InteractiveMapRef {
@@ -53,33 +52,32 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       },
     }));
 
-    // Typizacja danych krajów
     const data: CountriesData = countriesData;
 
-    // Funkcja do ustalania koloru kraju
     const getCountryFill = (countryCode: string) => {
       const isVisited = selectedCountries.includes(countryCode);
       console.log(`Kraj: ${countryCode}, odwiedzony: ${isVisited}`);
-      return isVisited ? '#00d7fc' : '#b2b7bf'; // Możesz zmienić kolory na bardziej pasujące
+      return isVisited ? '#00d7fc' : '#b2b7bf';
     };
 
-    // Shared values for scale and translation
     const scale = useSharedValue(1);
-    const focalX = useSharedValue(0);
-    const focalY = useSharedValue(0);
     const translateX = useSharedValue(0);
     const translateY = useSharedValue(0);
 
-    // Pinch gesture handler
-    const pinchHandler = useAnimatedGestureHandler<PinchGestureHandlerGestureEvent, {}>({
-      onStart: (_, ctx: any) => {
+    // Dodanie typów do funkcji clamp
+    const clamp = (value: number, min: number, max: number): number => {
+      'worklet';
+      return Math.min(Math.max(value, min), max);
+    };
+
+    const pinchHandler = useAnimatedGestureHandler<PinchGestureHandlerGestureEvent, { startScale: number }>({
+      onStart: (_, ctx) => {
         ctx.startScale = scale.value;
       },
-      onActive: (event, ctx: any) => {
+      onActive: (event, ctx) => {
         scale.value = ctx.startScale * event.scale;
       },
       onEnd: () => {
-        // Możesz dodać logikę ograniczającą skalę
         if (scale.value < 1) {
           scale.value = withTiming(1);
         } else if (scale.value > 4) {
@@ -88,23 +86,38 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       },
     });
 
-    // Pan gesture handler
-    const panHandler = useAnimatedGestureHandler<PanGestureHandlerGestureEvent, {}>({
-      onStart: (_, ctx: any) => {
+    const panHandler = useAnimatedGestureHandler<PanGestureHandlerGestureEvent, { startX: number; startY: number }>({
+      onStart: (_, ctx) => {
         ctx.startX = translateX.value;
         ctx.startY = translateY.value;
       },
-      onActive: (event, ctx: any) => {
-        translateX.value = ctx.startX + event.translationX;
-        translateY.value = ctx.startY + event.translationY;
+      onActive: (event, ctx) => {
+        const newTranslateX = ctx.startX + event.translationX;
+        const newTranslateY = ctx.startY + event.translationY;
+
+        const maxTranslateX = (windowWidth * (scale.value - 1)) / 2;
+        const minTranslateX = -maxTranslateX;
+        const maxTranslateY = (windowHeight * (scale.value - 1)) / 2;
+        const minTranslateY = -maxTranslateY;
+
+        translateX.value = clamp(newTranslateX, minTranslateX, maxTranslateX);
+        translateY.value = clamp(newTranslateY, minTranslateY, maxTranslateY);
       },
       onEnd: (event) => {
-        translateX.value = withDecay({ velocity: event.velocityX });
-        translateY.value = withDecay({ velocity: event.velocityY });
+        const maxTranslateX = (windowWidth * (scale.value - 1)) / 2;
+        const maxTranslateY = (windowHeight * (scale.value - 1)) / 2;
+
+        translateX.value = withDecay({
+          velocity: event.velocityX,
+          clamp: [-maxTranslateX, maxTranslateX],
+        });
+        translateY.value = withDecay({
+          velocity: event.velocityY,
+          clamp: [-maxTranslateY, maxTranslateY],
+        });
       },
     });
 
-    // Animated style for the SVG
     const animatedStyle = useAnimatedStyle(() => ({
       transform: [
         { translateX: translateX.value },
@@ -113,7 +126,6 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       ],
     }));
 
-   
     const resetMap = () => {
       scale.value = withTiming(1);
       translateX.value = withTiming(0);
@@ -131,21 +143,20 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                     <Svg
                       width={windowWidth}
                       height={windowHeight}
-                      viewBox="232 0 1700 857" // Upewnij się, że viewBox odpowiada oryginalnym wymiarom SVG
-                      preserveAspectRatio="xMidYMid meet" // Utrzymuje proporcje i centrowanie
+                      viewBox={`${232 - translateX.value / scale.value} ${0 - translateY.value / scale.value} ${1700 / scale.value} ${857 / scale.value}`}
+                      preserveAspectRatio="xMidYMid meet"
                     >
                       {data.countries.map((country: Country, index: number) => {
                         const countryCode = country.id;
                         console.log(`Rendering country: ${country.name} with code: ${countryCode}`);
 
                         if (!countryCode || countryCode.startsWith('UNKNOWN-')) {
-                          // Pomijamy kraje bez kodu lub z przypisanym UNKNOWN id
                           return null;
                         }
 
                         return (
                           <Path
-                            key={`${countryCode}-${index}`} // Używamy kodu i indeksu jako klucz
+                            key={`${countryCode}-${index}`}
                             d={country.path}
                             fill={getCountryFill(countryCode)}
                             stroke="#FFFFFF"
@@ -176,15 +187,6 @@ const styles = StyleSheet.create({
   mapContainer: {
     width: '100%',
     height: '100%',
-  },
-  svg: {
-    width: '100%',
-    height: '100%',
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   resetButton: {
     position: 'absolute',

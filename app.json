@@ -24,7 +24,7 @@
     "android": {
       "package": "com.matisp6.tripify",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/tripify-icon.png",
+        "foregroundImage": "./assets/images/tripify-icon-1024x1024.png",
         "backgroundColor": "#00000000"
       },
       "splash": {
