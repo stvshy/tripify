@@ -36,7 +36,7 @@ export interface InteractiveMapRef {
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
 
-// Stałe wartości przesunięcia są teraz ustawione na 0
+// Stałe wartości przesunięcia ustawione na 0
 const initialTranslateX = 0;
 const initialTranslateY = 0;
 
@@ -60,44 +60,55 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
 
     const getCountryFill = (countryCode: string) => {
       const isVisited = selectedCountries.includes(countryCode);
-      console.log(`Kraj: ${countryCode}, odwiedzony: ${isVisited}`);
       return isVisited ? '#00d7fc' : '#b2b7bf';
     };
 
-    // Inicjalizacja wartości przesunięcia i skali
     const scale = useSharedValue(1);
     const translateX = useSharedValue(initialTranslateX);
     const translateY = useSharedValue(initialTranslateY);
+    const focalX = useSharedValue(windowWidth / 2);
+    const focalY = useSharedValue(windowHeight / 2);
 
-    // Funkcja clamp
     const clamp = (value: number, min: number, max: number): number => {
       'worklet';
       return Math.min(Math.max(value, min), max);
     };
 
-    // Handler dla gestu pinch
-    const pinchHandler = useAnimatedGestureHandler<PinchGestureHandlerGestureEvent, { startScale: number }>({
-      onStart: (_, ctx) => {
+    // Pinch gesture handler
+    const pinchHandler = useAnimatedGestureHandler<PinchGestureHandlerGestureEvent, { startScale: number, startX: number, startY: number }>({
+      onStart: (event, ctx) => {
         ctx.startScale = scale.value;
+        ctx.startX = translateX.value;
+        ctx.startY = translateY.value;
+        focalX.value = event.focalX;
+        focalY.value = event.focalY;
       },
       onActive: (event, ctx) => {
+        const scaleFactor = event.scale - 1;
         scale.value = ctx.startScale * event.scale;
-        // Zapobieganie oddalaniu poniżej skali 1
+
+        // Oblicz przesunięcie w stosunku do punktu ogniskowego
+        const zoomTranslateX = focalX.value - windowWidth / 2;
+        const zoomTranslateY = focalY.value - windowHeight / 2;
+
+        translateX.value = ctx.startX - zoomTranslateX * scaleFactor;
+        translateY.value = ctx.startY - zoomTranslateY * scaleFactor;
+
+        // Zapobiegaj oddaleniu poniżej skali 1
         if (scale.value < 1) {
           scale.value = 1;
+          translateX.value = initialTranslateX;
+          translateY.value = initialTranslateY;
         }
       },
       onEnd: () => {
-        // Ogranicz skalę między 1 a 4
-        if (scale.value < 1) {
-          scale.value = withTiming(1);
-        } else if (scale.value > 4) {
+        if (scale.value > 4) {
           scale.value = withTiming(4);
         }
       },
     });
 
-    // Handler dla gestu pan
+    // Pan gesture handler
     const panHandler = useAnimatedGestureHandler<PanGestureHandlerGestureEvent, { startX: number; startY: number }>({
       onStart: (_, ctx) => {
         ctx.startX = translateX.value;
@@ -107,17 +118,13 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         let newTranslateX = ctx.startX + event.translationX;
         let newTranslateY = ctx.startY + event.translationY;
 
-        // Oblicz granice przesuwania na podstawie skali i rozmiaru ekranu
         const maxTranslateX = (windowWidth * (scale.value - 1)) / 2;
         const minTranslateX = -maxTranslateX;
         const maxTranslateY = (windowHeight * (scale.value - 1)) / 2;
         const minTranslateY = -maxTranslateY;
 
-        // Ograniczenie przesuwania w pionie (góra/dół)
-        newTranslateY = clamp(newTranslateY, minTranslateY, maxTranslateY);
-
-        // Ograniczenie przesuwania w poziomie (lewo/prawo)
         newTranslateX = clamp(newTranslateX, minTranslateX, maxTranslateX);
+        newTranslateY = clamp(newTranslateY, minTranslateY, maxTranslateY);
 
         translateX.value = newTranslateX;
         translateY.value = newTranslateY;
@@ -137,7 +144,6 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       },
     });
 
-    // Styl animowany dla transformacji
     const animatedStyle = useAnimatedStyle(() => ({
       transform: [
         { translateX: translateX.value },
@@ -146,15 +152,12 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       ],
     }));
 
-    // Funkcja resetująca mapę do początkowego stanu
     const resetMap = () => {
       scale.value = withTiming(1);
       translateX.value = withTiming(initialTranslateX);
       translateY.value = withTiming(initialTranslateY);
-      console.log(`Map Reset - Scale: 1, TranslateX: ${initialTranslateX}, TranslateY: ${initialTranslateY}`);
     };
 
-    // Referencje dla gestów
     const panRef = useRef();
     const pinchRef = useRef();
 
@@ -177,8 +180,8 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                     <Svg
                       width="100%"
                       height="100%"
-                      viewBox="232 0 1700 857" // Upewnij się, że viewBox centralizuje mapę
-                      preserveAspectRatio="xMidYMid meet" // Utrzymuje proporcje i centrowanie
+                      viewBox="232 0 1700 857"
+                      preserveAspectRatio="xMidYMid meet"
                     >
                       {data.countries.map((country: Country, index: number) => {
                         const countryCode = country.id;
