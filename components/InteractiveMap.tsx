@@ -338,6 +338,7 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
         {/* Ukryta bazowa mapa */}
         <View
   ref={baseMapRef}
+  collapsable={false}
   style={[
     styles.baseMapContainer,
     {
@@ -345,7 +346,7 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
     },
   ]}
 >
-  {/* Górna sekcja */}
+  {/* Górna sekcja z napisem */}
   <View style={styles.topSectionPhoto}>
     <Text style={[styles.titleTextLarge, { color: theme.colors.onBackground }]}>
       Twoja Interaktywna Mapa
@@ -376,7 +377,7 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
     </Svg>
   </View>
 
-  {/* Dolna sekcja */}
+  {/* Dolna sekcja z napisem */}
   <View style={styles.bottomSectionPhoto}>
     <Text style={[styles.infoTextLarge, { color: theme.colors.onBackground }]}>
       Udostępnij swoją mapę i pokaż, gdzie byłeś!
@@ -451,14 +452,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   topSectionPhoto: {
-    flex: 1, // Proporcja górnej sekcji
+    // flex: 1, // Proporcja górnej sekcji
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: -65,
+    marginTop: 50,
   },
   bottomSectionPhoto: {
-    flex: 1, // Proporcja dolnej sekcji
+    // flex: 1, // Proporcja dolnej sekcji
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: -60
   },
   titleText: {
     fontSize: screenWidth * 0.05, // 5% szerokości ekranu
@@ -492,7 +496,8 @@ const styles = StyleSheet.create({
     left: -1000,
     width: screenWidth, // Dynamiczna szerokość
     height: screenWidth * (16 / 9), // Dynamiczna wysokość dla proporcji 9:16
-    opacity: 0, // Ukrycie widoku
+    pointerEvents: 'none', // Zapobiega przechwytywaniu zdarzeń dotykowych
+    // opacity: 0, // Ukrycie widoku
     // justifyContent: 'space-between', // Rozmieszczenie elementów
     // paddingTop: screenWidth * 0.1, // 10% szerokości ekranu dla górnego napisu
     // paddingBottom: screenWidth * 0.1, // 15% szerokości ekranu dla dolnego napisu
