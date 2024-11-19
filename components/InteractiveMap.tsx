@@ -1,5 +1,5 @@
 import React, { useContext, forwardRef, useImperativeHandle, useRef, useState } from 'react';
-import { StyleSheet, View, Dimensions, StyleProp, ViewStyle, TouchableOpacity, Text, ActivityIndicator, Alert } from 'react-native';
+import { StyleSheet, View, Dimensions, StyleProp, ViewStyle, TouchableOpacity, Text, ActivityIndicator, Alert, GestureResponderEvent } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { ThemeContext } from '../app/config/ThemeContext';
 import { captureRef } from 'react-native-view-shot';
@@ -50,6 +50,30 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     const animatedToggleStyle = useAnimatedStyle(() => ({
       transform: [{ scale: scaleValue.value }],
     }));
+// Zmienne używane w pinch-to-zoom
+const activeTouches = useSharedValue<{ id: number; x: number; y: number }[]>([]);
+const initialDistance = useSharedValue<number | null>(null);
+const initialFocalX = useSharedValue<number>(0);
+const initialFocalY = useSharedValue<number>(0);
+const baseScale = useSharedValue<number>(1);
+const baseTranslateX = useSharedValue<number>(0);
+const baseTranslateY = useSharedValue<number>(0);
+
+// Funkcje pomocnicze
+const calculateDistance = (p1: { x: number; y: number }, p2: { x: number; y: number }): number => {
+  'worklet';
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+  return Math.hypot(dx, dy);
+};
+
+const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: number }): { x: number; y: number } => {
+  'worklet';
+  return {
+    x: (p1.x + p2.x) / 2,
+    y: (p1.y + p2.y) / 2,
+  };
+};
 
     const handleToggleTheme = () => {
       // Rozpoczęcie animacji skalowania
@@ -93,68 +117,105 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     const startX = useSharedValue(0);
     const startY = useSharedValue(0);
     
-    // Definicja gestu pinch z limitem palców
-    const pinchGesture = Gesture.Pinch()
-      .onStart((event) => {
-        startScale.value = scale.value;
-        startX.value = translateX.value;
-        startY.value = translateY.value;
-        focalX.value = event.focalX;
-        focalY.value = event.focalY;
-      })
-      .onUpdate((event) => {
-        const newScale = startScale.value * event.scale;
-        scale.value = Math.max(1, Math.min(6, newScale));
+    const pinchGesture = Gesture.Pan()
+    .onTouchesDown((event) => {
+      activeTouches.value = event.allTouches.map((touch) => ({
+        id: touch.id,
+        x: touch.x,
+        y: touch.y,
+      }));
+  
+      if (activeTouches.value.length >= 2) {
+        const [touch1, touch2] = activeTouches.value;
+        initialDistance.value = calculateDistance(touch1, touch2);
+        const midpoint = calculateMidpoint(touch1, touch2);
+        initialFocalX.value = midpoint.x;
+        initialFocalY.value = midpoint.y;
+        baseScale.value = scale.value;
+        baseTranslateX.value = translateX.value;
+        baseTranslateY.value = translateY.value;
+      }
+    })
+    .onTouchesMove((event) => {
+      activeTouches.value = event.allTouches.map((touch) => ({
+        id: touch.id,
+        x: touch.x,
+        y: touch.y,
+      }));
+  
+      if (activeTouches.value.length >= 2) {
+        const [touch1, touch2] = activeTouches.value;
+        const currentDistance = calculateDistance(touch1, touch2);
+        const scaleFactor = currentDistance / (initialDistance.value || 1);
+        const newScale = clamp(baseScale.value * scaleFactor, 1, 6);
+        scale.value = newScale;
+  
+        const currentMidpoint = calculateMidpoint(touch1, touch2);
+  
+        translateX.value = clamp(
+          baseTranslateX.value - (initialFocalX.value - windowWidth / 2) * (scaleFactor - 1),
+          -windowWidth * (scale.value - 1) / 2,
+          windowWidth * (scale.value - 1) / 2
+        );
+        translateY.value = clamp(
+          baseTranslateY.value - (initialFocalY.value - windowHeight / 2) * (scaleFactor - 1),
+          -windowHeight * (scale.value - 1) / 4,
+          windowHeight * (scale.value - 1) / 4
+        );
+      }
+    })
+    .onTouchesUp((event) => {
+      activeTouches.value = event.allTouches.map((touch) => ({
+        id: touch.id,
+        x: touch.x,
+        y: touch.y,
+      }));
+  
+      if (activeTouches.value.length >= 2) {
+        const [touch1, touch2] = activeTouches.value;
+        initialDistance.value = calculateDistance(touch1, touch2);
+        const midpoint = calculateMidpoint(touch1, touch2);
+        initialFocalX.value = midpoint.x;
+        initialFocalY.value = midpoint.y;
+        baseScale.value = scale.value;
+        baseTranslateX.value = translateX.value;
+        baseTranslateY.value = translateY.value;
+      } else {
+        initialDistance.value = null;
+      }
+    });
+  
+  const panGesture = Gesture.Pan()
+    .maxPointers(1) // Ograniczamy do jednego palca
+    .onStart(() => {
+      startX.value = translateX.value;
+      startY.value = translateY.value;
+    })
+    .onUpdate((event) => {
+      const maxTranslateX = (windowWidth * (scale.value - 1)) / 2;
+      const maxTranslateY = (windowHeight * (scale.value - 1)) / 4;
+  
+      translateX.value = clamp(startX.value + event.translationX, -maxTranslateX, maxTranslateX);
+      translateY.value = clamp(startY.value + event.translationY, -maxTranslateY, maxTranslateY);
+    });
+  
+    const tapGesture = Gesture.Tap()
+    .onEnd((event) => {
+      if (event.numberOfPointers === 1) {
+        const { x, y } = event;
+        // Wywołanie przekazanego przez props 'onCountryPress'
+        onCountryPress('some_country_code'); // Przekaż odpowiedni kod kraju
+      }
+    });
+  
+  
+    // const handlePathPress = (countryCode: string) => {
+    //   if (scale.value === 1 && Math.abs(translateX.value) < 10 && Math.abs(translateY.value) < 10) {
+    //     onCountryPress(countryCode);
+    //   }
+    // };
     
-        const scaleFactor = scale.value / startScale.value;
-        const zoomTranslateX = focalX.value - windowWidth / 2;
-        const zoomTranslateY = focalY.value - windowHeight / 2;
-    
-        translateX.value = startX.value - zoomTranslateX * (scaleFactor - 1);
-        translateY.value = startY.value - zoomTranslateY * (scaleFactor - 1);
-    
-        const maxTranslateY = (windowHeight * (scale.value - 1)) / 4;
-        translateY.value = clamp(translateY.value, -maxTranslateY, maxTranslateY);
-      })
-      .onEnd(() => {
-        if (scale.value < 1) {
-          scale.value = withTiming(1);
-        } else if (scale.value > 6) {
-          scale.value = withTiming(6);
-        }
-      });
-
-    // Definicja gestu pan z limitem palców
-    const panGesture = Gesture.Pan()
-      .minPointers(1) // Minimum jeden palec
-      .maxPointers(1) // Maksymalnie jeden palec
-      .onStart(() => {
-        startX.value = translateX.value;
-        startY.value = translateY.value;
-      })
-      .onUpdate((event) => {
-        const maxTranslateX = (windowWidth * (scale.value - 1)) / 2;
-        const maxTranslateY = (windowHeight * (scale.value - 1)) / 4;
-        const minTranslateX = -maxTranslateX;
-        const minTranslateY = -maxTranslateY;
-    
-        translateX.value = clamp(startX.value + event.translationX, minTranslateX, maxTranslateX);
-        translateY.value = clamp(startY.value + event.translationY, minTranslateY, maxTranslateY);
-      })
-      .onEnd((event) => {
-        const maxTranslateX = (windowWidth * (scale.value - 1)) / 2;
-        const maxTranslateY = (windowHeight * (scale.value - 1)) / 4;
-    
-        translateX.value = withDecay({
-          velocity: event.velocityX,
-          clamp: [-maxTranslateX, maxTranslateX],
-        });
-        translateY.value = withDecay({
-          velocity: event.velocityY,
-          clamp: [-maxTranslateY, maxTranslateY],
-        });
-      });
-
+  
     // Styl animowany
     const animatedStyle = useAnimatedStyle(() => ({
       transform: [
@@ -194,9 +255,26 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         setIsSharing(false); // Zakończenie ładowania
       }
     };
-    const handlePathPress = (countryCode: string) => {
+    const convertToSvgCoordinates = (x: number, y: number): { x: number; y: number } => {
+      'worklet';
+      const scaledX = (x - translateX.value) / scale.value;
+      const scaledY = (y - translateY.value) / scale.value;
+      return { x: scaledX, y: scaledY };
+    };
+    
+    const handlePathPress = (event: GestureResponderEvent, countryCode: string) => {
+      const { locationX, locationY } = event.nativeEvent;
+    
+      // Przekonwertuj współrzędne dotyku na współrzędne SVG
+      const svgCoordinates = convertToSvgCoordinates(locationX, locationY);
+    
+      console.log(`Kliknięto w SVG: ${svgCoordinates.x}, ${svgCoordinates.y}`);
+    
+      // Sprawdź, czy kliknięcie mieści się w granicach kraju (to już jest wbudowane w onPress)
       onCountryPress(countryCode);
     };
+    
+    
 
     return (
       <GestureHandlerRootView style={[styles.container, style]}>
@@ -216,7 +294,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                         fill={getCountryFill(countryCode)}
                         stroke={theme.colors.outline}
                         strokeWidth={1}
-                        onPress={() => handlePathPress(countryCode)} // Używanie handlePathPress
+                        onPress={(event) => handlePathPress(event, countryCode)}  // Używanie handlePathPress
                       />
                     );
                   })}
