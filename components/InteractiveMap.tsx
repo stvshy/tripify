@@ -1,6 +1,6 @@
 import React, { useContext, forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { StyleSheet, View, Dimensions, StyleProp, ViewStyle, TouchableOpacity, Text, ActivityIndicator, Alert, GestureResponderEvent } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path, Rect } from 'react-native-svg';
 import { ThemeContext } from '../app/config/ThemeContext';
 import { captureRef } from 'react-native-view-shot';
 import countriesData from '../assets/maps/countries.json';
@@ -305,23 +305,32 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
         </GestureDetector>
 
         {/* Ukryta bazowa mapa */}
-        <View ref={baseMapRef} style={[styles.baseMapContainer, { pointerEvents: 'none' }]}>
-          <Svg width="100%" height="100%" viewBox="232 0 1700 857" preserveAspectRatio="xMidYMid meet">
-            {data.countries.map((country: Country, index: number) => {
-              const countryCode = country.id;
-              if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
-              return (
-                <Path
-                  key={`${countryCode}-${index}`}
-                  d={country.path}
-                  fill={getCountryFill(countryCode)}
-                  stroke={theme.colors.outline}
-                  strokeWidth={1}
-                />
-              );
-            })}
-          </Svg>
-        </View>
+        <View
+  ref={baseMapRef}
+  style={[
+    styles.baseMapContainer,
+    { 
+      backgroundColor: isDarkTheme ? theme.colors.surface : theme.colors.background, // Tło zależne od motywu
+      pointerEvents: 'none' // Wyłączenie interakcji
+    }]
+  }>
+  <Svg width="100%" height="100%" viewBox="232 0 1700 857" preserveAspectRatio="xMidYMid meet">
+    {data.countries.map((country: Country, index: number) => {
+      const countryCode = country.id;
+      if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
+      return (
+        <Path
+          key={`${countryCode}-${index}`}
+          d={country.path}
+          fill={getCountryFill(countryCode)} // Kolor kraju
+          stroke={theme.colors.outline} // Kolor konturu kraju
+          strokeWidth={1}
+        />
+      );
+    })}
+  </Svg>
+</View>
+
         {/* Kontener dla przycisków */}
         <View style={styles.buttonContainer}>
           {/* Przycisk Reset */}
