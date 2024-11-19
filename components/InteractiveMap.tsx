@@ -4,7 +4,6 @@ import Svg, { Path } from 'react-native-svg';
 import { ThemeContext } from '../app/config/ThemeContext';
 import { captureRef } from 'react-native-view-shot';
 import countriesData from '../assets/maps/countries.json';
-import { interpolate, withSpring } from 'react-native-reanimated';
 import { Country, CountriesData } from '../.expo/types/country';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
@@ -66,33 +65,36 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     };
 
     // Referencje do gestów
-    const pinchRef = useRef(null);
     const panRef = useRef(null);
+    const pinchRef = useRef(null);
     const startScale = useSharedValue(1);
     const startX = useSharedValue(0);
     const startY = useSharedValue(0);
-
-    // Definicja gestu pinch
+    
+    // Definicja gestu pinch z limitem palców
     const pinchGesture = Gesture.Pinch()
-      .onBegin((event) => {
+      .onStart((event) => {
         startScale.value = scale.value;
+        startX.value = translateX.value;
+        startY.value = translateY.value;
         focalX.value = event.focalX;
         focalY.value = event.focalY;
       })
       .onUpdate((event) => {
         const newScale = startScale.value * event.scale;
-        scale.value = clamp(newScale, 1, 6);
-
-        // Obliczanie przesunięcia na podstawie punktu skupienia
+        scale.value = Math.max(1, Math.min(6, newScale));
+    
         const scaleFactor = scale.value / startScale.value;
-        translateX.value = translateX.value - (focalX.value - windowWidth / 2) * (scaleFactor - 1);
-        translateY.value = translateY.value - (focalY.value - windowHeight / 2) * (scaleFactor - 1);
-
+        const zoomTranslateX = focalX.value - windowWidth / 2;
+        const zoomTranslateY = focalY.value - windowHeight / 2;
+    
+        translateX.value = startX.value - zoomTranslateX * (scaleFactor - 1);
+        translateY.value = startY.value - zoomTranslateY * (scaleFactor - 1);
+    
         const maxTranslateY = (windowHeight * (scale.value - 1)) / 4;
         translateY.value = clamp(translateY.value, -maxTranslateY, maxTranslateY);
       })
       .onEnd(() => {
-        // Zapewnienie, że skala pozostaje w dozwolonym zakresie
         if (scale.value < 1) {
           scale.value = withTiming(1);
         } else if (scale.value > 6) {
@@ -100,9 +102,11 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         }
       });
 
-    // Definicja gestu pan
+    // Definicja gestu pan z limitem palców
     const panGesture = Gesture.Pan()
-      .onBegin(() => {
+      .minPointers(1) // Minimum jeden palec
+      .maxPointers(1) // Maksymalnie jeden palec
+      .onStart(() => {
         startX.value = translateX.value;
         startY.value = translateY.value;
       })
@@ -111,14 +115,14 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         const maxTranslateY = (windowHeight * (scale.value - 1)) / 4;
         const minTranslateX = -maxTranslateX;
         const minTranslateY = -maxTranslateY;
-
+    
         translateX.value = clamp(startX.value + event.translationX, minTranslateX, maxTranslateX);
         translateY.value = clamp(startY.value + event.translationY, minTranslateY, maxTranslateY);
       })
       .onEnd((event) => {
         const maxTranslateX = (windowWidth * (scale.value - 1)) / 2;
         const maxTranslateY = (windowHeight * (scale.value - 1)) / 4;
-
+    
         translateX.value = withDecay({
           velocity: event.velocityX,
           clamp: [-maxTranslateX, maxTranslateX],
@@ -129,10 +133,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         });
       });
 
-    // Połączenie gestów pinch i pan, aby działały jednocześnie
-    const composedGesture = Gesture.Simultaneous(pinchGesture, panGesture);
-
-    // Styl animowany dla mapy
+    // Styl animowany
     const animatedStyle = useAnimatedStyle(() => ({
       transform: [
         { translateX: translateX.value },
@@ -146,11 +147,11 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       scale.value = withTiming(1, { duration: 300 });
       translateX.value = withTiming(0, { duration: 300 });
       translateY.value = withTiming(0, { duration: 300 });
-    };
+    };    
 
     return (
       <GestureHandlerRootView style={[styles.container, style]}>
-        <GestureDetector gesture={composedGesture}>
+        <GestureDetector gesture={Gesture.Simultaneous(pinchGesture, panGesture)}>
           <Animated.View style={styles.container}>
             <Animated.View style={animatedStyle}>
               <View ref={mapViewRef} style={styles.mapContainer}>
