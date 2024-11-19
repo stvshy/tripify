@@ -452,17 +452,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   topSectionPhoto: {
-    // flex: 1, // Proporcja górnej sekcji
+    position: 'absolute',
+    top: '5%', // Możesz dostosować procent do swoich potrzeb
+    left: 0,
+    right: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: -65,
-    marginTop: 50,
+    // marginBottom: -65,
+    // marginTop: 50,
   },
   bottomSectionPhoto: {
     // flex: 1, // Proporcja dolnej sekcji
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: -60
+    position: 'absolute',
+    bottom: '5%', // Możesz dostosować procent do swoich potrzeb
+    left: 0,
+    right: 0,
   },
   titleText: {
     fontSize: screenWidth * 0.05, // 5% szerokości ekranu
