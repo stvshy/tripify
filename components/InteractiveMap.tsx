@@ -16,6 +16,7 @@ import Animated, {
   withDecay,
 } from 'react-native-reanimated';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
+import { useTheme } from 'react-native-paper';
 
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
@@ -39,7 +40,8 @@ const initialTranslateY = 0;
 const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
   ({ selectedCountries, onCountryPress, style }, ref) => {
     const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
-    const themeColor = isDarkTheme ? '#2c2c2c' : '#9d23ea';
+    const theme = useTheme(); // Używanie hooka useTheme
+    const themeColor = isDarkTheme ? theme.colors.surfaceVariant : theme.colors.primary;
     const mapViewRef = useRef<View>(null);
     const baseMapRef = useRef<View>(null); 
     const [isSharing, setIsSharing] = useState(false); // Stan ładowania udostępniania
@@ -192,7 +194,11 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         setIsSharing(false); // Zakończenie ładowania
       }
     };
-      return (
+    const handlePathPress = (countryCode: string) => {
+      onCountryPress(countryCode);
+    };
+
+    return (
       <GestureHandlerRootView style={[styles.container, style]}>
         {/* Interaktywna mapa */}
         <GestureDetector gesture={Gesture.Simultaneous(pinchGesture, panGesture)}>
@@ -208,9 +214,9 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                         key={`${countryCode}-${index}`}
                         d={country.path}
                         fill={getCountryFill(countryCode)}
-                        stroke="#FFFFFF"
+                        stroke={theme.colors.outline}
                         strokeWidth={1}
-                        onPress={() => onCountryPress(countryCode)}
+                        onPress={() => handlePathPress(countryCode)} // Używanie handlePathPress
                       />
                     );
                   })}
@@ -221,7 +227,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         </GestureDetector>
 
         {/* Ukryta bazowa mapa */}
-        <View ref={baseMapRef} style={styles.baseMapContainer}>
+        <View ref={baseMapRef} style={[styles.baseMapContainer, { pointerEvents: 'none' }]}>
           <Svg width="100%" height="100%" viewBox="232 0 1700 857" preserveAspectRatio="xMidYMid meet">
             {data.countries.map((country: Country, index: number) => {
               const countryCode = country.id;
@@ -231,28 +237,33 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                   key={`${countryCode}-${index}`}
                   d={country.path}
                   fill={getCountryFill(countryCode)}
-                  stroke="#FFFFFF"
+                  stroke={theme.colors.outline}
                   strokeWidth={1}
-                  // Nie dodajemy onPress, aby interakcje były tylko w interaktywnej mapie
                 />
               );
             })}
           </Svg>
         </View>
-
         {/* Kontener dla przycisków */}
         <View style={styles.buttonContainer}>
           {/* Przycisk Reset */}
-          <TouchableOpacity style={styles.resetButton} onPress={resetMap} activeOpacity={0.7}>
-            <Feather name="code" size={ICON_SIZE} style={styles.resetIcon} />
+          <TouchableOpacity
+            style={[styles.resetButton, { backgroundColor: theme.colors.primary }]}
+            onPress={resetMap}
+            activeOpacity={0.7}>
+            <Feather name="code" size={ICON_SIZE} style={styles.resetIcon} color={theme.colors.onPrimary} />
           </TouchableOpacity>
 
           {/* Przycisk Udostępniania */}
-          <TouchableOpacity style={styles.shareButton} onPress={shareMap} activeOpacity={0.7} disabled={isSharing}>
+          <TouchableOpacity
+            style={[styles.shareButton, { backgroundColor: theme.colors.primary }]}
+            onPress={shareMap}
+            activeOpacity={0.7}
+            disabled={isSharing}>
             {isSharing ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color={theme.colors.onPrimary} />
             ) : (
-              <Feather name="share-2" size={ICON_SIZE} color="#fff" />
+              <Feather name="share-2" size={ICON_SIZE} color={theme.colors.onPrimary} />
             )}
           </TouchableOpacity>
 
@@ -262,14 +273,13 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
               onPress={handleToggleTheme}
               style={[
                 styles.toggleButton,
-                { backgroundColor: isDarkTheme ? '#a678e0' : '#9d23ea' }, // Dynamiczny kolor
+                { backgroundColor: theme.colors.primary },
               ]}
-              activeOpacity={0.7}
-            >
+              activeOpacity={0.7}>
               <MaterialIcons
                 name={isDarkTheme ? 'dark-mode' : 'light-mode'}
                 size={ICON_SIZE}
-                color="#fff"
+                color={theme.colors.onPrimary}
               />
             </TouchableOpacity>
           </Animated.View>
@@ -303,7 +313,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   resetButton: {
-    backgroundColor: '#9d23ea', // Dynamicznie ustawiany kolor
     width: BUTTON_SIZE,
     height: BUTTON_SIZE,
     borderRadius: BUTTON_SIZE / 2,
@@ -317,7 +326,6 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
   },
   shareButton: {
-    backgroundColor: '#9d23ea', // Dynamicznie ustawiany kolor
     width: BUTTON_SIZE,
     height: BUTTON_SIZE,
     borderRadius: BUTTON_SIZE / 2,
@@ -331,10 +339,9 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
   },
   toggleButtonContainer: {
-    // Kontener dla animacji, jeśli potrzebujesz dodatkowych stylów
+    // Możesz dodać dodatkowe style, jeśli potrzebujesz
   },
   toggleButton: {
-    backgroundColor: '#9d23ea', // Kolor dynamicznie ustawiany
     width: BUTTON_SIZE,
     height: BUTTON_SIZE,
     borderRadius: BUTTON_SIZE / 2,
@@ -349,7 +356,6 @@ const styles = StyleSheet.create({
   },
   resetIcon: {
     transform: [{ rotate: '-45deg' }],
-    color: '#fff',
     fontSize: ICON_SIZE,
   },
 });

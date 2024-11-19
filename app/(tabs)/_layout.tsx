@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from 'react';
+// screens/TabLayout.tsx
+import React, { useEffect, useState, useContext } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs, useRouter } from 'expo-router';
-import { Pressable, View, ActivityIndicator, Text } from 'react-native';
+import { Pressable, Text } from 'react-native';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { auth } from '../config/firebaseConfig';
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
+import { ThemeContext } from '../config/ThemeContext';
+import { useTheme } from 'react-native-paper'; // Importowanie useTheme
 import LoadingScreen from '@/components/LoadingScreen';
 
 const db = getFirestore();
@@ -19,7 +20,8 @@ function TabBarIcon(props: {
 }
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const { isDarkTheme } = useContext(ThemeContext);
+  const theme = useTheme(); // Używanie hooka useTheme
   const [user, setUser] = useState<User | null>(auth.currentUser);
   const [loading, setLoading] = useState(true);
   const [nickname, setNickname] = useState<string | null>(null);
@@ -86,10 +88,19 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: true,
+        tabBarActiveTintColor: theme.colors.primary, // Dynamiczny kolor aktywnego przycisku
+        tabBarInactiveTintColor: theme.colors.onSurfaceVariant, // Dynamiczny kolor nieaktywnego przycisku
+        tabBarStyle: {
+          backgroundColor: theme.colors.surface, // Dynamiczny kolor tła dolnego paska
+        },
+        headerStyle: {
+          backgroundColor: theme.colors.surface, // Dynamiczny kolor tła górnego paska
+        },
+        headerTitleStyle: {
+          color: theme.colors.onSurface, // Dynamiczny kolor tekstu tytułu
+        },
         headerTitle: () => (
-          <Text style={{ fontSize: 17 }}>
+          <Text style={{ fontSize: 17, color: theme.colors.onSurface }}>
             {nickname ? nickname : 'Welcome'}
           </Text>
         ),
@@ -98,7 +109,7 @@ export default function TabLayout() {
             <FontAwesome
               name="sign-out"
               size={26}
-              color="black"
+              color={theme.colors.onSurface}
               style={{ marginRight: 15 }}
             />
           </Pressable>

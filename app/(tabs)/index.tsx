@@ -6,9 +6,11 @@ import { useFocusEffect } from '@react-navigation/native';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebaseConfig';
 import { ThemeContext } from '../config/ThemeContext';
+import { useTheme } from 'react-native-paper'; // Importowanie useTheme
 
 export default function IndexScreen() {
   const { isDarkTheme } = useContext(ThemeContext);
+  const theme = useTheme(); // Używanie hooka useTheme
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const mapRef = useRef<InteractiveMapRef>(null);
@@ -46,20 +48,22 @@ export default function IndexScreen() {
   );
 
   const handleCountryPress = (countryCode: string) => {
-    // Możesz tutaj obsłużyć kliknięcie na kraj, np. nawigację do szczegółów
+    // Obsługa kliknięcia na kraj, np. nawigacja do szczegółów
     console.log(`Country pressed: ${countryCode}`);
+    // Możesz dodać nawigację do innego ekranu z detalami kraju
+    // router.push(`/countryDetails/${countryCode}`);
   };
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#7511b5" />
+      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <InteractiveMap
         ref={mapRef}
         selectedCountries={selectedCountries}
