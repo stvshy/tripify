@@ -226,6 +226,24 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
         { scale: scale.value },
       ],
     }));
+    const topTextAnimatedStyle = useAnimatedStyle(() => {
+      const translateY = -50 * (scale.value - 1); // Dostosuj współczynnik według potrzeb
+      const opacity = 1 / scale.value; // Opcjonalnie możesz zmniejszać przezroczystość
+      return {
+        transform: [{ translateY }],
+        opacity,
+      };
+    });
+    
+    const bottomTextAnimatedStyle = useAnimatedStyle(() => {
+      const translateY = 50 * (scale.value - 1); // Dostosuj współczynnik według potrzeb
+      const opacity = 1 / scale.value;
+      return {
+        transform: [{ translateY }],
+        opacity,
+      };
+    });
+    
 
     // Funkcja resetująca mapę
     const resetMap = () => {
@@ -300,11 +318,11 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
       {/* Ref dla całego widoku */}
       <View ref={fullViewRef} style={[styles.fullViewContainer, { backgroundColor: theme.colors.background }]}>
         {/* Górna sekcja */}
-        <View style={styles.topSection}>
+        <Animated.View style={[styles.topSection, topTextAnimatedStyle]}>
           <Text style={[styles.titleText, { color: theme.colors.onBackground }]}>
             Twoja Interaktywna Mapa
           </Text>
-        </View>
+        </Animated.View>
         <GestureDetector gesture={Gesture.Simultaneous(pinchGesture, panGesture)}>
           <Animated.View style={styles.container}>
             <Animated.View style={animatedStyle}>
@@ -330,11 +348,11 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
           </Animated.View>
         </GestureDetector>
     {/* Dolna sekcja */}
-    <View style={styles.bottomSection}>
-            <Text style={[styles.infoText, { color: theme.colors.onBackground }]}>
-              Udostępnij swoją mapę i pokaż, gdzie byłeś!
-            </Text>
-          </View>
+    <Animated.View style={[styles.bottomSection, bottomTextAnimatedStyle]}>
+      <Text style={[styles.infoText, { color: theme.colors.onBackground }]}>
+        Udostępnij swoją mapę i pokaż, gdzie byłeś!
+      </Text>
+    </Animated.View>
         </View>
         {/* Ukryta bazowa mapa */}
         <View
