@@ -1,5 +1,5 @@
-import React, { useContext, forwardRef, useImperativeHandle, useRef } from 'react';
-import { StyleSheet, View, Dimensions, StyleProp, ViewStyle, TouchableOpacity, Text } from 'react-native';
+import React, { useContext, forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import { StyleSheet, View, Dimensions, StyleProp, ViewStyle, TouchableOpacity, Text, ActivityIndicator, Alert } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { ThemeContext } from '../app/config/ThemeContext';
 import { captureRef } from 'react-native-view-shot';
@@ -8,7 +8,6 @@ import { Country, CountriesData } from '../.expo/types/country';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import ResetButton from './ResetIcon';
 import * as Sharing from 'expo-sharing';
-
 import Animated, {
   useAnimatedGestureHandler,
   useAnimatedStyle,
@@ -16,7 +15,7 @@ import Animated, {
   withTiming,
   withDecay,
 } from 'react-native-reanimated';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialIcons } from '@expo/vector-icons';
 
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
@@ -39,11 +38,24 @@ const initialTranslateY = 0;
 
 const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
   ({ selectedCountries, onCountryPress, style }, ref) => {
-    const { isDarkTheme } = useContext(ThemeContext);
-    const themeColor = isDarkTheme ? '#ffffff' : '#000000';
+    const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
+    const themeColor = isDarkTheme ? '#2c2c2c' : '#9d23ea';
     const mapViewRef = useRef<View>(null);
     const baseMapRef = useRef<View>(null); 
+    const [isSharing, setIsSharing] = useState(false); // Stan ładowania udostępniania
+    const scaleValue = useSharedValue(1);
 
+    const animatedToggleStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: scaleValue.value }],
+    }));
+
+    const handleToggleTheme = () => {
+      // Rozpoczęcie animacji skalowania
+      scaleValue.value = withTiming(1.2, { duration: 100 }, () => {
+        scaleValue.value = withTiming(1, { duration: 100 });
+      });
+      toggleTheme();
+    };
     useImperativeHandle(ref, () => ({
       capture: async () => {
         if (mapViewRef.current) {
@@ -159,10 +171,11 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
      // Funkcja udostępniania mapy
      const shareMap = async () => {
       try {
-        // Sprawdzenie, czy udostępnianie jest dostępne
+        setIsSharing(true); // Rozpoczęcie ładowania
         const isAvailable = await Sharing.isAvailableAsync();
         if (!isAvailable) {
-          alert('Udostępnianie nie jest dostępne na tym urządzeniu');
+          Alert.alert('Błąd', 'Udostępnianie nie jest dostępne na tym urządzeniu');
+          setIsSharing(false);
           return;
         }
 
@@ -174,6 +187,9 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         }
       } catch (error) {
         console.error('Błąd podczas udostępniania mapy:', error);
+        Alert.alert('Błąd', 'Wystąpił problem podczas udostępniania mapy');
+      } finally {
+        setIsSharing(false); // Zakończenie ładowania
       }
     };
       return (
@@ -224,12 +240,40 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
           </Svg>
         </View>
 
-        <ResetButton resetMap={resetMap} />
+        {/* Kontener dla przycisków */}
+        <View style={styles.buttonContainer}>
+          {/* Przycisk Reset */}
+          <TouchableOpacity style={styles.resetButton} onPress={resetMap} activeOpacity={0.7}>
+            <Feather name="code" size={ICON_SIZE} style={styles.resetIcon} />
+          </TouchableOpacity>
 
-        {/* Przycisk Udostępniania */}
-        <TouchableOpacity style={styles.shareButton} onPress={shareMap} activeOpacity={0.7}>
-          <Feather name="share-2" size={ICON_SIZE} color="#fff" />
-        </TouchableOpacity>
+          {/* Przycisk Udostępniania */}
+          <TouchableOpacity style={styles.shareButton} onPress={shareMap} activeOpacity={0.7} disabled={isSharing}>
+            {isSharing ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Feather name="share-2" size={ICON_SIZE} color="#fff" />
+            )}
+          </TouchableOpacity>
+
+          {/* Przycisk Przełączania Motywu */}
+          <Animated.View style={[styles.toggleButtonContainer, animatedToggleStyle]}>
+            <TouchableOpacity
+              onPress={handleToggleTheme}
+              style={[
+                styles.toggleButton,
+                { backgroundColor: isDarkTheme ? '#a678e0' : '#9d23ea' }, // Dynamiczny kolor
+              ]}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons
+                name={isDarkTheme ? 'dark-mode' : 'light-mode'}
+                size={ICON_SIZE}
+                color="#fff"
+              />
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
       </GestureHandlerRootView>
     );
   }
@@ -239,6 +283,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  mapContainer: {
+    width: '100%',
+    height: '100%',
+  },
   baseMapContainer: {
     position: 'absolute',
     top: -1000, // Przesunięcie poza ekran
@@ -247,44 +295,62 @@ const styles = StyleSheet.create({
     height: 2000,
     opacity: 0, // Ukrycie mapy
   },
-  mapContainer: {
-    width: '100%',
-    height: '100%',
-  },
-  shareButton: {
+  buttonContainer: {
     position: 'absolute',
     bottom: 20,
-    right: BUTTON_SIZE + 30, // Odstęp od przycisku resetu
-    backgroundColor: '#7511b5', // Kolor tła przycisku udostępniania
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  resetButton: {
+    backgroundColor: '#9d23ea', // Dynamicznie ustawiany kolor
     width: BUTTON_SIZE,
     height: BUTTON_SIZE,
     borderRadius: BUTTON_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: 10, // Odstęp między przyciskami
     elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 3,
   },
-  resetButton: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    backgroundColor: '#7511b5', // Fioletowe tło
-    width: 50,
-    height: 50,
-    borderRadius: 25, // Okrągły przycisk
+  shareButton: {
+    backgroundColor: '#9d23ea', // Dynamicznie ustawiany kolor
+    width: BUTTON_SIZE,
+    height: BUTTON_SIZE,
+    borderRadius: BUTTON_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 5, // Cień na Androidzie
-    shadowColor: '#000', // Cień na iOS
+    marginLeft: 10, // Odstęp między przyciskami
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  toggleButtonContainer: {
+    // Kontener dla animacji, jeśli potrzebujesz dodatkowych stylów
+  },
+  toggleButton: {
+    backgroundColor: '#9d23ea', // Kolor dynamicznie ustawiany
+    width: BUTTON_SIZE,
+    height: BUTTON_SIZE,
+    borderRadius: BUTTON_SIZE / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 10, // Odstęp między przyciskami
+    elevation: 5,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 3,
   },
   resetIcon: {
-    transform: [{ rotate: '-45deg' }], // Obrót o -45 stopni
+    transform: [{ rotate: '-45deg' }],
+    color: '#fff',
+    fontSize: ICON_SIZE,
   },
 });
 
