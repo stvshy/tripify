@@ -1,5 +1,5 @@
 import React, { useContext, forwardRef, useImperativeHandle, useRef, useState } from 'react';
-import { StyleSheet, View, Dimensions, StyleProp, ViewStyle, TouchableOpacity, Text, ActivityIndicator, Alert, GestureResponderEvent } from 'react-native';
+import { StyleSheet, View, Dimensions, StyleProp, ViewStyle, TouchableOpacity, Text, ActivityIndicator, Alert, GestureResponderEvent, PixelRatio } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { ThemeContext } from '../app/config/ThemeContext';
 import { captureRef } from 'react-native-view-shot';
@@ -34,7 +34,7 @@ interface InteractiveMapProps {
 export interface InteractiveMapRef {
   capture: () => Promise<string | null>;
 }
-
+const pixelRatio = PixelRatio.get(); // Pobiera gęstość pikseli urządzenia
 const initialTranslateX = 0;
 const initialTranslateY = 0;
 
@@ -86,7 +86,7 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
     useImperativeHandle(ref, () => ({
       capture: async () => {
         if (mapViewRef.current) {
-          const uri = await captureRef(mapViewRef, { format: 'png', quality: 0.8 });
+          const uri = await captureRef(mapViewRef, { format: 'png', quality: 1 });
           return uri;
         }
         return null;
@@ -250,8 +250,9 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
           format: 'png',
           quality: 1,
           result: 'tmpfile',
-          width: screenWidth * 8,
-          height: (screenWidth * 8 / 9) * 16,
+          width: screenWidth * pixelRatio * 4, // Zwiększ szerokość proporcjonalnie do pixelRatio
+          height: (screenWidth * pixelRatio * 4) * (16 / 9), // Zachowaj proporcje
+          // pixelRatio: pixelRatio * 2, // Zwiększ pixelRatio dla lepszej jakości
         });
     
         if (uri) {
@@ -349,12 +350,12 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
   {/* Górna sekcja z napisem */}
   <View style={styles.topSectionPhoto}>
     <Text style={[styles.titleTextLarge, { color: theme.colors.onBackground }]}>
-      Twoja Interaktywna Mapa
+      Tripify
     </Text>
   </View>
 
   {/* Mapa */}
-  <View style={styles.mapContainer}>
+  <View style={styles.mapContainerPhoto}>
     <Svg
       width="100%"
       height="100%"
@@ -453,7 +454,7 @@ const styles = StyleSheet.create({
   },
   topSectionPhoto: {
     position: 'absolute',
-    top: '5%', // Możesz dostosować procent do swoich potrzeb
+    top: '12%', // Możesz dostosować procent do swoich potrzeb
     left: 0,
     right: 0,
     justifyContent: 'center',
@@ -466,9 +467,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'absolute',
-    bottom: '5%', // Możesz dostosować procent do swoich potrzeb
+    bottom: '12%', // Możesz dostosować procent do swoich potrzeb
     left: 0,
     right: 0,
+    // top: -5%
+  },
+  mapContainerPhoto: {
+    flex: 1,
+    marginTop: '10%', // Przesunięcie mapy o 10% w dół
+    // marginBottom: '5%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    height: '100%',
   },
   titleText: {
     fontSize: screenWidth * 0.05, // 5% szerokości ekranu
