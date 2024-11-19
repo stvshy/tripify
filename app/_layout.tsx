@@ -10,6 +10,7 @@ import { View, StyleSheet, ImageBackground, Image, ActivityIndicator } from 'rea
 import { doc, getDoc } from 'firebase/firestore';
 import LoadingScreen from '@/components/LoadingScreen';
 import { ThemeProvider } from './config/ThemeContext';
+import * as Font from 'expo-font';
 
 SplashScreen.preventAutoHideAsync();
 

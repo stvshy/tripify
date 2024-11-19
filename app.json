@@ -38,7 +38,6 @@
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"
       ]
-    
     },
     "web": {
       "bundler": "metro",
@@ -60,7 +59,8 @@
         }
       ],
       "expo-router",
-      "expo-asset"
+      "expo-asset",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

@@ -6,6 +6,9 @@ import { captureRef } from 'react-native-view-shot';
 import countriesData from '../assets/maps/countries.json';
 import { Country, CountriesData } from '../.expo/types/country';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import ResetButton from './ResetIcon';
+import * as Sharing from 'expo-sharing';
+
 import Animated, {
   useAnimatedGestureHandler,
   useAnimatedStyle,
@@ -13,9 +16,13 @@ import Animated, {
   withTiming,
   withDecay,
 } from 'react-native-reanimated';
+import { Feather } from '@expo/vector-icons';
 
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
+const { width, height } = Dimensions.get('window');
+const BUTTON_SIZE = Math.min(width, height) * 0.08; // 8% mniejszego z wymiarów
+const ICON_SIZE = BUTTON_SIZE * 0.5; // Ikona zajmuje 50% wielkości przycisku
 
 interface InteractiveMapProps {
   selectedCountries: string[];
@@ -35,6 +42,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     const { isDarkTheme } = useContext(ThemeContext);
     const themeColor = isDarkTheme ? '#ffffff' : '#000000';
     const mapViewRef = useRef<View>(null);
+    const baseMapRef = useRef<View>(null); 
 
     useImperativeHandle(ref, () => ({
       capture: async () => {
@@ -148,9 +156,29 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       translateX.value = withTiming(0, { duration: 300 });
       translateY.value = withTiming(0, { duration: 300 });
     };    
+     // Funkcja udostępniania mapy
+     const shareMap = async () => {
+      try {
+        // Sprawdzenie, czy udostępnianie jest dostępne
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (!isAvailable) {
+          alert('Udostępnianie nie jest dostępne na tym urządzeniu');
+          return;
+        }
 
-    return (
+        // Przechwycenie ukrytej bazowej mapy
+        const uri = await captureRef(baseMapRef, { format: 'png', quality: 1 });
+
+        if (uri) {
+          await Sharing.shareAsync(uri);
+        }
+      } catch (error) {
+        console.error('Błąd podczas udostępniania mapy:', error);
+      }
+    };
+      return (
       <GestureHandlerRootView style={[styles.container, style]}>
+        {/* Interaktywna mapa */}
         <GestureDetector gesture={Gesture.Simultaneous(pinchGesture, panGesture)}>
           <Animated.View style={styles.container}>
             <Animated.View style={animatedStyle}>
@@ -175,9 +203,32 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
             </Animated.View>
           </Animated.View>
         </GestureDetector>
-        {/* Przycisk resetu */}
-        <TouchableOpacity style={styles.resetButton} onPress={resetMap}>
-          <Text style={styles.resetButtonText}>Reset</Text>
+
+        {/* Ukryta bazowa mapa */}
+        <View ref={baseMapRef} style={styles.baseMapContainer}>
+          <Svg width="100%" height="100%" viewBox="232 0 1700 857" preserveAspectRatio="xMidYMid meet">
+            {data.countries.map((country: Country, index: number) => {
+              const countryCode = country.id;
+              if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
+              return (
+                <Path
+                  key={`${countryCode}-${index}`}
+                  d={country.path}
+                  fill={getCountryFill(countryCode)}
+                  stroke="#FFFFFF"
+                  strokeWidth={1}
+                  // Nie dodajemy onPress, aby interakcje były tylko w interaktywnej mapie
+                />
+              );
+            })}
+          </Svg>
+        </View>
+
+        <ResetButton resetMap={resetMap} />
+
+        {/* Przycisk Udostępniania */}
+        <TouchableOpacity style={styles.shareButton} onPress={shareMap} activeOpacity={0.7}>
+          <Feather name="share-2" size={ICON_SIZE} color="#fff" />
         </TouchableOpacity>
       </GestureHandlerRootView>
     );
@@ -188,22 +239,52 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  baseMapContainer: {
+    position: 'absolute',
+    top: -1000, // Przesunięcie poza ekran
+    left: -1000,
+    width: 2000, // Wystarczająco duża, aby obejmować mapę
+    height: 2000,
+    opacity: 0, // Ukrycie mapy
+  },
   mapContainer: {
     width: '100%',
     height: '100%',
+  },
+  shareButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: BUTTON_SIZE + 30, // Odstęp od przycisku resetu
+    backgroundColor: '#7511b5', // Kolor tła przycisku udostępniania
+    width: BUTTON_SIZE,
+    height: BUTTON_SIZE,
+    borderRadius: BUTTON_SIZE / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
   },
   resetButton: {
     position: 'absolute',
     bottom: 20,
     right: 20,
-    backgroundColor: '#7511b5',
-    padding: 10,
-    borderRadius: 5,
+    backgroundColor: '#7511b5', // Fioletowe tło
+    width: 50,
+    height: 50,
+    borderRadius: 25, // Okrągły przycisk
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 5, // Cień na Androidzie
+    shadowColor: '#000', // Cień na iOS
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
   },
-  resetButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
+  resetIcon: {
+    transform: [{ rotate: '-45deg' }], // Obrót o -45 stopni
   },
 });
 
