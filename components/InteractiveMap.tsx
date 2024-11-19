@@ -8,6 +8,7 @@ import { Country, CountriesData } from '../.expo/types/country';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import ResetButton from './ResetIcon';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
 import Animated, {
   useAnimatedGestureHandler,
   useAnimatedStyle,
@@ -23,7 +24,7 @@ const windowHeight = Dimensions.get('window').height;
 const { width, height } = Dimensions.get('window');
 const BUTTON_SIZE = Math.min(width, height) * 0.08; // 8% mniejszego z wymiarów
 const ICON_SIZE = BUTTON_SIZE * 0.5; // Ikona zajmuje 50% wielkości przycisku
-
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 interface InteractiveMapProps {
   selectedCountries: string[];
   onCountryPress: (countryCode: string) => void;
@@ -109,6 +110,7 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
       'worklet';
       return Math.min(Math.max(value, min), max);
     };
+    const fullViewRef = useRef<View>(null); // Ref dla całego widoku
 
     // Referencje do gestów
     const panRef = useRef(null);
@@ -232,29 +234,45 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
       translateY.value = withTiming(0, { duration: 300 });
     };    
      // Funkcja udostępniania mapy
-     const shareMap = async () => {
+    // Funkcja do przechwytywania całego widoku
+    const shareMap = async () => {
       try {
-        setIsSharing(true); // Rozpoczęcie ładowania
+        setIsSharing(true);
+    
         const isAvailable = await Sharing.isAvailableAsync();
         if (!isAvailable) {
           Alert.alert('Błąd', 'Udostępnianie nie jest dostępne na tym urządzeniu');
           setIsSharing(false);
           return;
         }
-
-        // Przechwycenie ukrytej bazowej mapy
-        const uri = await captureRef(baseMapRef, { format: 'png', quality: 1 });
-
+    
+        const uri = await captureRef(baseMapRef, {
+          format: 'png',
+          quality: 1,
+          result: 'tmpfile',
+          width: screenWidth * 8,
+          height: (screenWidth * 8 / 9) * 16,
+        });
+    
         if (uri) {
-          await Sharing.shareAsync(uri);
+          await Sharing.shareAsync(uri).catch((error) => {
+            // Ignorujemy błąd związany z zamknięciem okna udostępniania
+            console.log('Udostępnianie anulowane przez użytkownika:', error);
+          });
+        } else {
+          throw new Error('Nie udało się przechwycić widoku. URI jest null.');
         }
       } catch (error) {
         console.error('Błąd podczas udostępniania mapy:', error);
-        Alert.alert('Błąd', 'Wystąpił problem podczas udostępniania mapy');
+        if (!String(error).includes('The 2nd argument cannot be cast')) {
+          Alert.alert('Błąd', 'Wystąpił problem podczas udostępniania mapy');
+        }
       } finally {
-        setIsSharing(false); // Zakończenie ładowania
+        setIsSharing(false);
       }
     };
+    
+    
     const convertToSvgCoordinates = (x: number, y: number): { x: number; y: number } => {
       'worklet';
       const scaledX = (x - translateX.value) / scale.value;
@@ -278,7 +296,14 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
 
     return (
       <GestureHandlerRootView style={[styles.container, style]}>
-        {/* Interaktywna mapa */}
+      {/* Ref dla całego widoku */}
+      <View ref={fullViewRef} style={[styles.fullViewContainer, { backgroundColor: theme.colors.background }]}>
+        {/* Górna sekcja */}
+        <View style={styles.topSection}>
+          <Text style={[styles.titleText, { color: theme.colors.onBackground }]}>
+            Twoja Interaktywna Mapa
+          </Text>
+        </View>
         <GestureDetector gesture={Gesture.Simultaneous(pinchGesture, panGesture)}>
           <Animated.View style={styles.container}>
             <Animated.View style={animatedStyle}>
@@ -303,33 +328,63 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
             </Animated.View>
           </Animated.View>
         </GestureDetector>
-
+    {/* Dolna sekcja */}
+    <View style={styles.bottomSection}>
+            <Text style={[styles.infoText, { color: theme.colors.onBackground }]}>
+              Udostępnij swoją mapę i pokaż, gdzie byłeś!
+            </Text>
+          </View>
+        </View>
         {/* Ukryta bazowa mapa */}
         <View
   ref={baseMapRef}
   style={[
     styles.baseMapContainer,
-    { 
-      backgroundColor: isDarkTheme ? theme.colors.surface : theme.colors.background, // Tło zależne od motywu
-      pointerEvents: 'none' // Wyłączenie interakcji
-    }]
-  }>
-  <Svg width="100%" height="100%" viewBox="232 0 1700 857" preserveAspectRatio="xMidYMid meet">
-    {data.countries.map((country: Country, index: number) => {
-      const countryCode = country.id;
-      if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
-      return (
-        <Path
-          key={`${countryCode}-${index}`}
-          d={country.path}
-          fill={getCountryFill(countryCode)} // Kolor kraju
-          stroke={theme.colors.outline} // Kolor konturu kraju
-          strokeWidth={1}
-        />
-      );
-    })}
-  </Svg>
+    {
+      backgroundColor: isDarkTheme ? theme.colors.surface : theme.colors.background,
+    },
+  ]}
+>
+  {/* Górna sekcja */}
+  <View style={styles.topSectionPhoto}>
+    <Text style={[styles.titleTextLarge, { color: theme.colors.onBackground }]}>
+      Twoja Interaktywna Mapa
+    </Text>
+  </View>
+
+  {/* Mapa */}
+  <View style={styles.mapContainer}>
+    <Svg
+      width="100%"
+      height="100%"
+      viewBox="232 0 1700 857"
+      preserveAspectRatio="xMidYMid meet"
+    >
+      {data.countries.map((country: Country, index: number) => {
+        const countryCode = country.id;
+        if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
+        return (
+          <Path
+            key={`${countryCode}-${index}`}
+            d={country.path}
+            fill={getCountryFill(countryCode)}
+            stroke={theme.colors.outline}
+            strokeWidth={1}
+          />
+        );
+      })}
+    </Svg>
+  </View>
+
+  {/* Dolna sekcja */}
+  <View style={styles.bottomSectionPhoto}>
+    <Text style={[styles.infoTextLarge, { color: theme.colors.onBackground }]}>
+      Udostępnij swoją mapę i pokaż, gdzie byłeś!
+    </Text>
+  </View>
 </View>
+
+
 
         {/* Kontener dla przycisków */}
         <View style={styles.buttonContainer}>
@@ -380,17 +435,67 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  fullViewContainer: {
+    flex: 1,
+    justifyContent: 'space-between',
+    padding: 20, // Marginesy wokół całego widoku
+  },
+  topSection: {
+    // flex: 1, // Proporcja górnej sekcji
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bottomSection: {
+    // flex: 1, // Proporcja dolnej sekcji
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  topSectionPhoto: {
+    flex: 1, // Proporcja górnej sekcji
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bottomSectionPhoto: {
+    flex: 1, // Proporcja dolnej sekcji
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  titleText: {
+    fontSize: screenWidth * 0.05, // 5% szerokości ekranu
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  titleTextLarge: {
+    fontSize: screenWidth * 0.05, // 5% szerokości ekranu
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  infoTextLarge: {
+    fontSize: screenWidth * 0.04, // 4% szerokości ekranu
+    textAlign: 'center',
+  },
+  infoText: {
+    fontSize: screenWidth * 0.04, // 4% szerokości ekranu
+    textAlign: 'center',
+  },
+
   mapContainer: {
+
+    justifyContent: 'center',
+    alignItems: 'center',
     width: '100%',
     height: '100%',
   },
-  baseMapContainer: {
+   baseMapContainer: {
     position: 'absolute',
-    top: -1000, // Przesunięcie poza ekran
+    top: -1000, // Ukrycie poza ekranem
     left: -1000,
-    width: 2000, // Wystarczająco duża, aby obejmować mapę
-    height: 2000,
-    opacity: 0, // Ukrycie mapy
+    width: screenWidth, // Dynamiczna szerokość
+    height: screenWidth * (16 / 9), // Dynamiczna wysokość dla proporcji 9:16
+    opacity: 0, // Ukrycie widoku
+    // justifyContent: 'space-between', // Rozmieszczenie elementów
+    // paddingTop: screenWidth * 0.1, // 10% szerokości ekranu dla górnego napisu
+    // paddingBottom: screenWidth * 0.1, // 15% szerokości ekranu dla dolnego napisu
   },
   buttonContainer: {
     position: 'absolute',
