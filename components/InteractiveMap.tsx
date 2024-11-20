@@ -130,7 +130,7 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
     const startScale = useSharedValue(1);
     const startX = useSharedValue(0);
     const startY = useSharedValue(0);
-    
+    const AnimatedSvg = Animated.createAnimatedComponent(Svg);
     const pinchGesture = Gesture.Pan()
     .onTouchesDown((event) => {
       activeTouches.value = event.allTouches.map((touch) => ({
@@ -364,9 +364,8 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
 
         <GestureDetector gesture={Gesture.Simultaneous(pinchGesture, panGesture)}>
           <Animated.View style={styles.container}>
-            <Animated.View style={animatedStyle}>
-              <View ref={mapViewRef} style={styles.mapContainer}>
-                <Svg width="100%" height="100%" viewBox="232 0 1700 857" preserveAspectRatio="xMidYMid meet">
+            <View ref={mapViewRef} style={styles.mapContainer}>
+                <AnimatedSvg width="100%" height="100%" viewBox="232 0 1700 857" preserveAspectRatio="xMidYMid meet"   style={animatedStyle}>
                   {data.countries.map((country: Country, index: number) => {
                     const countryCode = country.id;
                     if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
@@ -381,10 +380,10 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
                       />
                     );
                   })}
-                </Svg>
+                </AnimatedSvg>
               </View>
             </Animated.View>
-          </Animated.View>
+          {/* </Animated.View> */}
         </GestureDetector>
     {/* Dolna sekcja */}
    {/* Dolna sekcja z postępem */}
