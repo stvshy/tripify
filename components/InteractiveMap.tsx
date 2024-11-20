@@ -358,19 +358,29 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
         </GestureDetector>
     {/* Dolna sekcja */}
    {/* Dolna sekcja z postępem */}
+     {/* Dolna sekcja z postępem */}
         <Animated.View style={[styles.bottomSection, bottomTextAnimatedStyle]}>
-          <Progress.Bar
-            progress={percentageVisited}
-            width={screenWidth * 0.8} // Dostosuj szerokość według potrzeb
-            color={theme.colors.primary}
-            unfilledColor={theme.colors.surfaceVariant}
-            borderWidth={0}
-            height={20}
-            borderRadius={10}
-          />
-          <Text style={[styles.percentageText, { color: theme.colors.onBackground }]}>
-            Zwiedziłeś {visitedCountries} z {totalCountries} krajów ({(percentageVisited * 100).toFixed(1)}%)
-          </Text>
+          <View style={styles.progressBarWrapper}>
+            <Progress.Bar
+              progress={percentageVisited}
+              width={screenWidth * 0.8}
+              color={theme.colors.primary}
+              unfilledColor={theme.colors.surfaceVariant}
+              borderWidth={0}
+              height={20}
+              borderRadius={10}
+            />
+            <View style={styles.progressTextLeft}>
+              <Text style={styles.progressText}>
+                {(percentageVisited * 100).toFixed(1)}%
+              </Text>
+            </View>
+            <View style={styles.progressTextRight}>
+              <Text style={styles.progressText}>
+                {visitedCountries}/{totalCountries}
+              </Text>
+            </View>
+          </View>
         </Animated.View>
 
         </View>
@@ -491,6 +501,36 @@ const styles = StyleSheet.create({
     // flex: 1, // Proporcja dolnej sekcji
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  progressBarWrapper: {
+    width: screenWidth * 0.8,
+    height: 20,
+    position: 'relative',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderRadius: 10,
+  },
+  
+  progressTextLeft: {
+    position: 'absolute',
+    left: 10,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+  },
+  
+  progressTextRight: {
+    position: 'absolute',
+    right: 10,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+  },
+  
+  progressText: {
+    // color: theme.colors.onPrimary,
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   topSectionPhoto: {
     position: 'absolute',
