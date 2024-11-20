@@ -1,27 +1,22 @@
-import React, { useContext, forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import { useContext, forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { StyleSheet, View, Dimensions, StyleProp, ViewStyle, TouchableOpacity, Text, ActivityIndicator, Alert, GestureResponderEvent, PixelRatio, Image } from 'react-native';
-import Svg, { Path, Rect } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { ThemeContext } from '../app/config/ThemeContext';
 import { captureRef } from 'react-native-view-shot';
 import countriesData from '../assets/maps/countries.json';
 import { Country, CountriesData } from '../.expo/types/country';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
-import ResetButton from './ResetIcon';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
 import Animated, {
-  useAnimatedGestureHandler,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
-  withDecay,
 } from 'react-native-reanimated';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from 'react-native-paper';
 import logoImage from '../assets/images/logo-tripify-tekstowe2.png';
 import * as Progress from 'react-native-progress';
 import logoTextImage from '../assets/images/logo-tripify-tekst.png';
-import { Saturate } from 'react-native-color-matrix-image-filters';
 import logoTextImageDesaturated from '../assets/images/logo-tripify-tekst2.png';
 
 const windowWidth = Dimensions.get('window').width;
@@ -47,7 +42,6 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
   ({ selectedCountries, onCountryPress, style }, ref) => {
     const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
     const theme = useTheme(); // Używanie hooka useTheme
-    const themeColor = isDarkTheme ? theme.colors.surfaceVariant : theme.colors.primary;
     const mapViewRef = useRef<View>(null);
     const baseMapRef = useRef<View>(null); 
     const [isSharing, setIsSharing] = useState(false); // Stan ładowania udostępniania
@@ -64,10 +58,6 @@ const initialFocalY = useSharedValue<number>(0);
 const baseScale = useSharedValue<number>(1);
 const baseTranslateX = useSharedValue<number>(0);
 const baseTranslateY = useSharedValue<number>(0);
-const viewBoxX = useSharedValue(232); // Początkowe wartości z Twojego oryginalnego viewBox
-const viewBoxY = useSharedValue(0);
-const viewBoxWidth = useSharedValue(1700);
-const viewBoxHeight = useSharedValue(857);
 
 // Funkcje pomocnicze
 const calculateDistance = (p1: { x: number; y: number }, p2: { x: number; y: number }): number => {
@@ -115,8 +105,6 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
     const scale = useSharedValue(1);
     const translateX = useSharedValue(initialTranslateX);
     const translateY = useSharedValue(initialTranslateY);
-    const focalX = useSharedValue(0);
-    const focalY = useSharedValue(0);
 
     const clamp = (value: number, min: number, max: number): number => {
       'worklet';
@@ -125,9 +113,6 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
     const fullViewRef = useRef<View>(null); // Ref dla całego widoku
 
     // Referencje do gestów
-    const panRef = useRef(null);
-    const pinchRef = useRef(null);
-    const startScale = useSharedValue(1);
     const startX = useSharedValue(0);
     const startY = useSharedValue(0);
     const AnimatedSvg = Animated.createAnimatedComponent(Svg);
@@ -163,8 +148,7 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
         const scaleFactor = currentDistance / (initialDistance.value || 1);
         const newScale = clamp(baseScale.value * scaleFactor, 1, 6);
         scale.value = newScale;
-  
-        const currentMidpoint = calculateMidpoint(touch1, touch2);
+
   
         translateX.value = clamp(
           baseTranslateX.value - (initialFocalX.value - windowWidth / 2) * (scaleFactor - 1),
@@ -213,23 +197,6 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
       translateX.value = clamp(startX.value + event.translationX, -maxTranslateX, maxTranslateX);
       translateY.value = clamp(startY.value + event.translationY, -maxTranslateY, maxTranslateY);
     });
-  
-    const tapGesture = Gesture.Tap()
-    .onEnd((event) => {
-      if (event.numberOfPointers === 1) {
-        const { x, y } = event;
-        // Wywołanie przekazanego przez props 'onCountryPress'
-        onCountryPress('some_country_code'); // Przekaż odpowiedni kod kraju
-      }
-    });
-  
-  
-    // const handlePathPress = (countryCode: string) => {
-    //   if (scale.value === 1 && Math.abs(translateX.value) < 10 && Math.abs(translateY.value) < 10) {
-    //     onCountryPress(countryCode);
-    //   }
-    // };
-    
   
     // Styl animowany
     const animatedStyle = useAnimatedStyle(() => ({
@@ -283,7 +250,6 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
       translateY.value = withTiming(0, { duration: 300 });
     };    
      // Funkcja udostępniania mapy
-    // Funkcja do przechwytywania całego widoku
     const shareMap = async () => {
       try {
         setIsSharing(true);
@@ -301,7 +267,6 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
           result: 'tmpfile',
           width: screenWidth * pixelRatio * 4, // Zwiększ szerokość proporcjonalnie do pixelRatio
           height: (screenWidth * pixelRatio * 4) * (16 / 9), // Zachowaj proporcje
-          // pixelRatio: pixelRatio * 2, // Zwiększ pixelRatio dla lepszej jakości
         });
     
         if (uri) {
@@ -352,7 +317,6 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
       {/* Ref dla całego widoku */}
       <View ref={fullViewRef} style={[styles.fullViewContainer, { backgroundColor: theme.colors.background }]}>
         {/* Górna sekcja */}
-{/* Top Section with Image */}
         <Animated.View style={[styles.topSection, topTextAnimatedStyle]}>
           <Image
             source={isDarkTheme ? logoTextImageDesaturated : logoTextImage}
@@ -385,8 +349,7 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
             </Animated.View>
           {/* </Animated.View> */}
         </GestureDetector>
-    {/* Dolna sekcja */}
-   {/* Dolna sekcja z postępem */}
+
      {/* Dolna sekcja z postępem */}
         <Animated.View style={[styles.bottomSection, bottomTextAnimatedStyle]}>
           <View style={styles.progressBarWrapper}>
