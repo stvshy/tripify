@@ -1,5 +1,5 @@
 import React, { useContext, forwardRef, useImperativeHandle, useRef, useState } from 'react';
-import { StyleSheet, View, Dimensions, StyleProp, ViewStyle, TouchableOpacity, Text, ActivityIndicator, Alert, GestureResponderEvent, PixelRatio } from 'react-native';
+import { StyleSheet, View, Dimensions, StyleProp, ViewStyle, TouchableOpacity, Text, ActivityIndicator, Alert, GestureResponderEvent, PixelRatio, Image } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { ThemeContext } from '../app/config/ThemeContext';
 import { captureRef } from 'react-native-view-shot';
@@ -18,6 +18,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from 'react-native-paper';
+import logoImage from '../assets/images/logo-tripify-tekstowe2.png';
+
 
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
@@ -367,9 +369,11 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
 >
   {/* Górna sekcja z napisem */}
   <View style={styles.topSectionPhoto}>
-    <Text style={[styles.titleTextLarge, { color: theme.colors.onBackground }]}>
-      Tripify
-    </Text>
+  <Image
+    source={logoImage}
+    style={styles.logoImage}
+    resizeMode="contain"
+  />
   </View>
 
   {/* Mapa */}
@@ -472,13 +476,18 @@ const styles = StyleSheet.create({
   },
   topSectionPhoto: {
     position: 'absolute',
-    top: '12%', // Możesz dostosować procent do swoich potrzeb
+    top: '4%', // Możesz dostosować procent do swoich potrzeb
     left: 0,
     right: 0,
     justifyContent: 'center',
     alignItems: 'center',
     // marginBottom: -65,
     // marginTop: 50,
+  },
+  logoImage: {
+    width: '20%', // Możesz dostosować szerokość według potrzeb
+    height: undefined,
+    aspectRatio: 2, // Ustaw rzeczywisty współczynnik proporcji obrazu
   },
   bottomSectionPhoto: {
     // flex: 1, // Proporcja dolnej sekcji
