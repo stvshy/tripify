@@ -21,7 +21,8 @@ import { useTheme } from 'react-native-paper';
 import logoImage from '../assets/images/logo-tripify-tekstowe2.png';
 import * as Progress from 'react-native-progress';
 import logoTextImage from '../assets/images/logo-tripify-tekst.png';
-
+import { Saturate } from 'react-native-color-matrix-image-filters';
+import logoTextImageDesaturated from '../assets/images/logo-tripify-tekst2.png';
 
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
@@ -346,13 +347,16 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
       {/* Ref dla całego widoku */}
       <View ref={fullViewRef} style={[styles.fullViewContainer, { backgroundColor: theme.colors.background }]}>
         {/* Górna sekcja */}
+{/* Top Section with Image */}
         <Animated.View style={[styles.topSection, topTextAnimatedStyle]}>
           <Image
-            source={logoTextImage}
+            source={isDarkTheme ? logoTextImageDesaturated : logoTextImage}
             style={styles.logoTextImage}
             resizeMode="contain"
           />
         </Animated.View>
+
+
         <GestureDetector gesture={Gesture.Simultaneous(pinchGesture, panGesture)}>
           <Animated.View style={styles.container}>
             <Animated.View style={animatedStyle}>
