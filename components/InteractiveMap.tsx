@@ -19,6 +19,7 @@ import Animated, {
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from 'react-native-paper';
 import logoImage from '../assets/images/logo-tripify-tekstowe2.png';
+import * as Progress from 'react-native-progress';
 
 
 const windowWidth = Dimensions.get('window').width;
@@ -101,7 +102,10 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
       const isVisited = selectedCountries.includes(countryCode);
       return isVisited ? '#00d7fc' : '#b2b7bf';
     };
-
+    const totalCountries = data.countries.length;
+    const visitedCountries = selectedCountries.length;
+    const percentageVisited = visitedCountries / totalCountries;
+    
     const scale = useSharedValue(1);
     const translateX = useSharedValue(initialTranslateX);
     const translateY = useSharedValue(initialTranslateY);
@@ -293,7 +297,10 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
       }
     };
     
-    
+    console.log('Visited Countries:', visitedCountries);
+    console.log('Total Countries:', totalCountries);
+    console.log('Percentage Visited:', percentageVisited);
+
     const convertToSvgCoordinates = (x: number, y: number): { x: number; y: number } => {
       'worklet';
       const scaledX = (x - translateX.value) / scale.value;
@@ -350,11 +357,22 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
           </Animated.View>
         </GestureDetector>
     {/* Dolna sekcja */}
-    <Animated.View style={[styles.bottomSection, bottomTextAnimatedStyle]}>
-      <Text style={[styles.infoText, { color: theme.colors.onBackground }]}>
-        Udostępnij swoją mapę i pokaż, gdzie byłeś!
-      </Text>
-    </Animated.View>
+   {/* Dolna sekcja z postępem */}
+        <Animated.View style={[styles.bottomSection, bottomTextAnimatedStyle]}>
+          <Progress.Bar
+            progress={percentageVisited}
+            width={screenWidth * 0.8} // Dostosuj szerokość według potrzeb
+            color={theme.colors.primary}
+            unfilledColor={theme.colors.surfaceVariant}
+            borderWidth={0}
+            height={20}
+            borderRadius={10}
+          />
+          <Text style={[styles.percentageText, { color: theme.colors.onBackground }]}>
+            Zwiedziłeś {visitedCountries} z {totalCountries} krajów ({(percentageVisited * 100).toFixed(1)}%)
+          </Text>
+        </Animated.View>
+
         </View>
         {/* Ukryta bazowa mapa */}
         <View
@@ -483,6 +501,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     // marginBottom: -65,
     // marginTop: 50,
+  },
+  percentageText: {
+    fontSize: screenWidth * 0.04, // 4% szerokości ekranu
+    textAlign: 'center',
+    marginTop: 10,
   },
   logoImage: {
     width: '20%', // Możesz dostosować szerokość według potrzeb
