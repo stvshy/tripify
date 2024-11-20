@@ -64,6 +64,10 @@ const initialFocalY = useSharedValue<number>(0);
 const baseScale = useSharedValue<number>(1);
 const baseTranslateX = useSharedValue<number>(0);
 const baseTranslateY = useSharedValue<number>(0);
+const viewBoxX = useSharedValue(232); // Początkowe wartości z Twojego oryginalnego viewBox
+const viewBoxY = useSharedValue(0);
+const viewBoxWidth = useSharedValue(1700);
+const viewBoxHeight = useSharedValue(857);
 
 // Funkcje pomocnicze
 const calculateDistance = (p1: { x: number; y: number }, p2: { x: number; y: number }): number => {
@@ -102,7 +106,7 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
 
     const getCountryFill = (countryCode: string) => {
       const isVisited = selectedCountries.includes(countryCode);
-      return isVisited ? '#00d7fc' : '#b2b7bf';
+      return isVisited ? 'rgba(0,174,245,255)' : '#b2b7bf';
     };
     const totalCountries = data.countries.length;
     const visitedCountries = selectedCountries.length;
@@ -193,6 +197,7 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
       } else {
         initialDistance.value = null;
       }
+      
     });
   
   const panGesture = Gesture.Pan()
