@@ -20,6 +20,7 @@ import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from 'react-native-paper';
 import logoImage from '../assets/images/logo-tripify-tekstowe2.png';
 import * as Progress from 'react-native-progress';
+import logoTextImage from '../assets/images/logo-tripify-tekst.png';
 
 
 const windowWidth = Dimensions.get('window').width;
@@ -346,9 +347,11 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
       <View ref={fullViewRef} style={[styles.fullViewContainer, { backgroundColor: theme.colors.background }]}>
         {/* Górna sekcja */}
         <Animated.View style={[styles.topSection, topTextAnimatedStyle]}>
-          <Text style={[styles.titleText, { color: theme.colors.onBackground }]}>
-            Twoja Interaktywna Mapa
-          </Text>
+          <Image
+            source={logoTextImage}
+            style={styles.logoTextImage}
+            resizeMode="contain"
+          />
         </Animated.View>
         <GestureDetector gesture={Gesture.Simultaneous(pinchGesture, panGesture)}>
           <Animated.View style={styles.container}>
@@ -536,7 +539,7 @@ const styles = StyleSheet.create({
     padding: 2, // Marginesy wokół całego widoku
   },
   topSection: {
-    // flex: 1, // Proporcja górnej sekcji
+    top:10,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -546,6 +549,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     bottom: '3%'
   },
+  logoTextImage: {
+    width: '16%', // Dostosuj szerokość według potrzeb
+    height: undefined,
+    aspectRatio: 3, // Ustaw rzeczywisty współczynnik proporcji obrazu
+  },  
   progressBarWrapper: {
     width: screenWidth * 0.8,
     height: 20,
