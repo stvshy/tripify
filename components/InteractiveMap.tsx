@@ -227,8 +227,8 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
       ],
     }));
     const topTextAnimatedStyle = useAnimatedStyle(() => {
-      const translateY = -50 * (scale.value - 1); // Dostosuj współczynnik według potrzeb
-      const opacity = 1 / scale.value; // Opcjonalnie możesz zmniejszać przezroczystość
+      const translateY = -100 * (scale.value - 1); // Dostosuj współczynnik według potrzeb
+      const opacity = Math.max(1 - Math.pow(scale.value - 1, 1.5), 0);
       return {
         transform: [{ translateY }],
         opacity,
@@ -236,8 +236,8 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
     });
     
     const bottomTextAnimatedStyle = useAnimatedStyle(() => {
-      const translateY = 50 * (scale.value - 1); // Dostosuj współczynnik według potrzeb
-      const opacity = 1 / scale.value;
+      const translateY = 100 * (scale.value - 1); // Dostosuj współczynnik według potrzeb
+      const opacity = Math.max(1 - Math.pow(scale.value - 1, 1.5), 0);
       return {
         transform: [{ translateY }],
         opacity,
@@ -458,7 +458,7 @@ const styles = StyleSheet.create({
   fullViewContainer: {
     flex: 1,
     justifyContent: 'space-between',
-    padding: 20, // Marginesy wokół całego widoku
+    padding: 2, // Marginesy wokół całego widoku
   },
   topSection: {
     // flex: 1, // Proporcja górnej sekcji
