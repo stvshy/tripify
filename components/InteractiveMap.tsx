@@ -240,18 +240,36 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
         opacity,
       };
     });
-    
+
+
+    const getTranslateY = (maxTranslateY: number, maxScale: number, scaleValue: number) => {
+      'worklet';
+      const progress = Math.min((scaleValue - 1) / (maxScale - 1), 1);
+      return maxTranslateY * progress;
+    };
+
     const bottomTextAnimatedStyle = useAnimatedStyle(() => {
-      const translateY = 100 * (scale.value - 1); // Dostosuj współczynnik według potrzeb
-      const opacity = Math.max(1 - Math.pow(scale.value - 1, 1.5), 0);
+      const maxTranslateY = screenHeight * 0.03; // 3% of screen height
+      const maxScale = 2;
+      const translateY = getTranslateY(maxTranslateY, maxScale, scale.value);
+      const opacityProgress = Math.min((scale.value - 1) / (maxScale - 1), 1);
+      const opacity = Math.max(1 - Math.pow(opacityProgress, 1.5), 0);
       return {
         transform: [{ translateY }],
         opacity,
       };
     });
-    
 
-    // Funkcja resetująca mapę
+    const buttonContainerAnimatedStyle = useAnimatedStyle(() => {
+      const maxTranslateY = screenHeight * 0.05; // 3% of screen height
+      const maxScale = 2;
+      const translateY = getTranslateY(maxTranslateY, maxScale, scale.value);
+      return {
+        transform: [{ translateY }],
+      };
+    });
+
+        // Funkcja resetująca mapę
     const resetMap = () => {
       scale.value = withTiming(1, { duration: 300 });
       translateX.value = withTiming(0, { duration: 300 });
@@ -371,14 +389,15 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
               borderRadius={10}
             />
             <View style={styles.progressTextLeft}>
-              <Text style={styles.progressText}>
+              <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
                 {(percentageVisited * 100).toFixed(1)}%
               </Text>
             </View>
             <View style={styles.progressTextRight}>
-              <Text style={styles.progressText}>
+              <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
                 {visitedCountries}/{totalCountries}
               </Text>
+
             </View>
           </View>
         </Animated.View>
@@ -430,22 +449,47 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
 
   {/* Dolna sekcja z napisem */}
   <View style={styles.bottomSectionPhoto}>
-    <Text style={[styles.infoTextLarge, { color: theme.colors.onBackground }]}>
-      Udostępnij swoją mapę i pokaż, gdzie byłeś!
-    </Text>
+    <View style={styles.progressBarWrapper}>
+      <Progress.Bar
+        progress={percentageVisited}
+        width={screenWidth * 0.8}
+        color={theme.colors.primary}
+        unfilledColor={theme.colors.surfaceVariant}
+        borderWidth={0}
+        height={20}
+        borderRadius={10}
+        />
+        <View style={styles.progressTextLeft}>
+          <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
+            {(percentageVisited * 100).toFixed(1)}%
+          </Text>
+        </View>
+        <View style={styles.progressTextRight}>
+          <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
+            {visitedCountries}/{totalCountries}
+          </Text>
+
+        </View>
+          </View>
   </View>
 </View>
 
 
 
         {/* Kontener dla przycisków */}
-        <View style={styles.buttonContainer}>
+        <Animated.View style={[styles.buttonContainer, buttonContainerAnimatedStyle]}>
           {/* Przycisk Reset */}
           <TouchableOpacity
             style={[styles.resetButton, { backgroundColor: theme.colors.primary }]}
             onPress={resetMap}
-            activeOpacity={0.7}>
-            <Feather name="code" size={ICON_SIZE} style={styles.resetIcon} color={theme.colors.onPrimary} />
+            activeOpacity={0.7}
+          >
+            <Feather
+              name="code"
+              size={ICON_SIZE}
+              style={styles.resetIcon}
+              color={theme.colors.onPrimary}
+            />
           </TouchableOpacity>
 
           {/* Przycisk Udostępniania */}
@@ -453,7 +497,8 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
             style={[styles.shareButton, { backgroundColor: theme.colors.primary }]}
             onPress={shareMap}
             activeOpacity={0.7}
-            disabled={isSharing}>
+            disabled={isSharing}
+          >
             {isSharing ? (
               <ActivityIndicator size="small" color={theme.colors.onPrimary} />
             ) : (
@@ -465,11 +510,9 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
           <Animated.View style={[styles.toggleButtonContainer, animatedToggleStyle]}>
             <TouchableOpacity
               onPress={handleToggleTheme}
-              style={[
-                styles.toggleButton,
-                { backgroundColor: theme.colors.primary },
-              ]}
-              activeOpacity={0.7}>
+              style={[styles.toggleButton, { backgroundColor: theme.colors.primary }]}
+              activeOpacity={0.7}
+            >
               <MaterialIcons
                 name={isDarkTheme ? 'dark-mode' : 'light-mode'}
                 size={ICON_SIZE}
@@ -477,7 +520,7 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
               />
             </TouchableOpacity>
           </Animated.View>
-        </View>
+        </Animated.View>
       </GestureHandlerRootView>
     );
   }
@@ -501,6 +544,7 @@ const styles = StyleSheet.create({
     // flex: 1, // Proporcja dolnej sekcji
     justifyContent: 'center',
     alignItems: 'center',
+    bottom: '3%'
   },
   progressBarWrapper: {
     width: screenWidth * 0.8,
@@ -557,7 +601,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'absolute',
-    bottom: '12%', // Możesz dostosować procent do swoich potrzeb
+    bottom: '3%', // Możesz dostosować procent do swoich potrzeb
     left: 0,
     right: 0,
     // top: -5%
@@ -611,10 +655,12 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     position: 'absolute',
-    bottom: 20,
-    right: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
+    bottom: '8%',
+    left: 0,
+  right: 0,
+  flexDirection: 'row',
+  justifyContent: 'center',
+  alignItems: 'center',
   },
   resetButton: {
     width: BUTTON_SIZE,
