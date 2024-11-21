@@ -259,6 +259,7 @@ export default function ChooseCountriesScreen() {
           countriesVisited: selectedCountries,
           firstLoginComplete: true,
         });
+        await AsyncStorage.setItem('hasShownPopup', 'true'); // Ustawienie flagi popup
         router.replace('/');
       } catch (error) {
         console.error('Error saving countries:', error);

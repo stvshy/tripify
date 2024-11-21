@@ -16,6 +16,9 @@ import Fontisto from '@expo/vector-icons/Fontisto';
 import Octicons from '@expo/vector-icons/Octicons';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
+// screens/TabLayout.tsx
+import ChooseCountriesScreen from '../chooseCountries'; // Dostosuj ścieżkę, jeśli jest inna
+
 const db = getFirestore();
 
 // Definicja niestandardowego komponentu TabBarButton
@@ -107,7 +110,7 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarIconStyle: {
-          marginTop: window.height * 0.014,
+          marginTop: window.height * 0.014, // Adjust the margin to lower the icons
         },
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
@@ -120,7 +123,7 @@ export default function TabLayout() {
         tabBarItemStyle: {
           justifyContent: 'center',
           alignItems: 'center', // Wyśrodkowanie ikon w poziomie
-          // marginTop: window.height * 0.014,
+          marginTop: window.height * 0.014,
         },
         headerStyle: {
           backgroundColor: theme.colors.surface,
