@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { TextInput as PaperTextInput, useTheme } from 'react-native-paper';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons'; 
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
 import { auth, db } from '../config/firebaseConfig';
 import CountryFlag from 'react-native-country-flag';
@@ -150,6 +150,28 @@ export default function ChooseCountriesScreen() {
     };
 
     checkPopup();
+  }, []);
+  
+  useEffect(() => {
+    // Pobranie zapisanych krajówVisited z Firestore
+    const fetchSelectedCountries = async () => {
+      const user = auth.currentUser;
+      if (user) {
+        try {
+          const userDocRef = doc(db, 'users', user.uid);
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            const countriesVisited: string[] = userData?.countriesVisited || [];
+            setSelectedCountries(countriesVisited);
+          }
+        } catch (error) {
+          console.error('Error fetching selected countries:', error);
+        }
+      }
+    };
+
+    fetchSelectedCountries();
   }, []);
 
   const handleClosePopup = useCallback(async () => {
