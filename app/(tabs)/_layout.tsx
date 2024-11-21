@@ -15,9 +15,21 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Fontisto from '@expo/vector-icons/Fontisto';
 import Octicons from '@expo/vector-icons/Octicons';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
 const db = getFirestore();
 
-
+// Definicja niestandardowego komponentu TabBarButton
+const CustomTabBarButton: React.FC<BottomTabBarButtonProps> = ({ children, onPress }) => (
+  <Pressable
+    onPress={onPress}
+    style={({ pressed }) => [
+      styles.customTabButton,
+      pressed && styles.pressedTabButton, // Dodanie efektu podświetlenia
+    ]}
+  >
+    {children}
+  </Pressable>
+);
 
 export default function TabLayout() {
   const { isDarkTheme } = useContext(ThemeContext);
@@ -88,10 +100,15 @@ export default function TabLayout() {
   const handleNavigateToAccount = () => {
     router.push('/account'); // Upewnij się, że masz skonfigurowany ekran /account
   };
-
+  const tabBarIconStyle = {
+    marginTop: window.height * 0.02, // Adjust the margin to lower the icons
+  };
   return (
     <Tabs
       screenOptions={{
+        tabBarIconStyle: {
+          marginTop: window.height * 0.014,
+        },
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
         tabBarStyle: {
@@ -103,8 +120,7 @@ export default function TabLayout() {
         tabBarItemStyle: {
           justifyContent: 'center',
           alignItems: 'center', // Wyśrodkowanie ikon w poziomie
-          marginTop: window.height * 0.014,
-          // paddingBottom: -10
+          // marginTop: window.height * 0.014,
         },
         headerStyle: {
           backgroundColor: theme.colors.surface,
@@ -116,7 +132,10 @@ export default function TabLayout() {
           <SafeAreaView>
             <Pressable
               onPress={handleNavigateToAccount}
-              style={styles.headerTitleContainer}
+              style={({ pressed }) => [
+                styles.headerTitleContainer,
+                pressed && styles.pressedHeader, // Dodanie efektu podświetlenia
+              ]}
             >
               <AntDesign
                 name="user"
@@ -132,7 +151,13 @@ export default function TabLayout() {
         ),
         headerRight: () => (
           <SafeAreaView>
-            <Pressable onPress={handleLogout}>
+            <Pressable
+              onPress={handleLogout}
+              style={({ pressed }) => [
+                styles.headerRightContainer,
+                pressed && styles.pressedHeaderRight, // Dodanie efektu podświetlenia
+              ]}
+            >
               <AntDesign
                 name="logout"
                 size={17}
@@ -148,6 +173,12 @@ export default function TabLayout() {
         name="index"
         options={{
           title: '',
+            // Dodanie niestandardowego przycisku tabBarButton
+            tabBarButton: (props) => (
+              <CustomTabBarButton onPress={props.onPress}>
+                {props.children}
+              </CustomTabBarButton>
+            ),
           tabBarIcon: ({ color }) => (
             <View style={styles.tabIconContainer}>
               <Ionicons name="earth" size={26} color={color} />
@@ -159,6 +190,12 @@ export default function TabLayout() {
         name="two"
         options={{
           title: '',
+            // Dodanie niestandardowego przycisku tabBarButton
+            tabBarButton: (props) => (
+              <CustomTabBarButton onPress={props.onPress}>
+                {props.children}
+              </CustomTabBarButton>
+            ),
           tabBarIcon: ({ color }) => (
             <View style={[styles.tabIconContainer, { marginTop: 1 }]}>
               <FontAwesome6 name="list-check" size={22} color={color} />
@@ -175,6 +212,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  pressedHeader: {
+    opacity: 0.6, // Opcjonalnie: zmniejszenie przezroczystości podczas naciśnięcia
+  },
+  headerRightContainer: {
+    // Możesz dodać dodatkowe style, jeśli potrzebujesz
+  },
+  pressedHeaderRight: {
+    opacity: 0.6, // Opcjonalnie: zmniejszenie przezroczystości podczas naciśnięcia
+  },
+  pressedTabButton: {
+    opacity: 0.6, // Efekt podświetlenia przez zmniejszenie przezroczystości
+  },
+  customTabButton: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   tabIconContainer: {
     flex: 1,
