@@ -125,7 +125,11 @@ const CountryItem = React.memo(function CountryItem({
   );
 });
 
-export default function ChooseCountriesScreen() {
+type ChooseCountriesScreenProps = {
+  fromTab?: boolean;
+};
+
+export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountriesScreenProps) {
   const router = useRouter();
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -314,7 +318,7 @@ export default function ChooseCountriesScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }, fromTab ? styles.containerFromTab : styles.containerStandalone]}>
       {/* Popup Informacyjny */}
       <Modal
         transparent={true}
@@ -343,12 +347,12 @@ export default function ChooseCountriesScreen() {
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardAvoidingView}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 20}
+        keyboardVerticalOffset={fromTab ? 0 : (Platform.OS === 'ios' ? 80 : 20)}
       >
         <View style={{ flex: 1 }}>
           {/* Nagłówek */}
-          <View style={styles.header}>
-          </View>
+          {/* <View style={styles.header}> */}
+          {/* </View> */}
 
           {/* Pasek wyszukiwania i przycisk przełączania motywu */}
           <View style={styles.searchAndToggleContainer}>
@@ -453,7 +457,7 @@ export default function ChooseCountriesScreen() {
                     }),
                   },
                 ],
-                bottom: isInputFocused ? -styles.saveButton.marginBottom - 5 : 0,
+                bottom: fromTab ? 0 : (isInputFocused ? -styles.saveButton.marginBottom - 5 : 0),
               },
             ]}
           >
@@ -482,7 +486,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 0,
-    paddingTop: 20,
+    // paddingTop: 20,
+  },
+  containerFromTab: {
+    marginTop: -5,
+  },
+  containerStandalone: {
+    paddingTop: 20, // Dostosuj według potrzeb
   },
   header: {
     width: '100%',
