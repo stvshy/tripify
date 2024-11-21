@@ -267,6 +267,7 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
           result: 'tmpfile',
           width: screenWidth * pixelRatio * 6, // Zwiększ szerokość proporcjonalnie do pixelRatio
           height: (screenWidth * pixelRatio * 6) * (16 / 9), // Zachowaj proporcje
+
         });
     
         if (uri) {
