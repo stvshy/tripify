@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
     // flex: 1, // Proporcja dolnej sekcji
     justifyContent: 'center',
     alignItems: 'center',
-    bottom: '3%'
+    bottom: '2.5%'
   },
   logoTextImage: {
     width: '16%', // Dostosuj szerokość według potrzeb
