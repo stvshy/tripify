@@ -224,10 +224,10 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
 
     const bottomTextAnimatedStyle = useAnimatedStyle(() => {
       const maxTranslateY = screenHeight * 0.03; // 3% of screen height
-      const maxScale = 2;
+      const maxScale = 1.6;
       const translateY = getTranslateY(maxTranslateY, maxScale, scale.value);
       const opacityProgress = Math.min((scale.value - 1) / (maxScale - 1), 1);
-      const opacity = Math.max(1 - Math.pow(opacityProgress, 1.5), 0);
+      const opacity = Math.max(1 - Math.pow(opacityProgress, 1.2), 0);
       return {
         transform: [{ translateY }],
         opacity,
@@ -235,8 +235,8 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
     });
 
     const buttonContainerAnimatedStyle = useAnimatedStyle(() => {
-      const maxTranslateY = screenHeight * 0.05; // 3% of screen height
-      const maxScale = 2;
+      const maxTranslateY = screenHeight * 0.05; // 5% of screen height
+      const maxScale = 1.6;
       const translateY = getTranslateY(maxTranslateY, maxScale, scale.value);
       return {
         transform: [{ translateY }],
