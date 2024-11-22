@@ -100,16 +100,24 @@ const CountryItem = React.memo(function CountryItem({
     <TouchableOpacity
     onPress={handlePress}
     style={[
-      styles.countryItemContainer,
+      styles.countryItemContainer, 
       {
         backgroundColor: isSelected 
           ? selectedBackgroundColor 
           : theme.colors.surface,
+        borderRadius: isSelected ? 4.2 : 8,
       },
     ]}
     activeOpacity={0.7} // Opcjonalnie dostosuj przezroczystość przyciśnięcia
   >
-    <View style={styles.countryItem}>
+        <View  style={[
+            styles.countryItem,
+            {
+              backgroundColor: selectedBackgroundColor,
+              borderRadius: isSelected ? 4.2 : 8, // Większe zaokrąglenie, gdy wybrane
+            },
+          ]}
+          >
           <View style={[styles.flagContainer, styles.flagWithBorder, { borderColor: flagBorderColor }]}>
             <CountryFlag isoCode={item.cca2} size={25} />
           </View>
