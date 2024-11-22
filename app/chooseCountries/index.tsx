@@ -19,6 +19,7 @@ import {
   TouchableWithoutFeedback,
   BackHandler,
   TextInput,
+  LayoutAnimation,
 } from 'react-native';
 import { TextInput as PaperTextInput, useTheme } from 'react-native-paper';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons'; 
@@ -69,8 +70,9 @@ const CountryItem = React.memo(function CountryItem({
   }, [scaleValue, onSelect, item.cca2]);
 
   const handlePress = useCallback(() => {
-    onSelect(item.cca2);
-  }, [onSelect, item.cca2]);
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    handleCheckboxPress();
+  }, [handleCheckboxPress]);
 
   // Kolory dynamiczne na podstawie motywu
   const selectedBackgroundColor = isSelected
