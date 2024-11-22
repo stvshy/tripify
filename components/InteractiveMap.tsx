@@ -24,6 +24,7 @@ import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-g
 import * as Sharing from 'expo-sharing';
 import Animated, {
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
@@ -53,11 +54,6 @@ rawCountriesData.countries.forEach((rawCountry: { id: string; name: string; clas
   // Sprawdzenie, czy 'cca2' istnieje
   // Try to find country code from the id
   const cca2 = rawCountry.id.length === 2 ? rawCountry.id.toUpperCase() : '';
-  
-  if (!cca2) {
-    console.warn(`Country with id ${rawCountry.id} doesn't have a valid cca2 code and will be skipped.`);
-    return;
-  }
 
   const countryWithCca2: Country = {
     ...rawCountry,
@@ -82,6 +78,14 @@ export interface InteractiveMapRef {
   capture: () => Promise<string | null>;
 }
 
+interface TooltipPosition {
+  x: number; // Pozycja X względem mapy
+  y: number; // Pozycja Y względem mapy
+  country: Country;
+  position: 'top' | 'bottom';
+}
+
+
 interface InteractiveMapProps {
   selectedCountries: string[];
   totalCountries: number;
@@ -96,31 +100,26 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     const mapViewRef = useRef<View>(null);
     const baseMapRef = useRef<View>(null);
     const [isSharing, setIsSharing] = useState(false); // Stan ładowania udostępniania
-    const [tooltip, setTooltip] = useState<{
-      x: number;
-      y: number;
-      country: Country;
-      position: 'top' | 'bottom';
-    } | null>(null); // Stan tooltipa
+    const [tooltip, setTooltip] = useState<TooltipPosition | null>(null);
     const scaleValue = useSharedValue(1);
+    const scale = useSharedValue(1);
+    const translateX = useSharedValue(initialTranslateX);
+    const translateY = useSharedValue(initialTranslateY);
+
+        // Zmienne używane w pinch-to-zoom
+        const activeTouches = useSharedValue<{ id: number; x: number; y: number }[]>([]);
+        const initialDistance = useSharedValue<number | null>(null);
+        const initialFocalX = useSharedValue<number>(0);
+        const initialFocalY = useSharedValue<number>(0);
+        const baseScale = useSharedValue<number>(1);
+        const baseTranslateX = useSharedValue<number>(0);
+        const baseTranslateY = useSharedValue<number>(0);
 
     const animatedToggleStyle = useAnimatedStyle(() => ({
       transform: [{ scale: scaleValue.value }],
     }));
-    const tooltipAnimatedStyle = useAnimatedStyle(() => ({
-      opacity: tooltip ? withTiming(1, { duration: 200 }) : withTiming(0, { duration: 200 }),
-      transform: [
-        { scale: tooltip ? withTiming(1, { duration: 200 }) : withTiming(0.8, { duration: 200 }) },
-      ],
-    }));
-    // Zmienne używane w pinch-to-zoom
-    const activeTouches = useSharedValue<{ id: number; x: number; y: number }[]>([]);
-    const initialDistance = useSharedValue<number | null>(null);
-    const initialFocalX = useSharedValue<number>(0);
-    const initialFocalY = useSharedValue<number>(0);
-    const baseScale = useSharedValue<number>(1);
-    const baseTranslateX = useSharedValue<number>(0);
-    const baseTranslateY = useSharedValue<number>(0);
+    
+
 
     // Funkcje pomocnicze
     const calculateDistance = (p1: { x: number; y: number }, p2: { x: number; y: number }): number => {
@@ -163,10 +162,6 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
 
     const visitedCountries = selectedCountries.length;
     const percentageVisited = totalCountries > 0 ? visitedCountries / totalCountries : 0;
-
-    const scale = useSharedValue(1);
-    const translateX = useSharedValue(initialTranslateX);
-    const translateY = useSharedValue(initialTranslateY);
 
     const clamp = (value: number, min: number, max: number): number => {
       'worklet';
@@ -263,11 +258,11 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     // Styl animowany
     const animatedStyle = useAnimatedStyle(() => ({
       transform: [
-        { translateX: translateX.value },
+        { translateX: translateX.value }, // To jest poprawne
         { translateY: translateY.value },
         { scale: scale.value },
       ],
-    }));
+    }));    
 
     const topTextAnimatedStyle = useAnimatedStyle(() => {
       const translateY = -100 * (scale.value - 1); // Dostosuj współczynnik według potrzeb
@@ -361,43 +356,39 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       return { x: scaledX, y: scaledY };
     };
 
-    const handlePathPress = (event: GestureResponderEvent, countryCode: string) => {
-      const { pageX, pageY } = event.nativeEvent;
-    
-      // Znajdź dane kraju na podstawie countryCode
-      const country = data.countries.find(c => c.id === countryCode);
-    
-      if (country) {
-        // Ustal wysokość tooltipa (możesz dostosować tę wartość)
-        const TOOLTIP_HEIGHT = 50;
-        const TOOLTIP_WIDTH = 150;
-    
-        // Oblicz pozycję tooltipa, aby był nieco nad kliknięciem
-        let tooltipY = pageY - TOOLTIP_HEIGHT - 10; // 10px odstępu
-        let position: 'top' | 'bottom' = 'top';
-    
-        // Sprawdź, czy tooltip nie wychodzi poza górną krawędź ekranu
-        if (tooltipY < 0) {
-          tooltipY = pageY + 10; // Umieść tooltip pod kliknięciem
-          position = 'bottom';
-        }
-    
-        // Oblicz pozycję tooltipa, aby nie wychodził poza lewe i prawe krawędzie ekranu
-        let tooltipX = pageX - TOOLTIP_WIDTH / 2;
-        if (tooltipX < 0) {
-          tooltipX = 10; // 10px odstępu od lewej krawędzi
-        } else if (tooltipX + TOOLTIP_WIDTH > screenWidth) {
-          tooltipX = screenWidth - TOOLTIP_WIDTH - 10; // 10px odstępu od prawej krawędzi
-        }
-    
-        setTooltip({ x: tooltipX, y: tooltipY, country, position });
-      }
-    
-      // Wywołanie oryginalnej funkcji onCountryPress
-      onCountryPress(countryCode);
-    };
-    
 
+        // Oddzielenie skalowania tooltipa
+        const tooltipScale = useDerivedValue(() => {
+          return Math.min(scale.value * 0.5, 2); // Skalowanie od 1 do 2
+        });
+    
+        const tooltipAnimatedStyle = useAnimatedStyle(() => ({
+          transform: [{ scale: tooltipScale.value }],
+        }));
+        const handlePathPress = (event: GestureResponderEvent, countryCode: string) => {
+          const { locationX, locationY } = event.nativeEvent; // Współrzędne względem mapy
+    
+          const country = data.countries.find(c => c.id === countryCode);
+    
+          if (country) {
+            // Określ pozycję tooltipa
+            let position: 'top' | 'bottom' = 'top';
+    
+            // Sprawdź, czy tooltip wychodzi poza górną krawędź mapy
+            if (locationY - 60 * 1.2 < 0) { // 60 to wysokość tooltipa, 1.2 to maksymalny scale
+              position = 'bottom';
+            }
+    
+            setTooltip({
+              x: locationX,
+              y: locationY,
+              country,
+              position
+            });
+          }
+    
+          onCountryPress(countryCode);
+        };
     return (
       <GestureHandlerRootView style={[styles.container, style]}>
       <TouchableWithoutFeedback onPress={() => setTooltip(null)}>
@@ -465,21 +456,53 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
             </View>
           </Animated.View>
 
-          {/* Renderowanie Tooltipa */}
-          {tooltip && (
-            <View style={[styles.tooltip, { top: tooltip.y, left: tooltip.x, width: 150 }]}>
-              {tooltip.position === 'top' && (
-                <View style={styles.arrowBottom} />
-              )}
-              {tooltip.position === 'bottom' && (
-                <View style={styles.arrowTop} />
-              )}
-              <CountryFlag isoCode={tooltip.country.cca2} size={25} />
-              <Text style={styles.tooltipText}>{tooltip.country.name}</Text>
-            </View>
-          )}
-        </View>
-      </TouchableWithoutFeedback>
+        {/* Renderowanie Tooltipa */}
+        {tooltip && (
+              <Animated.View 
+                style={[
+                  styles.tooltip, 
+                  tooltipAnimatedStyle,
+                  {
+                    position: 'absolute',
+                    left: tooltip.x * scale.value + translateX.value - (150 / 2),
+                    top: tooltip.y * scale.value + translateY.value - (tooltip.position === 'top' ? 60 * tooltipScale.value : -10),
+                    width: 150,
+                  }
+                ]}
+              >
+                {tooltip.position === 'top' && (
+                  <View 
+                    style={[
+                      styles.arrowBottom,
+                      {
+                        left: 75 - 5, // Środek tooltipa
+                      }
+                    ]} 
+                  />
+                )}
+                {tooltip.position === 'bottom' && (
+                  <View 
+                    style={[
+                      styles.arrowTop,
+                      {
+                        left: 75 - 5, // Środek tooltipa
+                      }
+                    ]} 
+                  />
+                )}
+                <View style={styles.tooltipContent}>
+                  <CountryFlag 
+                    isoCode={tooltip.country.cca2} 
+                    size={25} 
+                  />
+                  <Text style={styles.tooltipText}>
+                    {tooltip.country.name}
+                  </Text>
+                </View>
+              </Animated.View>
+            )}
+          </View>
+        </TouchableWithoutFeedback>
 
 
         {/* Ukryta bazowa mapa */}
@@ -634,6 +657,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderRadius: 10,
   },
+  tooltip: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    padding: 10,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
   progressTextLeft: {
     position: 'absolute',
     left: 10,
@@ -756,40 +787,16 @@ const styles = StyleSheet.create({
   toggleButtonContainer: {
     // Możesz dodać dodatkowe style, jeśli potrzebujesz
   },
-  tooltip: {
-    position: 'absolute',
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    padding: 10,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    zIndex: 1000, // Upewnij się, że tooltip jest nad innymi elementami
-  },
   tooltipText: {
     color: '#fff',
-    marginLeft: 8,
-    fontSize: 14,
-    fontWeight: 'bold',
+    marginLeft: 10, // Odstęp między flagą a tekstem
+  },
+  tooltipContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   arrowTop: {
     position: 'absolute',
-    bottom: -10, // Pozycja wskaźnika w zależności od tooltipa
-    left: '50%',
-    marginLeft: -5,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 5,
-    borderRightWidth: 5,
-    borderTopWidth: 10,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderTopColor: 'rgba(0, 0, 0, 0.8)',
-  },
-  arrowBottom: {
-    position: 'absolute',
-    top: -10, // Pozycja wskaźnika w zależności od tooltipa
-    left: '50%',
-    marginLeft: -5,
     width: 0,
     height: 0,
     borderLeftWidth: 5,
@@ -798,6 +805,21 @@ const styles = StyleSheet.create({
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
     borderBottomColor: 'rgba(0, 0, 0, 0.8)',
+    top: -10,
+    left: 75 - 5, // Środek tooltipa
+  },
+  arrowBottom: {
+    position: 'absolute',
+    width: 0,
+    height: 0,
+    borderLeftWidth: 5,
+    borderRightWidth: 5,
+    borderTopWidth: 10,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: 'rgba(0, 0, 0, 0.8)',
+    bottom: -10,
+    left: 75 - 5, // Środek tooltipa
   },
   toggleButton: {
     width: BUTTON_SIZE,
