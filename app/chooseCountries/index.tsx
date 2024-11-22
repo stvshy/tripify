@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useContext, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useContext, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -17,6 +17,9 @@ import {
   Modal,
   TouchableOpacity,
   Easing,
+  TouchableWithoutFeedback,
+  BackHandler,
+  TextInput,
 } from 'react-native';
 import { TextInput as PaperTextInput, useTheme } from 'react-native-paper';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons'; 
@@ -27,10 +30,13 @@ import CountryFlag from 'react-native-country-flag';
 import countries from 'world-countries';
 import { ThemeContext } from '../config/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { MD3Colors } from 'react-native-paper';
 
 const { width, height } = Dimensions.get('window');
 
 type Continent = 'Africa' | 'North America' | 'South America' | 'Asia' | 'Europe' | 'Oceania' | 'Antarctica';
+
+
 
 // Funkcja do określania kontynentu
 const getContinent = (region: string, subregion: string): Continent => {
@@ -67,9 +73,9 @@ const CountryItem = React.memo(function CountryItem({
   }, [scaleValue, onSelect, item.cca2]);
 
   const handlePress = useCallback(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    handleCheckboxPress();
-  }, [handleCheckboxPress]);
+    // Bez animacji, aby natychmiast zaznaczyć
+    onSelect(item.cca2);
+  }, [onSelect, item.cca2]);
 
   // Kolory dynamiczne na podstawie motywu
   const selectedBackgroundColor = isSelected
@@ -91,17 +97,19 @@ const CountryItem = React.memo(function CountryItem({
     : 'transparent';
 
   return (
-    <Pressable onPress={handlePress}>
-      <View style={styles.countryItemContainer}>
-        <View
-          style={[
-            styles.countryItem,
-            {
-              backgroundColor: selectedBackgroundColor,
-              borderRadius: isSelected ? 4 : 8, // Większe zaokrąglenie, gdy wybrane
-            },
-          ]}
-        >
+    <TouchableOpacity
+    onPress={handlePress}
+    style={[
+      styles.countryItemContainer,
+      {
+        backgroundColor: isSelected 
+          ? selectedBackgroundColor 
+          : theme.colors.surface,
+      },
+    ]}
+    activeOpacity={0.7} // Opcjonalnie dostosuj przezroczystość przyciśnięcia
+  >
+    <View style={styles.countryItem}>
           <View style={[styles.flagContainer, styles.flagWithBorder, { borderColor: flagBorderColor }]}>
             <CountryFlag isoCode={item.cca2} size={25} />
           </View>
@@ -120,11 +128,11 @@ const CountryItem = React.memo(function CountryItem({
           >
             {isSelected && <FontAwesome name="check" size={12} color={checkboxIconColor} />}
           </Animated.View>
-        </View>
       </View>
-    </Pressable>
+    </TouchableOpacity>
   );
 });
+
 
 type ChooseCountriesScreenProps = {
   fromTab?: boolean;
@@ -141,6 +149,9 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
   const [isInputFocused, setIsInputFocused] = useState(false);
   const scaleValue = useMemo(() => new Animated.Value(1), []);
   const [isPopupVisible, setIsPopupVisible] = useState(true);
+  const [highlightedCountry, setHighlightedCountry] = useState<string | null>(null);
+  const searchInputRef = useRef<TextInput>(null);
+
 
   useEffect(() => {
     const checkPopup = async () => {
@@ -227,11 +238,22 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
       }).start();
     });
 
-    return () => {
-      keyboardShowListener.remove();
-      keyboardHideListener.remove();
+    // Dodanie listenera dla przycisku "back" na Androidzie
+    const handleBackPress = () => {
+      if (isInputFocused && searchInputRef.current) {
+        console.log('Back button pressed while input is focused. Blurring input.');
+        searchInputRef.current.blur(); // Rozmycie pola tekstowego
+        return true; // Zatrzymuje domyślną akcję przycisku "back"
+      }
+      return false; // Pozwala domyślnej akcji przycisku "back"
     };
-  }, [fadeAnim, isInputFocused]);
+  
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+  
+    return () => {
+      backHandler.remove(); // Użyj metody remove() zamiast removeEventListener
+    };
+  }, [isInputFocused]);
 
   // Przetwarzanie danych krajów
   const processedCountries = useMemo(() => {
@@ -299,6 +321,19 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
     }
   }, [selectedCountries, router]);
 
+  // Funkcja do obsługi kliknięcia poza polem tekstowym
+  const dismissKeyboard = () => {
+    Keyboard.dismiss();
+    setIsInputFocused(false);
+    setIsFocused(false);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+
   const renderCountryItem = useCallback(
     ({ item }: { item: typeof countries[0] }) => (
       <CountryItem
@@ -320,173 +355,187 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
   );
 
   return (
-    <SafeAreaView 
-    style={[
-      styles.container, 
-      { backgroundColor: theme.colors.background }, 
-      fromTab ? styles.containerFromTab : styles.containerStandalone
-    ]}
-  >
-    {/* Popup Informacyjny */}
-    {!fromTab && isPopupVisible && (
-      <Modal
-        transparent={true}
-        visible={isPopupVisible}
-        animationType="slide"
-        onRequestClose={handleClosePopup}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
-            <Text style={[styles.modalTitle, { color: theme.colors.primary }]}>
-              Hey Traveller!
-            </Text>
-            <Text style={[styles.modalText, { color: theme.colors.onSurface }]}>
-              Please choose the countries you have visited from the list below.
-            </Text>
-            <TouchableOpacity
-              onPress={handleClosePopup}
-              style={[styles.modalButton, { backgroundColor: theme.colors.primary }]}
-            >
-              <Text style={[styles.modalButtonText, { color: theme.colors.onPrimary }]}>Got it</Text>
-            </TouchableOpacity>
+    <TouchableWithoutFeedback onPress={() => {
+      Keyboard.dismiss();
+      setIsInputFocused(false);
+      setIsFocused(false);
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }}>
+      <SafeAreaView 
+      style={[
+        styles.container, 
+        { backgroundColor: theme.colors.background }, 
+        fromTab ? styles.containerFromTab : styles.containerStandalone
+      ]}
+    >
+      {/* Popup Informacyjny */}
+      {!fromTab && isPopupVisible && (
+        <Modal
+          transparent={true}
+          visible={isPopupVisible}
+          animationType="slide"
+          onRequestClose={handleClosePopup}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+              <Text style={[styles.modalTitle, { color: theme.colors.primary }]}>
+                Hey Traveller!
+              </Text>
+              <Text style={[styles.modalText, { color: theme.colors.onSurface }]}>
+                Please choose the countries you have visited from the list below.
+              </Text>
+              <TouchableOpacity
+                onPress={handleClosePopup}
+                style={[styles.modalButton, { backgroundColor: theme.colors.primary }]}
+              >
+                <Text style={[styles.modalButtonText, { color: theme.colors.onPrimary }]}>Got it</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </Modal>
-    )}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.keyboardAvoidingView}
-        keyboardVerticalOffset={fromTab ? 0 : (Platform.OS === 'ios' ? 80 : 20)}
-      >
-        <View style={{ flex: 1 }}>
-          {/* Nagłówek */}
-          {/* <View style={styles.header}> */}
-          {/* </View> */}
+        </Modal>
+      )}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.keyboardAvoidingView}
+          keyboardVerticalOffset={fromTab ? 0 : (Platform.OS === 'ios' ? 80 : 20)}
+        >
+          <View style={{ flex: 1 }}>
+            {/* Nagłówek */}
+            {/* <View style={styles.header}> */}
+            {/* </View> */}
 
-          {/* Pasek wyszukiwania i przycisk przełączania motywu */}
-          <View style={styles.searchAndToggleContainer}>
-            <View style={[
-                styles.inputContainer, 
-                isFocused && styles.inputFocused
-              ]}>
-              <PaperTextInput
-                label="Search Country"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                mode="flat"
-                style={styles.input}
-                theme={{
-                  colors: {
-                    primary: isFocused ? theme.colors.primary : theme.colors.outline,
-                    background: 'transparent',
-                    text: theme.colors.onSurface,
-                  },
-                }}
-                underlineColor="transparent"
-                left={
-                  <PaperTextInput.Icon
-                    icon={() => <FontAwesome name="search" size={20} color={isFocused ? theme.colors.primary : theme.colors.outline} />}
-                    style={styles.iconLeft}
-                  />
-                }
-                right={
-                  searchQuery ? (
+            {/* Pasek wyszukiwania i przycisk przełączania motywu */}
+            <View style={styles.searchAndToggleContainer}>
+              <View style={[
+                  styles.inputContainer, 
+                  isFocused && styles.inputFocused
+                ]}>
+                <PaperTextInput
+                  ref={searchInputRef}
+                  label="Search Country"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  mode="flat"
+                  style={styles.input}
+                  theme={{
+                    colors: {
+                      primary: isFocused ? theme.colors.primary : theme.colors.outline,
+                      background: 'transparent',
+                      text: theme.colors.onSurface,
+                    },
+                  }}
+                  underlineColor="transparent"
+                  left={
                     <PaperTextInput.Icon
-                      icon={() => <MaterialIcons name="close" size={17} color={theme.colors.outline} />} // Zmniejszono rozmiar ikony do 16
-                      onPress={() => setSearchQuery('')}
+                      icon={() => <FontAwesome name="search" size={20} color={isFocused ? theme.colors.primary : theme.colors.outline} />}
+                      style={styles.iconLeft}
                     />
-                  ) : null
-                }
-                
-                autoCapitalize="none"
-                onFocus={() => {
-                  setIsInputFocused(true);
-                  setIsFocused(true);
-                  fadeAnim.setValue(0);
+                  }
+                  right={
+                    searchQuery ? (
+                      <PaperTextInput.Icon
+                        icon={() => <MaterialIcons name="close" size={17} color={theme.colors.outline} />} // Zmniejszono rozmiar ikony do 16
+                        onPress={() => setSearchQuery('')}
+                      />
+                    ) : null
+                  }
+                  
+                  autoCapitalize="none"
+                  onFocus={() => {
+                    setIsInputFocused(true);
+                    setIsFocused(true);
+                    fadeAnim.setValue(0);
+                  }}
+                  onBlur={() => {
+                    console.log('Input blurred');
+                    setIsInputFocused(false);
+                    setIsFocused(false);
+                    Animated.timing(fadeAnim, {
+                      toValue: 1,
+                      duration: 300,
+                      useNativeDriver: true,
+                    }).start();
+                  }}
+                  
+                />
+              </View>
+
+              {/* Okrągły przycisk do przełączania motywu */}
+              <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
+                <Pressable
+                  onPress={handleToggleTheme}
+                  style={[
+                    styles.toggleButton,
+                    { backgroundColor: theme.colors.primary },
+                  ]}
+                >
+                  {isDarkTheme ? (
+                    <MaterialIcons name="dark-mode" size={24} color={theme.colors.onPrimary} />
+                  ) : (
+                    <MaterialIcons name="light-mode" size={24} color={theme.colors.onPrimary} />
+                  )}
+                </Pressable>
+              </Animated.View>
+            </View>
+
+            {/* Lista krajów */}
+            <View style={{ flex: 1, marginBottom: fromTab ? -16 : -20 }}>
+              <SectionList
+                sections={processedCountries}
+                keyExtractor={(item) => item.cca3}
+                renderItem={renderCountryItem}
+                renderSectionHeader={renderSectionHeader}
+                stickySectionHeadersEnabled={false}
+                contentContainerStyle={{ 
+                  flexGrow: 1,
+                  paddingBottom: fromTab ? 86 : 80 
                 }}
-                onBlur={() => {
-                  setIsInputFocused(false);
-                  setIsFocused(false);
-                  Animated.timing(fadeAnim, {
-                    toValue: 1,
-                    duration: 300,
-                    useNativeDriver: true,
-                  }).start();
-                }}
+                ListEmptyComponent={() => (
+                  <View style={styles.emptyContainer}>
+                    <Text style={styles.emptyText}>No countries found.</Text>
+                  </View>
+                )}
               />
             </View>
 
-            {/* Okrągły przycisk do przełączania motywu */}
-            <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
+            {/* Przycisk "Save and Continue" */}
+            <Animated.View
+              style={[
+                styles.footer,
+                {
+                  opacity: fadeAnim,
+                  transform: [
+                    {
+                      translateY: fadeAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [50, 0],
+                      }),
+                    },
+                  ],
+                  bottom: fromTab ? -3 : (isInputFocused ? -styles.saveButton.marginBottom - 5 : 0),
+                },
+              ]}
+            >
               <Pressable
-                onPress={handleToggleTheme}
+                onPress={handleSaveCountries}
                 style={[
-                  styles.toggleButton,
-                  { backgroundColor: theme.colors.primary },
+                  styles.saveButton,
+                  selectedCountries.length === 0 && styles.saveButtonDisabled,
+                  selectedCountries.length > 0 ? { backgroundColor: theme.colors.primary } : {},
                 ]}
+                disabled={selectedCountries.length === 0}
               >
-                {isDarkTheme ? (
-                  <MaterialIcons name="dark-mode" size={24} color={theme.colors.onPrimary} />
-                ) : (
-                  <MaterialIcons name="light-mode" size={24} color={theme.colors.onPrimary} />
-                )}
+                <Text style={[styles.saveButtonText, { color: theme.colors.onPrimary }]}>Save and Continue</Text>
               </Pressable>
             </Animated.View>
           </View>
-
-          {/* Lista krajów */}
-          <View style={{ flex: 1, marginBottom: fromTab ? -16 : -20 }}>
-            <SectionList
-              sections={processedCountries}
-              keyExtractor={(item) => item.cca3}
-              renderItem={renderCountryItem}
-              renderSectionHeader={renderSectionHeader}
-              stickySectionHeadersEnabled={false}
-              contentContainerStyle={{ 
-                flexGrow: 1,
-                paddingBottom: fromTab ? 86 : 80 
-              }}
-              ListEmptyComponent={() => (
-                <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>No countries found.</Text>
-                </View>
-              )}
-            />
-          </View>
-
-          {/* Przycisk "Save and Continue" */}
-          <Animated.View
-            style={[
-              styles.footer,
-              {
-                opacity: fadeAnim,
-                transform: [
-                  {
-                    translateY: fadeAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [50, 0],
-                    }),
-                  },
-                ],
-                bottom: fromTab ? -3 : (isInputFocused ? -styles.saveButton.marginBottom - 5 : 0),
-              },
-            ]}
-          >
-            <Pressable
-              onPress={handleSaveCountries}
-              style={[
-                styles.saveButton,
-                selectedCountries.length === 0 && styles.saveButtonDisabled,
-                selectedCountries.length > 0 ? { backgroundColor: theme.colors.primary } : {},
-              ]}
-              disabled={selectedCountries.length === 0}
-            >
-              <Text style={[styles.saveButtonText, { color: theme.colors.onPrimary }]}>Save and Continue</Text>
-            </Pressable>
-          </Animated.View>
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </TouchableWithoutFeedback>
   );
 }
 
@@ -657,6 +706,9 @@ const styles = StyleSheet.create({
   },
   sectionList: {
     flex: 1,
+  },
+  highlightedBackground: {
+    backgroundColor: '#D3D3D3', // Przykładowy kolor podświetlenia
   },
   roundedFlag: {
     borderRadius: 5, // Połowa rozmiaru flagi, aby uzyskać zaokrąglenie
