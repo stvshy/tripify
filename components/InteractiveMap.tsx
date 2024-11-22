@@ -78,15 +78,15 @@ uniqueCountries.push(...Object.values(countryMap));
 // Ustawienie danych do użycia
 const data: CountriesData = { countries: uniqueCountries };
 
-interface InteractiveMapProps {
-  selectedCountries: string[];
-  totalCountries: number; // Nowy prop
-  onCountryPress: (countryCode: string) => void;
-  style?: StyleProp<ViewStyle>;
-}
-
 export interface InteractiveMapRef {
   capture: () => Promise<string | null>;
+}
+
+interface InteractiveMapProps {
+  selectedCountries: string[];
+  totalCountries: number;
+  onCountryPress: (countryCode: string) => void;
+  style?: StyleProp<ViewStyle>;
 }
 
 const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
@@ -96,13 +96,23 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     const mapViewRef = useRef<View>(null);
     const baseMapRef = useRef<View>(null);
     const [isSharing, setIsSharing] = useState(false); // Stan ładowania udostępniania
-    const [tooltip, setTooltip] = useState<{ x: number; y: number; country: Country } | null>(null); // Stan tooltipa
+    const [tooltip, setTooltip] = useState<{
+      x: number;
+      y: number;
+      country: Country;
+      position: 'top' | 'bottom';
+    } | null>(null); // Stan tooltipa
     const scaleValue = useSharedValue(1);
 
     const animatedToggleStyle = useAnimatedStyle(() => ({
       transform: [{ scale: scaleValue.value }],
     }));
-
+    const tooltipAnimatedStyle = useAnimatedStyle(() => ({
+      opacity: tooltip ? withTiming(1, { duration: 200 }) : withTiming(0, { duration: 200 }),
+      transform: [
+        { scale: tooltip ? withTiming(1, { duration: 200 }) : withTiming(0.8, { duration: 200 }) },
+      ],
+    }));
     // Zmienne używane w pinch-to-zoom
     const activeTouches = useSharedValue<{ id: number; x: number; y: number }[]>([]);
     const initialDistance = useSharedValue<number | null>(null);
@@ -353,94 +363,124 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
 
     const handlePathPress = (event: GestureResponderEvent, countryCode: string) => {
       const { pageX, pageY } = event.nativeEvent;
-
+    
       // Znajdź dane kraju na podstawie countryCode
       const country = data.countries.find(c => c.id === countryCode);
-
+    
       if (country) {
-        setTooltip({ x: pageX, y: pageY, country });
+        // Ustal wysokość tooltipa (możesz dostosować tę wartość)
+        const TOOLTIP_HEIGHT = 50;
+        const TOOLTIP_WIDTH = 150;
+    
+        // Oblicz pozycję tooltipa, aby był nieco nad kliknięciem
+        let tooltipY = pageY - TOOLTIP_HEIGHT - 10; // 10px odstępu
+        let position: 'top' | 'bottom' = 'top';
+    
+        // Sprawdź, czy tooltip nie wychodzi poza górną krawędź ekranu
+        if (tooltipY < 0) {
+          tooltipY = pageY + 10; // Umieść tooltip pod kliknięciem
+          position = 'bottom';
+        }
+    
+        // Oblicz pozycję tooltipa, aby nie wychodził poza lewe i prawe krawędzie ekranu
+        let tooltipX = pageX - TOOLTIP_WIDTH / 2;
+        if (tooltipX < 0) {
+          tooltipX = 10; // 10px odstępu od lewej krawędzi
+        } else if (tooltipX + TOOLTIP_WIDTH > screenWidth) {
+          tooltipX = screenWidth - TOOLTIP_WIDTH - 10; // 10px odstępu od prawej krawędzi
+        }
+    
+        setTooltip({ x: tooltipX, y: tooltipY, country, position });
       }
-
+    
       // Wywołanie oryginalnej funkcji onCountryPress
       onCountryPress(countryCode);
     };
+    
 
     return (
       <GestureHandlerRootView style={[styles.container, style]}>
-        <TouchableWithoutFeedback onPress={() => setTooltip(null)}>
-          <View ref={fullViewRef} style={[styles.fullViewContainer, { backgroundColor: theme.colors.background }]}>
-            {/* Górna sekcja */}
-            <Animated.View style={[styles.topSection, topTextAnimatedStyle]}>
-              <Image
-                source={isDarkTheme ? logoTextImageDesaturated : logoTextImage}
-                style={styles.logoTextImage}
-                resizeMode="contain"
+      <TouchableWithoutFeedback onPress={() => setTooltip(null)}>
+        <View ref={fullViewRef} style={[styles.fullViewContainer, { backgroundColor: theme.colors.background }]}>
+          {/* Górna sekcja */}
+          <Animated.View style={[styles.topSection, topTextAnimatedStyle]}>
+            <Image
+              source={isDarkTheme ? logoTextImageDesaturated : logoTextImage}
+              style={styles.logoTextImage}
+              resizeMode="contain"
+            />
+          </Animated.View>
+
+          <GestureDetector gesture={Gesture.Simultaneous(pinchGesture, panGesture)}>
+            <Animated.View style={styles.container}>
+              <View ref={mapViewRef} style={styles.mapContainer}>
+                <AnimatedSvg
+                  width="100%"
+                  height="100%"
+                  viewBox="232 0 1700 857"
+                  preserveAspectRatio="xMidYMid meet"
+                  style={animatedStyle}
+                >
+                  {data.countries.map((country: Country, index: number) => {
+                    const countryCode = country.id;
+                    if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
+                    return (
+                      <Path
+                        key={`${countryCode}-${index}`}
+                        d={country.path}
+                        fill={getCountryFill(countryCode)}
+                        stroke={theme.colors.outline}
+                        strokeWidth={0.2}
+                        onPress={(event) => handlePathPress(event, countryCode)} // Używanie handlePathPress
+                      />
+                    );
+                  })}
+                </AnimatedSvg>
+              </View>
+            </Animated.View>
+          </GestureDetector>
+
+          {/* Dolna sekcja z postępem */}
+          <Animated.View style={[styles.bottomSection, bottomTextAnimatedStyle]}>
+            <View style={styles.progressBarWrapper}>
+              <Progress.Bar
+                progress={percentageVisited}
+                width={screenWidth * 0.8}
+                color={theme.colors.primary}
+                unfilledColor={theme.colors.surfaceVariant}
+                borderWidth={0}
+                height={20}
+                borderRadius={10}
               />
-            </Animated.View>
-
-            <GestureDetector gesture={Gesture.Simultaneous(pinchGesture, panGesture)}>
-              <Animated.View style={styles.container}>
-                <View ref={mapViewRef} style={styles.mapContainer}>
-                  <AnimatedSvg
-                    width="100%"
-                    height="100%"
-                    viewBox="232 0 1700 857"
-                    preserveAspectRatio="xMidYMid meet"
-                    style={animatedStyle}
-                  >
-                    {data.countries.map((country: Country, index: number) => {
-                      const countryCode = country.id;
-                      if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
-                      return (
-                        <Path
-                          key={`${countryCode}-${index}`}
-                          d={country.path}
-                          fill={getCountryFill(countryCode)}
-                          stroke={theme.colors.outline}
-                          strokeWidth={0.2}
-                          onPress={(event) => handlePathPress(event, countryCode)} // Używanie handlePathPress
-                        />
-                      );
-                    })}
-                  </AnimatedSvg>
-                </View>
-              </Animated.View>
-            </GestureDetector>
-
-            {/* Dolna sekcja z postępem */}
-            <Animated.View style={[styles.bottomSection, bottomTextAnimatedStyle]}>
-              <View style={styles.progressBarWrapper}>
-                <Progress.Bar
-                  progress={percentageVisited}
-                  width={screenWidth * 0.8}
-                  color={theme.colors.primary}
-                  unfilledColor={theme.colors.surfaceVariant}
-                  borderWidth={0}
-                  height={20}
-                  borderRadius={10}
-                />
-                <View style={styles.progressTextLeft}>
-                  <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
-                    {(percentageVisited * 100).toFixed(1)}%
-                  </Text>
-                </View>
-                <View style={styles.progressTextRight}>
-                  <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
-                    {visitedCountries}/{totalCountries}
-                  </Text>
-                </View>
+              <View style={styles.progressTextLeft}>
+                <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
+                  {(percentageVisited * 100).toFixed(1)}%
+                </Text>
               </View>
-            </Animated.View>
-
-            {/* Renderowanie Tooltipa */}
-            {tooltip && (
-              <View style={[styles.tooltip, { top: tooltip.y, left: tooltip.x }]}>
-                <CountryFlag isoCode={tooltip.country.cca2} size={25} />
-                <Text style={styles.tooltipText}>{tooltip.country.name}</Text>
+              <View style={styles.progressTextRight}>
+                <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
+                  {visitedCountries}/{totalCountries}
+                </Text>
               </View>
-            )}
-          </View>
-        </TouchableWithoutFeedback>
+            </View>
+          </Animated.View>
+
+          {/* Renderowanie Tooltipa */}
+          {tooltip && (
+            <View style={[styles.tooltip, { top: tooltip.y, left: tooltip.x, width: 150 }]}>
+              {tooltip.position === 'top' && (
+                <View style={styles.arrowBottom} />
+              )}
+              {tooltip.position === 'bottom' && (
+                <View style={styles.arrowTop} />
+              )}
+              <CountryFlag isoCode={tooltip.country.cca2} size={25} />
+              <Text style={styles.tooltipText}>{tooltip.country.name}</Text>
+            </View>
+          )}
+        </View>
+      </TouchableWithoutFeedback>
+
 
         {/* Ukryta bazowa mapa */}
         <View
@@ -716,6 +756,49 @@ const styles = StyleSheet.create({
   toggleButtonContainer: {
     // Możesz dodać dodatkowe style, jeśli potrzebujesz
   },
+  tooltip: {
+    position: 'absolute',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    padding: 10,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 1000, // Upewnij się, że tooltip jest nad innymi elementami
+  },
+  tooltipText: {
+    color: '#fff',
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  arrowTop: {
+    position: 'absolute',
+    bottom: -10, // Pozycja wskaźnika w zależności od tooltipa
+    left: '50%',
+    marginLeft: -5,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 5,
+    borderRightWidth: 5,
+    borderTopWidth: 10,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: 'rgba(0, 0, 0, 0.8)',
+  },
+  arrowBottom: {
+    position: 'absolute',
+    top: -10, // Pozycja wskaźnika w zależności od tooltipa
+    left: '50%',
+    marginLeft: -5,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 5,
+    borderRightWidth: 5,
+    borderBottomWidth: 10,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: 'rgba(0, 0, 0, 0.8)',
+  },
   toggleButton: {
     width: BUTTON_SIZE,
     height: BUTTON_SIZE,
@@ -732,21 +815,6 @@ const styles = StyleSheet.create({
   resetIcon: {
     transform: [{ rotate: '-45deg' }],
     fontSize: ICON_SIZE,
-  },
-  tooltip: {
-    position: 'absolute',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    padding: 8,
-    borderRadius: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    zIndex: 1000, // Upewnij się, że tooltip jest nad innymi elementami
-  },
-  tooltipText: {
-    color: '#fff',
-    marginLeft: 5,
-    fontSize: 14,
-    fontWeight: 'bold',
   },
 });
 
