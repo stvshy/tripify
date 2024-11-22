@@ -435,7 +435,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
           </View>
 
           {/* Lista krajów */}
-          <View style={{ flex: 1, marginBottom: fromTab ? 16 : -20 }}>
+          <View style={{ flex: 1, marginBottom: fromTab ? -16 : -20 }}>
             <SectionList
               sections={processedCountries}
               keyExtractor={(item) => item.cca3}
@@ -468,7 +468,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
                     }),
                   },
                 ],
-                bottom: fromTab ? 0 : (isInputFocused ? -styles.saveButton.marginBottom - 5 : 0),
+                bottom: fromTab ? -3 : (isInputFocused ? -styles.saveButton.marginBottom - 5 : 0),
               },
             ]}
           >
