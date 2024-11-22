@@ -27,9 +27,11 @@ const ICON_SIZE = BUTTON_SIZE * 0.5; // Ikona zajmuje 50% wielkości przycisku
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 interface InteractiveMapProps {
   selectedCountries: string[];
+  totalCountries: number; // Nowy prop
   onCountryPress: (countryCode: string) => void;
   style?: StyleProp<ViewStyle>;
 }
+
 
 export interface InteractiveMapRef {
   capture: () => Promise<string | null>;
@@ -39,7 +41,7 @@ const initialTranslateX = 0;
 const initialTranslateY = 0;
 
 const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
-  ({ selectedCountries, onCountryPress, style }, ref) => {
+  ({ selectedCountries, totalCountries, onCountryPress, style }, ref) => {
     const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
     const theme = useTheme(); // Używanie hooka useTheme
     const mapViewRef = useRef<View>(null);
@@ -98,9 +100,9 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
       const isVisited = selectedCountries.includes(countryCode);
       return isVisited ? 'rgba(0,174,245,255)' : '#b2b7bf';
     };
-    const totalCountries = data.countries.length;
+
     const visitedCountries = selectedCountries.length;
-    const percentageVisited = visitedCountries / totalCountries;
+    const percentageVisited = totalCountries > 0 ? visitedCountries / totalCountries : 0;
     
     const scale = useSharedValue(1);
     const translateX = useSharedValue(initialTranslateX);

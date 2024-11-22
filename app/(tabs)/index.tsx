@@ -7,6 +7,9 @@ import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebaseConfig';
 import { ThemeContext } from '../config/ThemeContext';
 import { useTheme } from 'react-native-paper'; // Importowanie useTheme
+import filteredCountriesData from '../../components/filteredCountries.json'; // Zmień ścieżkę na właściwą
+
+const totalCountries = filteredCountriesData.countries.length;
 
 export default function IndexScreen() {
   const { isDarkTheme } = useContext(ThemeContext);
@@ -67,6 +70,7 @@ export default function IndexScreen() {
       <InteractiveMap
         ref={mapRef}
         selectedCountries={selectedCountries}
+        totalCountries={totalCountries} // Przekazanie nowego prop
         onCountryPress={handleCountryPress}
         style={styles.map} // Przekazanie stylu do InteractiveMap
       />

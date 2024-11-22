@@ -31,6 +31,7 @@ import CountryFlag from 'react-native-country-flag';
 import { ThemeContext } from '../config/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import filteredCountriesData from '../../components/filteredCountries.json'; // Zmień na właściwą ścieżkę
+
 const { width, height } = Dimensions.get('window');
 
 type Continent = 'Africa' | 'North America' | 'South America' | 'Asia' | 'Europe' | 'Oceania' | 'Antarctica';
