@@ -13,7 +13,6 @@ import {
   Keyboard,
   Animated,
   UIManager,
-  LayoutAnimation,
   Modal,
   TouchableOpacity,
   Easing,
@@ -30,13 +29,10 @@ import CountryFlag from 'react-native-country-flag';
 import countries from 'world-countries';
 import { ThemeContext } from '../config/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { MD3Colors } from 'react-native-paper';
 
 const { width, height } = Dimensions.get('window');
 
 type Continent = 'Africa' | 'North America' | 'South America' | 'Asia' | 'Europe' | 'Oceania' | 'Antarctica';
-
-
 
 // Funkcja do określania kontynentu
 const getContinent = (region: string, subregion: string): Continent => {
@@ -62,18 +58,17 @@ const CountryItem = React.memo(function CountryItem({
 }) {
   const theme = useTheme();
   const { isDarkTheme } = useContext(ThemeContext);
-  const scaleValue = useMemo(() => new Animated.Value(1), []);
+  const scaleValue = useRef(new Animated.Value(1)).current;
 
   const handleCheckboxPress = useCallback(() => {
     Animated.sequence([
       Animated.timing(scaleValue, { toValue: 0.8, duration: 80, useNativeDriver: true }),
       Animated.timing(scaleValue, { toValue: 1, duration: 80, useNativeDriver: true }),
     ]).start();
-    onSelect(item.cca2); // Przekazujemy cca2 zamiast name.common
+    onSelect(item.cca2);
   }, [scaleValue, onSelect, item.cca2]);
 
   const handlePress = useCallback(() => {
-    // Bez animacji, aby natychmiast zaznaczyć
     onSelect(item.cca2);
   }, [onSelect, item.cca2]);
 
@@ -98,19 +93,17 @@ const CountryItem = React.memo(function CountryItem({
 
   return (
     <TouchableOpacity
-    onPress={handlePress}
-    style={[
-      styles.countryItemContainer, 
-      {
-        backgroundColor: isSelected 
-          ? selectedBackgroundColor 
-          : theme.colors.surface,
-        borderRadius: isSelected ? 4.2 : 8,
-      },
-    ]}
-    activeOpacity={0.7} // Opcjonalnie dostosuj przezroczystość przyciśnięcia
-  >
-        <View  style={[
+      onPress={handlePress}
+      style={[
+        styles.countryItemContainer, 
+        {
+          backgroundColor: selectedBackgroundColor,
+          borderRadius: isSelected ? 4.2 : 8,
+        },
+      ]}
+      activeOpacity={0.7}
+    >
+       <View  style={[
             styles.countryItem,
             {
               backgroundColor: selectedBackgroundColor,
@@ -118,29 +111,28 @@ const CountryItem = React.memo(function CountryItem({
             },
           ]}
           >
-          <View style={[styles.flagContainer, styles.flagWithBorder, { borderColor: flagBorderColor }]}>
-            <CountryFlag isoCode={item.cca2} size={25} />
-          </View>
+        <View style={[styles.flagContainer, styles.flagWithBorder, { borderColor: flagBorderColor }]}>
+          <CountryFlag isoCode={item.cca2} size={25} />
+        </View>
 
-          <Text style={[styles.countryText, { color: theme.colors.onSurface }]}>{item.name.common}</Text>
+        <Text style={[styles.countryText, { color: theme.colors.onSurface }]}>{item.name.common}</Text>
 
-          <Animated.View
-            style={[
-              styles.roundCheckbox,
-              {
-                backgroundColor: checkboxBackgroundColor,
-                borderColor: checkboxBorderColor,
-                transform: [{ scale: scaleValue }],
-              },
-            ]}
-          >
-            {isSelected && <FontAwesome name="check" size={12} color={checkboxIconColor} />}
-          </Animated.View>
+        <Animated.View
+          style={[
+            styles.roundCheckbox,
+            {
+              backgroundColor: checkboxBackgroundColor,
+              borderColor: checkboxBorderColor,
+              transform: [{ scale: scaleValue }],
+            },
+          ]}
+        >
+          {isSelected && <FontAwesome name="check" size={12} color={checkboxIconColor} />}
+        </Animated.View>
       </View>
     </TouchableOpacity>
   );
 });
-
 
 type ChooseCountriesScreenProps = {
   fromTab?: boolean;
@@ -152,14 +144,12 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
   const [searchQuery, setSearchQuery] = useState('');
   const { toggleTheme, isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme();
-  const [isFocused, setIsFocused] = useState(false); // Boolean for search input focus
-  const fadeAnim = useMemo(() => new Animated.Value(1), []);
+  const [isFocused, setIsFocused] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
   const [isInputFocused, setIsInputFocused] = useState(false);
-  const scaleValue = useMemo(() => new Animated.Value(1), []);
+  const scaleValue = useRef(new Animated.Value(1)).current;
   const [isPopupVisible, setIsPopupVisible] = useState(true);
-  const [highlightedCountry, setHighlightedCountry] = useState<string | null>(null);
   const searchInputRef = useRef<TextInput>(null);
-
 
   useEffect(() => {
     const checkPopup = async () => {
@@ -231,6 +221,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
     if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
       UIManager.setLayoutAnimationEnabledExperimental(true);
     }
+
     const keyboardShowListener = Keyboard.addListener(showEvent, () => {
       if (isInputFocused) {
         fadeAnim.setValue(0);
@@ -250,27 +241,27 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
     const handleBackPress = () => {
       if (isInputFocused && searchInputRef.current) {
         console.log('Back button pressed while input is focused. Blurring input.');
-        searchInputRef.current.blur(); // Rozmycie pola tekstowego
-        return true; // Zatrzymuje domyślną akcję przycisku "back"
+        searchInputRef.current.blur();
+        return true;
       }
-      return false; // Pozwala domyślnej akcji przycisku "back"
+      return false;
     };
   
     const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
   
     return () => {
-      backHandler.remove(); // Użyj metody remove() zamiast removeEventListener
+      backHandler.remove();
+      keyboardShowListener.remove();
+      keyboardHideListener.remove();
     };
-  }, [isInputFocused]);
+  }, [isInputFocused, fadeAnim]);
 
   // Przetwarzanie danych krajów
   const processedCountries = useMemo(() => {
-    // Filtracja na podstawie wyszukiwania
     const filtered = countries.filter((country) =>
       country.name.common.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    // Grupowanie według kontynentów
     const grouped = filtered.reduce((acc, country) => {
       const continent = getContinent(country.region, country.subregion);
       if (!acc[continent]) {
@@ -280,7 +271,6 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
       return acc;
     }, {} as { [key in Continent]?: typeof countries[0][] });
 
-    // Konwersja do formatu SectionList
     const sections: { title: string; data: typeof countries[0][] }[] = Object.keys(grouped)
       .map((continent) => ({
         title: continent,
@@ -302,7 +292,6 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
       }
     });
   }, []);
-  
 
   const handleSaveCountries = useCallback(async () => {
     if (selectedCountries.length === 0) {
@@ -317,7 +306,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
           countriesVisited: selectedCountries,
           firstLoginComplete: true,
         });
-        await AsyncStorage.setItem('hasShownPopup', 'true'); // Ustawienie flagi popup
+        await AsyncStorage.setItem('hasShownPopup', 'true');
         router.replace('/');
       } catch (error) {
         console.error('Error saving countries:', error);
@@ -330,7 +319,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
   }, [selectedCountries, router]);
 
   // Funkcja do obsługi kliknięcia poza polem tekstowym
-  const dismissKeyboard = () => {
+  const dismissKeyboard = useCallback(() => {
     Keyboard.dismiss();
     setIsInputFocused(false);
     setIsFocused(false);
@@ -339,14 +328,13 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
       duration: 300,
       useNativeDriver: true,
     }).start();
-  };
-
+  }, [fadeAnim]);
 
   const renderCountryItem = useCallback(
     ({ item }: { item: typeof countries[0] }) => (
       <CountryItem
         item={item}
-        onSelect={(countryCode) => handleSelectCountry(countryCode)}
+        onSelect={handleSelectCountry}
         isSelected={selectedCountries.includes(item.cca2)}
       />
     ),
@@ -363,59 +351,46 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
   );
 
   return (
-    <TouchableWithoutFeedback onPress={() => {
-      Keyboard.dismiss();
-      setIsInputFocused(false);
-      setIsFocused(false);
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    }}>
+    <TouchableWithoutFeedback onPress={dismissKeyboard}>
       <SafeAreaView 
-      style={[
-        styles.container, 
-        { backgroundColor: theme.colors.background }, 
-        fromTab ? styles.containerFromTab : styles.containerStandalone
-      ]}
-    >
-      {/* Popup Informacyjny */}
-      {!fromTab && isPopupVisible && (
-        <Modal
-          transparent={true}
-          visible={isPopupVisible}
-          animationType="slide"
-          onRequestClose={handleClosePopup}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
-              <Text style={[styles.modalTitle, { color: theme.colors.primary }]}>
-                Hey Traveller!
-              </Text>
-              <Text style={[styles.modalText, { color: theme.colors.onSurface }]}>
-                Please choose the countries you have visited from the list below.
-              </Text>
-              <TouchableOpacity
-                onPress={handleClosePopup}
-                style={[styles.modalButton, { backgroundColor: theme.colors.primary }]}
-              >
-                <Text style={[styles.modalButtonText, { color: theme.colors.onPrimary }]}>Got it</Text>
-              </TouchableOpacity>
+        style={[
+          styles.container, 
+          { backgroundColor: theme.colors.background }, 
+          fromTab ? styles.containerFromTab : styles.containerStandalone
+        ]}
+      >
+        {/* Popup Informacyjny */}
+        {!fromTab && isPopupVisible && (
+          <Modal
+            transparent={true}
+            visible={isPopupVisible}
+            animationType="slide"
+            onRequestClose={handleClosePopup}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+                <Text style={[styles.modalTitle, { color: theme.colors.primary }]}>
+                  Hey Traveller!
+                </Text>
+                <Text style={[styles.modalText, { color: theme.colors.onSurface }]}>
+                  Please choose the countries you have visited from the list below.
+                </Text>
+                <TouchableOpacity
+                  onPress={handleClosePopup}
+                  style={[styles.modalButton, { backgroundColor: theme.colors.primary }]}
+                >
+                  <Text style={[styles.modalButtonText, { color: theme.colors.onPrimary }]}>Got it</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        </Modal>
-      )}
+          </Modal>
+        )}
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardAvoidingView}
           keyboardVerticalOffset={fromTab ? 0 : (Platform.OS === 'ios' ? 80 : 20)}
         >
           <View style={{ flex: 1 }}>
-            {/* Nagłówek */}
-            {/* <View style={styles.header}> */}
-            {/* </View> */}
-
             {/* Pasek wyszukiwania i przycisk przełączania motywu */}
             <View style={styles.searchAndToggleContainer}>
               <View style={[
@@ -446,12 +421,11 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
                   right={
                     searchQuery ? (
                       <PaperTextInput.Icon
-                        icon={() => <MaterialIcons name="close" size={17} color={theme.colors.outline} />} // Zmniejszono rozmiar ikony do 16
+                        icon={() => <MaterialIcons name="close" size={17} color={theme.colors.outline} />}
                         onPress={() => setSearchQuery('')}
                       />
                     ) : null
                   }
-                  
                   autoCapitalize="none"
                   onFocus={() => {
                     setIsInputFocused(true);
@@ -459,7 +433,6 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
                     fadeAnim.setValue(0);
                   }}
                   onBlur={() => {
-                    console.log('Input blurred');
                     setIsInputFocused(false);
                     setIsFocused(false);
                     Animated.timing(fadeAnim, {
@@ -468,7 +441,6 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
                       useNativeDriver: true,
                     }).start();
                   }}
-                  
                 />
               </View>
 
@@ -554,90 +526,64 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 0,
-    // paddingTop: 20,
   },
   containerFromTab: {
     marginTop: -5,
   },
   containerStandalone: {
-    paddingTop: 20, // Dostosuj według potrzeb
-  },
-  header: {
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 10,
-    paddingHorizontal: 13,
+    paddingTop: 20,
   },
   searchAndToggleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center', // Wyśrodkowanie w poziomie
+    justifyContent: 'center',
     marginHorizontal: 13,
     marginBottom: 13,
     marginTop: 10,
   },
   inputContainer: {
-    width: width * 0.82, // Dostosowane do miejsca na przycisk
+    width: width * 0.82,
     backgroundColor: '#f0ed8f5',
-    borderRadius: 28, // Zwiększony borderRadius dla lepszej estetyki
+    borderRadius: 28,
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: '#ccc', // Domyślny kolor obramowania
+    borderColor: '#ccc',
     flexDirection: 'row',
     alignItems: 'center',
-    height: height * 0.062, // 6% wysokości ekranu
-    flex: 1, // Rozciągnięcie na dostępne miejsce
+    height: height * 0.062,
+    flex: 1,
   },
   toggleButton: {
-    width: height * 0.0615, // Dostosowane do wysokości pola wyszukiwania
-    height: height * 0.0615, // Dostosowane do wysokości pola wyszukiwania
-    borderRadius: height * 0.0615 / 2, // Okrągły
+    width: height * 0.0615,
+    height: height * 0.0615,
+    borderRadius: height * 0.0615 / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 7, // Odstęp między polem a przyciskiem
+    marginLeft: 7,
   },
-  selectedCountryContainer: {
-    backgroundColor: '#e0f7fa', // Jasny niebieski lub dowolny kolor podświetlenia
-    borderRadius: 10, // Zaokrąglenie rogów
-    marginHorizontal: 10, // Dostosowanie marginesów, aby zaokrąglenia były widoczne
-    marginVertical: 5,
-    padding: 5,
-    // Opcjonalnie dodaj cień dla lepszego efektu
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2, // Tylko dla Androida
-  },
-  selectedCountryItem: {
-    backgroundColor: '#b2ebf2', // Trochę ciemniejszy kolor dla wewnętrznego obszaru
-    borderRadius: 8, // Drobne zaokrąglenie wewnątrz kontenera
-    padding: 10,
-  },  
   inputFocused: {
-    borderColor: '#6a1b9a', // Kolor obramowania w stanie fokusu
+    borderColor: '#6a1b9a',
   },
   input: {
     flex: 1,
     paddingLeft: 10,
-    height: 50, // Stała wysokość
+    height: 50,
     fontSize: 14,
-    backgroundColor: 'transparent', // Usuń tło z TextInput
-    borderRadius: 0, // Usuń wewnętrzny borderRadius
-    color: '#000', // Upewnij się, że tekst jest widoczny
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    color: '#000',
   },
   iconLeft: {
     marginLeft: 10,
   },
   countryItemContainer: {
     width: '100%',
-    backgroundColor: 'transparent', // Domyślne tło (możesz dostosować)
+    backgroundColor: 'transparent',
   },
   sectionHeader: {
     paddingVertical: 4,
     paddingHorizontal: 8,
     width: '100%',
-    backgroundColor: '#f0f0f0',
     marginLeft: 7,
     marginTop: 7,
   },
@@ -650,13 +596,10 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     overflow: 'hidden',
   },
-  highlightedItem: {
-    backgroundColor: '#f5f5f5', // Szary kolor dla zaznaczonych krajów
-  },
   countryItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 50, // Stała wysokość
+    height: 50,
     paddingHorizontal: 8,
     borderBottomWidth: 0.5,
     borderBottomColor: '#ccc',
@@ -673,55 +616,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginLeft: 5,
   },
-  emptyContainer: {
-    padding: 16,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#666',
-  },
-  footer: {
-    position: 'absolute', // Absolutne pozycjonowanie
-    bottom: 0,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    backgroundColor: 'transparent', // Transparent footer
-    zIndex: 100, // Upewnij się, że przycisk jest nad innymi elementami
-  },
-  saveButton: {
-    backgroundColor: '#7511b5',
-    paddingVertical: 11,
-    paddingHorizontal: 30,
-    alignItems: 'center',
-    borderRadius: 25,
-    width: '80%',
-    elevation: 2, // Dodanie cienia dla efektu uniesienia (Android)
-    shadowColor: '#000', // Dodanie cienia dla efektu uniesienia (iOS)
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    marginBottom: 13,
-  },
-  saveButtonDisabled: { // rgba(117, 17, 181, 0.5)
-    backgroundColor: 'rgba(117, 17, 181, 0.25)', // 25% przezroczystości
-  },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  sectionList: {
-    flex: 1,
-  },
-  highlightedBackground: {
-    backgroundColor: '#D3D3D3', // Przykładowy kolor podświetlenia
-  },
-  roundedFlag: {
-    borderRadius: 5, // Połowa rozmiaru flagi, aby uzyskać zaokrąglenie
-    overflow: 'hidden',
-  },
   roundCheckbox: {
     width: 20,
     height: 20,
@@ -731,18 +625,48 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 7,
   },
-  roundCheckboxChecked: {
-    backgroundColor: '#6a1b9a',
-    borderColor: '#6a1b9a',
+  emptyContainer: {
+    padding: 16,
+    alignItems: 'center',
   },
-  roundCheckboxUnchecked: {
-    borderColor: '#ccc',
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
     backgroundColor: 'transparent',
+    zIndex: 100,
   },
-  // Styles for Modal
+  saveButton: {
+    backgroundColor: '#7511b5',
+    paddingVertical: 11,
+    paddingHorizontal: 30,
+    alignItems: 'center',
+    borderRadius: 25,
+    width: '80%',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    marginBottom: 13,
+  },
+  saveButtonDisabled: {
+    backgroundColor: 'rgba(117, 17, 181, 0.25)',
+  },
+  saveButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)', // Przyciemnione tło
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
