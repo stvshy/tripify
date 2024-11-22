@@ -16,6 +16,7 @@ import {
   LayoutAnimation,
   Modal,
   TouchableOpacity,
+  Easing,
 } from 'react-native';
 import { TextInput as PaperTextInput, useTheme } from 'react-native-paper';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons'; 
@@ -221,6 +222,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 300,
+        easing: Easing.linear,
         useNativeDriver: true,
       }).start();
     });
@@ -318,8 +320,15 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }, fromTab ? styles.containerFromTab : styles.containerStandalone]}>
-      {/* Popup Informacyjny */}
+    <SafeAreaView 
+    style={[
+      styles.container, 
+      { backgroundColor: theme.colors.background }, 
+      fromTab ? styles.containerFromTab : styles.containerStandalone
+    ]}
+  >
+    {/* Popup Informacyjny */}
+    {!fromTab && isPopupVisible && (
       <Modal
         transparent={true}
         visible={isPopupVisible}
@@ -343,7 +352,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
           </View>
         </View>
       </Modal>
-
+    )}
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardAvoidingView}
@@ -426,20 +435,22 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
           </View>
 
           {/* Lista krajów */}
-          <View style={{ flex: 1, marginBottom: -20 }}>
+          <View style={{ flex: 1, marginBottom: fromTab ? 16 : -20 }}>
             <SectionList
               sections={processedCountries}
               keyExtractor={(item) => item.cca3}
               renderItem={renderCountryItem}
               renderSectionHeader={renderSectionHeader}
               stickySectionHeadersEnabled={false}
-              contentContainerStyle={{ paddingBottom: 80 }}
-              ListEmptyComponent={
+              contentContainerStyle={{ 
+                flexGrow: 1,
+                paddingBottom: fromTab ? 86 : 80 
+              }}
+              ListEmptyComponent={() => (
                 <View style={styles.emptyContainer}>
                   <Text style={styles.emptyText}>No countries found.</Text>
                 </View>
-              }
-              style={{ flex: 1 }}
+              )}
             />
           </View>
 
