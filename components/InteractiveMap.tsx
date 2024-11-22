@@ -1,9 +1,24 @@
-import { useContext, forwardRef, useImperativeHandle, useRef, useState } from 'react';
-import { StyleSheet, View, Dimensions, StyleProp, ViewStyle, TouchableOpacity, Text, ActivityIndicator, Alert, GestureResponderEvent, PixelRatio, Image } from 'react-native';
+// components/InteractiveMap.tsx
+import React, { useContext, forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import {
+  StyleSheet,
+  View,
+  Dimensions,
+  StyleProp,
+  ViewStyle,
+  TouchableOpacity,
+  Text,
+  ActivityIndicator,
+  Alert,
+  GestureResponderEvent,
+  PixelRatio,
+  Image,
+  TouchableWithoutFeedback,
+} from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { ThemeContext } from '../app/config/ThemeContext';
 import { captureRef } from 'react-native-view-shot';
-import countriesData from '../assets/maps/countries.json';
+import rawCountriesData from '../assets/maps/countries.json'; // Zaktualizuj ścieżkę, jeśli jest inna
 import { Country, CountriesData } from '../.expo/types/country';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Sharing from 'expo-sharing';
@@ -18,13 +33,51 @@ import logoImage from '../assets/images/logo-tripify-tekstowe2.png';
 import * as Progress from 'react-native-progress';
 import logoTextImage from '../assets/images/logo-tripify-tekst.png';
 import logoTextImageDesaturated from '../assets/images/logo-tripify-tekst2.png';
+import CountryFlag from 'react-native-country-flag';
 
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
-const { width, height } = Dimensions.get('window');
-const BUTTON_SIZE = Math.min(width, height) * 0.08; // 8% mniejszego z wymiarów
+const BUTTON_SIZE = Math.min(windowWidth, windowHeight) * 0.08; // 8% mniejszego z wymiarów
 const ICON_SIZE = BUTTON_SIZE * 0.5; // Ikona zajmuje 50% wielkości przycisku
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const screenWidth = windowWidth;
+const screenHeight = windowHeight;
+const pixelRatio = PixelRatio.get(); // Pobiera gęstość pikseli urządzenia
+const initialTranslateX = 0;
+const initialTranslateY = 0;
+
+// Przetwarzanie danych, aby usunąć duplikaty i upewnić się, że 'cca2' istnieje
+const uniqueCountries: Country[] = [];
+const countryMap: { [key: string]: Country } = {};
+
+rawCountriesData.countries.forEach((rawCountry: { id: string; name: string; class: string | null; path: string }) => {
+  // Sprawdzenie, czy 'cca2' istnieje
+  // Try to find country code from the id
+  const cca2 = rawCountry.id.length === 2 ? rawCountry.id.toUpperCase() : '';
+  
+  if (!cca2) {
+    console.warn(`Country with id ${rawCountry.id} doesn't have a valid cca2 code and will be skipped.`);
+    return;
+  }
+
+  const countryWithCca2: Country = {
+    ...rawCountry,
+    cca2
+  };
+
+  if (!countryMap[rawCountry.id]) {
+    // Add new country
+    countryMap[rawCountry.id] = countryWithCca2;
+  } else {
+    // Merge paths if country already exists
+    countryMap[rawCountry.id].path += ' ' + rawCountry.path;
+  }
+});
+
+uniqueCountries.push(...Object.values(countryMap));
+
+// Ustawienie danych do użycia
+const data: CountriesData = { countries: uniqueCountries };
+
 interface InteractiveMapProps {
   selectedCountries: string[];
   totalCountries: number; // Nowy prop
@@ -32,50 +85,48 @@ interface InteractiveMapProps {
   style?: StyleProp<ViewStyle>;
 }
 
-
 export interface InteractiveMapRef {
   capture: () => Promise<string | null>;
 }
-const pixelRatio = PixelRatio.get(); // Pobiera gęstość pikseli urządzenia
-const initialTranslateX = 0;
-const initialTranslateY = 0;
 
 const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
   ({ selectedCountries, totalCountries, onCountryPress, style }, ref) => {
     const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
     const theme = useTheme(); // Używanie hooka useTheme
     const mapViewRef = useRef<View>(null);
-    const baseMapRef = useRef<View>(null); 
+    const baseMapRef = useRef<View>(null);
     const [isSharing, setIsSharing] = useState(false); // Stan ładowania udostępniania
+    const [tooltip, setTooltip] = useState<{ x: number; y: number; country: Country } | null>(null); // Stan tooltipa
     const scaleValue = useSharedValue(1);
 
     const animatedToggleStyle = useAnimatedStyle(() => ({
       transform: [{ scale: scaleValue.value }],
     }));
-// Zmienne używane w pinch-to-zoom
-const activeTouches = useSharedValue<{ id: number; x: number; y: number }[]>([]);
-const initialDistance = useSharedValue<number | null>(null);
-const initialFocalX = useSharedValue<number>(0);
-const initialFocalY = useSharedValue<number>(0);
-const baseScale = useSharedValue<number>(1);
-const baseTranslateX = useSharedValue<number>(0);
-const baseTranslateY = useSharedValue<number>(0);
 
-// Funkcje pomocnicze
-const calculateDistance = (p1: { x: number; y: number }, p2: { x: number; y: number }): number => {
-  'worklet';
-  const dx = p2.x - p1.x;
-  const dy = p2.y - p1.y;
-  return Math.hypot(dx, dy);
-};
+    // Zmienne używane w pinch-to-zoom
+    const activeTouches = useSharedValue<{ id: number; x: number; y: number }[]>([]);
+    const initialDistance = useSharedValue<number | null>(null);
+    const initialFocalX = useSharedValue<number>(0);
+    const initialFocalY = useSharedValue<number>(0);
+    const baseScale = useSharedValue<number>(1);
+    const baseTranslateX = useSharedValue<number>(0);
+    const baseTranslateY = useSharedValue<number>(0);
 
-const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: number }): { x: number; y: number } => {
-  'worklet';
-  return {
-    x: (p1.x + p2.x) / 2,
-    y: (p1.y + p2.y) / 2,
-  };
-};
+    // Funkcje pomocnicze
+    const calculateDistance = (p1: { x: number; y: number }, p2: { x: number; y: number }): number => {
+      'worklet';
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      return Math.hypot(dx, dy);
+    };
+
+    const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: number }): { x: number; y: number } => {
+      'worklet';
+      return {
+        x: (p1.x + p2.x) / 2,
+        y: (p1.y + p2.y) / 2,
+      };
+    };
 
     const handleToggleTheme = () => {
       // Rozpoczęcie animacji skalowania
@@ -84,6 +135,7 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
       });
       toggleTheme();
     };
+
     useImperativeHandle(ref, () => ({
       capture: async () => {
         if (mapViewRef.current) {
@@ -94,8 +146,6 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
       },
     }));
 
-    const data: CountriesData = countriesData;
-
     const getCountryFill = (countryCode: string) => {
       const isVisited = selectedCountries.includes(countryCode);
       return isVisited ? 'rgba(0,174,245,255)' : '#b2b7bf';
@@ -103,7 +153,7 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
 
     const visitedCountries = selectedCountries.length;
     const percentageVisited = totalCountries > 0 ? visitedCountries / totalCountries : 0;
-    
+
     const scale = useSharedValue(1);
     const translateX = useSharedValue(initialTranslateX);
     const translateY = useSharedValue(initialTranslateY);
@@ -112,94 +162,94 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
       'worklet';
       return Math.min(Math.max(value, min), max);
     };
+
     const fullViewRef = useRef<View>(null); // Ref dla całego widoku
 
     // Referencje do gestów
     const startX = useSharedValue(0);
     const startY = useSharedValue(0);
     const AnimatedSvg = Animated.createAnimatedComponent(Svg);
-    const pinchGesture = Gesture.Pan()
-    .onTouchesDown((event) => {
-      activeTouches.value = event.allTouches.map((touch) => ({
-        id: touch.id,
-        x: touch.x,
-        y: touch.y,
-      }));
-  
-      if (activeTouches.value.length >= 2) {
-        const [touch1, touch2] = activeTouches.value;
-        initialDistance.value = calculateDistance(touch1, touch2);
-        const midpoint = calculateMidpoint(touch1, touch2);
-        initialFocalX.value = midpoint.x;
-        initialFocalY.value = midpoint.y;
-        baseScale.value = scale.value;
-        baseTranslateX.value = translateX.value;
-        baseTranslateY.value = translateY.value;
-      }
-    })
-    .onTouchesMove((event) => {
-      activeTouches.value = event.allTouches.map((touch) => ({
-        id: touch.id,
-        x: touch.x,
-        y: touch.y,
-      }));
-  
-      if (activeTouches.value.length >= 2) {
-        const [touch1, touch2] = activeTouches.value;
-        const currentDistance = calculateDistance(touch1, touch2);
-        const scaleFactor = currentDistance / (initialDistance.value || 1);
-        const newScale = clamp(baseScale.value * scaleFactor, 1, 6);
-        scale.value = newScale;
 
-  
-        translateX.value = clamp(
-          baseTranslateX.value - (initialFocalX.value - windowWidth / 2) * (scaleFactor - 1),
-          -windowWidth * (scale.value - 1) / 2,
-          windowWidth * (scale.value - 1) / 2
-        );
-        translateY.value = clamp(
-          baseTranslateY.value - (initialFocalY.value - windowHeight / 2) * (scaleFactor - 1),
-          -windowHeight * (scale.value - 1) / 4,
-          windowHeight * (scale.value - 1) / 4
-        );
-      }
-    })
-    .onTouchesUp((event) => {
-      activeTouches.value = event.allTouches.map((touch) => ({
-        id: touch.id,
-        x: touch.x,
-        y: touch.y,
-      }));
-  
-      if (activeTouches.value.length >= 2) {
-        const [touch1, touch2] = activeTouches.value;
-        initialDistance.value = calculateDistance(touch1, touch2);
-        const midpoint = calculateMidpoint(touch1, touch2);
-        initialFocalX.value = midpoint.x;
-        initialFocalY.value = midpoint.y;
-        baseScale.value = scale.value;
-        baseTranslateX.value = translateX.value;
-        baseTranslateY.value = translateY.value;
-      } else {
-        initialDistance.value = null;
-      }
-      
-    });
-  
-  const panGesture = Gesture.Pan()
-    .maxPointers(1) // Ograniczamy do jednego palca
-    .onStart(() => {
-      startX.value = translateX.value;
-      startY.value = translateY.value;
-    })
-    .onUpdate((event) => {
-      const maxTranslateX = (windowWidth * (scale.value - 1)) / 2;
-      const maxTranslateY = (windowHeight * (scale.value - 1)) / 4;
-  
-      translateX.value = clamp(startX.value + event.translationX, -maxTranslateX, maxTranslateX);
-      translateY.value = clamp(startY.value + event.translationY, -maxTranslateY, maxTranslateY);
-    });
-  
+    const pinchGesture = Gesture.Pan()
+      .onTouchesDown((event) => {
+        activeTouches.value = event.allTouches.map((touch) => ({
+          id: touch.id,
+          x: touch.x,
+          y: touch.y,
+        }));
+
+        if (activeTouches.value.length >= 2) {
+          const [touch1, touch2] = activeTouches.value;
+          initialDistance.value = calculateDistance(touch1, touch2);
+          const midpoint = calculateMidpoint(touch1, touch2);
+          initialFocalX.value = midpoint.x;
+          initialFocalY.value = midpoint.y;
+          baseScale.value = scale.value;
+          baseTranslateX.value = translateX.value;
+          baseTranslateY.value = translateY.value;
+        }
+      })
+      .onTouchesMove((event) => {
+        activeTouches.value = event.allTouches.map((touch) => ({
+          id: touch.id,
+          x: touch.x,
+          y: touch.y,
+        }));
+
+        if (activeTouches.value.length >= 2) {
+          const [touch1, touch2] = activeTouches.value;
+          const currentDistance = calculateDistance(touch1, touch2);
+          const scaleFactor = currentDistance / (initialDistance.value || 1);
+          const newScale = clamp(baseScale.value * scaleFactor, 1, 6);
+          scale.value = newScale;
+
+          translateX.value = clamp(
+            baseTranslateX.value - (initialFocalX.value - windowWidth / 2) * (scaleFactor - 1),
+            -windowWidth * (scale.value - 1) / 2,
+            windowWidth * (scale.value - 1) / 2
+          );
+          translateY.value = clamp(
+            baseTranslateY.value - (initialFocalY.value - windowHeight / 2) * (scaleFactor - 1),
+            -windowHeight * (scale.value - 1) / 4,
+            windowHeight * (scale.value - 1) / 4
+          );
+        }
+      })
+      .onTouchesUp((event) => {
+        activeTouches.value = event.allTouches.map((touch) => ({
+          id: touch.id,
+          x: touch.x,
+          y: touch.y,
+        }));
+
+        if (activeTouches.value.length >= 2) {
+          const [touch1, touch2] = activeTouches.value;
+          initialDistance.value = calculateDistance(touch1, touch2);
+          const midpoint = calculateMidpoint(touch1, touch2);
+          initialFocalX.value = midpoint.x;
+          initialFocalY.value = midpoint.y;
+          baseScale.value = scale.value;
+          baseTranslateX.value = translateX.value;
+          baseTranslateY.value = translateY.value;
+        } else {
+          initialDistance.value = null;
+        }
+      });
+
+    const panGesture = Gesture.Pan()
+      .maxPointers(1) // Ograniczamy do jednego palca
+      .onStart(() => {
+        startX.value = translateX.value;
+        startY.value = translateY.value;
+      })
+      .onUpdate((event) => {
+        const maxTranslateX = (windowWidth * (scale.value - 1)) / 2;
+        const maxTranslateY = (windowHeight * (scale.value - 1)) / 4;
+
+        translateX.value = clamp(startX.value + event.translationX, -maxTranslateX, maxTranslateX);
+        translateY.value = clamp(startY.value + event.translationY, -maxTranslateY, maxTranslateY);
+      });
+
     // Styl animowany
     const animatedStyle = useAnimatedStyle(() => ({
       transform: [
@@ -208,6 +258,7 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
         { scale: scale.value },
       ],
     }));
+
     const topTextAnimatedStyle = useAnimatedStyle(() => {
       const translateY = -100 * (scale.value - 1); // Dostosuj współczynnik według potrzeb
       const opacity = Math.max(1 - Math.pow(scale.value - 1, 1.5), 0);
@@ -216,7 +267,6 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
         opacity,
       };
     });
-
 
     const getTranslateY = (maxTranslateY: number, maxScale: number, scaleValue: number) => {
       'worklet';
@@ -245,33 +295,33 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
       };
     });
 
-        // Funkcja resetująca mapę
+    // Funkcja resetująca mapę
     const resetMap = () => {
       scale.value = withTiming(1, { duration: 300 });
       translateX.value = withTiming(0, { duration: 300 });
       translateY.value = withTiming(0, { duration: 300 });
-    };    
-     // Funkcja udostępniania mapy
+    };
+
+    // Funkcja udostępniania mapy
     const shareMap = async () => {
       try {
         setIsSharing(true);
-    
+
         const isAvailable = await Sharing.isAvailableAsync();
         if (!isAvailable) {
           Alert.alert('Błąd', 'Udostępnianie nie jest dostępne na tym urządzeniu');
           setIsSharing(false);
           return;
         }
-    
+
         const uri = await captureRef(baseMapRef, {
           format: 'png',
           quality: 1,
           result: 'tmpfile',
           width: screenWidth * pixelRatio * 6, // Zwiększ szerokość proporcjonalnie do pixelRatio
           height: (screenWidth * pixelRatio * 6) * (16 / 9), // Zachowaj proporcje
-
         });
-    
+
         if (uri) {
           await Sharing.shareAsync(uri).catch((error) => {
             // Ignorujemy błąd związany z zamknięciem okna udostępniania
@@ -289,7 +339,7 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
         setIsSharing(false);
       }
     };
-    
+
     console.log('Visited Countries:', visitedCountries);
     console.log('Total Countries:', totalCountries);
     console.log('Percentage Visited:', percentageVisited);
@@ -300,158 +350,167 @@ const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: num
       const scaledY = (y - translateY.value) / scale.value;
       return { x: scaledX, y: scaledY };
     };
-    
+
     const handlePathPress = (event: GestureResponderEvent, countryCode: string) => {
-      const { locationX, locationY } = event.nativeEvent;
-    
-      // Przekonwertuj współrzędne dotyku na współrzędne SVG
-      const svgCoordinates = convertToSvgCoordinates(locationX, locationY);
-    
-      console.log(`Kliknięto w SVG: ${svgCoordinates.x}, ${svgCoordinates.y}`);
-    
-      // Sprawdź, czy kliknięcie mieści się w granicach kraju (to już jest wbudowane w onPress)
+      const { pageX, pageY } = event.nativeEvent;
+
+      // Znajdź dane kraju na podstawie countryCode
+      const country = data.countries.find(c => c.id === countryCode);
+
+      if (country) {
+        setTooltip({ x: pageX, y: pageY, country });
+      }
+
+      // Wywołanie oryginalnej funkcji onCountryPress
       onCountryPress(countryCode);
     };
-    
-    
 
     return (
       <GestureHandlerRootView style={[styles.container, style]}>
-      {/* Ref dla całego widoku */}
-      <View ref={fullViewRef} style={[styles.fullViewContainer, { backgroundColor: theme.colors.background }]}>
-        {/* Górna sekcja */}
-        <Animated.View style={[styles.topSection, topTextAnimatedStyle]}>
-          <Image
-            source={isDarkTheme ? logoTextImageDesaturated : logoTextImage}
-            style={styles.logoTextImage}
-            resizeMode="contain"
-          />
-        </Animated.View>
+        <TouchableWithoutFeedback onPress={() => setTooltip(null)}>
+          <View ref={fullViewRef} style={[styles.fullViewContainer, { backgroundColor: theme.colors.background }]}>
+            {/* Górna sekcja */}
+            <Animated.View style={[styles.topSection, topTextAnimatedStyle]}>
+              <Image
+                source={isDarkTheme ? logoTextImageDesaturated : logoTextImage}
+                style={styles.logoTextImage}
+                resizeMode="contain"
+              />
+            </Animated.View>
 
+            <GestureDetector gesture={Gesture.Simultaneous(pinchGesture, panGesture)}>
+              <Animated.View style={styles.container}>
+                <View ref={mapViewRef} style={styles.mapContainer}>
+                  <AnimatedSvg
+                    width="100%"
+                    height="100%"
+                    viewBox="232 0 1700 857"
+                    preserveAspectRatio="xMidYMid meet"
+                    style={animatedStyle}
+                  >
+                    {data.countries.map((country: Country, index: number) => {
+                      const countryCode = country.id;
+                      if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
+                      return (
+                        <Path
+                          key={`${countryCode}-${index}`}
+                          d={country.path}
+                          fill={getCountryFill(countryCode)}
+                          stroke={theme.colors.outline}
+                          strokeWidth={0.2}
+                          onPress={(event) => handlePathPress(event, countryCode)} // Używanie handlePathPress
+                        />
+                      );
+                    })}
+                  </AnimatedSvg>
+                </View>
+              </Animated.View>
+            </GestureDetector>
 
-        <GestureDetector gesture={Gesture.Simultaneous(pinchGesture, panGesture)}>
-          <Animated.View style={styles.container}>
-            <View ref={mapViewRef} style={styles.mapContainer}>
-                <AnimatedSvg width="100%" height="100%" viewBox="232 0 1700 857" preserveAspectRatio="xMidYMid meet"   style={animatedStyle}>
-                  {data.countries.map((country: Country, index: number) => {
-                    const countryCode = country.id;
-                    if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
-                    return (
-                      <Path
-                        key={`${countryCode}-${index}`}
-                        d={country.path}
-                        fill={getCountryFill(countryCode)}
-                        stroke={theme.colors.outline}
-                        strokeWidth={0.2}
-                        onPress={(event) => handlePathPress(event, countryCode)}  // Używanie handlePathPress
-                      />
-                    );
-                  })}
-                </AnimatedSvg>
+            {/* Dolna sekcja z postępem */}
+            <Animated.View style={[styles.bottomSection, bottomTextAnimatedStyle]}>
+              <View style={styles.progressBarWrapper}>
+                <Progress.Bar
+                  progress={percentageVisited}
+                  width={screenWidth * 0.8}
+                  color={theme.colors.primary}
+                  unfilledColor={theme.colors.surfaceVariant}
+                  borderWidth={0}
+                  height={20}
+                  borderRadius={10}
+                />
+                <View style={styles.progressTextLeft}>
+                  <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
+                    {(percentageVisited * 100).toFixed(1)}%
+                  </Text>
+                </View>
+                <View style={styles.progressTextRight}>
+                  <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
+                    {visitedCountries}/{totalCountries}
+                  </Text>
+                </View>
               </View>
             </Animated.View>
-          {/* </Animated.View> */}
-        </GestureDetector>
 
-     {/* Dolna sekcja z postępem */}
-        <Animated.View style={[styles.bottomSection, bottomTextAnimatedStyle]}>
-          <View style={styles.progressBarWrapper}>
-            <Progress.Bar
-              progress={percentageVisited}
-              width={screenWidth * 0.8}
-              color={theme.colors.primary}
-              unfilledColor={theme.colors.surfaceVariant}
-              borderWidth={0}
-              height={20}
-              borderRadius={10}
-            />
-            <View style={styles.progressTextLeft}>
-              <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
-                {(percentageVisited * 100).toFixed(1)}%
-              </Text>
-            </View>
-            <View style={styles.progressTextRight}>
-              <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
-                {visitedCountries}/{totalCountries}
-              </Text>
-
-            </View>
+            {/* Renderowanie Tooltipa */}
+            {tooltip && (
+              <View style={[styles.tooltip, { top: tooltip.y, left: tooltip.x }]}>
+                <CountryFlag isoCode={tooltip.country.cca2} size={25} />
+                <Text style={styles.tooltipText}>{tooltip.country.name}</Text>
+              </View>
+            )}
           </View>
-        </Animated.View>
+        </TouchableWithoutFeedback>
 
-        </View>
         {/* Ukryta bazowa mapa */}
         <View
-  ref={baseMapRef}
-  collapsable={false}
-  style={[
-    styles.baseMapContainer,
-    {
-      backgroundColor: isDarkTheme ? theme.colors.surface : theme.colors.background,
-    },
-  ]}
->
-  {/* Górna sekcja z napisem */}
-  <View style={styles.topSectionPhoto}>
-  <Image
-    source={logoImage}
-    style={styles.logoImage}
-    resizeMode="contain"
-  />
-  </View>
-
-  {/* Mapa */}
-  <View style={styles.mapContainerPhoto}>
-    <Svg
-      width="100%"
-      height="100%"
-      viewBox="232 0 1700 857"
-      preserveAspectRatio="xMidYMid meet"
-    >
-      {data.countries.map((country: Country, index: number) => {
-        const countryCode = country.id;
-        if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
-        return (
-          <Path
-            key={`${countryCode}-${index}`}
-            d={country.path}
-            fill={getCountryFill(countryCode)}
-            stroke={theme.colors.outline}
-            strokeWidth={1}
-          />
-        );
-      })}
-    </Svg>
-  </View>
-
-  {/* Dolna sekcja z napisem */}
-  <View style={styles.bottomSectionPhoto}>
-    <View style={styles.progressBarWrapper}>
-      <Progress.Bar
-        progress={percentageVisited}
-        width={screenWidth * 0.8}
-        color={theme.colors.primary}
-        unfilledColor={theme.colors.surfaceVariant}
-        borderWidth={0}
-        height={20}
-        borderRadius={10}
-        />
-        <View style={styles.progressTextLeft}>
-          <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
-            {(percentageVisited * 100).toFixed(1)}%
-          </Text>
-        </View>
-        <View style={styles.progressTextRight}>
-          <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
-            {visitedCountries}/{totalCountries}
-          </Text>
-
-        </View>
+          ref={baseMapRef}
+          collapsable={false}
+          style={[
+            styles.baseMapContainer,
+            {
+              backgroundColor: isDarkTheme ? theme.colors.surface : theme.colors.background,
+            },
+          ]}
+        >
+          {/* Górna sekcja z napisem */}
+          <View style={styles.topSectionPhoto}>
+            <Image
+              source={logoImage}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
-  </View>
-</View>
 
+          {/* Mapa */}
+          <View style={styles.mapContainerPhoto}>
+            <Svg
+              width="100%"
+              height="100%"
+              viewBox="232 0 1700 857"
+              preserveAspectRatio="xMidYMid meet"
+            >
+              {data.countries.map((country: Country, index: number) => {
+                const countryCode = country.id;
+                if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
+                return (
+                  <Path
+                    key={`${countryCode}-${index}`}
+                    d={country.path}
+                    fill={getCountryFill(countryCode)}
+                    stroke={theme.colors.outline}
+                    strokeWidth={1}
+                  />
+                );
+              })}
+            </Svg>
+          </View>
 
+          {/* Dolna sekcja z napisem */}
+          <View style={styles.bottomSectionPhoto}>
+            <View style={styles.progressBarWrapper}>
+              <Progress.Bar
+                progress={percentageVisited}
+                width={screenWidth * 0.8}
+                color={theme.colors.primary}
+                unfilledColor={theme.colors.surfaceVariant}
+                borderWidth={0}
+                height={20}
+                borderRadius={10}
+              />
+              <View style={styles.progressTextLeft}>
+                <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
+                  {(percentageVisited * 100).toFixed(1)}%
+                </Text>
+              </View>
+              <View style={styles.progressTextRight}>
+                <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
+                  {visitedCountries}/{totalCountries}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
 
         {/* Kontener dla przycisków */}
         <Animated.View style={[styles.buttonContainer, buttonContainerAnimatedStyle]}>
@@ -513,21 +572,20 @@ const styles = StyleSheet.create({
     padding: 2, // Marginesy wokół całego widoku
   },
   topSection: {
-    top:10,
+    top: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
   bottomSection: {
-    // flex: 1, // Proporcja dolnej sekcji
     justifyContent: 'center',
     alignItems: 'center',
-    bottom: '2.5%'
+    bottom: '2.5%',
   },
   logoTextImage: {
     width: '16%', // Dostosuj szerokość według potrzeb
     height: undefined,
     aspectRatio: 3, // Ustaw rzeczywisty współczynnik proporcji obrazu
-  },  
+  },
   progressBarWrapper: {
     width: screenWidth * 0.8,
     height: 20,
@@ -536,7 +594,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderRadius: 10,
   },
-  
   progressTextLeft: {
     position: 'absolute',
     left: 10,
@@ -544,7 +601,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
   },
-  
   progressTextRight: {
     position: 'absolute',
     right: 10,
@@ -552,9 +608,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
   },
-  
   progressText: {
-    // color: theme.colors.onPrimary,
     fontSize: 12,
     fontWeight: 'bold',
   },
@@ -565,8 +619,6 @@ const styles = StyleSheet.create({
     right: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    // marginBottom: -65,
-    // marginTop: 50,
   },
   percentageText: {
     fontSize: screenWidth * 0.04, // 4% szerokości ekranu
@@ -579,19 +631,16 @@ const styles = StyleSheet.create({
     aspectRatio: 2, // Ustaw rzeczywisty współczynnik proporcji obrazu
   },
   bottomSectionPhoto: {
-    // flex: 1, // Proporcja dolnej sekcji
     justifyContent: 'center',
     alignItems: 'center',
     position: 'absolute',
     bottom: '3%', // Możesz dostosować procent do swoich potrzeb
     left: 0,
     right: 0,
-    // top: -5%
   },
   mapContainerPhoto: {
     flex: 1,
     marginTop: '10%', // Przesunięcie mapy o 10% w dół
-    // marginBottom: '5%',
     justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
@@ -615,34 +664,28 @@ const styles = StyleSheet.create({
     fontSize: screenWidth * 0.04, // 4% szerokości ekranu
     textAlign: 'center',
   },
-
   mapContainer: {
-
     justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
     height: '100%',
   },
-   baseMapContainer: {
+  baseMapContainer: {
     position: 'absolute',
     top: -1000, // Ukrycie poza ekranem
     left: -1000,
     width: screenWidth, // Dynamiczna szerokość
     height: screenWidth * (16 / 9), // Dynamiczna wysokość dla proporcji 9:16
     pointerEvents: 'none', // Zapobiega przechwytywaniu zdarzeń dotykowych
-    // opacity: 0, // Ukrycie widoku
-    // justifyContent: 'space-between', // Rozmieszczenie elementów
-    // paddingTop: screenWidth * 0.1, // 10% szerokości ekranu dla górnego napisu
-    // paddingBottom: screenWidth * 0.1, // 15% szerokości ekranu dla dolnego napisu
   },
   buttonContainer: {
     position: 'absolute',
     bottom: '8%',
     left: 0,
-  right: 0,
-  flexDirection: 'row',
-  justifyContent: 'center',
-  alignItems: 'center',
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   resetButton: {
     width: BUTTON_SIZE,
@@ -689,6 +732,21 @@ const styles = StyleSheet.create({
   resetIcon: {
     transform: [{ rotate: '-45deg' }],
     fontSize: ICON_SIZE,
+  },
+  tooltip: {
+    position: 'absolute',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    padding: 8,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 1000, // Upewnij się, że tooltip jest nad innymi elementami
+  },
+  tooltipText: {
+    color: '#fff',
+    marginLeft: 5,
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
 
