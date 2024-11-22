@@ -27,13 +27,29 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
 import { auth, db } from '../config/firebaseConfig';
 import CountryFlag from 'react-native-country-flag';
-import countries from 'world-countries';
+// import countries from 'world-countries';
 import { ThemeContext } from '../config/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import filteredCountriesData from '../../components/filteredCountries.json'; // Zmień na właściwą ścieżkę
 const { width, height } = Dimensions.get('window');
 
 type Continent = 'Africa' | 'North America' | 'South America' | 'Asia' | 'Europe' | 'Oceania' | 'Antarctica';
+
+export type Country = {
+  id: string;
+  name: string;
+  officialName: string;
+  cca2: string;
+  cca3: string;
+  region: string;
+  subregion: string;
+  class: string | null;
+  path: string;
+};
+
+export type FilteredCountries = {
+  countries: Country[];
+};
 
 // Funkcja do określania kontynentu
 const getContinent = (region: string, subregion: string): Continent => {
@@ -53,7 +69,7 @@ const CountryItem = React.memo(function CountryItem({
   onSelect,
   isSelected,
 }: {
-  item: typeof countries[0];
+  item: Country;
   onSelect: (countryCode: string) => void;
   isSelected: boolean;
 }) {
@@ -117,7 +133,7 @@ const CountryItem = React.memo(function CountryItem({
           <CountryFlag isoCode={item.cca2} size={25} />
         </View>
 
-        <Text style={[styles.countryText, { color: theme.colors.onSurface }]}>{item.name.common}</Text>
+        <Text style={[styles.countryText, { color: theme.colors.onSurface }]}>{item.name}</Text>
 
         <Animated.View
           style={[
@@ -260,29 +276,30 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
 
   // Przetwarzanie danych krajów
   const processedCountries = useMemo(() => {
-    const filtered = countries.filter((country) =>
-      country.name.common.toLowerCase().includes(searchQuery.toLowerCase())
+    const filtered = filteredCountriesData.countries.filter((country: Country) =>
+      country.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
-
-    const grouped = filtered.reduce((acc, country) => {
+  
+    const grouped = filtered.reduce((acc: { [key in Continent]?: Country[] }, country: Country) => {
       const continent = getContinent(country.region, country.subregion);
       if (!acc[continent]) {
         acc[continent] = [];
       }
-      acc[continent].push(country);
+      acc[continent]!.push(country);
       return acc;
-    }, {} as { [key in Continent]?: typeof countries[0][] });
-
-    const sections: { title: string; data: typeof countries[0][] }[] = Object.keys(grouped)
-      .map((continent) => ({
-        title: continent,
-        data: grouped[continent as Continent]!.sort((a, b) =>
-          a.name.common.localeCompare(b.name.common)
-        ),
-      }))
-      .sort((a, b) => a.title.localeCompare(b.title));
-
-    return sections;
+    }, {} as { [key in Continent]?: Country[] });
+    
+  
+    const sections: { title: string; data: Country[] }[] = Object.keys(grouped)
+    .map((continent) => ({
+      title: continent,
+      data: grouped[continent as Continent]!.sort((a: Country, b: Country) =>
+        a.name.localeCompare(b.name)
+      ),
+    }))
+    .sort((a, b) => a.title.localeCompare(b.title));
+  
+  return sections;  
   }, [searchQuery]);
 
   const handleSelectCountry = useCallback((countryCode: string) => {
@@ -333,7 +350,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
   }, [fadeAnim]);
 
   const renderCountryItem = useCallback(
-    ({ item }: { item: typeof countries[0] }) => (
+    ({ item }: { item: Country }) => (
       <CountryItem
         item={item}
         onSelect={handleSelectCountry}
