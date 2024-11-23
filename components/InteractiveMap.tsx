@@ -170,71 +170,51 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     const startY = useSharedValue(0);
     const AnimatedSvg = Animated.createAnimatedComponent(Svg);
 
-    const pinchGesture = Gesture.Pan()
-      .onTouchesDown((event) => {
-        activeTouches.value = event.allTouches.map((touch) => ({
-          id: touch.id,
-          x: touch.x,
-          y: touch.y,
-        }));
-
-        if (activeTouches.value.length >= 2) {
-          const [touch1, touch2] = activeTouches.value;
-          initialDistance.value = calculateDistance(touch1, touch2);
-          const midpoint = calculateMidpoint(touch1, touch2);
-          initialFocalX.value = midpoint.x;
-          initialFocalY.value = midpoint.y;
-          baseScale.value = scale.value;
-          baseTranslateX.value = translateX.value;
-          baseTranslateY.value = translateY.value;
-        }
+    const SCALE_THRESHOLD = 0.01;
+    const TRANSLATE_THRESHOLD = 0.5;
+    
+    const pinchGesture = Gesture.Pinch()
+      .onBegin((event) => {
+        initialDistance.value = event.scale;
+        baseScale.value = scale.value;
+        initialFocalX.value = event.focalX;
+        initialFocalY.value = event.focalY;
+        baseTranslateX.value = translateX.value;
+        baseTranslateY.value = translateY.value;
       })
-      .onTouchesMove((event) => {
-        activeTouches.value = event.allTouches.map((touch) => ({
-          id: touch.id,
-          x: touch.x,
-          y: touch.y,
-        }));
-
-        if (activeTouches.value.length >= 2) {
-          const [touch1, touch2] = activeTouches.value;
-          const currentDistance = calculateDistance(touch1, touch2);
-          const scaleFactor = currentDistance / (initialDistance.value || 1);
-          const newScale = clamp(baseScale.value * scaleFactor, 1, 6);
+      .onUpdate((event) => {
+        const scaleFactor = event.scale;
+        const newScale = clamp(baseScale.value * scaleFactor, 1, 6);
+        
+        // Aktualizuj skalę tylko, jeśli zmiana przekracza próg
+        if (Math.abs(newScale - scale.value) > SCALE_THRESHOLD) {
           scale.value = newScale;
-
-          translateX.value = clamp(
-            baseTranslateX.value - (initialFocalX.value - windowWidth / 2) * (scaleFactor - 1),
-            -windowWidth * (scale.value - 1) / 2,
-            windowWidth * (scale.value - 1) / 2
-          );
-          translateY.value = clamp(
-            baseTranslateY.value - (initialFocalY.value - windowHeight / 2) * (scaleFactor - 1),
-            -windowHeight * (scale.value - 1) / 4,
-            windowHeight * (scale.value - 1) / 4
-          );
+        }
+    
+        // Oblicz nowe przesunięcia
+        const newTranslateX = clamp(
+          baseTranslateX.value - (initialFocalX.value - windowWidth / 2) * (scaleFactor - 1),
+          -windowWidth * (newScale - 1) / 2,
+          windowWidth * (newScale - 1) / 2
+        );
+        const newTranslateY = clamp(
+          baseTranslateY.value - (initialFocalY.value - windowHeight / 2) * (scaleFactor - 1),
+          -windowHeight * (newScale - 1) / 4,
+          windowHeight * (newScale - 1) / 4
+        );
+    
+        // Aktualizuj przesunięcia tylko, jeśli zmiana przekracza próg
+        if (Math.abs(newTranslateX - translateX.value) > TRANSLATE_THRESHOLD) {
+          translateX.value = newTranslateX;
+        }
+        if (Math.abs(newTranslateY - translateY.value) > TRANSLATE_THRESHOLD) {
+          translateY.value = newTranslateY;
         }
       })
-      .onTouchesUp((event) => {
-        activeTouches.value = event.allTouches.map((touch) => ({
-          id: touch.id,
-          x: touch.x,
-          y: touch.y,
-        }));
-
-        if (activeTouches.value.length >= 2) {
-          const [touch1, touch2] = activeTouches.value;
-          initialDistance.value = calculateDistance(touch1, touch2);
-          const midpoint = calculateMidpoint(touch1, touch2);
-          initialFocalX.value = midpoint.x;
-          initialFocalY.value = midpoint.y;
-          baseScale.value = scale.value;
-          baseTranslateX.value = translateX.value;
-          baseTranslateY.value = translateY.value;
-        } else {
-          initialDistance.value = null;
-        }
+      .onEnd(() => {
+        // Opcjonalnie: Możesz tutaj dodać logikę końcową
       });
+    
 
     const panGesture = Gesture.Pan()
       .maxPointers(1) // Ograniczamy do jednego palca
