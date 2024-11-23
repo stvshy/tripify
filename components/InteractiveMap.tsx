@@ -18,7 +18,7 @@ import {
 import Svg, { Path } from 'react-native-svg';
 import { ThemeContext } from '../app/config/ThemeContext';
 import { captureRef } from 'react-native-view-shot';
-import rawCountriesData from '../assets/maps/countries.json'; // Zaktualizuj ścieżkę, jeśli jest inna
+import rawCountriesData from '../assets/maps/countries.json';
 import { Country, CountriesData } from '../.expo/types/country';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Sharing from 'expo-sharing';
@@ -37,11 +37,11 @@ import CountryFlag from 'react-native-country-flag';
 
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
-const BUTTON_SIZE = Math.min(windowWidth, windowHeight) * 0.08; // 8% mniejszego z wymiarów
-const ICON_SIZE = BUTTON_SIZE * 0.5; // Ikona zajmuje 50% wielkości przycisku
+const BUTTON_SIZE = Math.min(windowWidth, windowHeight) * 0.08;
+const ICON_SIZE = BUTTON_SIZE * 0.5;
 const screenWidth = windowWidth;
 const screenHeight = windowHeight;
-const pixelRatio = PixelRatio.get(); // Pobiera gęstość pikseli urządzenia
+const pixelRatio = PixelRatio.get();
 const initialTranslateX = 0;
 const initialTranslateY = 0;
 
@@ -50,7 +50,6 @@ const uniqueCountries: Country[] = [];
 const countryMap: { [key: string]: Country } = {};
 
 rawCountriesData.countries.forEach((rawCountry: { id: string; name: string; class: string | null; path: string }) => {
-  // Sprawdzenie, czy 'cca2' istnieje
   const cca2 = rawCountry.id.length === 2 ? rawCountry.id.toUpperCase() : '';
 
   const countryWithCca2: Country = {
@@ -59,17 +58,13 @@ rawCountriesData.countries.forEach((rawCountry: { id: string; name: string; clas
   };
 
   if (!countryMap[rawCountry.id]) {
-    // Dodaj nowy kraj
     countryMap[rawCountry.id] = countryWithCca2;
   } else {
-    // Scal ścieżki, jeśli kraj już istnieje
     countryMap[rawCountry.id].path += ' ' + rawCountry.path;
   }
 });
 
 uniqueCountries.push(...Object.values(countryMap));
-
-// Ustawienie danych do użycia
 const data: CountriesData = { countries: uniqueCountries };
 
 export interface InteractiveMapRef {
@@ -77,8 +72,8 @@ export interface InteractiveMapRef {
 }
 
 interface TooltipPosition {
-  x: number; // Pozycja X względem mapy
-  y: number; // Pozycja Y względem mapy
+  x: number;
+  y: number;
   country: Country;
   position: 'top' | 'bottom';
 }
@@ -93,17 +88,16 @@ interface InteractiveMapProps {
 const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
   ({ selectedCountries, totalCountries, onCountryPress, style }, ref) => {
     const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
-    const theme = useTheme(); // Używanie hooka useTheme
+    const theme = useTheme();
     const mapViewRef = useRef<View>(null);
     const baseMapRef = useRef<View>(null);
-    const [isSharing, setIsSharing] = useState(false); // Stan ładowania udostępniania
+    const [isSharing, setIsSharing] = useState(false);
     const [tooltip, setTooltip] = useState<TooltipPosition | null>(null);
-    const scaleValue = useSharedValue(1); // Skalowanie dla przycisku zmiany motywu
-    const scale = useSharedValue(1); // Skalowanie mapy
+    const scaleValue = useSharedValue(1);
+    const scale = useSharedValue(1);
     const translateX = useSharedValue(initialTranslateX);
     const translateY = useSharedValue(initialTranslateY);
 
-    // Zmienne używane w pinch-to-zoom
     const activeTouches = useSharedValue<{ id: number; x: number; y: number }[]>([]);
     const initialDistance = useSharedValue<number | null>(null);
     const initialFocalX = useSharedValue<number>(0);
@@ -116,7 +110,6 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       transform: [{ scale: scaleValue.value }],
     }));
 
-    // Funkcje pomocnicze
     const calculateDistance = (p1: { x: number; y: number }, p2: { x: number; y: number }): number => {
       'worklet';
       const dx = p2.x - p1.x;
@@ -133,7 +126,6 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     };
 
     const handleToggleTheme = () => {
-      // Rozpoczęcie animacji skalowania
       scaleValue.value = withTiming(1.2, { duration: 100 }, () => {
         scaleValue.value = withTiming(1, { duration: 100 });
       });
@@ -163,9 +155,8 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       return Math.min(Math.max(value, min), max);
     };
 
-    const fullViewRef = useRef<View>(null); // Ref dla całego widoku
+    const fullViewRef = useRef<View>(null);
 
-    // Referencje do gestów
     const startX = useSharedValue(0);
     const startY = useSharedValue(0);
     const AnimatedSvg = Animated.createAnimatedComponent(Svg);
@@ -186,12 +177,10 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         const scaleFactor = event.scale;
         const newScale = clamp(baseScale.value * scaleFactor, 1, 6);
         
-        // Aktualizuj skalę tylko, jeśli zmiana przekracza próg
         if (Math.abs(newScale - scale.value) > SCALE_THRESHOLD) {
           scale.value = newScale;
         }
     
-        // Oblicz nowe przesunięcia
         const newTranslateX = clamp(
           baseTranslateX.value - (initialFocalX.value - windowWidth / 2) * (scaleFactor - 1),
           -windowWidth * (newScale - 1) / 2,
@@ -203,7 +192,6 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
           windowHeight * (newScale - 1) / 4
         );
     
-        // Aktualizuj przesunięcia tylko, jeśli zmiana przekracza próg
         if (Math.abs(newTranslateX - translateX.value) > TRANSLATE_THRESHOLD) {
           translateX.value = newTranslateX;
         }
@@ -217,7 +205,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     
 
     const panGesture = Gesture.Pan()
-      .maxPointers(1) // Ograniczamy do jednego palca
+      .maxPointers(1)
       .onStart(() => {
         startX.value = translateX.value;
         startY.value = translateY.value;
@@ -230,7 +218,6 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         translateY.value = clamp(startY.value + event.translationY, -maxTranslateY, maxTranslateY);
       });
 
-    // Styl animowany dla mapy
     const animatedStyle = useAnimatedStyle(() => ({
       transform: [
         { translateX: translateX.value },
@@ -240,7 +227,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     }));
 
     const topTextAnimatedStyle = useAnimatedStyle(() => {
-      const translateY = -100 * (scale.value - 1); // Dostosuj współczynnik według potrzeb
+      const translateY = -100 * (scale.value - 1);
       const opacity = Math.max(1 - Math.pow(scale.value - 1, 1.5), 0);
       return {
         transform: [{ translateY }],
@@ -255,7 +242,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     };
 
     const bottomTextAnimatedStyle = useAnimatedStyle(() => {
-      const maxTranslateY = screenHeight * 0.03; // 3% of screen height
+      const maxTranslateY = screenHeight * 0.03;
       const maxScale = 1.6;
       const translateY = getTranslateY(maxTranslateY, maxScale, scale.value);
       const opacityProgress = Math.min((scale.value - 1) / (maxScale - 1), 1);
@@ -267,7 +254,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     });
 
     const buttonContainerAnimatedStyle = useAnimatedStyle(() => {
-      const maxTranslateY = screenHeight * 0.05; // 5% of screen height
+      const maxTranslateY = screenHeight * 0.05;
       const maxScale = 1.6;
       const translateY = getTranslateY(maxTranslateY, maxScale, scale.value);
       return {
@@ -275,15 +262,13 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       };
     });
 
-    // Funkcja resetująca mapę
     const resetMap = useCallback(() => {
       scale.value = withTiming(1, { duration: 300 });
       translateX.value = withTiming(0, { duration: 300 });
       translateY.value = withTiming(0, { duration: 300 });
-      setTooltip(null); // Usunięcie tooltipa przy resetowaniu mapy
+      setTooltip(null);
     }, [scale, translateX, translateY]);
 
-    // Funkcja udostępniania mapy
     const shareMap = async () => {
       try {
         setIsSharing(true);
@@ -299,13 +284,12 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
           format: 'png',
           quality: 1,
           result: 'tmpfile',
-          width: screenWidth * pixelRatio * 6, // Zwiększ szerokość proporcjonalnie do pixelRatio
-          height: (screenWidth * pixelRatio * 6) * (16 / 9), // Zachowaj proporcje
+          width: screenWidth * pixelRatio * 6,
+          height: (screenWidth * pixelRatio * 6) * (16 / 9),
         });
 
         if (uri) {
           await Sharing.shareAsync(uri).catch((error) => {
-            // Ignorujemy błąd związany z zamknięciem okna udostępniania
             console.log('Udostępnianie anulowane przez użytkownika:', error);
           });
         } else {
@@ -325,36 +309,32 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     console.log('Total Countries:', totalCountries);
     console.log('Percentage Visited:', percentageVisited);
 
-    // Usunięcie tooltipScale i tooltipAnimatedStyle
- 
+    // Usuń tooltipScale i tooltipAnimatedStyle
     // const tooltipScale = useDerivedValue(() => {
-    //   return Math.min(scale.value * 0.5, 2); // Skalowanie od 1 do 2
+    //   return Math.min(scale.value * 0.5, 2);
     // });
 
-    const tooltipAnimatedStyle = useAnimatedStyle(() => {
-      return {
-        transform: [{ scale: withTiming(1 / scale.value, { duration: 100 }) }],
-      };
-    });
-    
+    // Usuń tooltipAnimatedStyle lub dostosuj go
+    // const tooltipAnimatedStyle = useAnimatedStyle(() => {
+    //   return {
+    //     transform: [{ scale: withTiming(1 / scale.value, { duration: 100 }) }],
+    //   };
+    // });
 
     // Zaktualizowana funkcja handlePathPress
     const handlePathPress = useCallback((event: GestureResponderEvent, countryCode: string) => {
-      const { locationX, locationY } = event.nativeEvent; // Współrzędne względem mapy
+      const { locationX, locationY } = event.nativeEvent;
 
-      // Dodaj logowanie dla debugowania
       console.log('handlePathPress:', { locationX, locationY });
       console.log('scale.value:', scale.value);
       console.log('translateX.value:', translateX.value);
       console.log('translateY.value:', translateY.value);
 
-      // Sprawdzenie, czy shared values są zdefiniowane
       if (scale.value === undefined || translateX.value === undefined || translateY.value === undefined) {
         console.error('Shared values są niezdefiniowane');
         return;
       }
 
-      // Tooltip jest renderowany wewnątrz mapContainer, który już jest przekształcony, więc używamy locationX i locationY bez dodatkowych przeliczeń
       const mapX = locationX;
       const mapY = locationY;
 
@@ -364,11 +344,9 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       const country = data.countries.find(c => c.id === countryCode);
 
       if (country) {
-        // Określ pozycję tooltipa (góra lub dół)
         let position: 'top' | 'bottom' = 'top';
 
-        // Sprawdź, czy tooltip wychodzi poza górną krawędź mapy
-        if (mapY - 60 < 0) { // 60 to wysokość tooltipa
+        if (mapY - 60 < 0) {
           position = 'bottom';
         }
 
@@ -379,7 +357,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
           position
         });
       }
-//fks
+
       onCountryPress(countryCode);
     }, [scale, translateX, translateY, onCountryPress]);
 
@@ -415,7 +393,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                           fill={getCountryFill(countryCode)}
                           stroke={theme.colors.outline}
                           strokeWidth={0.2}
-                          onPress={(event) => handlePathPress(event, countryCode)} // Używanie handlePathPress
+                          onPress={(event) => handlePathPress(event, countryCode)}
                         />
                       );
                     })}
@@ -423,7 +401,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
 
                   {/* Renderowanie Tooltipa wewnątrz kontenera mapy */}
                   {tooltip && (
-                    <Animated.View
+                    <View
                       style={[
                         styles.tooltip,
                         {
@@ -432,7 +410,6 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                           top: tooltip.y - (tooltip.position === 'top' ? 60 : -10), // Ustawienie powyżej lub poniżej punktu
                           width: 150,
                         },
-                        tooltipAnimatedStyle, // Zastosowanie animowanego stylu
                       ]}
                     >
                       {tooltip.position === 'top' && (
@@ -440,7 +417,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                           style={[
                             styles.arrowBottom,
                             {
-                              left: 75 - 5, // Środek tooltipa
+                              left: 75 - 5,
                             },
                           ]}
                         />
@@ -450,7 +427,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                           style={[
                             styles.arrowTop,
                             {
-                              left: 75 - 5, // Środek tooltipa
+                              left: 75 - 5,
                             },
                           ]}
                         />
@@ -459,7 +436,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                         <CountryFlag isoCode={tooltip.country.cca2} size={25} />
                         <Text style={styles.tooltipText}>{tooltip.country.name}</Text>
                       </View>
-                    </Animated.View>
+                    </View>
                   )}
 
                 </View>
@@ -620,7 +597,7 @@ const styles = StyleSheet.create({
   fullViewContainer: {
     flex: 1,
     justifyContent: 'space-between',
-    padding: 2, // Marginesy wokół całego widoku
+    padding: 2,
   },
   topSection: {
     top: 10,
@@ -633,9 +610,9 @@ const styles = StyleSheet.create({
     bottom: '2.5%',
   },
   logoTextImage: {
-    width: '16%', // Dostosuj szerokość według potrzeb
+    width: '16%',
     height: undefined,
-    aspectRatio: 3, // Ustaw rzeczywisty współczynnik proporcji obrazu
+    aspectRatio: 3,
   },
   progressBarWrapper: {
     width: screenWidth * 0.8,
@@ -652,7 +629,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     zIndex: 1000,
-    // Cień dla lepszej widoczności
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
@@ -678,54 +654,54 @@ const styles = StyleSheet.create({
   },
   topSectionPhoto: {
     position: 'absolute',
-    top: '4%', // Możesz dostosować procent do swoich potrzeb
+    top: '4%',
     left: 0,
     right: 0,
     justifyContent: 'center',
     alignItems: 'center',
   },
   percentageText: {
-    fontSize: screenWidth * 0.04, // 4% szerokości ekranu
+    fontSize: screenWidth * 0.04,
     textAlign: 'center',
     marginTop: 10,
   },
   logoImage: {
-    width: '20%', // Możesz dostosować szerokość według potrzeb
+    width: '20%',
     height: undefined,
-    aspectRatio: 2, // Ustaw rzeczywisty współczynnik proporcji obrazu
+    aspectRatio: 2,
   },
   bottomSectionPhoto: {
     justifyContent: 'center',
     alignItems: 'center',
     position: 'absolute',
-    bottom: '3%', // Możesz dostosować procent do swoich potrzeb
+    bottom: '3%',
     left: 0,
     right: 0,
   },
   mapContainerPhoto: {
     flex: 1,
-    marginTop: '10%', // Przesunięcie mapy o 10% w dół
+    marginTop: '10%',
     justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
     height: '100%',
   },
   titleText: {
-    fontSize: screenWidth * 0.05, // 5% szerokości ekranu
+    fontSize: screenWidth * 0.05,
     fontWeight: 'bold',
     textAlign: 'center',
   },
   titleTextLarge: {
-    fontSize: screenWidth * 0.05, // 5% szerokości ekranu
+    fontSize: screenWidth * 0.05,
     fontWeight: 'bold',
     textAlign: 'center',
   },
   infoTextLarge: {
-    fontSize: screenWidth * 0.04, // 4% szerokości ekranu
+    fontSize: screenWidth * 0.04,
     textAlign: 'center',
   },
   infoText: {
-    fontSize: screenWidth * 0.04, // 4% szerokości ekranu
+    fontSize: screenWidth * 0.04,
     textAlign: 'center',
   },
   mapContainer: {
@@ -736,11 +712,11 @@ const styles = StyleSheet.create({
   },
   baseMapContainer: {
     position: 'absolute',
-    top: -1000, // Ukrycie poza ekranem
+    top: -1000,
     left: -1000,
-    width: screenWidth, // Dynamiczna szerokość
-    height: screenWidth * (16 / 9), // Dynamiczna wysokość dla proporcji 9:16
-    pointerEvents: 'none', // Zapobiega przechwytywaniu zdarzeń dotykowych
+    width: screenWidth,
+    height: screenWidth * (16 / 9),
+    pointerEvents: 'none',
   },
   buttonContainer: {
     position: 'absolute',
@@ -757,7 +733,7 @@ const styles = StyleSheet.create({
     borderRadius: BUTTON_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 10, // Odstęp między przyciskami
+    marginLeft: 10,
     elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -770,7 +746,7 @@ const styles = StyleSheet.create({
     borderRadius: BUTTON_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 10, // Odstęp między przyciskami
+    marginLeft: 10,
     elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -782,7 +758,7 @@ const styles = StyleSheet.create({
   },
   tooltipText: {
     color: '#fff',
-    marginLeft: 10, // Odstęp między flagą a tekstem
+    marginLeft: 10,
   },
   tooltipContent: {
     flexDirection: 'row',
@@ -799,7 +775,7 @@ const styles = StyleSheet.create({
     borderRightColor: 'transparent',
     borderBottomColor: 'rgba(0, 0, 0, 0.8)',
     top: -10,
-    left: 75 - 5, // Środek tooltipa
+    left: 75 - 5,
   },
   arrowBottom: {
     position: 'absolute',
@@ -812,7 +788,7 @@ const styles = StyleSheet.create({
     borderRightColor: 'transparent',
     borderTopColor: 'rgba(0, 0, 0, 0.8)',
     bottom: -10,
-    left: 75 - 5, // Środek tooltipa
+    left: 75 - 5,
   },
   toggleButton: {
     width: BUTTON_SIZE,
@@ -820,7 +796,7 @@ const styles = StyleSheet.create({
     borderRadius: BUTTON_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 10, // Odstęp między przyciskami
+    marginLeft: 10,
     elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
