@@ -337,8 +337,8 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       if (country) {
         let position: 'top' | 'bottom' = 'top';
     
-        const scaledOffset = 60 / scale.value;
-        if (adjustedY - scaledOffset < 0) {
+        // Ustaw 'bottom' tylko dla przybliżenia powyżej 70% (wartość skali > 1.7)
+        if (scale.value > 1.70) {
           position = 'bottom';
         }
     
@@ -354,6 +354,8 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     
       onCountryPress(countryCode);
     }, [scale, translateX, translateY, onCountryPress]);
+    
+    console.log('Scale Value:', scale.value);
 
 
     return (
@@ -402,11 +404,12 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       tooltipAnimatedStyle,
       {
         position: 'absolute',
+        
         left: tooltip.x * scale.value + translateX.value - 75,
         top: tooltip.y * scale.value + translateY.value - 
           (tooltip.position === 'top' ? 
-            (25 + (20 * (1.46 / scale.value))) : 
-            (10 + (10 * (0.3 / scale.value)))),
+            (24 + (20 * (1.46 / scale.value))) : 
+            (10 + (10 * (0.3 / scale.value)))) + (scale.value > 1.5 ? 5 : 0)  - (scale.value > 2.2 ? 1.8 : 0) - (scale.value > 2.7 ? 2.6 : 0) - (scale.value > 3.15 ? 1.2 : 0) - (scale.value > 3.33 ? 1 : 0) - (scale.value > 3.5 ? 1.8 : 0) - (scale.value > 4.0 ? 0.3 : 0) - (scale.value > 4.2 ? 2 : 0) -  (scale.value > 5.0 ? 0.1 : 0),
         width: 150,
         transform: [{ scale: 1 / scale.value }],
       },
