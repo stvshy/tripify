@@ -318,35 +318,26 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     // Zaktualizowana funkcja handlePathPress
     const handlePathPress = useCallback((event: GestureResponderEvent, countryCode: string) => {
       const { locationX, locationY } = event.nativeEvent;
-
-      console.log('handlePathPress:', { locationX, locationY });
-      console.log('scale.value:', scale.value);
-      console.log('translateX.value:', translateX.value);
-      console.log('translateY.value:', translateY.value);
-
-      if (scale.value === undefined || translateX.value === undefined || translateY.value === undefined) {
-        console.error('Shared values są niezdefiniowane');
-        return;
-      }
-
-      const mapX = locationX;
-      const mapY = locationY;
-
-      console.log('Calculated mapX:', mapX);
-      console.log('Calculated mapY:', mapY);
+      
+      // Obliczamy rzeczywistą pozycję względem aktualnej skali i przesunięcia
+      const adjustedX = (locationX - translateX.value) / scale.value;
+      const adjustedY = (locationY - translateY.value) / scale.value;
 
       const country = data.countries.find(c => c.id === countryCode);
 
       if (country) {
         let position: 'top' | 'bottom' = 'top';
-
-        if (mapY - 60 < 0) {
+        
+        // Sprawdzamy czy tooltip powinien być wyświetlany nad czy pod punktem
+        // uwzględniając aktualną skalę
+        const scaledOffset = 60 / scale.value;
+        if (adjustedY - scaledOffset < 0) {
           position = 'bottom';
         }
 
         setTooltip({
-          x: mapX,
-          y: mapY,
+          x: adjustedX,
+          y: adjustedY,
           country,
           position
         });
@@ -354,6 +345,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
 
       onCountryPress(countryCode);
     }, [scale, translateX, translateY, onCountryPress]);
+
 
     return (
       <GestureHandlerRootView style={[styles.container, style]}>
@@ -395,44 +387,52 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
 
                   {/* Renderowanie Tooltipa wewnątrz kontenera mapy */}
                   {tooltip && (
-                    <Animated.View
-                      style={[
-                        styles.tooltip,
-                        tooltipAnimatedStyle, // Zastosowanie animowanego stylu
-                        {
-                          position: 'absolute',
-                          left: tooltip.x - 75, // Centrowanie tooltipa (150 / 2)
-                          top: tooltip.y - (tooltip.position === 'top' ? 60 : -10), // Ustawienie powyżej lub poniżej punktu
-                          width: 150,
-                        },
-                      ]}
-                    >
-                      {tooltip.position === 'top' && (
-                        <View
-                          style={[
-                            styles.arrowBottom,
-                            {
-                              left: 75 - 5,
-                            },
-                          ]}
-                        />
-                      )}
-                      {tooltip.position === 'bottom' && (
-                        <View
-                          style={[
-                            styles.arrowTop,
-                            {
-                              left: 75 - 5,
-                            },
-                          ]}
-                        />
-                      )}
-                      <View style={styles.tooltipContent}>
-                        <CountryFlag isoCode={tooltip.country.cca2} size={25} />
-                        <Text style={styles.tooltipText}>{tooltip.country.name}</Text>
-                      </View>
-                    </Animated.View>
-                  )}
+           <Animated.View
+           style={[
+             styles.tooltip,
+             tooltipAnimatedStyle,
+             {
+               position: 'absolute',
+               left: tooltip.x * scale.value + translateX.value - 75,
+               top: tooltip.y * scale.value + translateY.value - 
+                 (tooltip.position === 'top' ? 
+                   // Dynamiczny offset dla górnej pozycji
+                   (26 + (20 * (1 / scale.value))) : 
+                   // Dynamiczny offset dla dolnej pozycji
+                   (15 + (10 * (1 / scale.value)))),
+               width: 150,
+               transform: [
+                 { scale: 1 / scale.value },
+               ],
+             },
+           ]}
+         >
+            {tooltip.position === 'top' && (
+              <View
+                style={[
+                  styles.arrowBottom,
+                  {
+                    left: 75 - 5,
+                  },
+                ]}
+              />
+            )}
+            {tooltip.position === 'bottom' && (
+              <View
+                style={[
+                  styles.arrowTop,
+                  {
+                    left: 75 - 5,
+                  },
+                ]}
+              />
+            )}
+            <View style={styles.tooltipContent}>
+              <CountryFlag isoCode={tooltip.country.cca2} size={25} />
+              <Text style={styles.tooltipText}>{tooltip.country.name}</Text>
+            </View>
+          </Animated.View>
+        )}
 
                 </View>
               </Animated.View>
