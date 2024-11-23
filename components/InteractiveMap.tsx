@@ -326,15 +326,17 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     console.log('Percentage Visited:', percentageVisited);
 
     // Usunięcie tooltipScale i tooltipAnimatedStyle
-    /*
-    const tooltipScale = useDerivedValue(() => {
-      return Math.min(scale.value * 0.5, 2); // Skalowanie od 1 do 2
-    });
+ 
+    // const tooltipScale = useDerivedValue(() => {
+    //   return Math.min(scale.value * 0.5, 2); // Skalowanie od 1 do 2
+    // });
 
-    const tooltipAnimatedStyle = useAnimatedStyle(() => ({
-      transform: [{ scale: tooltipScale.value }],
-    }));
-    */
+    const tooltipAnimatedStyle = useAnimatedStyle(() => {
+      return {
+        transform: [{ scale: withTiming(1 / scale.value, { duration: 100 }) }],
+      };
+    });
+    
 
     // Zaktualizowana funkcja handlePathPress
     const handlePathPress = useCallback((event: GestureResponderEvent, countryCode: string) => {
@@ -430,6 +432,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                           top: tooltip.y - (tooltip.position === 'top' ? 60 : -10), // Ustawienie powyżej lub poniżej punktu
                           width: 150,
                         },
+                        tooltipAnimatedStyle, // Zastosowanie animowanego stylu
                       ]}
                     >
                       {tooltip.position === 'top' && (
@@ -458,6 +461,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                       </View>
                     </Animated.View>
                   )}
+
                 </View>
               </Animated.View>
             </GestureDetector>
