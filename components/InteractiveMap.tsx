@@ -262,6 +262,12 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       };
     });
 
+    // Definicja animowanego stylu dla Tooltipa
+    const tooltipAnimatedStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: withTiming(1 / scale.value, { duration: 100 }) }],
+      // Opcjonalnie, możesz dodać inne animacje, np. opacity
+    }));
+
     const resetMap = useCallback(() => {
       scale.value = withTiming(1, { duration: 300 });
       translateX.value = withTiming(0, { duration: 300 });
@@ -308,18 +314,6 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     console.log('Visited Countries:', visitedCountries);
     console.log('Total Countries:', totalCountries);
     console.log('Percentage Visited:', percentageVisited);
-
-    // Usuń tooltipScale i tooltipAnimatedStyle
-    // const tooltipScale = useDerivedValue(() => {
-    //   return Math.min(scale.value * 0.5, 2);
-    // });
-
-    // Usuń tooltipAnimatedStyle lub dostosuj go
-    // const tooltipAnimatedStyle = useAnimatedStyle(() => {
-    //   return {
-    //     transform: [{ scale: withTiming(1 / scale.value, { duration: 100 }) }],
-    //   };
-    // });
 
     // Zaktualizowana funkcja handlePathPress
     const handlePathPress = useCallback((event: GestureResponderEvent, countryCode: string) => {
@@ -401,9 +395,10 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
 
                   {/* Renderowanie Tooltipa wewnątrz kontenera mapy */}
                   {tooltip && (
-                    <View
+                    <Animated.View
                       style={[
                         styles.tooltip,
+                        tooltipAnimatedStyle, // Zastosowanie animowanego stylu
                         {
                           position: 'absolute',
                           left: tooltip.x - 75, // Centrowanie tooltipa (150 / 2)
@@ -436,7 +431,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                         <CountryFlag isoCode={tooltip.country.cca2} size={25} />
                         <Text style={styles.tooltipText}>{tooltip.country.name}</Text>
                       </View>
-                    </View>
+                    </Animated.View>
                   )}
 
                 </View>
