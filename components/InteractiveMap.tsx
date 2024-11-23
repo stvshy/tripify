@@ -23,6 +23,7 @@ import { Country, CountriesData } from '../.expo/types/country';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Sharing from 'expo-sharing';
 import Animated, {
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -105,6 +106,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     const baseScale = useSharedValue<number>(1);
     const baseTranslateX = useSharedValue<number>(0);
     const baseTranslateY = useSharedValue<number>(0);
+    const [isTooltipVisible, setIsTooltipVisible] = useState(true);
 
     const animatedToggleStyle = useAnimatedStyle(() => ({
       transform: [{ scale: scaleValue.value }],
@@ -166,6 +168,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     
     const pinchGesture = Gesture.Pinch()
       .onBegin((event) => {
+        runOnJS(setIsTooltipVisible)(false); // Ukrycie tooltipa
         initialDistance.value = event.scale;
         baseScale.value = scale.value;
         initialFocalX.value = event.focalX;
@@ -263,10 +266,17 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     });
 
     // Definicja animowanego stylu dla Tooltipa
-    const tooltipAnimatedStyle = useAnimatedStyle(() => ({
-      transform: [{ scale: withTiming(1 / scale.value, { duration: 100 }) }],
-      // Opcjonalnie, możesz dodać inne animacje, np. opacity
-    }));
+    const tooltipAnimatedStyle = useAnimatedStyle(() => {
+      try {
+        return {
+          transform: [{ scale: withTiming(1 / scale.value, { duration: 100 }) }],
+        };
+      } catch (error) {
+        console.error("Tooltip animation error:", error);
+        return {};
+      }
+    });
+    
 
     const resetMap = useCallback(() => {
       scale.value = withTiming(1, { duration: 300 });
@@ -318,31 +328,30 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     // Zaktualizowana funkcja handlePathPress
     const handlePathPress = useCallback((event: GestureResponderEvent, countryCode: string) => {
       const { locationX, locationY } = event.nativeEvent;
-      
-      // Obliczamy rzeczywistą pozycję względem aktualnej skali i przesunięcia
+    
       const adjustedX = (locationX - translateX.value) / scale.value;
       const adjustedY = (locationY - translateY.value) / scale.value;
-
-      const country = data.countries.find(c => c.id === countryCode);
-
+    
+      const country = data.countries.find((c) => c.id === countryCode);
+    
       if (country) {
         let position: 'top' | 'bottom' = 'top';
-        
-        // Sprawdzamy czy tooltip powinien być wyświetlany nad czy pod punktem
-        // uwzględniając aktualną skalę
+    
         const scaledOffset = 60 / scale.value;
         if (adjustedY - scaledOffset < 0) {
           position = 'bottom';
         }
-
+    
         setTooltip({
           x: adjustedX,
           y: adjustedY,
           country,
-          position
+          position,
         });
+    
+        runOnJS(setIsTooltipVisible)(true); // Pokaż tooltip
       }
-
+    
       onCountryPress(countryCode);
     }, [scale, translateX, translateY, onCountryPress]);
 
@@ -386,53 +395,45 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                   </AnimatedSvg>
 
                   {/* Renderowanie Tooltipa wewnątrz kontenera mapy */}
-                  {tooltip && (
-           <Animated.View
-           style={[
-             styles.tooltip,
-             tooltipAnimatedStyle,
-             {
-               position: 'absolute',
-               left: tooltip.x * scale.value + translateX.value - 75,
-               top: tooltip.y * scale.value + translateY.value - 
-                 (tooltip.position === 'top' ? 
-                   // Dynamiczny offset dla górnej pozycji
-                   (26 + (20 * (1 / scale.value))) : 
-                   // Dynamiczny offset dla dolnej pozycji
-                   (15 + (10 * (1 / scale.value)))),
-               width: 150,
-               transform: [
-                 { scale: 1 / scale.value },
-               ],
-             },
-           ]}
-         >
-            {tooltip.position === 'top' && (
-              <View
-                style={[
-                  styles.arrowBottom,
-                  {
-                    left: 75 - 5,
-                  },
-                ]}
-              />
-            )}
-            {tooltip.position === 'bottom' && (
-              <View
-                style={[
-                  styles.arrowTop,
-                  {
-                    left: 75 - 5,
-                  },
-                ]}
-              />
-            )}
-            <View style={styles.tooltipContent}>
-              <CountryFlag isoCode={tooltip.country.cca2} size={25} />
-              <Text style={styles.tooltipText}>{tooltip.country.name}</Text>
-            </View>
-          </Animated.View>
-        )}
+                  {isTooltipVisible && tooltip && scale.value > 0 && (
+  <Animated.View
+    style={[
+      styles.tooltip,
+      tooltipAnimatedStyle,
+      {
+        position: 'absolute',
+        left: tooltip.x * scale.value + translateX.value - 75,
+        top: tooltip.y * scale.value + translateY.value - 
+          (tooltip.position === 'top' ? 
+            (25 + (20 * (1.46 / scale.value))) : 
+            (10 + (10 * (0.3 / scale.value)))),
+        width: 150,
+        transform: [{ scale: 1 / scale.value }],
+      },
+    ]}
+  >
+    {tooltip.position === 'top' && (
+      <View
+        style={[
+          styles.arrowBottom,
+          { left: 75 - 5 },
+        ]}
+      />
+    )}
+    {tooltip.position === 'bottom' && (
+      <View
+        style={[
+          styles.arrowTop,
+          { left: 75 - 5 },
+        ]}
+      />
+    )}
+    <View style={styles.tooltipContent}>
+      <CountryFlag isoCode={tooltip.country.cca2} size={25} />
+      <Text style={styles.tooltipText}>{tooltip.country.name}</Text>
+    </View>
+  </Animated.View>
+)}
 
                 </View>
               </Animated.View>
