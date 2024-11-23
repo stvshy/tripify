@@ -492,7 +492,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
                 stickySectionHeadersEnabled={false}
                 contentContainerStyle={{ 
                   flexGrow: 1,
-                  paddingBottom: fromTab ? 86 : 80 
+                  paddingBottom: fromTab ? 86 : 96 
                 }}
                 ListEmptyComponent={() => (
                   <View style={styles.emptyContainer}>
@@ -551,7 +551,7 @@ const styles = StyleSheet.create({
     marginTop: -5,
   },
   containerStandalone: {
-    paddingTop: 20,
+    paddingTop: 30,
   },
   searchAndToggleContainer: {
     flexDirection: 'row',
