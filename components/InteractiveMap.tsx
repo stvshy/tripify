@@ -1,5 +1,5 @@
 // components/InteractiveMap.tsx
-import React, { useContext, forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import React, { useContext, forwardRef, useImperativeHandle, useRef, useState, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -24,7 +24,6 @@ import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-g
 import * as Sharing from 'expo-sharing';
 import Animated, {
   useAnimatedStyle,
-  useDerivedValue,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
@@ -52,7 +51,6 @@ const countryMap: { [key: string]: Country } = {};
 
 rawCountriesData.countries.forEach((rawCountry: { id: string; name: string; class: string | null; path: string }) => {
   // Sprawdzenie, czy 'cca2' istnieje
-  // Try to find country code from the id
   const cca2 = rawCountry.id.length === 2 ? rawCountry.id.toUpperCase() : '';
 
   const countryWithCca2: Country = {
@@ -61,10 +59,10 @@ rawCountriesData.countries.forEach((rawCountry: { id: string; name: string; clas
   };
 
   if (!countryMap[rawCountry.id]) {
-    // Add new country
+    // Dodaj nowy kraj
     countryMap[rawCountry.id] = countryWithCca2;
   } else {
-    // Merge paths if country already exists
+    // Scal ścieżki, jeśli kraj już istnieje
     countryMap[rawCountry.id].path += ' ' + rawCountry.path;
   }
 });
@@ -85,7 +83,6 @@ interface TooltipPosition {
   position: 'top' | 'bottom';
 }
 
-
 interface InteractiveMapProps {
   selectedCountries: string[];
   totalCountries: number;
@@ -101,25 +98,23 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     const baseMapRef = useRef<View>(null);
     const [isSharing, setIsSharing] = useState(false); // Stan ładowania udostępniania
     const [tooltip, setTooltip] = useState<TooltipPosition | null>(null);
-    const scaleValue = useSharedValue(1);
-    const scale = useSharedValue(1);
+    const scaleValue = useSharedValue(1); // Skalowanie dla przycisku zmiany motywu
+    const scale = useSharedValue(1); // Skalowanie mapy
     const translateX = useSharedValue(initialTranslateX);
     const translateY = useSharedValue(initialTranslateY);
 
-        // Zmienne używane w pinch-to-zoom
-        const activeTouches = useSharedValue<{ id: number; x: number; y: number }[]>([]);
-        const initialDistance = useSharedValue<number | null>(null);
-        const initialFocalX = useSharedValue<number>(0);
-        const initialFocalY = useSharedValue<number>(0);
-        const baseScale = useSharedValue<number>(1);
-        const baseTranslateX = useSharedValue<number>(0);
-        const baseTranslateY = useSharedValue<number>(0);
+    // Zmienne używane w pinch-to-zoom
+    const activeTouches = useSharedValue<{ id: number; x: number; y: number }[]>([]);
+    const initialDistance = useSharedValue<number | null>(null);
+    const initialFocalX = useSharedValue<number>(0);
+    const initialFocalY = useSharedValue<number>(0);
+    const baseScale = useSharedValue<number>(1);
+    const baseTranslateX = useSharedValue<number>(0);
+    const baseTranslateY = useSharedValue<number>(0);
 
     const animatedToggleStyle = useAnimatedStyle(() => ({
       transform: [{ scale: scaleValue.value }],
     }));
-    
-
 
     // Funkcje pomocnicze
     const calculateDistance = (p1: { x: number; y: number }, p2: { x: number; y: number }): number => {
@@ -255,14 +250,14 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         translateY.value = clamp(startY.value + event.translationY, -maxTranslateY, maxTranslateY);
       });
 
-    // Styl animowany
+    // Styl animowany dla mapy
     const animatedStyle = useAnimatedStyle(() => ({
       transform: [
-        { translateX: translateX.value }, // To jest poprawne
+        { translateX: translateX.value },
         { translateY: translateY.value },
         { scale: scale.value },
       ],
-    }));    
+    }));
 
     const topTextAnimatedStyle = useAnimatedStyle(() => {
       const translateY = -100 * (scale.value - 1); // Dostosuj współczynnik według potrzeb
@@ -301,11 +296,12 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     });
 
     // Funkcja resetująca mapę
-    const resetMap = () => {
+    const resetMap = useCallback(() => {
       scale.value = withTiming(1, { duration: 300 });
       translateX.value = withTiming(0, { duration: 300 });
       translateY.value = withTiming(0, { duration: 300 });
-    };
+      setTooltip(null); // Usunięcie tooltipa przy resetowaniu mapy
+    }, [scale, translateX, translateY]);
 
     // Funkcja udostępniania mapy
     const shareMap = async () => {
@@ -349,68 +345,196 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     console.log('Total Countries:', totalCountries);
     console.log('Percentage Visited:', percentageVisited);
 
-    const convertToSvgCoordinates = (x: number, y: number): { x: number; y: number } => {
-      'worklet';
-      const scaledX = (x - translateX.value) / scale.value;
-      const scaledY = (y - translateY.value) / scale.value;
-      return { x: scaledX, y: scaledY };
-    };
+    // Usunięcie tooltipScale i tooltipAnimatedStyle
+    /*
+    const tooltipScale = useDerivedValue(() => {
+      return Math.min(scale.value * 0.5, 2); // Skalowanie od 1 do 2
+    });
 
+    const tooltipAnimatedStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: tooltipScale.value }],
+    }));
+    */
 
-        // Oddzielenie skalowania tooltipa
-        const tooltipScale = useDerivedValue(() => {
-          return Math.min(scale.value * 0.5, 2); // Skalowanie od 1 do 2
+    // Zaktualizowana funkcja handlePathPress
+    const handlePathPress = useCallback((event: GestureResponderEvent, countryCode: string) => {
+      const { locationX, locationY } = event.nativeEvent; // Współrzędne względem mapy
+
+      // Dodaj logowanie dla debugowania
+      console.log('handlePathPress:', { locationX, locationY });
+      console.log('scale.value:', scale.value);
+      console.log('translateX.value:', translateX.value);
+      console.log('translateY.value:', translateY.value);
+
+      // Sprawdzenie, czy shared values są zdefiniowane
+      if (scale.value === undefined || translateX.value === undefined || translateY.value === undefined) {
+        console.error('Shared values są niezdefiniowane');
+        return;
+      }
+
+      // Tooltip jest renderowany wewnątrz mapContainer, który już jest przekształcony, więc używamy locationX i locationY bez dodatkowych przeliczeń
+      const mapX = locationX;
+      const mapY = locationY;
+
+      console.log('Calculated mapX:', mapX);
+      console.log('Calculated mapY:', mapY);
+
+      const country = data.countries.find(c => c.id === countryCode);
+
+      if (country) {
+        // Określ pozycję tooltipa (góra lub dół)
+        let position: 'top' | 'bottom' = 'top';
+
+        // Sprawdź, czy tooltip wychodzi poza górną krawędź mapy
+        if (mapY - 60 < 0) { // 60 to wysokość tooltipa
+          position = 'bottom';
+        }
+
+        setTooltip({
+          x: mapX,
+          y: mapY,
+          country,
+          position
         });
-    
-        const tooltipAnimatedStyle = useAnimatedStyle(() => ({
-          transform: [{ scale: tooltipScale.value }],
-        }));
-        const handlePathPress = (event: GestureResponderEvent, countryCode: string) => {
-          const { locationX, locationY } = event.nativeEvent; // Współrzędne względem mapy
-    
-          const country = data.countries.find(c => c.id === countryCode);
-    
-          if (country) {
-            // Określ pozycję tooltipa
-            let position: 'top' | 'bottom' = 'top';
-    
-            // Sprawdź, czy tooltip wychodzi poza górną krawędź mapy
-            if (locationY - 60 * 1.2 < 0) { // 60 to wysokość tooltipa, 1.2 to maksymalny scale
-              position = 'bottom';
-            }
-    
-            setTooltip({
-              x: locationX,
-              y: locationY,
-              country,
-              position
-            });
-          }
-    
-          onCountryPress(countryCode);
-        };
+      }
+
+      onCountryPress(countryCode);
+    }, [scale, translateX, translateY, onCountryPress]);
+
     return (
       <GestureHandlerRootView style={[styles.container, style]}>
-      <TouchableWithoutFeedback onPress={() => setTooltip(null)}>
-        <View ref={fullViewRef} style={[styles.fullViewContainer, { backgroundColor: theme.colors.background }]}>
-          {/* Górna sekcja */}
-          <Animated.View style={[styles.topSection, topTextAnimatedStyle]}>
-            <Image
-              source={isDarkTheme ? logoTextImageDesaturated : logoTextImage}
-              style={styles.logoTextImage}
-              resizeMode="contain"
-            />
-          </Animated.View>
+        <TouchableWithoutFeedback onPress={() => setTooltip(null)}>
+          <View ref={fullViewRef} style={[styles.fullViewContainer, { backgroundColor: theme.colors.background }]}>
+            {/* Górna sekcja */}
+            <Animated.View style={[styles.topSection, topTextAnimatedStyle]}>
+              <Image
+                source={isDarkTheme ? logoTextImageDesaturated : logoTextImage}
+                style={styles.logoTextImage}
+                resizeMode="contain"
+              />
+            </Animated.View>
 
-          <GestureDetector gesture={Gesture.Simultaneous(pinchGesture, panGesture)}>
-            <Animated.View style={styles.container}>
-              <View ref={mapViewRef} style={styles.mapContainer}>
-                <AnimatedSvg
+            <GestureDetector gesture={Gesture.Simultaneous(pinchGesture, panGesture)}>
+              <Animated.View style={[styles.container, animatedStyle]}>
+                <View ref={mapViewRef} style={styles.mapContainer}>
+                  <AnimatedSvg
+                    width="100%"
+                    height="100%"
+                    viewBox="232 0 1700 857"
+                    preserveAspectRatio="xMidYMid meet"
+                    style={styles.mapContainer}
+                  >
+                    {data.countries.map((country: Country, index: number) => {
+                      const countryCode = country.id;
+                      if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
+                      return (
+                        <Path
+                          key={`${countryCode}-${index}`}
+                          d={country.path}
+                          fill={getCountryFill(countryCode)}
+                          stroke={theme.colors.outline}
+                          strokeWidth={0.2}
+                          onPress={(event) => handlePathPress(event, countryCode)} // Używanie handlePathPress
+                        />
+                      );
+                    })}
+                  </AnimatedSvg>
+
+                  {/* Renderowanie Tooltipa wewnątrz kontenera mapy */}
+                  {tooltip && (
+                    <Animated.View
+                      style={[
+                        styles.tooltip,
+                        {
+                          position: 'absolute',
+                          left: tooltip.x - 75, // Centrowanie tooltipa (150 / 2)
+                          top: tooltip.y - (tooltip.position === 'top' ? 60 : -10), // Ustawienie powyżej lub poniżej punktu
+                          width: 150,
+                        },
+                      ]}
+                    >
+                      {tooltip.position === 'top' && (
+                        <View
+                          style={[
+                            styles.arrowBottom,
+                            {
+                              left: 75 - 5, // Środek tooltipa
+                            },
+                          ]}
+                        />
+                      )}
+                      {tooltip.position === 'bottom' && (
+                        <View
+                          style={[
+                            styles.arrowTop,
+                            {
+                              left: 75 - 5, // Środek tooltipa
+                            },
+                          ]}
+                        />
+                      )}
+                      <View style={styles.tooltipContent}>
+                        <CountryFlag isoCode={tooltip.country.cca2} size={25} />
+                        <Text style={styles.tooltipText}>{tooltip.country.name}</Text>
+                      </View>
+                    </Animated.View>
+                  )}
+                </View>
+              </Animated.View>
+            </GestureDetector>
+
+            {/* Dolna sekcja z postępem */}
+            <Animated.View style={[styles.bottomSection, bottomTextAnimatedStyle]}>
+              <View style={styles.progressBarWrapper}>
+                <Progress.Bar
+                  progress={percentageVisited}
+                  width={screenWidth * 0.8}
+                  color={theme.colors.primary}
+                  unfilledColor={theme.colors.surfaceVariant}
+                  borderWidth={0}
+                  height={20}
+                  borderRadius={10}
+                />
+                <View style={styles.progressTextLeft}>
+                  <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
+                    {(percentageVisited * 100).toFixed(1)}%
+                  </Text>
+                </View>
+                <View style={styles.progressTextRight}>
+                  <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
+                    {visitedCountries}/{totalCountries}
+                  </Text>
+                </View>
+              </View>
+            </Animated.View>
+
+            {/* Ukryta bazowa mapa */}
+            <View
+              ref={baseMapRef}
+              collapsable={false}
+              style={[
+                styles.baseMapContainer,
+                {
+                  backgroundColor: isDarkTheme ? theme.colors.surface : theme.colors.background,
+                },
+              ]}
+            >
+              {/* Górna sekcja z napisem */}
+              <View style={styles.topSectionPhoto}>
+                <Image
+                  source={logoImage}
+                  style={styles.logoImage}
+                  resizeMode="contain"
+                />
+              </View>
+
+              {/* Mapa */}
+              <View style={styles.mapContainerPhoto}>
+                <Svg
                   width="100%"
                   height="100%"
                   viewBox="232 0 1700 857"
                   preserveAspectRatio="xMidYMid meet"
-                  style={animatedStyle}
                 >
                   {data.countries.map((country: Country, index: number) => {
                     const countryCode = country.id;
@@ -421,205 +545,86 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                         d={country.path}
                         fill={getCountryFill(countryCode)}
                         stroke={theme.colors.outline}
-                        strokeWidth={0.2}
-                        onPress={(event) => handlePathPress(event, countryCode)} // Używanie handlePathPress
+                        strokeWidth={1}
                       />
                     );
                   })}
-                </AnimatedSvg>
+                </Svg>
               </View>
-            </Animated.View>
-          </GestureDetector>
 
-          {/* Dolna sekcja z postępem */}
-          <Animated.View style={[styles.bottomSection, bottomTextAnimatedStyle]}>
-            <View style={styles.progressBarWrapper}>
-              <Progress.Bar
-                progress={percentageVisited}
-                width={screenWidth * 0.8}
-                color={theme.colors.primary}
-                unfilledColor={theme.colors.surfaceVariant}
-                borderWidth={0}
-                height={20}
-                borderRadius={10}
-              />
-              <View style={styles.progressTextLeft}>
-                <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
-                  {(percentageVisited * 100).toFixed(1)}%
-                </Text>
-              </View>
-              <View style={styles.progressTextRight}>
-                <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
-                  {visitedCountries}/{totalCountries}
-                </Text>
+              {/* Dolna sekcja z napisem */}
+              <View style={styles.bottomSectionPhoto}>
+                <View style={styles.progressBarWrapper}>
+                  <Progress.Bar
+                    progress={percentageVisited}
+                    width={screenWidth * 0.8}
+                    color={theme.colors.primary}
+                    unfilledColor={theme.colors.surfaceVariant}
+                    borderWidth={0}
+                    height={20}
+                    borderRadius={10}
+                  />
+                  <View style={styles.progressTextLeft}>
+                    <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
+                      {(percentageVisited * 100).toFixed(1)}%
+                    </Text>
+                  </View>
+                  <View style={styles.progressTextRight}>
+                    <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
+                      {visitedCountries}/{totalCountries}
+                    </Text>
+                  </View>
+                </View>
               </View>
             </View>
-          </Animated.View>
 
-        {/* Renderowanie Tooltipa */}
-        {tooltip && (
-              <Animated.View 
-                style={[
-                  styles.tooltip, 
-                  tooltipAnimatedStyle,
-                  {
-                    position: 'absolute',
-                    left: tooltip.x * scale.value + translateX.value - (150 / 2),
-                    top: tooltip.y * scale.value + translateY.value - (tooltip.position === 'top' ? 60 * tooltipScale.value : -10),
-                    width: 150,
-                  }
-                ]}
+            {/* Kontener dla przycisków */}
+            <Animated.View style={[styles.buttonContainer, buttonContainerAnimatedStyle]}>
+              {/* Przycisk Reset */}
+              <TouchableOpacity
+                style={[styles.resetButton, { backgroundColor: theme.colors.primary }]}
+                onPress={resetMap}
+                activeOpacity={0.7}
               >
-                {tooltip.position === 'top' && (
-                  <View 
-                    style={[
-                      styles.arrowBottom,
-                      {
-                        left: 75 - 5, // Środek tooltipa
-                      }
-                    ]} 
-                  />
+                <Feather
+                  name="code"
+                  size={ICON_SIZE}
+                  style={styles.resetIcon}
+                  color={theme.colors.onPrimary}
+                />
+              </TouchableOpacity>
+
+              {/* Przycisk Udostępniania */}
+              <TouchableOpacity
+                style={[styles.shareButton, { backgroundColor: theme.colors.primary }]}
+                onPress={shareMap}
+                activeOpacity={0.7}
+                disabled={isSharing}
+              >
+                {isSharing ? (
+                  <ActivityIndicator size="small" color={theme.colors.onPrimary} />
+                ) : (
+                  <Feather name="share-2" size={ICON_SIZE} color={theme.colors.onPrimary} />
                 )}
-                {tooltip.position === 'bottom' && (
-                  <View 
-                    style={[
-                      styles.arrowTop,
-                      {
-                        left: 75 - 5, // Środek tooltipa
-                      }
-                    ]} 
+              </TouchableOpacity>
+
+              {/* Przycisk Przełączania Motywu */}
+              <Animated.View style={[styles.toggleButtonContainer, animatedToggleStyle]}>
+                <TouchableOpacity
+                  onPress={handleToggleTheme}
+                  style={[styles.toggleButton, { backgroundColor: theme.colors.primary }]}
+                  activeOpacity={0.7}
+                >
+                  <MaterialIcons
+                    name={isDarkTheme ? 'dark-mode' : 'light-mode'}
+                    size={ICON_SIZE}
+                    color={theme.colors.onPrimary}
                   />
-                )}
-                <View style={styles.tooltipContent}>
-                  <CountryFlag 
-                    isoCode={tooltip.country.cca2} 
-                    size={25} 
-                  />
-                  <Text style={styles.tooltipText}>
-                    {tooltip.country.name}
-                  </Text>
-                </View>
+                </TouchableOpacity>
               </Animated.View>
-            )}
+            </Animated.View>
           </View>
         </TouchableWithoutFeedback>
-
-
-        {/* Ukryta bazowa mapa */}
-        <View
-          ref={baseMapRef}
-          collapsable={false}
-          style={[
-            styles.baseMapContainer,
-            {
-              backgroundColor: isDarkTheme ? theme.colors.surface : theme.colors.background,
-            },
-          ]}
-        >
-          {/* Górna sekcja z napisem */}
-          <View style={styles.topSectionPhoto}>
-            <Image
-              source={logoImage}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
-          </View>
-
-          {/* Mapa */}
-          <View style={styles.mapContainerPhoto}>
-            <Svg
-              width="100%"
-              height="100%"
-              viewBox="232 0 1700 857"
-              preserveAspectRatio="xMidYMid meet"
-            >
-              {data.countries.map((country: Country, index: number) => {
-                const countryCode = country.id;
-                if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
-                return (
-                  <Path
-                    key={`${countryCode}-${index}`}
-                    d={country.path}
-                    fill={getCountryFill(countryCode)}
-                    stroke={theme.colors.outline}
-                    strokeWidth={1}
-                  />
-                );
-              })}
-            </Svg>
-          </View>
-
-          {/* Dolna sekcja z napisem */}
-          <View style={styles.bottomSectionPhoto}>
-            <View style={styles.progressBarWrapper}>
-              <Progress.Bar
-                progress={percentageVisited}
-                width={screenWidth * 0.8}
-                color={theme.colors.primary}
-                unfilledColor={theme.colors.surfaceVariant}
-                borderWidth={0}
-                height={20}
-                borderRadius={10}
-              />
-              <View style={styles.progressTextLeft}>
-                <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
-                  {(percentageVisited * 100).toFixed(1)}%
-                </Text>
-              </View>
-              <View style={styles.progressTextRight}>
-                <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
-                  {visitedCountries}/{totalCountries}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Kontener dla przycisków */}
-        <Animated.View style={[styles.buttonContainer, buttonContainerAnimatedStyle]}>
-          {/* Przycisk Reset */}
-          <TouchableOpacity
-            style={[styles.resetButton, { backgroundColor: theme.colors.primary }]}
-            onPress={resetMap}
-            activeOpacity={0.7}
-          >
-            <Feather
-              name="code"
-              size={ICON_SIZE}
-              style={styles.resetIcon}
-              color={theme.colors.onPrimary}
-            />
-          </TouchableOpacity>
-
-          {/* Przycisk Udostępniania */}
-          <TouchableOpacity
-            style={[styles.shareButton, { backgroundColor: theme.colors.primary }]}
-            onPress={shareMap}
-            activeOpacity={0.7}
-            disabled={isSharing}
-          >
-            {isSharing ? (
-              <ActivityIndicator size="small" color={theme.colors.onPrimary} />
-            ) : (
-              <Feather name="share-2" size={ICON_SIZE} color={theme.colors.onPrimary} />
-            )}
-          </TouchableOpacity>
-
-          {/* Przycisk Przełączania Motywu */}
-          <Animated.View style={[styles.toggleButtonContainer, animatedToggleStyle]}>
-            <TouchableOpacity
-              onPress={handleToggleTheme}
-              style={[styles.toggleButton, { backgroundColor: theme.colors.primary }]}
-              activeOpacity={0.7}
-            >
-              <MaterialIcons
-                name={isDarkTheme ? 'dark-mode' : 'light-mode'}
-                size={ICON_SIZE}
-                color={theme.colors.onPrimary}
-              />
-            </TouchableOpacity>
-          </Animated.View>
-        </Animated.View>
       </GestureHandlerRootView>
     );
   }
@@ -664,6 +669,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     zIndex: 1000,
+    // Cień dla lepszej widoczności
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
   },
   progressTextLeft: {
     position: 'absolute',
