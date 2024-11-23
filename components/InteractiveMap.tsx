@@ -397,7 +397,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
           position
         });
       }
-
+//fks
       onCountryPress(countryCode);
     }, [scale, translateX, translateY, onCountryPress]);
 
@@ -413,7 +413,6 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                 resizeMode="contain"
               />
             </Animated.View>
-
             <GestureDetector gesture={Gesture.Simultaneous(pinchGesture, panGesture)}>
               <Animated.View style={[styles.container, animatedStyle]}>
                 <View ref={mapViewRef} style={styles.mapContainer}>
