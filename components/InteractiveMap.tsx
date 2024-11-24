@@ -143,12 +143,32 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         return null;
       },
     }));
+    const applyTransparency = (hexColor: string, transparency: number) => {
+      // Usuń '#' z początku, jeśli istnieje
+      const hex = hexColor.replace('#', '');
+    
+      // Konwertuj HEX na RGB
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+    
+      // Zwróć kolor w formacie RGBA
+      return `rgba(${r}, ${g}, ${b}, ${transparency})`;
+    };
 
     const getCountryFill = (countryCode: string) => {
       const isVisited = selectedCountries.includes(countryCode);
+      const isHighlighted = tooltip && tooltip.country.id === countryCode;
+  
+      if (isHighlighted) {
+        return applyTransparency(theme.colors.primary, 0.75);
+      }
       return isVisited ? 'rgba(0,174,245,255)' : '#b2b7bf';
     };
-
+    const isCountryHighlighted = (countryCode: string) => {
+      return tooltip && tooltip.country.id === countryCode;
+    };
+    
     const visitedCountries = selectedCountries.length;
     const percentageVisited = totalCountries > 0 ? visitedCountries / totalCountries : 0;
 
@@ -388,8 +408,8 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                           key={`${countryCode}-${index}`}
                           d={country.path}
                           fill={getCountryFill(countryCode)}
-                          stroke={theme.colors.outline}
-                          strokeWidth={0.2}
+                          stroke={isCountryHighlighted(countryCode) ? theme.colors.primary : theme.colors.outline}
+                          strokeWidth={isCountryHighlighted(countryCode) ? 2 : 0.2}
                           onPress={(event) => handlePathPress(event, countryCode)}
                         />
                       );
