@@ -33,7 +33,9 @@ export default function AccountScreen() {
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
   const theme = useTheme();
   const router = useRouter();
-
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const SCALE_ACTIVE = 1.06;
+  const SCALE_DURATION = 200;
   const [countriesVisited, setCountriesVisited] = useState<Country[]>([]);
   const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>([]);
   const [draggedItem, setDraggedItem] = useState<TItem | null>(null);
@@ -50,6 +52,13 @@ export default function AccountScreen() {
       flag: `https://flagcdn.com/w40/${country.id.toLowerCase()}.png`, // Generowanie URL flagi
     }));
   }, []);
+  const animateScale = (active: boolean) => {
+    Animated.timing(scaleAnim, {
+      toValue: active ? SCALE_ACTIVE : 1,
+      duration: SCALE_DURATION,
+      useNativeDriver: true,
+    }).start();
+  };
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -114,105 +123,118 @@ export default function AccountScreen() {
   
   
   const handleDrop = (slotId: string, draggedItem: TItem) => {
-    if (!draggedItem) return;
-  
+    if (!draggedItem) {
+      resetDragState();
+      return;
+    }
+
     const draggedCountry = mappedCountries.find(
       (country) => country.name === draggedItem.title
     );
-  
+
     if (!draggedCountry) {
       handleDropOutside();
       return;
     }
-  
+
     const slotIndex = rankingSlots.findIndex((slot) => slot.id === slotId);
     if (slotIndex === -1) {
       handleDropOutside();
       return;
     }
-  
-    if (isDraggingRankedCountry && dragSourceRank !== null) {
-      // Zamiana miejsc w rankingu
-      const updatedSlots = [...rankingSlots];
-      const sourceSlot = updatedSlots[dragSourceRank - 1];
-      const targetSlot = updatedSlots[slotIndex];
-  
-      // Zamień miejsca tylko jeśli różne
-      if (sourceSlot !== targetSlot) {
-        const tempCountry = sourceSlot.country;
-        sourceSlot.country = targetSlot.country;
-        targetSlot.country = tempCountry;
-  
-        setRankingSlots(updatedSlots);
-        handleSaveRanking(updatedSlots);
+
+    // Upewniamy się, że animacja się zakończy przed zmianą stanu
+    Animated.timing(scaleAnim, {
+      toValue: 1,
+      duration: SCALE_DURATION,
+      useNativeDriver: true,
+    }).start(() => {
+      if (isDraggingRankedCountry && dragSourceRank !== null) {
+        const updatedSlots = [...rankingSlots];
+        const sourceSlot = updatedSlots[dragSourceRank - 1];
+        const targetSlot = updatedSlots[slotIndex];
+
+        if (sourceSlot !== targetSlot) {
+          const tempCountry = sourceSlot.country;
+          sourceSlot.country = targetSlot.country;
+          targetSlot.country = tempCountry;
+
+          setRankingSlots(updatedSlots);
+          handleSaveRanking(updatedSlots);
+        }
+      } else {
+        // Dodanie nowego kraju do rankingu
+        const alreadyRanked = rankingSlots.some(
+          (slot) => slot.country?.id === draggedCountry.id
+        );
+
+        if (alreadyRanked) {
+          Alert.alert('Already Ranked', 'This country is already in your ranking.');
+          resetDragState();
+          return;
+        }
+
+        if (!rankingSlots[slotIndex].country) {
+          const updatedSlots = rankingSlots.map((slot) => {
+            if (slot.id === slotId) {
+              return { ...slot, country: draggedCountry };
+            }
+            return slot;
+          });
+
+          setRankingSlots(updatedSlots);
+          handleSaveRanking(updatedSlots);
+
+          setCountriesVisited((prev) =>
+            prev.filter((country) => country.id !== draggedCountry.id)
+          );
+        } else {
+          Alert.alert('Slot Occupied', 'This ranking slot is already occupied.');
+        }
       }
       resetDragState();
-      return;
-    }
-  
-    // Dodanie nowego kraju do rankingu
-    const alreadyRanked = rankingSlots.some(
-      (slot) => slot.country?.id === draggedCountry.id
-    );
-  
-    if (alreadyRanked) {
-      Alert.alert('Already Ranked', 'This country is already in your ranking.');
-      resetDragState();
-      return;
-    }
-  
-    if (!rankingSlots[slotIndex].country) {
-      const updatedSlots = rankingSlots.map((slot) => {
-        if (slot.id === slotId) {
-          return { ...slot, country: draggedCountry };
-        }
-        return slot;
-      });
-  
-      setRankingSlots(updatedSlots);
-      handleSaveRanking(updatedSlots);
-  
-      // Usuń kraj z listy odwiedzonych
-      setCountriesVisited((prev) =>
-        prev.filter((country) => country.id !== draggedCountry.id)
-      );
-      resetDragState();
-    } else {
-      Alert.alert('Slot Occupied', 'This ranking slot is already occupied.');
-      resetDragState();
-    }
+    });
   };
-  
-  
   
 
-  const handleDropOutside = () => {
-    if (isDraggingRankedCountry && dragSourceRank !== null) {
-      // Przywróć kraj do pierwotnego slotu rankingu
-      const updatedSlots = rankingSlots.map((slot) =>
-        slot.rank === dragSourceRank ? { ...slot, country: null } : slot
-      );
-      setRankingSlots(updatedSlots);
-      resetDragState();
-    } else if (draggedItem) {
-      // Przywróć kraj do listy odwiedzonych
-      const countryToReturn = mappedCountries.find(
-        (country) => country.name === draggedItem.title
-      );
+  const handleDropOutside = useCallback(() => {
+    if (isDraggingRankedCountry && dragSourceRank !== null && draggedItem) {
+      const countryToReturn = rankingSlots[dragSourceRank - 1].country;
       if (countryToReturn) {
-        setCountriesVisited((prev) => [...prev, countryToReturn]);
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: SCALE_DURATION,
+          useNativeDriver: true,
+        }).start(() => {
+          const updatedSlots = rankingSlots.map((slot) =>
+            slot.rank === dragSourceRank ? { ...slot, country: null } : slot
+          );
+          setRankingSlots(updatedSlots);
+          handleSaveRanking(updatedSlots);
+          setCountriesVisited((prev) => [...prev, countryToReturn]);
+          resetDragState();
+        });
       }
+    } else {
       resetDragState();
     }
+  }, [isDraggingRankedCountry, dragSourceRank, draggedItem, rankingSlots]);
+
+
+  const handleDragEnd = () => {
+    if (isDraggingOutside) {
+      handleDropOutside();
+    }
+    resetDragState();
   };
-  
-  
+
 
   const resetDragState = () => {
     setDraggedItem(null);
     setIsDraggingRankedCountry(false);
     setDragSourceRank(null);
     setIsDraggingOutside(false);
+    animateScale(false);
   };
 
   const handleDragStart = (item: TItem, rankNumber?: number) => {
@@ -224,21 +246,11 @@ export default function AccountScreen() {
       setIsDraggingRankedCountry(false);
       setDragSourceRank(null);
     }
+    animateScale(true);
   };
 
-  const handleDragEnd = () => {
-    if (isDraggingOutside) {
-      handleDropOutside();
-    } else if (draggedItem) {
-      // Przywróć element na pierwotne miejsce
-      if (isDraggingRankedCountry && dragSourceRank !== null) {
-        // Kraj był przeciągany w rankingu, nic nie rób
-      } else {
-        // Kraj był przeciągany z listy odwiedzonych
-        resetDragState();
-      }
-    }
-  };
+ 
+  
   
   
   const removeRankingSlot = (id: string) => {
@@ -279,6 +291,7 @@ export default function AccountScreen() {
         draggable={!!slot.country}
         dragPayload={item}
         onDragStart={() => item && handleDragStart(item, slot.rank)}
+        onDragEnd={handleDragEnd}
         style={[
           styles.rankingSlot,
           {
@@ -290,7 +303,14 @@ export default function AccountScreen() {
           borderWidth: 2,
         }}
         renderContent={() => (
-          <View style={styles.slotContent}>
+          <Animated.View 
+            style={[
+              styles.slotContent,
+              {
+                transform: [{ scale: isDraggingRankedCountry && dragSourceRank === slot.rank ? scaleAnim : 1 }]
+              }
+            ]}
+          >
             <Text style={[styles.rankNumber, { color: theme.colors.onSurface }]}>
               {slot.rank}.
             </Text>
@@ -312,22 +332,18 @@ export default function AccountScreen() {
                 >
                   <Ionicons name="reorder-three" size={24} color={theme.colors.onSurface} />
                 </TouchableOpacity>
-
-
               </View>
             ) : (
               <Text style={{ color: theme.colors.onSurface, fontStyle: 'italic' }}>
                 Drop Here
               </Text>
             )}
-          </View>
+          </Animated.View>
         )}
         onReceiveDragDrop={(event) => {
           const draggedItem = event.dragged.payload as TItem;
           handleDrop(slot.id, draggedItem);
-          resetDragState(); // Resetuj przeciąganie po każdym upuszczeniu
-        }}        
-        onDragEnd={handleDragEnd}
+        }}
       />
     );
   };
@@ -366,6 +382,11 @@ export default function AccountScreen() {
             } else {
               setIsDraggingOutside(false);
             }
+          }
+        }}
+        onResponderRelease={() => {
+          if (isDraggingOutside) {
+            handleDropOutside();
           }
         }}
       >
