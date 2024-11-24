@@ -9,6 +9,7 @@ import {
   ScrollView,
   Dimensions,
   Animated,
+  LayoutChangeEvent,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ThemeContext } from '../config/ThemeContext';
@@ -39,6 +40,8 @@ export default function AccountScreen() {
   const [isDraggingRankedCountry, setIsDraggingRankedCountry] = useState(false);
   const [dragSourceRank, setDragSourceRank] = useState<number | null>(null);
   const [isDraggingOutside, setIsDraggingOutside] = useState(false);
+  const [rankingStartY, setRankingStartY] = useState<number | null>(null);
+  const [rankingEndY, setRankingEndY] = useState<number | null>(null);
   // Mapowanie danych krajów, aby upewnić się, że spełniają interfejs Country
   const mappedCountries: Country[] = useMemo(() => {
     return countriesData.countries.map((country) => ({
@@ -104,61 +107,40 @@ export default function AccountScreen() {
 
   const addRankingSlot = () => {
     const newRank = rankingSlots.length + 1;
-    const newSlot: RankingSlot = {
-      id: `rank-${newRank}`,
-      rank: newRank,
-      country: null,
-    };
-    setRankingSlots([...rankingSlots, newSlot]);
+    const newSlot = { id: `rank-${newRank}`, rank: newRank, country: null };
+    setRankingSlots((prev) => [...prev, newSlot]);
   };
-
+  
+  
   
   const handleDrop = (slotId: string, draggedItem: TItem) => {
     if (!draggedItem) return;
-
+  
+    const alreadyRanked = rankingSlots.some(
+      (slot) => slot.country?.name === draggedItem.title
+    );
+  
+    const draggedCountry = mappedCountries.find(
+      (country) => country.name === draggedItem.title
+    );
+  
+    if (!draggedCountry) {
+      handleDropOutside();
+      return;
+    }
+  
     const slotIndex = rankingSlots.findIndex((slot) => slot.id === slotId);
     if (slotIndex === -1) {
       handleDropOutside();
       return;
     }
-
-    const draggedCountry = mappedCountries.find(
-      (country: Country) => country.name === draggedItem.title
-    );
-
-    if (!draggedCountry) {
-      handleDropOutside();
-      return;
-    }
-
-    // Handle ranking slot swap
-    if (isDraggingRankedCountry && dragSourceRank !== null) {
-      const updatedSlots = [...rankingSlots];
-      const sourceSlot = updatedSlots[dragSourceRank - 1];
-      const targetSlot = updatedSlots[slotIndex];
-
-      // Swap countries between slots
-      const tempCountry = sourceSlot.country;
-      sourceSlot.country = targetSlot.country;
-      targetSlot.country = tempCountry;
-
-      setRankingSlots(updatedSlots);
-      handleSaveRanking(updatedSlots);
-      resetDragState();
-      return;
-    }
-
-    // Handle new country drop from visited list
-    const alreadyRanked = rankingSlots.some(
-      (slot) => slot.country?.id === draggedCountry.id
-    );
-
+  
     if (alreadyRanked) {
       Alert.alert('Already Ranked', 'This country is already in your ranking.');
       resetDragState();
       return;
     }
-
+  
     if (!rankingSlots[slotIndex].country) {
       const updatedSlots = rankingSlots.map((slot) => {
         if (slot.id === slotId) {
@@ -166,25 +148,44 @@ export default function AccountScreen() {
         }
         return slot;
       });
+  
       setRankingSlots(updatedSlots);
       handleSaveRanking(updatedSlots);
-      setCountriesVisited((prev) => prev.filter((c) => c.id !== draggedCountry.id));
+  
+      // Usuń kraj z listy odwiedzonych
+      setCountriesVisited((prev) =>
+        prev.filter((country) => country.id !== draggedCountry.id)
+      );
       resetDragState();
     } else {
       Alert.alert('Slot Occupied', 'This ranking slot is already occupied.');
       resetDragState();
     }
   };
+  
+  
 
   const handleDropOutside = () => {
     if (isDraggingRankedCountry && dragSourceRank !== null) {
-      // Return ranked country to its original position
+      // Przywróć kraj do pierwotnego slotu rankingu
+      const updatedSlots = rankingSlots.map((slot) =>
+        slot.rank === dragSourceRank ? { ...slot, country: null } : slot
+      );
+      setRankingSlots(updatedSlots);
       resetDragState();
     } else if (draggedItem) {
-      // Return visited country to the list
+      // Przywróć kraj do listy odwiedzonych
+      const countryToReturn = mappedCountries.find(
+        (country) => country.name === draggedItem.title
+      );
+      if (countryToReturn) {
+        setCountriesVisited((prev) => [...prev, countryToReturn]);
+      }
       resetDragState();
     }
   };
+  
+  
 
   const resetDragState = () => {
     setDraggedItem(null);
@@ -208,8 +209,9 @@ export default function AccountScreen() {
     if (isDraggingOutside) {
       handleDropOutside();
     }
+    resetDragState();
   };
-
+  
   const removeRankingSlot = (id: string) => {
     const slotToRemove = rankingSlots.find((slot) => slot.id === id);
     if (slotToRemove && slotToRemove.country) {
@@ -226,6 +228,12 @@ export default function AccountScreen() {
     }
   };
 
+  const handleRankingLayout = (event: LayoutChangeEvent) => {
+    const { y, height } = event.nativeEvent.layout;
+    setRankingStartY(y);
+    setRankingEndY(y + height);
+  };
+  
   const renderRankingSlot = (slot: RankingSlot) => {
     const item: TItem | null = slot.country
       ? {
@@ -269,9 +277,13 @@ export default function AccountScreen() {
                 >
                   <Ionicons name="close-circle" size={20} color="red" />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.dragHandle}>
+                <TouchableOpacity
+                  style={styles.dragHandle}
+                  onLongPress={() => item && handleDragStart(item, slot.rank)}
+                >
                   <Ionicons name="reorder-three" size={24} color={theme.colors.onSurface} />
                 </TouchableOpacity>
+
               </View>
             ) : (
               <Text style={{ color: theme.colors.onSurface, fontStyle: 'italic' }}>
@@ -283,20 +295,26 @@ export default function AccountScreen() {
         onReceiveDragDrop={(event) => {
           const draggedItem = event.dragged.payload as TItem;
           handleDrop(slot.id, draggedItem);
-        }}
+          resetDragState(); // Resetuj przeciąganie po każdym upuszczeniu
+        }}        
         onDragEnd={handleDragEnd}
       />
     );
   };
 
   const renderVisitedCountry = (country: Country, index: number) => {
+    // Sprawdź, czy kraj jest już w rankingu
+    const isRanked = rankingSlots.some((slot) => slot.country?.id === country.id);
+  
+    if (isRanked) return null; // Nie renderuj kraju, jeśli jest już w rankingu
+  
     const item: TItem = {
       id: `${country.id}-${index}`,
       title: country.name,
       singer: '',
       imageSrc: country.cca2,
     };
-
+  
     return (
       <ListItem
         key={`${country.id}-${index}`}
@@ -306,7 +324,7 @@ export default function AccountScreen() {
       />
     );
   };
-
+  
   return (
     <DraxProvider>
       <View 
@@ -314,8 +332,14 @@ export default function AccountScreen() {
         onStartShouldSetResponder={() => true}
         onMoveShouldSetResponder={() => true}
         onResponderMove={(event) => {
-          // Check if drag is outside ranking area
-          setIsDraggingOutside(true);
+          if (rankingStartY !== null && rankingEndY !== null) {
+            const { pageY } = event.nativeEvent;
+            if (pageY < rankingStartY || pageY > rankingEndY) {
+              setIsDraggingOutside(true);
+            } else {
+              setIsDraggingOutside(false);
+            }
+          }
         }}
       >
 
@@ -364,7 +388,7 @@ export default function AccountScreen() {
           </DraxView>
         </View>
 
-        <View style={styles.rankingContainer}>
+        <View style={styles.rankingContainer} onLayout={handleRankingLayout}>
           <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
             Ranking
           </Text>
