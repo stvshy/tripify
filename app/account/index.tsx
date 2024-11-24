@@ -44,6 +44,7 @@ export default function AccountScreen() {
   const [isDraggingOutside, setIsDraggingOutside] = useState(false);
   const [rankingStartY, setRankingStartY] = useState<number | null>(null);
   const [rankingEndY, setRankingEndY] = useState<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   // Mapowanie danych krajów, aby upewnić się, że spełniają interfejs Country
   const mappedCountries: Country[] = useMemo(() => {
     return countriesData.countries.map((country) => ({
@@ -114,12 +115,30 @@ export default function AccountScreen() {
     }
   };
 
-  const addRankingSlot = () => {
+  const addRankingSlot = useCallback(async () => {
     const newRank = rankingSlots.length + 1;
-    const newSlot = { id: `rank-${newRank}`, rank: newRank, country: null };
-    setRankingSlots((prev) => [...prev, newSlot]);
-  };
-  
+    const newSlot: RankingSlot = {
+      id: `rank-${newRank}`,
+      rank: newRank,
+      country: null
+    };
+    
+    const updatedSlots = [...rankingSlots, newSlot];
+    setRankingSlots(updatedSlots);
+    
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      try {
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        await updateDoc(userDocRef, {
+          ranking: updatedSlots.map(slot => slot.country?.cca2 || null)
+        });
+      } catch (error) {
+        console.error('Error adding ranking slot:', error);
+        Alert.alert('Error', 'Failed to add new ranking slot');
+      }
+    }
+  }, [rankingSlots]);
   
   
   const handleDrop = (slotId: string, draggedItem: TItem) => {
@@ -196,30 +215,24 @@ export default function AccountScreen() {
     });
   };
   
-
   const handleDropOutside = useCallback(() => {
-    if (isDraggingRankedCountry && dragSourceRank !== null && draggedItem) {
-      const countryToReturn = rankingSlots[dragSourceRank - 1].country;
-      if (countryToReturn) {
-        Animated.timing(scaleAnim, {
-          toValue: 1,
-          duration: SCALE_DURATION,
-          useNativeDriver: true,
-        }).start(() => {
-          const updatedSlots = rankingSlots.map((slot) =>
-            slot.rank === dragSourceRank ? { ...slot, country: null } : slot
-          );
-          setRankingSlots(updatedSlots);
-          handleSaveRanking(updatedSlots);
-          setCountriesVisited((prev) => [...prev, countryToReturn]);
-          resetDragState();
+    if (isDraggingRankedCountry && dragSourceRank !== null) {
+      const countryToRemove = rankingSlots[dragSourceRank - 1].country;
+      if (countryToRemove) {
+        const updatedSlots = rankingSlots.map(slot => {
+          if (slot.rank === dragSourceRank) {
+            return { ...slot, country: null };
+          }
+          return slot;
         });
+        setRankingSlots(updatedSlots);
+        handleSaveRanking(updatedSlots);
+        
+        setCountriesVisited(prev => [...prev, countryToRemove]);
       }
-    } else {
-      resetDragState();
     }
-  }, [isDraggingRankedCountry, dragSourceRank, draggedItem, rankingSlots]);
-
+    resetDragState();
+  }, [isDraggingRankedCountry, dragSourceRank, rankingSlots]);
 
   const handleDragEnd = () => {
     if (isDraggingOutside) {
@@ -228,17 +241,18 @@ export default function AccountScreen() {
     resetDragState();
   };
 
-
-  const resetDragState = () => {
+  const resetDragState = useCallback(() => {
     setDraggedItem(null);
+    setIsDragging(false);
     setIsDraggingRankedCountry(false);
     setDragSourceRank(null);
     setIsDraggingOutside(false);
     animateScale(false);
-  };
+  }, []);
 
   const handleDragStart = (item: TItem, rankNumber?: number) => {
     setDraggedItem(item);
+    setIsDragging(true);
     if (rankNumber) {
       setIsDraggingRankedCountry(true);
       setDragSourceRank(rankNumber);
@@ -248,8 +262,6 @@ export default function AccountScreen() {
     }
     animateScale(true);
   };
-
- 
   
   
   
@@ -372,25 +384,21 @@ export default function AccountScreen() {
     <DraxProvider>
       <View 
         style={[styles.container, { backgroundColor: theme.colors.background }]}
-        onStartShouldSetResponder={() => true}
-        onMoveShouldSetResponder={() => true}
+        onStartShouldSetResponder={() => isDragging}
+        onMoveShouldSetResponder={() => isDragging}
         onResponderMove={(event) => {
-          if (rankingStartY !== null && rankingEndY !== null) {
+          if (isDragging && rankingStartY !== null && rankingEndY !== null) {
             const { pageY } = event.nativeEvent;
-            if (pageY < rankingStartY || pageY > rankingEndY) {
-              setIsDraggingOutside(true);
-            } else {
-              setIsDraggingOutside(false);
-            }
+            setIsDraggingOutside(pageY < rankingStartY || pageY > rankingEndY);
           }
         }}
         onResponderRelease={() => {
           if (isDraggingOutside) {
             handleDropOutside();
           }
+          resetDragState();
         }}
       >
-
         <View style={styles.visitedContainer}>
           <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
             Visited Countries
@@ -443,11 +451,17 @@ export default function AccountScreen() {
           <View style={styles.rankingList}>
             {rankingSlots.map((slot) => renderRankingSlot(slot))}
           </View>
-          <TouchableOpacity style={styles.addButton} onPress={addRankingSlot}>
-            <Text style={styles.addButtonText}>Add More Slots</Text>
+          <TouchableOpacity 
+            style={[styles.addButton, { backgroundColor: theme.colors.primary }]} 
+            onPress={addRankingSlot}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.addButtonText, { color: theme.colors.onPrimary }]}>
+              Add More Slots
+            </Text>
           </TouchableOpacity>
         </View>
-
+        
         <TouchableOpacity
           onPress={handleGoBack}
           style={[styles.button, { backgroundColor: theme.colors.primary }]}
@@ -542,19 +556,13 @@ const styles = StyleSheet.create({
   },
   addButton: {
     marginTop: 10,
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 20,
-    backgroundColor: '#4CAF50',
     borderRadius: 6,
-    alignSelf: 'flex-start',
-    elevation: 2, // For Android shadow
-    shadowColor: '#000', // For iOS shadow
-    shadowOffset: { width: 0, height: 2 }, // For iOS shadow
-    shadowOpacity: 0.2, // For iOS shadow
-    shadowRadius: 4, // For iOS shadow
+    alignSelf: 'center', // Wyśrodkowanie
+    elevation: 3,
   },
   addButtonText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },

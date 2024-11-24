@@ -21,7 +21,9 @@ export type TListItemProps = {
 
 export const ListItem: React.FC<TListItemProps> = ({ item, onDrag, isRanking, onLongPress }) => {
   return (
-    <TouchableWithoutFeedback onLongPress={() => onLongPress && onLongPress(item)}>
+    <TouchableWithoutFeedback
+    onLongPress={() => onLongPress ? onLongPress(item) : onDrag(item)} // Fallback na onDrag
+  >
       <DraxView
         style={styles.itemContainer}
         draggingStyle={styles.dragging}
@@ -91,6 +93,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dragging: {
-    opacity: 0.2,
+    opacity: 0.5,
+    transform: [{ scale: 1.1 }],
   },
 });
