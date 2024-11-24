@@ -1,3 +1,4 @@
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DefaultTheme } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
@@ -6,14 +7,14 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { auth, db } from './config/firebaseConfig';
-import { View, StyleSheet, ImageBackground, Image, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ImageBackground, Image, ActivityIndicator, AppRegistry } from 'react-native';
 import { doc, getDoc } from 'firebase/firestore';
 import LoadingScreen from '@/components/LoadingScreen';
 import { ThemeProvider } from './config/ThemeContext';
 import * as Font from 'expo-font';
 
-SplashScreen.preventAutoHideAsync();
 
+SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [fontsLoaded, error] = useFonts({
@@ -81,11 +82,14 @@ if (!appIsReady || !initialRouteName) {
 }
 
 return (
+<GestureHandlerRootView style={{ flex: 1 }}>
   <ThemeProvider>
     <Stack initialRouteName={initialRouteName} screenOptions={{ headerShown: false }}>
       {/* Twoje Stack Screens */}
     </Stack>
   </ThemeProvider>
+</GestureHandlerRootView>
+
 );
 }
 

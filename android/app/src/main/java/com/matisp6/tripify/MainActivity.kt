@@ -2,16 +2,14 @@ package com.matisp6.tripify
 
 import android.os.Build
 import android.os.Bundle
-import android.content.Intent // Dodaj ten import
+import android.content.Intent
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
-import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
 import com.facebook.react.defaults.DefaultReactActivityDelegate
 import com.facebook.FacebookSdk
 import com.facebook.appevents.AppEventsLogger
 import expo.modules.ReactActivityDelegateWrapper
-import com.swmansion.reanimated.ReanimatedJSIModulePackage // Dodaj ten import
-import com.facebook.react.bridge.JSIModulePackage // Dodaj ten import
+import com.swmansion.gesturehandler.react.RNGestureHandlerEnabledRootView // Importuj RNGestureHandlerEnabledRootView
 
 class MainActivity : ReactActivity() {
 
@@ -27,7 +25,7 @@ class MainActivity : ReactActivity() {
 
         // Inicjalizuj Facebook SDK i aktywuj AppEventsLogger z kontekstem aplikacji
         FacebookSdk.sdkInitialize(applicationContext)
-        AppEventsLogger.activateApp(applicationContext) // Aktywacja AppEventsLogger
+        AppEventsLogger.activateApp(applicationContext)
     }
 
     /**
@@ -56,8 +54,12 @@ class MainActivity : ReactActivity() {
                 mainComponentName,
                 fabricEnabled
             ) {
+                override fun getRootView(): RNGestureHandlerEnabledRootView {
+                    return RNGestureHandlerEnabledRootView(this@MainActivity)
+                }
+
                 override fun getJSIModulePackage(): JSIModulePackage? {
-                    return ReanimatedJSIModulePackage() // Dodaj ten override
+                    return ReanimatedJSIModulePackage()
                 }
             }
         )
