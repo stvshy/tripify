@@ -54,6 +54,7 @@
     "react-native-color-matrix-image-filters": "^7.0.1",
     "react-native-country-flag": "^2.0.2",
     "react-native-draggable-flatlist": "^4.0.1",
+    "react-native-drax": "^0.10.3",
     "react-native-fbsdk-next": "^11.3.0",
     "react-native-gesture-handler": "~2.16.1",
     "react-native-keyboard-aware-scroll-view": "^0.9.5",

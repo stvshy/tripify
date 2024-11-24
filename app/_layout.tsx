@@ -12,6 +12,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import LoadingScreen from '@/components/LoadingScreen';
 import { ThemeProvider } from './config/ThemeContext';
 import * as Font from 'expo-font';
+import { DraxProvider } from 'react-native-drax';
 
 
 SplashScreen.preventAutoHideAsync();
@@ -83,11 +84,13 @@ if (!appIsReady || !initialRouteName) {
 
 return (
 <GestureHandlerRootView style={{ flex: 1 }}>
-  <ThemeProvider>
-    <Stack initialRouteName={initialRouteName} screenOptions={{ headerShown: false }}>
-      {/* Twoje Stack Screens */}
-    </Stack>
-  </ThemeProvider>
+  <DraxProvider> 
+    <ThemeProvider>
+      <Stack initialRouteName={initialRouteName} screenOptions={{ headerShown: false }}>
+        {/* Twoje Stack Screens */}
+      </Stack>
+    </ThemeProvider>
+  </DraxProvider> 
 </GestureHandlerRootView>
 
 );
