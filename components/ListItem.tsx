@@ -1,22 +1,24 @@
 // ListItem.tsx
 import React from 'react';
-import { Image, Text, View, StyleSheet, Dimensions } from 'react-native';
+import { Text, View, StyleSheet, Dimensions } from 'react-native';
 import { DraxView } from 'react-native-drax';
 import { Ionicons } from '@expo/vector-icons';
+import CountryFlag from 'react-native-country-flag';
 
 export type TItem = {
   id: string;
-  title: string;
-  singer: string;
-  imageSrc: string;
+  title: string; // Full country name
+  singer: string; // Not needed for countries
+  imageSrc: string; // Flag code (e.g., 'US')
 };
 
 export type TListItemProps = {
   item: TItem;
   onDrag: (item: TItem) => void;
+  isRanking: boolean; // Indicates if the item is in ranking
 };
 
-export const ListItem: React.FC<TListItemProps> = ({ item, onDrag }) => {
+export const ListItem: React.FC<TListItemProps> = ({ item, onDrag, isRanking }) => {
   return (
     <DraxView
       style={styles.itemContainer}
@@ -24,28 +26,19 @@ export const ListItem: React.FC<TListItemProps> = ({ item, onDrag }) => {
       dragPayload={item}
       longPressDelay={150}
       onDragStart={() => onDrag(item)}
-      onDragEnd={() => {}}
       renderContent={() => (
         <View style={styles.innerContainer}>
-          <View style={styles.imageContainer}>
-            {item.imageSrc ? (
-              <Image
-                source={{ uri: item.imageSrc }}
-                style={styles.image}
-                resizeMode="cover"
-              />
-            ) : (
-              <Ionicons name="flag" size={40} color="#fff" />
-            )}
+          <View style={styles.flagContainer}>
+            <CountryFlag isoCode={item.imageSrc} size={25} />
           </View>
           <View style={styles.descriptionContainer}>
             <Text style={styles.description1}>{item.title}</Text>
-            {/* If singer is not needed, you can remove this line */}
-            {/* <Text style={styles.description2}>{item.singer}</Text> */}
           </View>
-          <View style={styles.draggerContainer}>
-            <Ionicons name="reorder-three" size={24} color="#FFFFFF" />
-          </View>
+          {isRanking && (
+            <View style={styles.draggerContainer}>
+              <Ionicons name="reorder-three" size={24} color="#000" />
+            </View>
+          )}
         </View>
       )}
     />
@@ -53,20 +46,20 @@ export const ListItem: React.FC<TListItemProps> = ({ item, onDrag }) => {
 };
 
 const ITEM_WIDTH = Dimensions.get('window').width * 0.6;
-const ITEM_HEIGHT = 80;
+const ITEM_HEIGHT = 60;
 
 const styles = StyleSheet.create({
   itemContainer: {
     width: ITEM_WIDTH,
     height: ITEM_HEIGHT,
     marginRight: 10,
-    backgroundColor: '#1C1C1C',
-    borderRadius: 8,
+    backgroundColor: '#fff',
+    borderRadius: 12,
     overflow: 'hidden',
     elevation: 2, // For Android shadow
     shadowColor: '#000', // For iOS shadow
     shadowOffset: { width: 0, height: 2 }, // For iOS shadow
-    shadowOpacity: 0.2, // For iOS shadow
+    shadowOpacity: 0.1, // For iOS shadow
     shadowRadius: 4, // For iOS shadow
   },
   innerContainer: {
@@ -75,32 +68,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 10,
   },
-  imageContainer: {
-    width: '25%',
+  flagContainer: {
+    width: '20%',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#333',
-    borderRadius: 6,
-    padding: 5,
-  },
-  image: {
-    width: 40,
-    height: 40,
-    borderRadius: 6,
   },
   descriptionContainer: {
-    width: '55%',
+    width: '60%',
     justifyContent: 'center',
-    paddingLeft: 10,
   },
   description1: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  description2: {
-    color: '#808080',
-    fontSize: 12,
+    color: '#000',
   },
   draggerContainer: {
     width: '20%',
