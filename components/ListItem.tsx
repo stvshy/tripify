@@ -1,6 +1,6 @@
 // ListItem.tsx
 import React from 'react';
-import { Text, View, StyleSheet, Dimensions } from 'react-native';
+import { Text, View, StyleSheet, Dimensions, TouchableWithoutFeedback } from 'react-native';
 import { DraxView } from 'react-native-drax';
 import { Ionicons } from '@expo/vector-icons';
 import CountryFlag from 'react-native-country-flag';
@@ -16,34 +16,37 @@ export type TListItemProps = {
   item: TItem;
   onDrag: (item: TItem) => void;
   isRanking: boolean; // Indicates if the item is in ranking
+  onLongPress?: (item: TItem) => void; // Dodanie właściwości onLongPress
 };
 
-export const ListItem: React.FC<TListItemProps> = ({ item, onDrag, isRanking }) => {
+export const ListItem: React.FC<TListItemProps> = ({ item, onDrag, isRanking, onLongPress }) => {
   return (
-    <DraxView
-      style={styles.itemContainer}
-      draggingStyle={styles.dragging}
-      dragPayload={item}
-      longPressDelay={150}
-      onDragStart={() => onDrag(item)}
-      renderContent={() => (
-        <View style={styles.innerContainer}>
-          <View style={styles.flagContainer}>
-            <CountryFlag isoCode={item.imageSrc} size={25} />
-          </View>
-          <View style={styles.descriptionContainer}>
-            <Text style={styles.description1}>{item.title}</Text>
-          </View>
-          {isRanking && (
-            <View style={styles.draggerContainer}>
-              <Ionicons name="reorder-three" size={24} color="#000" />
+    <TouchableWithoutFeedback onLongPress={() => onLongPress && onLongPress(item)}>
+      <DraxView
+        style={styles.itemContainer}
+        draggingStyle={styles.dragging}
+        dragPayload={item}
+        onDragStart={() => onDrag(item)}
+        renderContent={() => (
+          <View style={styles.innerContainer}>
+            <View style={styles.flagContainer}>
+              <CountryFlag isoCode={item.imageSrc} size={25} />
             </View>
-          )}
-        </View>
-      )}
-    />
+            <View style={styles.descriptionContainer}>
+              <Text style={styles.description1}>{item.title}</Text>
+            </View>
+            {isRanking && (
+              <View style={styles.draggerContainer}>
+                <Ionicons name="reorder-three" size={24} color="#000" />
+              </View>
+            )}
+          </View>
+        )}
+      />
+    </TouchableWithoutFeedback>
   );
 };
+
 
 const ITEM_WIDTH = Dimensions.get('window').width * 0.6;
 const ITEM_HEIGHT = 60;
