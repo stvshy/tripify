@@ -8,6 +8,7 @@ import {
   Alert,
   Dimensions,
   Animated,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ThemeContext } from '../config/ThemeContext';
@@ -33,6 +34,9 @@ const removeDuplicates = (countries: Country[]): Country[] => {
   });
   return Array.from(unique.values());
 };
+
+// Funkcja generująca unikalne id
+const generateUniqueId = () => `rank-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 export default function AccountScreen() {
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
@@ -77,24 +81,16 @@ export default function AccountScreen() {
           const uniqueVisitedCountries = removeDuplicates(visitedCountries);
           setCountriesVisited(uniqueVisitedCountries);
 
-          // Utwórz initialSlots z prefiksem dla id
-          const initialSlots: RankingSlot[] = rankingData.slice(0, 3).map((cca2, index) => {
+          // Utwórz initialSlots z unikalnym id
+          const initialSlots: RankingSlot[] = rankingData.map((cca2, index) => {
             const country = mappedCountries.find((c: Country) => c.cca2 === cca2) || null;
             return {
-              id: `rank-${index + 1}`, // Prefiks zapewniający unikalność
+              id: generateUniqueId(), // Użyj unikalnego id
               rank: index + 1,
               country: country,
             };
           });
 
-          // Dodanie pustych slotów, jeśli jest mniej niż 3
-          for (let i = rankingData.length; i < 3; i++) {
-            initialSlots.push({
-              id: `rank-${i + 1}`,
-              rank: i + 1,
-              country: null,
-            });
-          }
           setRankingSlots(initialSlots);
         }
       }
@@ -123,35 +119,13 @@ export default function AccountScreen() {
     }
   };
 
-  const addRankingSlot = useCallback(async () => {
-    const newRank = rankingSlots.length + 1;
-    const newSlot: RankingSlot = {
-      id: `rank-${newRank}`,
-      rank: newRank,
-      country: null
-    };
-    
-    const updatedSlots = [...rankingSlots, newSlot];
-    setRankingSlots(updatedSlots);
-    
-    const currentUser = auth.currentUser;
-    if (currentUser) {
-      try {
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        await updateDoc(userDocRef, {
-          ranking: updatedSlots.map(slot => slot.country?.cca2 || null)
-        });
-      } catch (error) {
-        console.error('Error adding ranking slot:', error);
-        Alert.alert('Error', 'Failed to add new ranking slot');
-      }
-    }
-  }, [rankingSlots]);
-
-  // Poprawiona definicja handleDragEnd
   const handleDragEnd = ({ data }: DragEndParams<RankingSlot>) => {
-    setRankingSlots(data);
-    handleSaveRanking(data);
+    const updatedSlots = data.map((item, index) => ({
+      ...item,
+      rank: index + 1,
+    }));
+    setRankingSlots(updatedSlots);
+    handleSaveRanking(updatedSlots);
   };
 
   const handleRemoveFromRanking = (index: number) => {
@@ -165,9 +139,11 @@ export default function AccountScreen() {
         return prev;
       });
       const updatedSlots = [...rankingSlots];
-      updatedSlots[index].country = null;
-      setRankingSlots(updatedSlots);
-      handleSaveRanking(updatedSlots);
+      updatedSlots.splice(index, 1); // Usunięcie slotu
+      // Zaktualizuj rangi
+      const reRankedSlots = updatedSlots.map((item, idx) => ({ ...item, rank: idx + 1 }));
+      setRankingSlots(reRankedSlots);
+      handleSaveRanking(reRankedSlots);
     }
   };
 
@@ -221,36 +197,23 @@ export default function AccountScreen() {
   };
 
   const handleAddToRanking = (country: Country) => {
-    // Znajdź pierwszą pustą pozycję w rankingu
-    const emptyIndex = rankingSlots.findIndex(slot => slot.country === null);
-    if (emptyIndex !== -1) {
-      const updatedSlots = [...rankingSlots];
-      updatedSlots[emptyIndex].country = country;
-      setRankingSlots(updatedSlots);
-      handleSaveRanking(updatedSlots);
-      // Usuń kraj z listy "Visited Countries" i upewnij się, że nie ma duplikatów
-      setCountriesVisited(prev => removeDuplicates(prev.filter(c => c.id !== country.id)));
-    } else {
-      Alert.alert('No Empty Slot', 'There are no empty ranking slots.');
+    // Opcjonalnie: Zapobiegaj dodawaniu tego samego kraju więcej niż raz
+    if (rankingSlots.some(slot => slot.country?.cca2 === country.cca2)) {
+      Alert.alert('Duplicate Entry', `${country.name} is already in the ranking.`);
+      return;
     }
-  };
 
-  const handleVisitedCountryPress = (country: Country) => {
-    Alert.alert(
-      'Add to Ranking',
-      `Czy chcesz dodać ${country.name} do rankingu?`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Add',
-          onPress: () => handleAddToRanking(country),
-        },
-      ],
-      { cancelable: true }
-    );
+    const newSlot: RankingSlot = {
+      id: generateUniqueId(), // Użyj unikalnego id
+      rank: rankingSlots.length + 1,
+      country: country,
+    };
+
+    const updatedSlots = [...rankingSlots, newSlot];
+    setRankingSlots(updatedSlots);
+    handleSaveRanking(updatedSlots);
+    // Usuń kraj z listy "Visited Countries" i upewnij się, że nie ma duplikatów
+    setCountriesVisited(prev => removeDuplicates(prev.filter(c => c.id !== country.id)));
   };
 
   return (
@@ -262,28 +225,22 @@ export default function AccountScreen() {
         <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
           Visited Countries
         </Text>
-        <DraggableFlatList
-          data={countriesVisited}
-          keyExtractor={(item) => `visited-${item.id}`} // Dodanie prefiksu
-          renderItem={({ item, getIndex, drag, isActive }) => (
-            <TouchableOpacity
-              onLongPress={drag}
-              style={[
-                styles.visitedItem,
-                { backgroundColor: isActive ? theme.colors.primary : '#fff' },
-              ]}
-              onPress={() => handleVisitedCountryPress(item)}
-            >
-              <CountryFlag isoCode={item.cca2} size={20} style={styles.flag} />
-              <Text style={[styles.description1, { color: theme.colors.onSurface, marginLeft: 10 }]}>
-                {item.name}
+        <ScrollView contentContainerStyle={styles.visitedScrollContainer}>
+          {countriesVisited.map((country) => (
+            <View key={`visited-${country.id}`} style={styles.visitedItemContainer}>
+              <CountryFlag isoCode={country.cca2} size={20} style={styles.flag} />
+              <Text style={[styles.visitedItemText, { color: theme.colors.onSurface, marginLeft: 10 }]}>
+                {country.name}
               </Text>
-            </TouchableOpacity>
-          )}
-          onDragEnd={({ data }) => setCountriesVisited(removeDuplicates(data))}
-          activationDistance={20}
-          scrollEnabled={false} // Wyłącz przewijanie w tej liście
-        />
+              <TouchableOpacity
+                onPress={() => handleAddToRanking(country)}
+                style={styles.addButtonIcon}
+              >
+                <Ionicons name="add-circle" size={24} color="green" />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </ScrollView>
       </View>
 
       {/* Ranking */}
@@ -293,22 +250,13 @@ export default function AccountScreen() {
         </Text>
         <DraggableFlatList
           data={rankingSlots}
-          keyExtractor={(item) => `rank-${item.rank}`} // Dodanie prefiksu
+          keyExtractor={(item) => item.id} // Użyj unikalnego id
           renderItem={renderRankingItem}
           onDragEnd={handleDragEnd}
           activationDistance={20}
           scrollEnabled={true}
           showsVerticalScrollIndicator={true} // Zawsze widoczny pasek przewijania
         />
-        <TouchableOpacity 
-          style={[styles.addButton, { backgroundColor: theme.colors.primary }]} 
-          onPress={addRankingSlot}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.addButtonText, { color: theme.colors.onPrimary }]}>
-            Add More Slots
-          </Text>
-        </TouchableOpacity>
       </View>
       
       {/* Go Back Button */}
@@ -338,6 +286,32 @@ const styles = StyleSheet.create({
   visitedContainer: {
     marginBottom: 30,
   },
+  visitedScrollContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
+  },
+  visitedItemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    margin: 5,
+    borderRadius: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  visitedItemText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  addButtonIcon: {
+    marginLeft: 10,
+  },
   rankingContainer: {
     marginBottom: 30,
     flex: 1, // Pozwól na rozciąganie
@@ -347,7 +321,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     borderRadius: 12,
     borderWidth: 1,
-    height: 70,
+    // height: 70, // Usunięcie stałej wysokości
     justifyContent: 'center',
     backgroundColor: '#fff',
     elevation: 3,
@@ -409,21 +383,6 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 18,
     fontWeight: '600',
-  },
-  visitedItem: {
-    paddingHorizontal: 8,
-    paddingVertical: 10,
-    marginVertical: 5,
-    marginHorizontal: 5,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
   },
   description1: { // Dodana właściwość
     fontSize: 12,
