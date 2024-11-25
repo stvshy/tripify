@@ -36,8 +36,8 @@ export default function AccountScreen() {
   const router = useRouter();
   const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>([]);
   const [activeRankingItemId, setActiveRankingItemId] = useState<string | null>(null);
-  const [userName, setUserName] = useState<string>('John Doe');
-  const [userEmail, setUserEmail] = useState<string>('user@example.com');
+  const [userName, setUserName] = useState<string>('Error: No nickname');
+  const [userEmail, setUserEmail] = useState<string>('user@error.com');
 
   const { width, height } = Dimensions.get('window');
 
@@ -171,12 +171,13 @@ export default function AccountScreen() {
                 onRemove={handleRemoveFromRanking}
                 activeRankingItemId={activeRankingItemId}
                 setActiveRankingItemId={setActiveRankingItemId}
+                
               />
               ))}
             </ScrollView>
             </View>
         ) : (
-          <View style={styles.noRankingContainer}>
+          <View style={[styles.noRankingContainer, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
             <Text style={[styles.noRankingText, { color: theme.colors.onBackground }]}>
               You haven't created a ranking yet.
             </Text>
@@ -262,10 +263,17 @@ const styles = StyleSheet.create({
   },
   noRankingContainer: {
     alignItems: 'center',
+    // marginBottom: 20,
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
     marginBottom: 20,
+    padding: 10,
+    paddingBottom: 20,
+    paddingTop: 20,
+    
   },
   noRankingText: {
-    fontSize: 16,
+    fontSize: 14,
     fontStyle: 'italic',
   },
   actionButtonsContainer: {
