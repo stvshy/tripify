@@ -9,8 +9,6 @@ import {
   ScrollView,
   Dimensions,
   Animated,
-  LayoutChangeEvent,
-  FlatList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ThemeContext } from '../config/ThemeContext';
@@ -22,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ListItem, TItem } from '../../components/ListItem';
 import countriesData from '../../assets/maps/countries.json';
 import CountryFlag from 'react-native-country-flag';
-import { Country, CountriesData } from '../../.expo/types/country';
+import { Country } from '../../.expo/types/country';
 
 interface RankingSlot {
   id: string;
@@ -40,12 +38,9 @@ export default function AccountScreen() {
   const [countriesVisited, setCountriesVisited] = useState<Country[]>([]);
   const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>([]);
   const [draggedItem, setDraggedItem] = useState<TItem | null>(null);
-  const [isDraggingRankedCountry, setIsDraggingRankedCountry] = useState(false);
-  const [dragSourceRank, setDragSourceRank] = useState<number | null>(null);
-  const [isDraggingOutside, setIsDraggingOutside] = useState(false);
-  const [rankingStartY, setRankingStartY] = useState<number | null>(null);
-  const [rankingEndY, setRankingEndY] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+
+  const { width, height } = Dimensions.get('window');
 
   const mappedCountries: Country[] = useMemo(() => {
     return countriesData.countries.map((country) => ({
@@ -72,12 +67,16 @@ export default function AccountScreen() {
         if (userDoc.exists()) {
           const userData = userDoc.data();
           const visitedCountryCodes: string[] = userData.countriesVisited || [];
-          const visitedCountries: Country[] = mappedCountries.filter((country: Country) =>
-            visitedCountryCodes.includes(country.cca2)
+          const rankingData: string[] = userData.ranking || [];
+
+          // Filtruj visited countries, aby wykluczyć te już w rankingu
+          const visitedCountries: Country[] = mappedCountries.filter(
+            (country: Country) =>
+              visitedCountryCodes.includes(country.cca2) &&
+              !rankingData.includes(country.cca2)
           );
           setCountriesVisited(visitedCountries);
 
-          const rankingData: string[] = userData.ranking || [];
           const initialSlots: RankingSlot[] = rankingData.slice(0, 3).map((cca2, index) => {
             const country = mappedCountries.find((c: Country) => c.cca2 === cca2) || null;
             return {
@@ -86,6 +85,7 @@ export default function AccountScreen() {
               country: country,
             };
           });
+          // Dodanie pustych slotów, jeśli jest mniej niż 3
           for (let i = rankingData.length; i < 3; i++) {
             initialSlots.push({
               id: `rank-${i + 1}`,
@@ -142,14 +142,14 @@ export default function AccountScreen() {
   }, [rankingSlots]);
   
   
-  const handleDrop = (slotId: string, draggedItem: TItem) => {
+  const handleDrop = (dropZone: 'Visited' | 'Ranking', draggedItem: TItem) => {
     if (!draggedItem) {
       resetDragState();
       return;
     }
 
     const draggedCountry = mappedCountries.find(
-      (country) => country.name === draggedItem.title
+      (country) => country.cca2 === draggedItem.imageSrc
     );
 
     if (!draggedCountry) {
@@ -157,131 +157,106 @@ export default function AccountScreen() {
       return;
     }
 
-    const slotIndex = rankingSlots.findIndex((slot) => slot.id === slotId);
-    if (slotIndex === -1) {
-      handleDropOutside();
-      return;
+    if (dropZone === 'Ranking') {
+      // Check if already ranked
+      const alreadyRanked = rankingSlots.some(
+        (slot) => slot.country?.id === draggedCountry.id
+      );
+
+      if (alreadyRanked) {
+        Alert.alert('Already Ranked', 'This country is already in your ranking.');
+        resetDragState();
+        return;
+      }
+
+      // Find first empty slot
+      const emptySlotIndex = rankingSlots.findIndex((slot) => slot.country === null);
+      if (emptySlotIndex !== -1) {
+        const updatedSlots = rankingSlots.map((slot, index) => {
+          if (index === emptySlotIndex) {
+            return { ...slot, country: draggedCountry };
+          }
+          return slot;
+        });
+
+        setRankingSlots(updatedSlots);
+        handleSaveRanking(updatedSlots);
+
+        // Remove from visited
+        setCountriesVisited(prev => prev.filter(country => country.id !== draggedCountry.id));
+      } else {
+        Alert.alert('No Empty Slot', 'There are no empty ranking slots.');
+      }
+    } else if (dropZone === 'Visited') {
+      // Check if already in visited
+      const alreadyVisited = countriesVisited.some(
+        (country) => country.id === draggedCountry.id
+      );
+
+      if (!alreadyVisited) {
+        setCountriesVisited(prev => [...prev, draggedCountry]);
+      }
+
+      // Remove from ranking slots
+      const updatedSlots = rankingSlots.map(slot => {
+        if (slot.country?.id === draggedCountry.id) {
+          return { ...slot, country: null };
+        }
+        return slot;
+      });
+
+      setRankingSlots(updatedSlots);
+      handleSaveRanking(updatedSlots);
     }
 
-    Animated.timing(scaleAnim, {
-      toValue: 1,
-      duration: SCALE_DURATION,
-      useNativeDriver: true,
-    }).start(() => {
-      if (isDraggingRankedCountry && dragSourceRank !== null) {
-        const updatedSlots = [...rankingSlots];
-        const sourceSlot = updatedSlots[dragSourceRank - 1];
-        const targetSlot = updatedSlots[slotIndex];
-
-        if (sourceSlot !== targetSlot) {
-          const tempCountry = sourceSlot.country;
-          sourceSlot.country = targetSlot.country;
-          targetSlot.country = tempCountry;
-
-          setRankingSlots(updatedSlots);
-          handleSaveRanking(updatedSlots);
-        }
-      } else {
-        const alreadyRanked = rankingSlots.some(
-          (slot) => slot.country?.id === draggedCountry.id
-        );
-
-        if (alreadyRanked) {
-          Alert.alert('Already Ranked', 'This country is already in your ranking.');
-          resetDragState();
-          return;
-        }
-
-        if (!rankingSlots[slotIndex].country) {
-          const updatedSlots = rankingSlots.map((slot) => {
-            if (slot.id === slotId) {
-              return { ...slot, country: draggedCountry };
-            }
-            return slot;
-          });
-
-          setRankingSlots(updatedSlots);
-          handleSaveRanking(updatedSlots);
-
-          // Kraj jest już usunięty z countriesVisited podczas rozpoczęcia przeciągania
-        } else {
-          Alert.alert('Slot Occupied', 'This ranking slot is already occupied.');
-        }
-      }
-      resetDragState();
-    });
+    resetDragState();
   };
-  
+
   const handleDropOutside = useCallback(() => {
-    if (isDraggingRankedCountry && dragSourceRank !== null) {
-      const countryToRemove = rankingSlots[dragSourceRank - 1].country;
-      if (countryToRemove) {
+    console.log('Drop Outside');
+    if (draggedItem) {
+      const countryToAddBack = mappedCountries.find(c => c.cca2 === draggedItem.imageSrc);
+      if (countryToAddBack) {
+        setCountriesVisited(prev => {
+          if (!prev.some(country => country.id === countryToAddBack.id)) {
+            return [...prev, countryToAddBack];
+          }
+          return prev;
+        });
+
+        // If the item was in ranking, remove it
         const updatedSlots = rankingSlots.map(slot => {
-          if (slot.rank === dragSourceRank) {
+          if (slot.country?.id === countryToAddBack.id) {
             return { ...slot, country: null };
           }
           return slot;
         });
         setRankingSlots(updatedSlots);
         handleSaveRanking(updatedSlots);
-        
-        setCountriesVisited(prev => {
-          if (!prev.some(country => country.id === countryToRemove.id)) {
-            return [...prev, countryToRemove];
-          }
-          return prev;
-        });
-      }
-    } else {
-      if (draggedItem) {
-        const countryToAddBack = mappedCountries.find(c => c.id === draggedItem.id);
-        if (countryToAddBack) {
-          setCountriesVisited(prev => {
-            if (!prev.some(country => country.id === countryToAddBack.id)) {
-              return [...prev, countryToAddBack];
-            }
-            return prev;
-          });
-        }
       }
     }
     resetDragState();
-  }, [isDraggingRankedCountry, dragSourceRank, rankingSlots, draggedItem, mappedCountries]);
+  }, [draggedItem, mappedCountries, rankingSlots]);
 
   const handleDragEnd = () => {
-    if (isDraggingOutside) {
-      handleDropOutside();
-    } else {
-      resetDragState();
-    }
+    resetDragState();
   };
 
   const resetDragState = useCallback(() => {
+    console.log('Reset Drag State');
     setDraggedItem(null);
     setIsDragging(false);
-    setIsDraggingRankedCountry(false);
-    setDragSourceRank(null);
-    setIsDraggingOutside(false);
     animateScale(false);
   }, []);
 
-  const handleDragStart = (item: TItem, rankNumber?: number) => {
+  const handleDragStart = (item: TItem) => {
+    console.log('Drag Start:', item);
     setDraggedItem(item);
     setIsDragging(true);
-    if (rankNumber) {
-      setIsDraggingRankedCountry(true);
-      setDragSourceRank(rankNumber);
-    } else {
-      setIsDraggingRankedCountry(false);
-      setDragSourceRank(null);
-      // Usuń kraj z listy odwiedzonych krajów podczas przeciągania
-      setCountriesVisited(prev => prev.filter(country => country.id !== item.id));
-    }
     animateScale(true);
   };
-  
-  
-  
+
+
   const removeRankingSlot = (id: string) => {
     const slotToRemove = rankingSlots.find((slot) => slot.id === id);
     if (slotToRemove && slotToRemove.country) {
@@ -303,12 +278,6 @@ export default function AccountScreen() {
     }
   };
 
-  const handleRankingLayout = (event: LayoutChangeEvent) => {
-    const { y, height } = event.nativeEvent.layout;
-    setRankingStartY(y);
-    setRankingEndY(y + height);
-  };
-  
   const renderRankingSlot = (slot: RankingSlot) => {
     const item: TItem | null = slot.country
       ? {
@@ -324,7 +293,7 @@ export default function AccountScreen() {
         key={slot.id}
         draggable={!!slot.country}
         dragPayload={item}
-        onDragStart={() => item && handleDragStart(item, slot.rank)}
+        onDragStart={() => item && handleDragStart(item)}
         onDragEnd={handleDragEnd}
         style={[
           styles.rankingSlot,
@@ -341,7 +310,7 @@ export default function AccountScreen() {
             style={[
               styles.slotContent,
               {
-                transform: [{ scale: isDraggingRankedCountry && dragSourceRank === slot.rank ? scaleAnim : 1 }]
+                transform: [{ scale: isDragging ? scaleAnim : 1 }]
               }
             ]}
           >
@@ -350,8 +319,8 @@ export default function AccountScreen() {
             </Text>
             {slot.country ? (
               <View style={styles.countryContainer}>
-                <CountryFlag isoCode={slot.country.cca2} size={25} style={styles.flag} />
-                <Text style={{ color: theme.colors.onSurface, marginLeft: 10 }}>
+                <CountryFlag isoCode={slot.country.cca2} size={20} style={styles.flag} />
+                <Text style={{ color: theme.colors.onSurface, marginLeft: 10, fontSize: 12 }}>
                   {slot.country.name}
                 </Text>
                 <TouchableOpacity
@@ -362,13 +331,13 @@ export default function AccountScreen() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.dragHandle}
-                  onLongPress={() => item && handleDragStart(item, slot.rank)}
+                  onLongPress={() => item && handleDragStart(item)}
                 >
-                  <Ionicons name="reorder-three" size={24} color={theme.colors.onSurface} />
+                  <Ionicons name="reorder-three" size={20} color={theme.colors.onSurface} />
                 </TouchableOpacity>
               </View>
             ) : (
-              <Text style={{ color: theme.colors.onSurface, fontStyle: 'italic' }}>
+              <Text style={{ color: theme.colors.onSurface, fontStyle: 'italic', fontSize: 12 }}>
                 Drop Here
               </Text>
             )}
@@ -376,7 +345,7 @@ export default function AccountScreen() {
         )}
         onReceiveDragDrop={(event) => {
           const draggedItem = event.dragged.payload as TItem;
-          handleDrop(slot.id, draggedItem);
+          handleDrop('Ranking', draggedItem);
         }}
       />
     );
@@ -397,6 +366,7 @@ export default function AccountScreen() {
         onDrag={(item) => handleDragStart(item)} // Obsługa przeciągania
         onLongPress={(item) => handleDragStart(item)} // Obsługa przytrzymania
         isRanking={false}
+        style={styles.visitedItem} // Dodaj styl
       />
     );
   };
@@ -405,21 +375,8 @@ export default function AccountScreen() {
     <DraxProvider>
       <View 
         style={[styles.container, { backgroundColor: theme.colors.background }]}
-        onStartShouldSetResponder={() => isDragging}
-        onMoveShouldSetResponder={() => isDragging}
-        onResponderMove={(event) => {
-          if (isDragging && rankingStartY !== null && rankingEndY !== null) {
-            const { pageY } = event.nativeEvent;
-            setIsDraggingOutside(pageY < rankingStartY || pageY > rankingEndY);
-          }
-        }}
-        onResponderRelease={() => {
-          if (isDraggingOutside) {
-            handleDropOutside();
-          }
-          resetDragState();
-        }}
       >
+        {/* Visited Countries */}
         <View style={styles.visitedContainer}>
           <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
             Visited Countries
@@ -430,41 +387,20 @@ export default function AccountScreen() {
               borderColor: theme.colors.secondary,
               borderWidth: 2,
             }}
-            onReceiveDragDrop={() => {
-              // Only handle drops if we're dragging a ranked country
-              if (isDraggingRankedCountry && dragSourceRank !== null && draggedItem) {
-                const countryToRemove = rankingSlots[dragSourceRank - 1].country;
-                if (countryToRemove) {
-                  const updatedSlots = rankingSlots.map(slot => {
-                    if (slot.rank === dragSourceRank) {
-                      return { ...slot, country: null };
-                    }
-                    return slot;
-                  });
-                  setRankingSlots(updatedSlots);
-                  handleSaveRanking(updatedSlots);
-                  
-                  // Add country back to visited list if not already there
-                  const isAlreadyInVisited = countriesVisited.some(
-                    (c) => c.id === countryToRemove.id
-                  );
-                  if (!isAlreadyInVisited) {
-                    setCountriesVisited(prev => [...prev, countryToRemove]);
-                  }
-                }
-                setDraggedItem(null);
-                setIsDraggingRankedCountry(false);
-                setDragSourceRank(null);
-              }
+            onReceiveDragDrop={(event) => {
+              const draggedItem = event.dragged.payload as TItem;
+              handleDrop('Visited', draggedItem);
             }}
-          >
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {countriesVisited.map((country, index) => renderVisitedCountry(country, index))}
-            </ScrollView>
-          </DraxView>
+            renderContent={() => (
+              <View style={styles.visitedListContent}>
+                {countriesVisited.map((country, index) => renderVisitedCountry(country, index))}
+              </View>
+            )}
+          />
         </View>
 
-        <View style={styles.rankingContainer} onLayout={handleRankingLayout}>
+        {/* Ranking */}
+        <View style={styles.rankingContainer}>
           <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
             Ranking
           </Text>
@@ -482,6 +418,7 @@ export default function AccountScreen() {
           </TouchableOpacity>
         </View>
         
+        {/* Go Back Button */}
         <TouchableOpacity
           onPress={handleGoBack}
           style={[styles.button, { backgroundColor: theme.colors.primary }]}
@@ -495,42 +432,19 @@ export default function AccountScreen() {
   );
 }
 
-const { width, height } = Dimensions.get('window');
-
 const styles = StyleSheet.create({
   container: {
     padding: 16,
     paddingBottom: 50,
-    flex: 1, // Upewnij się, że kontener zajmuje całą przestrzeń
-  },
-  title: {
-    fontSize: 24,
-    marginBottom: 20,
-    textAlign: 'center',
-    fontWeight: 'bold',
-  },
-
-  visitedContainer: {
-    marginBottom: 30,
-  },
-  dragHandle: {
-    padding: 8,
-    marginLeft: 'auto',
+    flex: 1, // Zajmuje całą przestrzeń
   },
   sectionTitle: {
     fontSize: 20,
     marginBottom: 10,
     fontWeight: '600',
   },
-  visitedList: {
-    minHeight: 100,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 12,
-    padding: 10,
-    backgroundColor: '#f9f9f9',
-    flexDirection: 'row',
-    alignItems: 'center',
+  visitedContainer: {
+    marginBottom: 30,
   },
   rankingContainer: {
     marginBottom: 30,
@@ -569,12 +483,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   flag: {
-    width: 25,
-    height: 18,
+    width: 20, // Zmniejszenie rozmiaru flagi
+    height: 14,
     borderRadius: 3,
   },
   removeButton: {
     marginLeft: 10,
+  },
+  dragHandle: {
+    padding: 8,
+    marginLeft: 'auto',
   },
   addButton: {
     marginTop: 10,
@@ -603,5 +521,33 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 18,
     fontWeight: '600',
+  },
+  visitedList: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 12,
+    padding: 10,
+    backgroundColor: '#f9f9f9',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
+  },
+  visitedListContent: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  visitedItem: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    margin: 5,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
 });

@@ -1,112 +1,88 @@
 // ListItem.tsx
 import React from 'react';
-import { Text, View, StyleSheet, Dimensions, TouchableWithoutFeedback } from 'react-native';
+import { Text, View, StyleSheet, TouchableWithoutFeedback, ViewStyle } from 'react-native';
 import { DraxView } from 'react-native-drax';
 import { Ionicons } from '@expo/vector-icons';
 import CountryFlag from 'react-native-country-flag';
 
-export type TItem = {
-  id: string;
-  title: string; // Full country name
-  singer: string; // Not needed for countries
-  imageSrc: string; // Flag code (e.g., 'US')
+export type TItem = { 
+  id: string; 
+  title: string; 
+  singer: string; 
+  imageSrc: string; 
 };
 
-export type TListItemProps = {
-  item: TItem;
-  onDrag? : (item: TItem) => void;
-  isRanking: boolean; // Indicates if the item is in ranking
-  onLongPress?: (item: TItem) => void; // Dodanie właściwości onLongPress
+export type TListItemProps = { 
+  item: TItem; 
+  onDrag: (item: TItem) => void; 
+  isRanking: boolean; 
+  onLongPress?: (item: TItem) => void; 
+  style?: ViewStyle; // Dodanie właściwości style 
 };
 
-export const ListItem: React.FC<TListItemProps> = ({ item, onDrag, isRanking, onLongPress }) => {
-  const handleOnDragStart = () => {
-    if (onDrag) {
-      onDrag(item); // Sprawdzenie, czy onDrag jest zdefiniowane
-    }
-  };
-
-  const handleOnLongPress = () => {
-    if (onLongPress) {
-      onLongPress(item); // Wywołanie onLongPress, jeśli jest zdefiniowane
-    } else if (onDrag) {
-      onDrag(item); // Fallback na onDrag, jeśli onLongPress nie jest zdefiniowane
-    }
-  };
-
-  return (
-    <TouchableWithoutFeedback onLongPress={handleOnLongPress}>
-      <DraxView
-        style={styles.itemContainer}
-        draggingStyle={styles.dragging}
-        dragPayload={item}
-        onDragStart={handleOnDragStart} // Bezpieczne wywołanie
+export const ListItem: React.FC<TListItemProps> = React.memo(({ item, onDrag, isRanking, onLongPress, style }) => { 
+  return ( 
+    <TouchableWithoutFeedback onLongPress={() => onLongPress ? onLongPress(item) : onDrag(item)}> 
+      <DraxView 
+        style={[styles.itemContainer, style]} // Zastosowanie dodatkowych stylów 
+        draggingStyle={styles.dragging} 
+        dragPayload={item} 
+        onDragStart={() => onDrag(item)} 
         renderContent={() => (
           <View style={styles.innerContainer}>
             <View style={styles.flagContainer}>
-              <CountryFlag isoCode={item.imageSrc} size={25} />
+              <CountryFlag isoCode={item.imageSrc} size={20} />
             </View>
             <View style={styles.descriptionContainer}>
               <Text style={styles.description1}>{item.title}</Text>
             </View>
             {isRanking && (
               <View style={styles.draggerContainer}>
-                <Ionicons name="reorder-three" size={24} color="#000" />
+                <Ionicons name="reorder-three" size={20} color="#000" />
               </View>
             )}
           </View>
         )}
-      />
-    </TouchableWithoutFeedback>
-  );
-};
+      /> 
+    </TouchableWithoutFeedback> 
+  ); 
+});
 
-
-
-const ITEM_WIDTH = Dimensions.get('window').width * 0.6;
-const ITEM_HEIGHT = 60;
-
-const styles = StyleSheet.create({
-  itemContainer: {
-    width: ITEM_WIDTH,
-    height: ITEM_HEIGHT,
-    marginRight: 10,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    overflow: 'hidden',
-    elevation: 2, // For Android shadow
-    shadowColor: '#000', // For iOS shadow
-    shadowOffset: { width: 0, height: 2 }, // For iOS shadow
-    shadowOpacity: 0.1, // For iOS shadow
-    shadowRadius: 4, // For iOS shadow
-  },
-  innerContainer: {
-    flex: 1,
-    flexDirection: 'row',
+const styles = StyleSheet.create({ 
+  itemContainer: { 
+    backgroundColor: '#fff', 
+    borderRadius: 8, 
+    overflow: 'hidden', 
+    elevation: 2, 
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 1 }, 
+    shadowOpacity: 0.1, 
+    shadowRadius: 2, 
+  }, 
+  innerContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    padding: 5, 
+  }, 
+  flagContainer: { 
+    marginRight: 8, // Stały margines między flagą a nazwą
+  }, 
+  descriptionContainer: { 
+    flexShrink: 1, 
+    flexGrow: 0,
+  }, 
+  description1: { 
+    fontSize: 12, 
+    fontWeight: '600', 
+    color: '#000', 
+  }, 
+  draggerContainer: { 
+    marginLeft: 'auto', // Wyrównanie ikony do prawej
+    justifyContent: 'center', 
     alignItems: 'center',
-    paddingHorizontal: 10,
-  },
-  flagContainer: {
-    width: '20%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  descriptionContainer: {
-    width: '60%',
-    justifyContent: 'center',
-  },
-  description1: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000',
-  },
-  draggerContainer: {
-    width: '20%',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  dragging: {
-    opacity: 0.5,
-    transform: [{ scale: 1.1 }],
-  },
+  }, 
+  dragging: { 
+    opacity: 0.7, 
+    transform: [{ scale: 1.05 }], 
+  }, 
 });
