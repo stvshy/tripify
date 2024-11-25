@@ -10,6 +10,8 @@ import {
   Animated,
   ScrollView,
   TouchableWithoutFeedback,
+  LayoutAnimation,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ThemeContext } from '../config/ThemeContext';
@@ -44,11 +46,8 @@ export default function AccountScreen() {
   const theme = useTheme();
   const router = useRouter();
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const SCALE_ACTIVE = 1.06;
-  const SCALE_DURATION = 200;
   const [countriesVisited, setCountriesVisited] = useState<Country[]>([]);
   const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>([]);
-  const [isDragging, setIsDragging] = useState(false);
   const [activeRankingItemId, setActiveRankingItemId] = useState<string | null>(null); // Nowy stan
 
   const { width, height } = Dimensions.get('window');
@@ -132,6 +131,7 @@ export default function AccountScreen() {
   };
 
   const handleRemoveFromRanking = (index: number) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     const slot = rankingSlots[index];
     if (slot.country) {
       setCountriesVisited(prev => {
@@ -153,48 +153,82 @@ export default function AccountScreen() {
 
   const renderRankingItem = ({ item, getIndex, drag, isActive }: RenderItemParams<RankingSlot>) => {
     const index = getIndex(); // Pobranie indeksu za pomocą getIndex()
+    const removeAnim = useRef(new Animated.Value(0)).current; // Animacja dla przycisku "x"
+
+    useEffect(() => {
+      if (activeRankingItemId === item.id) {
+        Animated.timing(removeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+      } else {
+        Animated.timing(removeAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+      }
+    }, [activeRankingItemId, item.id, removeAnim]);
+
+    const removeOpacity = removeAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 1],
+    });
+
+    const removeScale = removeAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.5, 1],
+    });
 
     return (
       <TouchableOpacity
         style={[
           styles.rankingSlot,
           {
-            backgroundColor: activeRankingItemId === item.id
-              ? theme.colors.primary
-              : theme.colors.surface,
+        backgroundColor: isActive || activeRankingItemId === item.id
+          ? isDarkTheme ? '#333333' : '#e3e3e3'
+          : theme.colors.surface,
+        paddingVertical: height * 0.014,
+        paddingHorizontal: width * 0.04,
+        marginBottom: 7,
+        borderRadius: 15, // Zwiększona wartość zaokrąglenia
           },
         ]}
         onLongPress={() => setActiveRankingItemId(item.id)}
-        delayLongPress={300} // Opcjonalnie: dostosowanie czasu przytrzymania
+        delayLongPress={300}
         disabled={!item.country}
         activeOpacity={0.8}
       >
         <View style={styles.slotContent}>
-          <Text style={[styles.rankNumber, { color: theme.colors.onSurface }]}>
-            {item.rank}.
+          <Text style={[styles.rankNumber, { color: theme.colors.onSurface, fontSize: 20 }]}>
+        {item.rank}.
           </Text>
           {item.country ? (
-            <View style={styles.countryInfoContainer}>
-              <CountryFlag isoCode={item.country.cca2} size={16} style={styles.flag} />
-              <Text style={{ color: theme.colors.onSurface, marginLeft: 6, fontSize: 10 }}>
-                {item.country.name}
-              </Text>
-            </View>
+        <View style={styles.countryInfoContainer}>
+          <CountryFlag isoCode={item.country.cca2} size={20} style={styles.flag} />
+          <Text style={{ color: theme.colors.onSurface, marginLeft: 6, fontSize: 14 }}>
+            {item.country.name}
+          </Text>
+        </View>
           ) : (
-            <Text style={{ color: theme.colors.onSurface, fontStyle: 'italic', fontSize: 10 }}>
-              Drop Here
-            </Text>
+        <Text style={{ color: theme.colors.onSurface, fontStyle: 'italic', fontSize: 12 }}>
+          Drop Here
+        </Text>
           )}
         </View>
         <View style={styles.actionContainer}>
-          {activeRankingItemId === item.id && (
-            <TouchableOpacity
-              onPress={() => index !== undefined ? handleRemoveFromRanking(index) : null}
-              style={styles.removeButton}
-            >
-              <Ionicons name="close-circle" size={16} color="red" />
-            </TouchableOpacity>
-          )}
+          <Animated.View style={{ opacity: removeOpacity, transform: [{ scale: removeScale }] }}></Animated.View>
+          <Animated.View style={{ opacity: removeOpacity, transform: [{ scale: removeScale }] }}>
+            {activeRankingItemId === item.id && (
+              <TouchableOpacity
+                onPress={() => index !== undefined ? handleRemoveFromRanking(index) : null}
+                style={styles.removeButton}
+              >
+                <Ionicons name="close-circle" size={24} color="red" />
+              </TouchableOpacity>
+            )}
+          </Animated.View>
           <TouchableOpacity
             style={styles.dragHandle}
             onPressIn={() => {
@@ -202,7 +236,7 @@ export default function AccountScreen() {
               drag();
             }}
           >
-            <Ionicons name="reorder-three" size={16} color={theme.colors.onSurface} />
+            <Ionicons name="reorder-three" size={24} color={theme.colors.onSurface} />
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -235,23 +269,45 @@ export default function AccountScreen() {
       <View
         style={[styles.container, { backgroundColor: theme.colors.background }]}
       >
+        {/* Nagłówek z przyciskiem powrotu i przełącznikiem motywu */}
+        <View style={[styles.header, { paddingTop: height * 0.03 }]}>
+          <TouchableOpacity onPress={handleGoBack} style={[styles.headerButton, { marginLeft: -17 }]}>
+            <Ionicons name="arrow-back" size={28} color={theme.colors.onBackground} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: theme.colors.onBackground }]}>Account</Text>
+          <TouchableOpacity onPress={toggleTheme} style={[styles.headerButton, { marginRight: -17 }]}>
+            <Ionicons name={isDarkTheme ? "sunny" : "moon"} size={28} color={theme.colors.onBackground} />
+          </TouchableOpacity>
+        </View>
+
         {/* Visited Countries */}
-        <View style={styles.visitedContainer}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
+        <View style={[styles.visitedContainer, { marginTop: height * 0.02 }]}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.onBackground, marginLeft: 4 }]}>
             Visited Countries
-          </Text>
+            </Text>
           <ScrollView contentContainerStyle={styles.visitedScrollContainer}>
             {countriesVisited.map((country) => (
-              <View key={`visited-${country.id}`} style={styles.visitedItemContainer}>
-                <CountryFlag isoCode={country.cca2} size={16} style={styles.flag} />
-                <Text style={[styles.visitedItemText, { color: theme.colors.onSurface, marginLeft: 6 }]}>
+              <View key={`visited-${country.id}`} style={[
+                styles.visitedItemContainer,
+                {
+                  backgroundColor: isDarkTheme ? '#171717' : '#fff',
+                }
+              ]}>
+                <CountryFlag isoCode={country.cca2} size={20} style={styles.flag} />
+                <Text style={[
+                  styles.visitedItemText, 
+                  { 
+                    color: isDarkTheme ? '#fff' : theme.colors.onSurface, 
+                    marginLeft: 6 
+                  }
+                ]}>
                   {country.name}
                 </Text>
                 <TouchableOpacity
                   onPress={() => handleAddToRanking(country)}
                   style={styles.addButtonIcon}
                 >
-                  <Ionicons name="add-circle" size={20} color="green" />
+                  <Ionicons name="add-circle" size={23} color="green" />
                 </TouchableOpacity>
               </View>
             ))}
@@ -259,7 +315,7 @@ export default function AccountScreen() {
         </View>
 
         {/* Ranking */}
-        <View style={styles.rankingContainer}>
+        <View style={[styles.rankingContainer, { marginTop: height * 0.01 }]}>
           <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
             Ranking
           </Text>
@@ -273,16 +329,6 @@ export default function AccountScreen() {
             showsVerticalScrollIndicator={true} // Zawsze widoczny pasek przewijania
           />
         </View>
-
-        {/* Go Back Button */}
-        <TouchableOpacity
-          onPress={handleGoBack}
-          style={[styles.button, { backgroundColor: theme.colors.primary }]}
-        >
-          <Text style={[styles.buttonText, { color: theme.colors.onPrimary }]}>
-            Go Back
-          </Text>
-        </TouchableOpacity>
       </View>
     </TouchableWithoutFeedback>
   );
@@ -294,13 +340,29 @@ const styles = StyleSheet.create({
     paddingBottom: 50,
     flex: 1, // Zajmuje całą przestrzeń
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    // marginBottom: 20, // Usunięty stały margines
+    paddingHorizontal: 10, // Dodany padding poziomy
+  },
+  headerButton: {
+    padding: 8,
+  },
+  headerTitle: {
+    fontSize: 24, // Zwiększony rozmiar fontu
+    fontWeight: '700',
+  },
   sectionTitle: {
-    fontSize: 18, // Zmniejszenie rozmiaru fontu
-    marginBottom: 8, // Zmniejszenie marginesu
+    fontSize: 20, // Zwiększenie rozmiaru fontu
+    marginBottom: 12, // Zwiększenie marginesu
     fontWeight: '600',
   },
   visitedContainer: {
-    marginBottom: 20, // Zmniejszenie marginesu
+    marginBottom: 20, // Zachowany margines dolny
+    marginLeft: -4,
+    marginRight: -4,
   },
   visitedScrollContainer: {
     flexDirection: 'row',
@@ -311,10 +373,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    paddingHorizontal: 8, // Zmniejszenie poziomego paddingu
-    paddingVertical: 6, // Zmniejszenie pionowego paddingu
-    margin: 4, // Zmniejszenie marginesu
-    borderRadius: 6, // Zmniejszenie promienia
+    paddingHorizontal: 12, // Zwiększenie poziomego paddingu
+    paddingVertical: 8, // Zwiększenie pionowego paddingu
+    margin: 6, // Zwiększenie marginesu
+    borderRadius: 8, // Zwiększenie promienia
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -322,31 +384,32 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   visitedItemText: {
-    fontSize: 10, // Zmniejszenie rozmiaru fontu
+    fontSize: 14, // Zwiększenie rozmiaru fontu
     fontWeight: '600',
   },
   addButtonIcon: {
-    marginLeft: 8, // Zmniejszenie marginesu
+    marginLeft: 10, // Zwiększenie marginesu
+    marginRight: -3
   },
   rankingContainer: {
-    marginBottom: 20, // Zmniejszenie marginesu
+    marginBottom: 20, // Zachowany margines dolny
     flex: 1, // Pozwól na rozciąganie
   },
   rankingSlot: {
     flexDirection: 'row', // Ustawienie elementów w wierszu
     alignItems: 'center',
-    paddingVertical: 6, // Zmniejszenie pionowego paddingu
-    paddingHorizontal: 10, // Zmniejszenie poziomego paddingu
+    paddingVertical: 12, // Zwiększenie pionowego paddingu
+    paddingHorizontal: 16, // Zwiększenie poziomego paddingu
     marginBottom: 8, // Zmniejszenie marginesu dolnego
-    borderRadius: 10, // Zmniejszenie promienia
+    borderRadius: 12, // Zwiększenie promienia
     borderWidth: 1,
     justifyContent: 'space-between', // Rozłożenie przestrzeni między elementami
     backgroundColor: '#fff',
-    elevation: 2, // Zmniejszenie wysokości cienia
+    elevation: 3, // Zwiększenie wysokości cienia
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
     maxWidth: '100%', // Opcjonalnie: Ustawienie maksymalnej szerokości
   },
   slotContent: {
@@ -355,8 +418,8 @@ const styles = StyleSheet.create({
     flex: 1, // Pozwól na rozciąganie
   },
   rankNumber: {
-    fontSize: 14, // Zmniejszenie rozmiaru fontu
-    marginRight: 8, // Zmniejszenie marginesu
+    fontSize: 20, // Zwiększenie rozmiaru fontu
+    marginRight: 12, // Zwiększenie marginesu
     fontWeight: 'bold',
   },
   countryInfoContainer: {
@@ -365,8 +428,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   flag: {
-    width: 16, // Zmniejszenie rozmiaru flagi
-    height: 12,
+    width: 20, // Zwiększenie rozmiaru flagi
+    height: 15,
     borderRadius: 2,
   },
   actionContainer: {
@@ -374,43 +437,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   removeButton: {
-    marginRight: 4, // Zmniejszenie marginesu po prawej stronie
+    marginRight: 8, // Zwiększenie marginesu po prawej stronie
   },
   dragHandle: {
     padding: 4, // Zmniejszenie paddingu
     marginLeft: 4, // Zmniejszenie marginesu
-  },
-  addButton: {
-    marginTop: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-    alignSelf: 'center',
-    elevation: 2,
-  },
-  addButtonText: {
-    fontSize: 14, // Zmniejszenie rozmiaru fontu
-    fontWeight: '600',
-  },
-  button: {
-    paddingVertical: 12, // Zmniejszenie pionowego paddingu
-    paddingHorizontal: 24, // Zmniejszenie poziomego paddingu
-    borderRadius: 6, // Zmniejszenie promienia
-    alignSelf: 'center',
-    marginTop: 16, // Zmniejszenie marginesu
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  buttonText: {
-    fontSize: 16, // Zmniejszenie rozmiaru fontu
-    fontWeight: '600',
-  },
-  description1: { // Dodana właściwość
-    fontSize: 10, // Zmniejszenie rozmiaru fontu
-    fontWeight: '600',
-    color: '#000',
   },
 });
