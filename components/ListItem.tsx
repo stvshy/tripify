@@ -14,21 +14,33 @@ export type TItem = {
 
 export type TListItemProps = {
   item: TItem;
-  onDrag: (item: TItem) => void;
+  onDrag? : (item: TItem) => void;
   isRanking: boolean; // Indicates if the item is in ranking
   onLongPress?: (item: TItem) => void; // Dodanie właściwości onLongPress
 };
 
 export const ListItem: React.FC<TListItemProps> = ({ item, onDrag, isRanking, onLongPress }) => {
+  const handleOnDragStart = () => {
+    if (onDrag) {
+      onDrag(item); // Sprawdzenie, czy onDrag jest zdefiniowane
+    }
+  };
+
+  const handleOnLongPress = () => {
+    if (onLongPress) {
+      onLongPress(item); // Wywołanie onLongPress, jeśli jest zdefiniowane
+    } else if (onDrag) {
+      onDrag(item); // Fallback na onDrag, jeśli onLongPress nie jest zdefiniowane
+    }
+  };
+
   return (
-    <TouchableWithoutFeedback
-    onLongPress={() => onLongPress ? onLongPress(item) : onDrag(item)} // Fallback na onDrag
-  >
+    <TouchableWithoutFeedback onLongPress={handleOnLongPress}>
       <DraxView
         style={styles.itemContainer}
         draggingStyle={styles.dragging}
         dragPayload={item}
-        onDragStart={() => onDrag(item)}
+        onDragStart={handleOnDragStart} // Bezpieczne wywołanie
         renderContent={() => (
           <View style={styles.innerContainer}>
             <View style={styles.flagContainer}>
@@ -48,6 +60,7 @@ export const ListItem: React.FC<TListItemProps> = ({ item, onDrag, isRanking, on
     </TouchableWithoutFeedback>
   );
 };
+
 
 
 const ITEM_WIDTH = Dimensions.get('window').width * 0.6;

@@ -10,6 +10,7 @@ import {
   Dimensions,
   Animated,
   LayoutChangeEvent,
+  FlatList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ThemeContext } from '../config/ThemeContext';
@@ -19,12 +20,12 @@ import { getDoc, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../config/firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { ListItem, TItem } from '../../components/ListItem';
-import countriesData from '../../assets/maps/countries.json'; // Upewnij się, że ścieżka jest poprawna
+import countriesData from '../../assets/maps/countries.json';
 import CountryFlag from 'react-native-country-flag';
-import { Country, CountriesData } from '../../.expo/types/country'; // Import typów
+import { Country, CountriesData } from '../../.expo/types/country';
 
 interface RankingSlot {
-  id: string; // Unikalny identyfikator slotu
+  id: string;
   rank: number;
   country: Country | null;
 }
@@ -45,14 +46,15 @@ export default function AccountScreen() {
   const [rankingStartY, setRankingStartY] = useState<number | null>(null);
   const [rankingEndY, setRankingEndY] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  // Mapowanie danych krajów, aby upewnić się, że spełniają interfejs Country
+
   const mappedCountries: Country[] = useMemo(() => {
     return countriesData.countries.map((country) => ({
       ...country,
-      cca2: country.id, // Użycie pola `id` jako `cca2`
-      flag: `https://flagcdn.com/w40/${country.id.toLowerCase()}.png`, // Generowanie URL flagi
+      cca2: country.id,
+      flag: `https://flagcdn.com/w40/${country.id.toLowerCase()}.png`,
     }));
   }, []);
+
   const animateScale = (active: boolean) => {
     Animated.timing(scaleAnim, {
       toValue: active ? SCALE_ACTIVE : 1,
@@ -84,7 +86,6 @@ export default function AccountScreen() {
               country: country,
             };
           });
-          // Dodanie pustych slotów, jeśli jest mniej niż 3
           for (let i = rankingData.length; i < 3; i++) {
             initialSlots.push({
               id: `rank-${i + 1}`,
@@ -162,7 +163,6 @@ export default function AccountScreen() {
       return;
     }
 
-    // Upewniamy się, że animacja się zakończy przed zmianą stanu
     Animated.timing(scaleAnim, {
       toValue: 1,
       duration: SCALE_DURATION,
@@ -182,7 +182,6 @@ export default function AccountScreen() {
           handleSaveRanking(updatedSlots);
         }
       } else {
-        // Dodanie nowego kraju do rankingu
         const alreadyRanked = rankingSlots.some(
           (slot) => slot.country?.id === draggedCountry.id
         );
@@ -204,9 +203,7 @@ export default function AccountScreen() {
           setRankingSlots(updatedSlots);
           handleSaveRanking(updatedSlots);
 
-          setCountriesVisited((prev) =>
-            prev.filter((country) => country.id !== draggedCountry.id)
-          );
+          // Kraj jest już usunięty z countriesVisited podczas rozpoczęcia przeciągania
         } else {
           Alert.alert('Slot Occupied', 'This ranking slot is already occupied.');
         }
@@ -228,17 +225,35 @@ export default function AccountScreen() {
         setRankingSlots(updatedSlots);
         handleSaveRanking(updatedSlots);
         
-        setCountriesVisited(prev => [...prev, countryToRemove]);
+        setCountriesVisited(prev => {
+          if (!prev.some(country => country.id === countryToRemove.id)) {
+            return [...prev, countryToRemove];
+          }
+          return prev;
+        });
+      }
+    } else {
+      if (draggedItem) {
+        const countryToAddBack = mappedCountries.find(c => c.id === draggedItem.id);
+        if (countryToAddBack) {
+          setCountriesVisited(prev => {
+            if (!prev.some(country => country.id === countryToAddBack.id)) {
+              return [...prev, countryToAddBack];
+            }
+            return prev;
+          });
+        }
       }
     }
     resetDragState();
-  }, [isDraggingRankedCountry, dragSourceRank, rankingSlots]);
+  }, [isDraggingRankedCountry, dragSourceRank, rankingSlots, draggedItem, mappedCountries]);
 
   const handleDragEnd = () => {
     if (isDraggingOutside) {
       handleDropOutside();
+    } else {
+      resetDragState();
     }
-    resetDragState();
   };
 
   const resetDragState = useCallback(() => {
@@ -259,6 +274,8 @@ export default function AccountScreen() {
     } else {
       setIsDraggingRankedCountry(false);
       setDragSourceRank(null);
+      // Usuń kraj z listy odwiedzonych krajów podczas przeciągania
+      setCountriesVisited(prev => prev.filter(country => country.id !== item.id));
     }
     animateScale(true);
   };
@@ -270,7 +287,12 @@ export default function AccountScreen() {
     if (slotToRemove && slotToRemove.country) {
       const updatedSlots = rankingSlots.map(slot => {
         if (slot.id === id) {
-          setCountriesVisited(prev => [...prev, slotToRemove.country!]);
+          setCountriesVisited(prev => {
+            if (!prev.some(country => country.id === slotToRemove.country!.id)) {
+              return [...prev, slotToRemove.country!];
+            }
+            return prev;
+          });
           return { ...slot, country: null };
         }
         return slot;
@@ -379,7 +401,6 @@ export default function AccountScreen() {
     );
   };
   
-  
   return (
     <DraxProvider>
       <View 
@@ -414,7 +435,6 @@ export default function AccountScreen() {
               if (isDraggingRankedCountry && dragSourceRank !== null && draggedItem) {
                 const countryToRemove = rankingSlots[dragSourceRank - 1].country;
                 if (countryToRemove) {
-                  // Remove country from ranking
                   const updatedSlots = rankingSlots.map(slot => {
                     if (slot.rank === dragSourceRank) {
                       return { ...slot, country: null };
@@ -448,9 +468,9 @@ export default function AccountScreen() {
           <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
             Ranking
           </Text>
-          <View style={styles.rankingList}>
+          <ScrollView style={styles.rankingList}>
             {rankingSlots.map((slot) => renderRankingSlot(slot))}
-          </View>
+          </ScrollView>
           <TouchableOpacity 
             style={[styles.addButton, { backgroundColor: theme.colors.primary }]} 
             onPress={addRankingSlot}
@@ -481,6 +501,7 @@ const styles = StyleSheet.create({
   container: {
     padding: 16,
     paddingBottom: 50,
+    flex: 1, // Upewnij się, że kontener zajmuje całą przestrzeń
   },
   title: {
     fontSize: 24,
@@ -513,10 +534,11 @@ const styles = StyleSheet.create({
   },
   rankingContainer: {
     marginBottom: 30,
+    flex: 1, // Pozwól na rozciąganie
   },
   rankingList: {
-    flexDirection: 'column',
-    alignItems: 'stretch',
+    maxHeight: 300, // Ustaw odpowiednią wartość
+    marginBottom: 10,
   },
   rankingSlot: {
     padding: 15,
@@ -526,11 +548,11 @@ const styles = StyleSheet.create({
     height: 70,
     justifyContent: 'center',
     backgroundColor: '#fff',
-    elevation: 3, // For Android shadow
-    shadowColor: '#000', // For iOS shadow
-    shadowOffset: { width: 0, height: 2 }, // For iOS shadow
-    shadowOpacity: 0.2, // For iOS shadow
-    shadowRadius: 4, // For iOS shadow
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   slotContent: {
     flexDirection: 'row',
@@ -559,7 +581,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 6,
-    alignSelf: 'center', // Wyśrodkowanie
+    alignSelf: 'center',
     elevation: 3,
   },
   addButtonText: {
@@ -572,11 +594,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignSelf: 'center',
     marginTop: 20,
-    elevation: 3, // For Android shadow
-    shadowColor: '#000', // For iOS shadow
-    shadowOffset: { width: 0, height: 3 }, // For iOS shadow
-    shadowOpacity: 0.3, // For iOS shadow
-    shadowRadius: 4, // For iOS shadow
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
   buttonText: {
     fontSize: 18,
