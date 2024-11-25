@@ -146,22 +146,22 @@ export default function AccountScreen() {
         </View>
 
         {/* Ranking Window */}
-        <View style={[styles.rankingWindow, { backgroundColor: theme.colors.surface }]}>
+        <View style={[styles.rankingWindow, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
           <Text style={[styles.rankingTitle, { color: theme.colors.onSurface }]}>Ranking</Text>
-          <TouchableOpacity
+            <TouchableOpacity
             style={styles.editButton}
             onPress={() => router.push('/ranking')} // Używamy '/ranking' zgodnie z Twoim wymaganiem
-          >
-            <Text style={[styles.editButtonText, { color: '#6200ee' }]}>
+            >
+            <Text style={[styles.editButtonText, { color: theme.colors.primary }]}>
               {rankingSlots.length > 0 ? 'Show and Edit Ranking' : 'Create Ranking'}
             </Text>
-            <Ionicons name="chevron-forward" size={20} color="#6200ee" />
-          </TouchableOpacity>
+            <Ionicons name="chevron-forward" size={15} color={theme.colors.primary} style={{ marginRight: -11 }} />
+            </TouchableOpacity>
         </View>
 
         {/* Poziomo Przewijalna Lista Rankingu */}
         {rankingSlots.length > 0 ? (
-            <View style={[styles.horizontalRankingContainer, { backgroundColor: isDarkTheme ? '#333333' : '#ebebeb' }]}>
+            <View style={[styles.horizontalRankingContainer, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {rankingSlots.map((slot, index) => (
               <RankingItem
@@ -231,14 +231,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 10,
-    marginBottom: 20,
-    paddingVertical: 10,
+    // marginBottom: 20,
+    paddingVertical: 5,
     paddingHorizontal: 15,
-    borderRadius: 10,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
     // backgroundColor: 'grey', // Kolor tła, który będzie zmieniany dynamicznie
   },
   rankingTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '600',
   },
   editButton: {
@@ -252,8 +253,12 @@ const styles = StyleSheet.create({
   },
   horizontalRankingContainer: {
     marginBottom: 20,
-    borderRadius: 10,
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
     padding: 10,
+    paddingBottom: 15,
+    paddingTop: 10,
+    // marginTop: 1,
   },
   noRankingContainer: {
     alignItems: 'center',
