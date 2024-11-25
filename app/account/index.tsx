@@ -14,7 +14,7 @@ import {
 import { useRouter } from 'expo-router';
 import { ThemeContext } from '../config/ThemeContext';
 import { useTheme } from 'react-native-paper';
-import { getDoc, doc, updateDoc } from 'firebase/firestore';
+import { getDoc, doc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { db, auth } from '../config/firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import countriesData from '../../assets/maps/countries.json';
@@ -27,7 +27,12 @@ interface RankingSlot {
   rank: number;
   country: Country | null;
 }
-
+interface Note {
+  id: string;
+  countryCca2: string;
+  noteText: string;
+  createdAt: any;
+}
 const generateUniqueId = () => `rank-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 export default function AccountScreen() {
@@ -38,7 +43,7 @@ export default function AccountScreen() {
   const [activeRankingItemId, setActiveRankingItemId] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>('Error: No nickname');
   const [userEmail, setUserEmail] = useState<string>('user@error.com');
-
+  const [notes, setNotes] = useState<Note[]>([]);
   const { width, height } = Dimensions.get('window');
 
   const mappedCountries: Country[] = useMemo(() => {
@@ -78,6 +83,18 @@ export default function AccountScreen() {
           });
 
           setRankingSlots(initialSlots);
+          
+            // Pobierz notatki użytkownika
+          const notesCollectionRef = collection(db, 'users', currentUser.uid, 'notes');
+          const notesSnapshot = await getDocs(notesCollectionRef);
+          const notesList: Note[] = notesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            countryCca2: doc.data().countryCca2,
+            noteText: doc.data().noteText,
+            createdAt: doc.data().createdAt,
+          }));
+          setNotes(notesList);
+
         } else {
           console.log('User document does not exist.');
         }
@@ -91,7 +108,8 @@ export default function AccountScreen() {
 
   useEffect(() => {
     console.log('rankingSlots:', rankingSlots.map(slot => slot.id));
-  }, [rankingSlots]);
+    console.log('notes:', notes);
+  }, [rankingSlots, notes]);
 
   const handleGoBack = () => {
     router.back();
@@ -122,6 +140,10 @@ export default function AccountScreen() {
       await updateDoc(userDocRef, { ranking: ranking });
       Alert.alert('Success', 'Ranking has been saved successfully.');
     }
+  };
+
+  const handleNavigateToNotes = () => {
+    router.push('/notes'); // Upewnij się, że masz zdefiniowaną trasę '/notes'
   };
 
   return (
@@ -180,6 +202,53 @@ export default function AccountScreen() {
           <View style={[styles.noRankingContainer, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
             <Text style={[styles.noRankingText, { color: theme.colors.onBackground }]}>
               You haven't created a ranking yet.
+            </Text>
+          </View>
+        )}
+
+
+        {/* Kontener z Notatkami */}
+        <View style={[styles.notesContainer, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
+          <Text style={[styles.notesTitle, { color: theme.colors.onSurface }]}>Notes</Text>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={handleNavigateToNotes} // Nawigacja do '/notes'
+          >
+         <Text style={[styles.editButtonText, { color: theme.colors.primary }]}>
+              {notes.length > 0 ? 'View and Create Notes' : 'Create Note'}
+            </Text>
+            <Ionicons name="chevron-forward" size={15} color={theme.colors.primary} style={{ marginRight: -11 }} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Lista Notatek */}
+        {notes.length > 0 ? (
+         <View style={[styles.notesListContainer, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {notes.map(note => {
+                const country = mappedCountries.find(c => c.cca2 === note.countryCca2);
+                return (
+                  <View key={note.id} style={styles.noteItem}>
+                    {country && (
+                      <CountryFlag isoCode={country.cca2} size={25} style={styles.noteFlag} />
+                    )}
+                    <View style={styles.noteTextContainer}>
+                      <Text style={[styles.noteCountryName, { color: theme.colors.onSurface }]}>
+                        {country ? country.name : 'Unknown Country'}
+                      </Text>
+                      <Text style={[styles.noteText, { color: theme.colors.onSurface }]}>
+                        {note.noteText}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        ) : (
+          <View style={[styles.noNotesContainer, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
+            <Text style={[styles.noNotesText, { color: theme.colors.onBackground }]}>
+              You haven't created any notes yet.
             </Text>
           </View>
         )}
@@ -293,5 +362,63 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginRight: 8,
+  },
+  notesContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+    // marginBottom: 20,
+    paddingVertical: 5,
+    paddingHorizontal: 15,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+    // backgroundColor: 'grey', // Kolor tła, który będzie zmieniany dynamicznie
+  },
+  notesTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+  },
+  notesListContainer: {
+    marginBottom: 20,
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
+    padding: 10,
+    paddingBottom: 15,
+    paddingTop: 10,
+    // marginTop: 1,
+  },
+  noteItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  noteFlag: {
+    marginRight: 10,
+  },
+  noteTextContainer: {
+    flex: 1,
+  },
+  noteCountryName: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  noteText: {
+    fontSize: 14,
+    marginTop: 2,
+  },
+  noNotesContainer: {
+    alignItems: 'center',
+    // marginBottom: 20,
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
+    marginBottom: 20,
+    padding: 10,
+    paddingBottom: 20,
+    paddingTop: 20,
+  },
+  noNotesText: {
+    fontSize: 14,
+    fontStyle: 'italic', //
   },
 });
