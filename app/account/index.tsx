@@ -6,27 +6,33 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
-  ScrollView,
   Dimensions,
   Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ThemeContext } from '../config/ThemeContext';
 import { useTheme } from 'react-native-paper';
-import { DraxProvider, DraxView } from 'react-native-drax';
 import { getDoc, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../config/firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
-import { ListItem, TItem } from '../../components/ListItem';
 import countriesData from '../../assets/maps/countries.json';
 import CountryFlag from 'react-native-country-flag';
 import { Country } from '../../.expo/types/country';
+import DraggableFlatList, { RenderItemParams, DragEndParams } from 'react-native-draggable-flatlist';
 
 interface RankingSlot {
   id: string;
   rank: number;
   country: Country | null;
 }
+
+const removeDuplicates = (countries: Country[]): Country[] => {
+  const unique = new Map<string, Country>();
+  countries.forEach(c => {
+    unique.set(c.id, c); // Użyj `c.id` jako klucza, zakładając, że jest unikalne
+  });
+  return Array.from(unique.values());
+};
 
 export default function AccountScreen() {
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
@@ -37,7 +43,6 @@ export default function AccountScreen() {
   const SCALE_DURATION = 200;
   const [countriesVisited, setCountriesVisited] = useState<Country[]>([]);
   const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>([]);
-  const [draggedItem, setDraggedItem] = useState<TItem | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   const { width, height } = Dimensions.get('window');
@@ -49,14 +54,6 @@ export default function AccountScreen() {
       flag: `https://flagcdn.com/w40/${country.id.toLowerCase()}.png`,
     }));
   }, []);
-
-  const animateScale = (active: boolean) => {
-    Animated.timing(scaleAnim, {
-      toValue: active ? SCALE_ACTIVE : 1,
-      duration: SCALE_DURATION,
-      useNativeDriver: true,
-    }).start();
-  };
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -75,16 +72,21 @@ export default function AccountScreen() {
               visitedCountryCodes.includes(country.cca2) &&
               !rankingData.includes(country.cca2)
           );
-          setCountriesVisited(visitedCountries);
 
+          // Usuń duplikaty
+          const uniqueVisitedCountries = removeDuplicates(visitedCountries);
+          setCountriesVisited(uniqueVisitedCountries);
+
+          // Utwórz initialSlots z prefiksem dla id
           const initialSlots: RankingSlot[] = rankingData.slice(0, 3).map((cca2, index) => {
             const country = mappedCountries.find((c: Country) => c.cca2 === cca2) || null;
             return {
-              id: `rank-${index + 1}`,
+              id: `rank-${index + 1}`, // Prefiks zapewniający unikalność
               rank: index + 1,
               country: country,
             };
           });
+
           // Dodanie pustych slotów, jeśli jest mniej niż 3
           for (let i = rankingData.length; i < 3; i++) {
             initialSlots.push({
@@ -100,6 +102,11 @@ export default function AccountScreen() {
 
     fetchUserData();
   }, [mappedCountries]);
+
+  useEffect(() => {
+    console.log('countriesVisited:', countriesVisited.map(c => c.id));
+    console.log('rankingSlots:', rankingSlots.map(slot => slot.id));
+  }, [countriesVisited, rankingSlots]);
 
   const handleGoBack = () => {
     router.back();
@@ -140,295 +147,180 @@ export default function AccountScreen() {
       }
     }
   }, [rankingSlots]);
-  
-  
-  const handleDrop = (dropZone: 'Visited' | 'Ranking', draggedItem: TItem) => {
-    if (!draggedItem) {
-      resetDragState();
-      return;
-    }
 
-    const draggedCountry = mappedCountries.find(
-      (country) => country.cca2 === draggedItem.imageSrc
-    );
+  // Poprawiona definicja handleDragEnd
+  const handleDragEnd = ({ data }: DragEndParams<RankingSlot>) => {
+    setRankingSlots(data);
+    handleSaveRanking(data);
+  };
 
-    if (!draggedCountry) {
-      handleDropOutside();
-      return;
-    }
-
-    if (dropZone === 'Ranking') {
-      // Check if already ranked
-      const alreadyRanked = rankingSlots.some(
-        (slot) => slot.country?.id === draggedCountry.id
-      );
-
-      if (alreadyRanked) {
-        Alert.alert('Already Ranked', 'This country is already in your ranking.');
-        resetDragState();
-        return;
-      }
-
-      // Find first empty slot
-      const emptySlotIndex = rankingSlots.findIndex((slot) => slot.country === null);
-      if (emptySlotIndex !== -1) {
-        const updatedSlots = rankingSlots.map((slot, index) => {
-          if (index === emptySlotIndex) {
-            return { ...slot, country: draggedCountry };
-          }
-          return slot;
-        });
-
-        setRankingSlots(updatedSlots);
-        handleSaveRanking(updatedSlots);
-
-        // Remove from visited
-        setCountriesVisited(prev => prev.filter(country => country.id !== draggedCountry.id));
-      } else {
-        Alert.alert('No Empty Slot', 'There are no empty ranking slots.');
-      }
-    } else if (dropZone === 'Visited') {
-      // Check if already in visited
-      const alreadyVisited = countriesVisited.some(
-        (country) => country.id === draggedCountry.id
-      );
-
-      if (!alreadyVisited) {
-        setCountriesVisited(prev => [...prev, draggedCountry]);
-      }
-
-      // Remove from ranking slots
-      const updatedSlots = rankingSlots.map(slot => {
-        if (slot.country?.id === draggedCountry.id) {
-          return { ...slot, country: null };
+  const handleRemoveFromRanking = (index: number) => {
+    const slot = rankingSlots[index];
+    if (slot.country) {
+      setCountriesVisited(prev => {
+        // Sprawdź, czy kraj już istnieje w `countriesVisited`
+        if (!prev.some(c => c.id === slot.country!.id)) {
+          return [...prev, slot.country!];
         }
-        return slot;
+        return prev;
       });
-
-      setRankingSlots(updatedSlots);
-      handleSaveRanking(updatedSlots);
-    }
-
-    resetDragState();
-  };
-
-  const handleDropOutside = useCallback(() => {
-    console.log('Drop Outside');
-    if (draggedItem) {
-      const countryToAddBack = mappedCountries.find(c => c.cca2 === draggedItem.imageSrc);
-      if (countryToAddBack) {
-        setCountriesVisited(prev => {
-          if (!prev.some(country => country.id === countryToAddBack.id)) {
-            return [...prev, countryToAddBack];
-          }
-          return prev;
-        });
-
-        // If the item was in ranking, remove it
-        const updatedSlots = rankingSlots.map(slot => {
-          if (slot.country?.id === countryToAddBack.id) {
-            return { ...slot, country: null };
-          }
-          return slot;
-        });
-        setRankingSlots(updatedSlots);
-        handleSaveRanking(updatedSlots);
-      }
-    }
-    resetDragState();
-  }, [draggedItem, mappedCountries, rankingSlots]);
-
-  const handleDragEnd = () => {
-    resetDragState();
-  };
-
-  const resetDragState = useCallback(() => {
-    console.log('Reset Drag State');
-    setDraggedItem(null);
-    setIsDragging(false);
-    animateScale(false);
-  }, []);
-
-  const handleDragStart = (item: TItem) => {
-    console.log('Drag Start:', item);
-    setDraggedItem(item);
-    setIsDragging(true);
-    animateScale(true);
-  };
-
-
-  const removeRankingSlot = (id: string) => {
-    const slotToRemove = rankingSlots.find((slot) => slot.id === id);
-    if (slotToRemove && slotToRemove.country) {
-      const updatedSlots = rankingSlots.map(slot => {
-        if (slot.id === id) {
-          setCountriesVisited(prev => {
-            if (!prev.some(country => country.id === slotToRemove.country!.id)) {
-              return [...prev, slotToRemove.country!];
-            }
-            return prev;
-          });
-          return { ...slot, country: null };
-        }
-        return slot;
-      });
-      
+      const updatedSlots = [...rankingSlots];
+      updatedSlots[index].country = null;
       setRankingSlots(updatedSlots);
       handleSaveRanking(updatedSlots);
     }
   };
 
-  const renderRankingSlot = (slot: RankingSlot) => {
-    const item: TItem | null = slot.country
-      ? {
-          id: `ranked-${slot.country.id}`,
-          title: slot.country.name,
-          singer: '',
-          imageSrc: slot.country.cca2,
-        }
-      : null;
+  const renderRankingItem = ({ item, getIndex, drag, isActive }: RenderItemParams<RankingSlot>) => {
+    const index = getIndex(); // Pobranie indeksu za pomocą getIndex()
 
     return (
-      <DraxView
-        key={slot.id}
-        draggable={!!slot.country}
-        dragPayload={item}
-        onDragStart={() => item && handleDragStart(item)}
-        onDragEnd={handleDragEnd}
+      <TouchableOpacity
         style={[
           styles.rankingSlot,
           {
-            backgroundColor: slot.country ? theme.colors.primary : theme.colors.surface,
+            backgroundColor: isActive ? theme.colors.primary : theme.colors.surface,
           },
         ]}
-        receivingStyle={{
-          borderColor: theme.colors.secondary,
-          borderWidth: 2,
-        }}
-        renderContent={() => (
-          <Animated.View 
-            style={[
-              styles.slotContent,
-              {
-                transform: [{ scale: isDragging ? scaleAnim : 1 }]
-              }
-            ]}
-          >
-            <Text style={[styles.rankNumber, { color: theme.colors.onSurface }]}>
-              {slot.rank}.
-            </Text>
-            {slot.country ? (
-              <View style={styles.countryContainer}>
-                <CountryFlag isoCode={slot.country.cca2} size={20} style={styles.flag} />
-                <Text style={{ color: theme.colors.onSurface, marginLeft: 10, fontSize: 12 }}>
-                  {slot.country.name}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => removeRankingSlot(slot.id)}
-                  style={styles.removeButton}
-                >
-                  <Ionicons name="close-circle" size={20} color="red" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.dragHandle}
-                  onLongPress={() => item && handleDragStart(item)}
-                >
-                  <Ionicons name="reorder-three" size={20} color={theme.colors.onSurface} />
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <Text style={{ color: theme.colors.onSurface, fontStyle: 'italic', fontSize: 12 }}>
-                Drop Here
-              </Text>
-            )}
-          </Animated.View>
-        )}
-        onReceiveDragDrop={(event) => {
-          const draggedItem = event.dragged.payload as TItem;
-          handleDrop('Ranking', draggedItem);
-        }}
-      />
-    );
-  };
-
-  const renderVisitedCountry = (country: Country, index: number) => {
-    const item: TItem = {
-      id: `${country.id}-${index}`,
-      title: country.name,
-      singer: '',
-      imageSrc: country.cca2,
-    };
-  
-    return (
-      <ListItem
-        key={`${country.id}-${index}`}
-        item={item}
-        onDrag={(item) => handleDragStart(item)} // Obsługa przeciągania
-        onLongPress={(item) => handleDragStart(item)} // Obsługa przytrzymania
-        isRanking={false}
-        style={styles.visitedItem} // Dodaj styl
-      />
-    );
-  };
-  
-  return (
-    <DraxProvider>
-      <View 
-        style={[styles.container, { backgroundColor: theme.colors.background }]}
+        onLongPress={drag}
+        disabled={!item.country}
       >
-        {/* Visited Countries */}
-        <View style={styles.visitedContainer}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
-            Visited Countries
+        <View style={styles.slotContent}>
+          <Text style={[styles.rankNumber, { color: theme.colors.onSurface }]}>
+            {item.rank}.
           </Text>
-          <DraxView
-            style={styles.visitedList}
-            receivingStyle={{
-              borderColor: theme.colors.secondary,
-              borderWidth: 2,
-            }}
-            onReceiveDragDrop={(event) => {
-              const draggedItem = event.dragged.payload as TItem;
-              handleDrop('Visited', draggedItem);
-            }}
-            renderContent={() => (
-              <View style={styles.visitedListContent}>
-                {countriesVisited.map((country, index) => renderVisitedCountry(country, index))}
-              </View>
-            )}
-          />
-        </View>
-
-        {/* Ranking */}
-        <View style={styles.rankingContainer}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
-            Ranking
-          </Text>
-          <ScrollView style={styles.rankingList}>
-            {rankingSlots.map((slot) => renderRankingSlot(slot))}
-          </ScrollView>
-          <TouchableOpacity 
-            style={[styles.addButton, { backgroundColor: theme.colors.primary }]} 
-            onPress={addRankingSlot}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.addButtonText, { color: theme.colors.onPrimary }]}>
-              Add More Slots
+          {item.country ? (
+            <View style={styles.countryContainer}>
+              <CountryFlag isoCode={item.country.cca2} size={20} style={styles.flag} />
+              <Text style={{ color: theme.colors.onSurface, marginLeft: 10, fontSize: 12 }}>
+                {item.country.name}
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  if (index !== undefined) handleRemoveFromRanking(index);
+                }}
+                style={styles.removeButton}
+              >
+                <Ionicons name="close-circle" size={20} color="red" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.dragHandle}
+                onPressIn={drag}
+              >
+                <Ionicons name="reorder-three" size={20} color={theme.colors.onSurface} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <Text style={{ color: theme.colors.onSurface, fontStyle: 'italic', fontSize: 12 }}>
+              Drop Here
             </Text>
-          </TouchableOpacity>
+          )}
         </View>
-        
-        {/* Go Back Button */}
-        <TouchableOpacity
-          onPress={handleGoBack}
-          style={[styles.button, { backgroundColor: theme.colors.primary }]}
+      </TouchableOpacity>
+    );
+  };
+
+  const handleAddToRanking = (country: Country) => {
+    // Znajdź pierwszą pustą pozycję w rankingu
+    const emptyIndex = rankingSlots.findIndex(slot => slot.country === null);
+    if (emptyIndex !== -1) {
+      const updatedSlots = [...rankingSlots];
+      updatedSlots[emptyIndex].country = country;
+      setRankingSlots(updatedSlots);
+      handleSaveRanking(updatedSlots);
+      // Usuń kraj z listy "Visited Countries" i upewnij się, że nie ma duplikatów
+      setCountriesVisited(prev => removeDuplicates(prev.filter(c => c.id !== country.id)));
+    } else {
+      Alert.alert('No Empty Slot', 'There are no empty ranking slots.');
+    }
+  };
+
+  const handleVisitedCountryPress = (country: Country) => {
+    Alert.alert(
+      'Add to Ranking',
+      `Czy chcesz dodać ${country.name} do rankingu?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Add',
+          onPress: () => handleAddToRanking(country),
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  return (
+    <View 
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
+      {/* Visited Countries */}
+      <View style={styles.visitedContainer}>
+        <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
+          Visited Countries
+        </Text>
+        <DraggableFlatList
+          data={countriesVisited}
+          keyExtractor={(item) => `visited-${item.id}`} // Dodanie prefiksu
+          renderItem={({ item, getIndex, drag, isActive }) => (
+            <TouchableOpacity
+              onLongPress={drag}
+              style={[
+                styles.visitedItem,
+                { backgroundColor: isActive ? theme.colors.primary : '#fff' },
+              ]}
+              onPress={() => handleVisitedCountryPress(item)}
+            >
+              <CountryFlag isoCode={item.cca2} size={20} style={styles.flag} />
+              <Text style={[styles.description1, { color: theme.colors.onSurface, marginLeft: 10 }]}>
+                {item.name}
+              </Text>
+            </TouchableOpacity>
+          )}
+          onDragEnd={({ data }) => setCountriesVisited(removeDuplicates(data))}
+          activationDistance={20}
+          scrollEnabled={false} // Wyłącz przewijanie w tej liście
+        />
+      </View>
+
+      {/* Ranking */}
+      <View style={styles.rankingContainer}>
+        <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
+          Ranking
+        </Text>
+        <DraggableFlatList
+          data={rankingSlots}
+          keyExtractor={(item) => `rank-${item.rank}`} // Dodanie prefiksu
+          renderItem={renderRankingItem}
+          onDragEnd={handleDragEnd}
+          activationDistance={20}
+          scrollEnabled={true}
+          showsVerticalScrollIndicator={true} // Zawsze widoczny pasek przewijania
+        />
+        <TouchableOpacity 
+          style={[styles.addButton, { backgroundColor: theme.colors.primary }]} 
+          onPress={addRankingSlot}
+          activeOpacity={0.7}
         >
-          <Text style={[styles.buttonText, { color: theme.colors.onPrimary }]}>
-            Go Back
+          <Text style={[styles.addButtonText, { color: theme.colors.onPrimary }]}>
+            Add More Slots
           </Text>
         </TouchableOpacity>
       </View>
-    </DraxProvider>
+      
+      {/* Go Back Button */}
+      <TouchableOpacity
+        onPress={handleGoBack}
+        style={[styles.button, { backgroundColor: theme.colors.primary }]}
+      >
+        <Text style={[styles.buttonText, { color: theme.colors.onPrimary }]}>
+          Go Back
+        </Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -449,10 +341,6 @@ const styles = StyleSheet.create({
   rankingContainer: {
     marginBottom: 30,
     flex: 1, // Pozwól na rozciąganie
-  },
-  rankingList: {
-    maxHeight: 300, // Ustaw odpowiednią wartość
-    marginBottom: 10,
   },
   rankingSlot: {
     padding: 15,
@@ -522,24 +410,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  visitedList: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 12,
-    padding: 10,
-    backgroundColor: '#f9f9f9',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'flex-start',
-  },
-  visitedListContent: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
   visitedItem: {
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    margin: 5,
+    paddingVertical: 10,
+    marginVertical: 5,
+    marginHorizontal: 5,
     backgroundColor: '#fff',
     borderRadius: 8,
     flexDirection: 'row',
@@ -549,5 +424,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
+  },
+  description1: { // Dodana właściwość
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#000',
   },
 });
