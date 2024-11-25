@@ -67,12 +67,8 @@ const RankingItem: React.FC<RankingItemProps> = ({
         {
           backgroundColor:
             activeRankingItemId === slot.id
-              ? theme.dark
-                ? '#333333'
-                : '#e3e3e3'
-              : theme.dark
-              ? '#1c1c1c'
-              : '#f0f0f0',
+              ? theme.dark ? '#333333' : '#e3e3e3'
+              : theme.colors.surface,
         },
       ]}
       onLongPress={() => setActiveRankingItemId(slot.id)}
