@@ -64,7 +64,7 @@ export default function AccountScreen() {
           const nickname: string | undefined = userData.nickname;
           const email: string | null | undefined = currentUser.email;
 
-          setUserName(nickname || 'Error: No nickname');
+          setUserName(nickname || 'Error: No nickname');  
           setUserEmail(email || 'user@error.com');
 
           // Utwórz initialSlots z unikalnym id
@@ -127,41 +127,54 @@ export default function AccountScreen() {
   return (
     <TouchableWithoutFeedback onPress={() => setActiveRankingItemId(null)}>
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        {/* Nagłówek z przyciskiem powrotu i przełącznikiem motywu */}
+        <View style={[styles.header, { paddingTop: height * 0.03 }]}>
+          <TouchableOpacity onPress={handleGoBack} style={[styles.headerButton, { marginLeft: -17 }]}>
+            <Ionicons name="arrow-back" size={28} color={theme.colors.onBackground} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: theme.colors.onBackground }]}>Account</Text>
+          <TouchableOpacity onPress={toggleTheme} style={[styles.headerButton, { marginRight: -17 }]}>
+            <Ionicons name={isDarkTheme ? "sunny" : "moon"} size={28} color={theme.colors.onBackground} />
+          </TouchableOpacity>
+        </View>
+
         {/* Panel Użytkownika */}
         <View style={styles.userPanel}>
-          <Ionicons name="person-circle" size={80} color={theme.colors.primary} />
+          <Ionicons name="person-circle" size={100} color={theme.colors.primary} />
           <Text style={[styles.userName, { color: theme.colors.onBackground }]}>{userName}</Text>
           <Text style={[styles.userEmail, { color: 'gray' }]}>{userEmail}</Text>
         </View>
 
         {/* Ranking Window */}
-        <View style={styles.rankingWindow}>
-          <Text style={[styles.rankingTitle, { color: theme.colors.onBackground }]}>Ranking</Text>
+        <View style={[styles.rankingWindow, { backgroundColor: theme.colors.surface }]}>
+          <Text style={[styles.rankingTitle, { color: theme.colors.onSurface }]}>Ranking</Text>
           <TouchableOpacity
             style={styles.editButton}
             onPress={() => router.push('/ranking')} // Używamy '/ranking' zgodnie z Twoim wymaganiem
           >
-            <Text style={styles.editButtonText}> {rankingSlots.length > 0 ? 'Show and Edit Ranking' : 'Create Ranking'}</Text>
+            <Text style={[styles.editButtonText, { color: '#6200ee' }]}>
+              {rankingSlots.length > 0 ? 'Show and Edit Ranking' : 'Create Ranking'}
+            </Text>
             <Ionicons name="chevron-forward" size={20} color="#6200ee" />
           </TouchableOpacity>
         </View>
 
         {/* Poziomo Przewijalna Lista Rankingu */}
         {rankingSlots.length > 0 ? (
-          <View style={styles.horizontalRankingContainer}>
+            <View style={[styles.horizontalRankingContainer, { backgroundColor: isDarkTheme ? '#333333' : '#ebebeb' }]}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {rankingSlots.map((slot, index) => (
-                <RankingItem
-                  key={slot.id}
-                  slot={slot}
-                  index={index}
-                  onRemove={handleRemoveFromRanking}
-                  activeRankingItemId={activeRankingItemId}
-                  setActiveRankingItemId={setActiveRankingItemId}
-                />
+              <RankingItem
+                key={slot.id}
+                slot={slot}
+                index={index}
+                onRemove={handleRemoveFromRanking}
+                activeRankingItemId={activeRankingItemId}
+                setActiveRankingItemId={setActiveRankingItemId}
+              />
               ))}
             </ScrollView>
-          </View>
+            </View>
         ) : (
           <View style={styles.noRankingContainer}>
             <Text style={[styles.noRankingText, { color: theme.colors.onBackground }]}>
@@ -182,13 +195,29 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-start',
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    marginBottom: 20, // Dodany margines poniżej nagłówka
+  },
+  headerButton: {
+    padding: 8,
+    width: 40,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+  },
   userPanel: {
     alignItems: 'center',
-    marginTop: 30, // Zwiększony margines od góry
-    marginBottom: 20, // Zwiększony margines od dołu
+    marginBottom: 30, // Zwiększony margines od dołu
+    marginTop :10,
   },
   userName: {
-    marginTop: 8,
+    marginTop: 3,
     fontSize: 20,
     fontWeight: '700',
   },
@@ -201,11 +230,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 10,
     marginBottom: 20,
     paddingVertical: 10,
     paddingHorizontal: 15,
     borderRadius: 10,
-    backgroundColor: '#f0f0f0', // Możesz dostosować kolor tła
+    // backgroundColor: 'grey', // Kolor tła, który będzie zmieniany dynamicznie
   },
   rankingTitle: {
     fontSize: 18,
@@ -222,6 +252,8 @@ const styles = StyleSheet.create({
   },
   horizontalRankingContainer: {
     marginBottom: 20,
+    borderRadius: 10,
+    padding: 10,
   },
   noRankingContainer: {
     alignItems: 'center',
