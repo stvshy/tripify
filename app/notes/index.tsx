@@ -14,12 +14,13 @@ import {
 import { useRouter } from 'expo-router';
 import { ThemeContext } from '../config/ThemeContext';
 import { useTheme } from 'react-native-paper';
-import { getDoc, doc, updateDoc, collection, getDocs, addDoc } from 'firebase/firestore';
+import { getDoc, doc, updateDoc, collection, getDocs, addDoc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../config/firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import countriesData from '../../assets/maps/countries.json';
 import CountryFlag from 'react-native-country-flag';
 import { Country } from '../../.expo/types/country';
+import NoteItem from '@/components/NoteItem';
 
 
 interface Note {
@@ -38,7 +39,7 @@ export default function NotesScreen() {
   const [selectedCountry, setSelectedCountry] = useState<string>('');
   const [noteText, setNoteText] = useState<string>('');
 
-  const { width, height } = Dimensions.get('window');
+  const { height } = Dimensions.get('window');
 
   const mappedCountries: Country[] = useMemo(() => {
     return countriesData.countries.map((country) => ({
@@ -50,27 +51,29 @@ export default function NotesScreen() {
       path: country.path || 'Unknown',      // Dodane
     }));
   }, []);
+  const removeDuplicateNotes = (notesArray: Note[]): Note[] => {
+    const uniqueNotes = new Map<string, Note>();
+    notesArray.forEach((note) => uniqueNotes.set(note.id, note));
+    return Array.from(uniqueNotes.values());
+  };
 
   useEffect(() => {
     const fetchNotes = async () => {
       try {
         const currentUser = auth.currentUser;
-        if (currentUser) {
-          const notesCollectionRef = collection(db, 'users', currentUser.uid, 'notes');
-          const notesSnapshot = await getDocs(notesCollectionRef);
-          const notesList: Note[] = notesSnapshot.docs.map(doc => ({
-            id: doc.id,
-            countryCca2: doc.data().countryCca2,
-            noteText: doc.data().noteText,
-            createdAt: doc.data().createdAt,
-          }));
-          setNotes(notesList);
-        } else {
-          console.log('No current user.');
-        }
+        if (!currentUser) throw new Error('No current user.');
+
+        const notesCollectionRef = collection(db, 'users', currentUser.uid, 'notes');
+        const notesSnapshot = await getDocs(notesCollectionRef);
+        const notesList: Note[] = notesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          countryCca2: doc.data().countryCca2,
+          noteText: doc.data().noteText,
+          createdAt: doc.data().createdAt,
+        }));
+        setNotes(removeDuplicateNotes(notesList));
       } catch (error) {
         console.error('Error fetching notes:', error);
-        Alert.alert('Error', 'Unable to fetch notes. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -78,6 +81,21 @@ export default function NotesScreen() {
 
     fetchNotes();
   }, []);
+
+  const handleDeleteNote = async (noteId: string) => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('No current user.');
+
+      const noteDocRef = doc(db, 'users', currentUser.uid, 'notes', noteId);
+      await deleteDoc(noteDocRef);
+      setNotes(notes.filter(note => note.id !== noteId));
+      Alert.alert('Success', 'Note deleted successfully.');
+    } catch (error) {
+      console.error('Error deleting note:', error);
+      Alert.alert('Error', 'Unable to delete note. Please try again.');
+    }
+  };
 
   const handleAddNote = async () => {
     if (!selectedCountry) {
@@ -110,20 +128,17 @@ export default function NotesScreen() {
     }
   };
 
-  const handleDeleteNote = async (noteId: string) => {
-    try {
-      const currentUser = auth.currentUser;
-      if (currentUser) {
-        const noteDocRef = doc(db, 'users', currentUser.uid, 'notes', noteId);
-        await updateDoc(noteDocRef, { deleted: true }); // Opcjonalnie, możesz usunąć dokument
-        setNotes(notes.filter(note => note.id !== noteId));
-        Alert.alert('Success', 'Note deleted successfully.');
-      }
-    } catch (error) {
-      console.error('Error deleting note:', error);
-      Alert.alert('Error', 'Unable to delete note. Please try again.');
-    }
-  };
+<FlatList
+  data={notes}
+  keyExtractor={(item) => item.id} // Użyj `id` jako klucza
+  renderItem={({ item }) => (
+    <NoteItem
+      note={item}
+      onDelete={handleDeleteNote} // Przekazanie funkcji do usuwania
+    />
+  )}
+/>
+
 
   const renderNoteItem = ({ item }: { item: Note }) => {
     const country = mappedCountries.find(c => c.cca2 === item.countryCca2);
@@ -207,8 +222,9 @@ export default function NotesScreen() {
         <FlatList
           data={notes}
           keyExtractor={(item) => item.id}
-          renderItem={renderNoteItem}
-          contentContainerStyle={styles.notesList}
+          renderItem={({ item }) => (
+            <NoteItem note={item} onDelete={handleDeleteNote} />
+          )}
         />
       ) : (
         <View style={styles.noNotesContainer}>
