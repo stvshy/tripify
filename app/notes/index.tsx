@@ -661,36 +661,17 @@ const styles = StyleSheet.create({
   masonryContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 10,
+    // paddingHorizontal: 10,
     // flex: 1, // Umożliwienie zajmowania pełnej wysokości
   },
   column: {
     flex: 1, // Każda kolumna zajmuje połowę szerokości
-    paddingHorizontal: 5, // Odstępy między kolumnami
   },
-  // noteItem: {
-  //   width: '95%', // Stała szerokość notatki
-  //   borderRadius: 10,
-  //   marginBottom: 16,
-  //   padding: 16,
-  //   backgroundColor: isDarkTheme ? '#333' : '#fff',
-  //   shadowColor: '#000',
-  //   shadowOffset: { width: 0, height: 2 },
-  //   shadowOpacity: 0.1,
-  //   shadowRadius: 4,
-  //   elevation: 3,
-  // },
-  // noteFlag: {
-  //   flexDirection: 'row',
-  //   alignItems: 'center',
-  //   marginBottom: 8,
-  // },
-
   modalContainer: {
     flex: 1,
     justifyContent: 'center', // Wyśrodkowanie modala
     alignItems: 'center',
-    padding: 20,
+    // padding: 20,
   },
   modalContent: {
     width: '95%',
