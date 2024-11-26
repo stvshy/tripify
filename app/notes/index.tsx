@@ -18,6 +18,8 @@ import {
   Keyboard,
   Platform,
   TextInput,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ThemeContext } from '../config/ThemeContext';
@@ -25,6 +27,7 @@ import { useTheme, TextInput as PaperTextInput } from 'react-native-paper';
 import { collection, getDocs, deleteDoc, addDoc, doc } from 'firebase/firestore';
 import { db, auth } from '../config/firebaseConfig';
 import { Ionicons, FontAwesome, MaterialIcons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import CountryFlag from 'react-native-country-flag';
 import filteredCountriesData from '../../components/filteredCountries.json';
 import NoteItem from '@/components/NoteItem';
@@ -62,7 +65,8 @@ export default function NotesScreen() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isFocused, setIsFocused] = useState<boolean>(false);
   const [filteredCountries, setFilteredCountries] = useState<Country[]>([]);
-
+  const [isModalVisible, setIsModalVisible] = useState<boolean>(false);
+  const [isModalInputFocused, setIsModalInputFocused] = useState<boolean>(false);
   const fadeAnim = useRef(new AnimatedRN.Value(1)).current;
   const scaleValue = useRef(new AnimatedRN.Value(1)).current;
 
@@ -137,13 +141,13 @@ export default function NotesScreen() {
         setSelectedCountry('');
         setNoteText('');
         Alert.alert('Success', 'Note added successfully.');
+        setIsModalVisible(false); // Zamknij modal po dodaniu
       }
     } catch (error) {
       console.error('Error adding note:', error);
       Alert.alert('Error', 'Unable to add note.');
     }
   }, [selectedCountry, noteText]);
-
   // Funkcja usuwająca notatkę
   const handleDeleteNote = useCallback(async (noteId: string) => {
     try {
@@ -243,86 +247,145 @@ export default function NotesScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Formularz Dodawania Notatki */}
-          <View style={[styles.formContainer, { backgroundColor: theme.colors.surface }]}>
-            {/* Pasek wyszukiwania kraju */}
-            {/* <Text style={[styles.formLabel, { color: theme.colors.onSurface }]}>Search Country:</Text> */}
-            <View style={[styles.inputContainer, isFocused && styles.inputFocused]}>
-            <PaperTextInput
-            label="Search Country"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            mode="flat"
-            style={{
-                flex: 1,
-                paddingLeft: 10,
-                height: 50,
-                fontSize: 14,
-                backgroundColor: 'transparent',
-                borderRadius: 0,
-                color: '#000',
-            }}
-            theme={{
-                colors: {
-                    primary: isFocused ? theme.colors.primary : theme.colors.outline,
-                    background: 'transparent',
-                    text: theme.colors.onSurface,
-                },
-            }}
-            underlineColor="transparent"
-            left={
-                <PaperTextInput.Icon
-                  icon={() => <FontAwesome name="search" size={20} color={isFocused ? theme.colors.primary : theme.colors.outline} />}
-                  style={styles.iconLeft}
-                />
-              }
-              right={
-                searchQuery ? (
-                  <PaperTextInput.Icon
-                    icon={() => <MaterialIcons name="close" size={17} color={theme.colors.outline} />}
-                    onPress={() => setSearchQuery('')}
-                  />
-                ) : null
-            }
-            autoCapitalize="none"
-            onFocus={() => {
-              setIsFocused(true);
-              fadeAnim.setValue(0);
-            }}
-            />
-            </View>
+          {/* Plus Button */}
+          <View style={styles.plusButtonContainer}>
+            <TouchableOpacity onPress={() => setIsModalVisible(true)} style={[styles.plusButton, { backgroundColor: theme.colors.primary }]}>
+              <Ionicons name="add" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
+          <Modal
+            visible={isModalVisible}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setIsModalVisible(false)}
+          >
+                 <TouchableWithoutFeedback onPress={() => setIsModalVisible(false)}>
+              <BlurView intensity={50} tint={isDarkTheme ? 'dark' : 'light'} style={styles.blurView} />
+            </TouchableWithoutFeedback>
+            <View style={styles.modalContainer}>
+              <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+                {/* Close Button */}
+                <TouchableOpacity onPress={() => setIsModalVisible(false)} style={styles.modalCloseButton}>
+                  <Ionicons name="close" size={24} color={theme.colors.onSurface} />
+                </TouchableOpacity>
 
-            {/* Lista wyników wyszukiwania */}
-            {filteredCountries.length > 0 && (
-              <View style={[styles.countriesListContainer, { backgroundColor: theme.colors.surface }]}>
-                <FlatList
-                  data={filteredCountries}
-                  keyExtractor={(item) => item.cca2}
-                  renderItem={renderCountryItem}
-                  keyboardShouldPersistTaps="handled"
-                />
-                {/* Tymczasowy tekst do debugowania - Usuń po naprawieniu błędu */}
-                {/* <Text>Lista krajów jest wyświetlana</Text> */}
-              </View>
-            )}
+                {/* Modal Header */}
+                <Text style={[styles.modalHeader, { color: theme.colors.onSurface }]}>Add a Note</Text>
+                {/* Formularz Dodawania Notatki */}
+                <View style={[styles.formContainer, { backgroundColor: theme.colors.surface }]}>
+                  {/* Pasek wyszukiwania kraju */}
+                  {/* <Text style={[styles.formLabel, { color: theme.colors.onSurface }]}>Search Country:</Text> */}
+                  <View style={[styles.inputContainer, isModalInputFocused  && styles.inputFocused]}>
+                    <PaperTextInput
+                      label="Search Country"
+                      value={searchQuery}
+                      onChangeText={setSearchQuery}
+                      mode="flat"
+                      style={{
+                          flex: 1,
+                          paddingLeft: 10,
+                          height: 50,
+                          fontSize: 14,
+                          backgroundColor: 'transparent',
+                          borderRadius: 0,
+                          color: '#000',
+                      }}
+                      theme={{
+                          colors: {
+                              primary: isModalInputFocused  ? theme.colors.primary : theme.colors.outline,
+                              background: 'transparent',
+                              text: theme.colors.onSurface,
+                          },
+                      }}
+                      underlineColor="transparent"
+                      left={
+                          <PaperTextInput.Icon
+                            icon={() => <FontAwesome name="search" size={20} color={isModalInputFocused  ? theme.colors.primary : theme.colors.outline} />}
+                            style={styles.iconLeft}
+                          />
+                        }
+                        right={
+                          searchQuery ? (
+                            <PaperTextInput.Icon
+                              icon={() => <MaterialIcons name="close" size={17} color={theme.colors.outline} />}
+                              onPress={() => setSearchQuery('')}
+                            />
+                          ) : null
+                      }
+                      autoCapitalize="none"
+                      onFocus={() => {
+                          setIsModalInputFocused(true);
+                        fadeAnim.setValue(0);
+                      }}
+                      onBlur={() => {
+                          setIsModalInputFocused(false);
+                          AnimatedRN.timing(fadeAnim, {
+                            toValue: 1,
+                            duration: 300,
+                            useNativeDriver: true,
+                          }).start();
+                        }}
+                    />
+                  </View>
 
-            {/* Wybrany kraj */}
-            <Text style={[styles.formLabel, { color: theme.colors.onSurface }]}>Selected Country:</Text>
-            <View style={styles.selectedCountryContainer}>
-              {selectedCountry ? (
-                <>
-                  <CountryFlag isoCode={selectedCountry} size={25} style={styles.selectedCountryFlag} />
-                  <Text style={{ color: theme.colors.onSurface, marginLeft: 5 }}>
-                    {mappedCountries.find(c => c.cca2 === selectedCountry)?.name || 'Unknown Country'}
-                  </Text>
-                </>
-              ) : (
-                <Text style={{ color: 'gray' }}>No country selected.</Text>
-              )}
-            </View>
+                  {/* Lista wyników wyszukiwania */}
+                  {filteredCountries.length > 0 && (
+                    <View style={[styles.countriesListContainer, { backgroundColor: theme.colors.surface }]}>
+                      <FlatList
+                        data={filteredCountries}
+                        keyExtractor={(item) => item.cca2}
+                        renderItem={renderCountryItem}
+                        keyboardShouldPersistTaps="handled"
+                      />
+                      {/* Tymczasowy tekst do debugowania - Usuń po naprawieniu błędu */}
+                      {/* <Text>Lista krajów jest wyświetlana</Text> */}
+                    </View>
+                  )}
+
+                  {/* Wybrany kraj */}
+                  <Text style={[styles.formLabel, { color: theme.colors.onSurface }]}>Selected Country:</Text>
+                  <View style={styles.selectedCountryContainer}>
+                    {selectedCountry ? (
+                      <>
+                        <CountryFlag isoCode={selectedCountry} size={25} style={styles.selectedCountryFlag} />
+                        <Text style={{ color: theme.colors.onSurface, marginLeft: 5 }}>
+                          {mappedCountries.find(c => c.cca2 === selectedCountry)?.name || 'Unknown Country'}
+                        </Text>
+                      </>
+                    ) : (
+                      <Text style={{ color: 'gray' }}>No country selected.</Text>
+                    )}
+                  </View>
+
+                  {/* Pole tekstowe na notatkę */}
+                  {/* <Text style={[styles.formLabel, { color: theme.colors.onSurface }]}>Note:</Text> */}
+                  <ScrollView style={{ flex: 1, marginBottom: 10 }}>
+                    <TextInput
+                      style={[
+                        styles.textInput,
+                        { color: theme.colors.onSurface, borderColor: theme.colors.onSurface },
+                      ]}
+                      placeholder="Enter your note"
+                      placeholderTextColor="gray"
+                      value={noteText}
+                      onChangeText={setNoteText}
+                      multiline
+                      scrollEnabled
+                    />
+                  </ScrollView>
+
+                  {/* Przycisk dodawania notatki */}
+                  {/* <TouchableOpacity
+                    style={[styles.addButton, { backgroundColor: theme.colors.primary }]}
+                    onPress={handleAddNote}
+                  >
+                    <Text style={styles.addButtonText}>Add Note</Text>
+                  </TouchableOpacity> */}
+                </View>
+
+            
 
             {/* Pole tekstowe na notatkę */}
-            <Text style={[styles.formLabel, { color: theme.colors.onSurface }]}>Note:</Text>
             <TextInput
               style={[
                 styles.textInput,
@@ -342,8 +405,9 @@ export default function NotesScreen() {
             >
               <Text style={styles.addButtonText}>Add Note</Text>
             </TouchableOpacity>
-          </View>
-
+              </View>
+            </View>
+          </Modal>
           {/* Lista Notatek */}
           {loading ? (
             <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -390,15 +454,46 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
   },
-  formContainer: {
-    padding: 16,
-    borderRadius: 10,
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: width * 0.95, // Almost full screen
+    height: height * 0.85, // Almost full screen
+    padding: 20,
+    borderRadius: 20,
+    alignItems: 'stretch',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  blurView: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+  },
+  modalCloseButton: {
+    alignSelf: 'flex-end',
+  },
+  modalHeader: {
+    fontSize: 20,
+    fontWeight: '700',
     marginBottom: 20,
+    textAlign: 'center',
+  },
+  formContainer: {
+    padding: 4,
+    borderRadius: 10,
+    // marginBottom: 20,
   },
   formLabel: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: 4,
     // marginTop: 17,
   },
   inputContainer: {
@@ -414,6 +509,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, // Opcjonalnie, aby dodać przestrzeń wewnętrzną
     marginBottom: 17,   
   },
+  plusButtonContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  plusButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 30, // Make it round
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 5,
+  },
+  
+//   modalInputContainer: {
+//     width: '100%',
+//     backgroundColor: '#f0ed8f5',
+//     borderRadius: 28,
+//     overflow: 'hidden',
+//     borderWidth: 2,
+//     borderColor: '#ccc',
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     height: 50, // Fixed height
+//     flex: 1,
+//     marginBottom: 10,
+//   },
   inputFocused: {
     borderColor: '#6a1b9a',
   },
@@ -439,7 +560,7 @@ const styles = StyleSheet.create({
   selectedCountryContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 17,
+    // marginBottom: 17,
   },
   selectedCountryFlag: {
     marginRight: 5,
