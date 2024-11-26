@@ -19,6 +19,7 @@ import {
   Platform,
   TextInput,
   Modal,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ThemeContext } from '../config/ThemeContext';
@@ -33,6 +34,7 @@ import NoteItem from '@/components/NoteItem';
 import CountryItem from '@/components/CountryItem';
 import { Animated as AnimatedRN } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import MasonryList from 'react-native-masonry-list';
 
 // Interface definitions
 interface Note {
@@ -235,9 +237,10 @@ export default function NotesScreen() {
   const renderNoteItem = useCallback(
     ({ item }: { item: Note }) => {
       const country = mappedCountries.find((c) => c.cca2 === item.countryCca2);
+      
       return (
         <TouchableOpacity
-          style={styles.noteItem}
+          style={[styles.noteItem, { backgroundColor: isDarkTheme ? '#000' : '#fff' }]}
           onPress={() => {
             setSelectedNote(item);
             setEditedNoteText(item.noteText); // Ustawienie istniejącego tekstu
@@ -307,7 +310,27 @@ export default function NotesScreen() {
       Alert.alert('Error', 'Unable to update note.');
     }
   }, [editedNoteText, selectedNote]);
-
+  const splitIntoColumns = (data: Note[]) => {
+    const leftColumn: Note[] = [];
+    const rightColumn: Note[] = [];
+  
+    data.forEach((item, index) => {
+      if (index % 2 === 0) {
+        leftColumn.push(item);
+      } else {
+        rightColumn.push(item);
+      }
+    });
+  
+    console.log('Left Column:', leftColumn);
+    console.log('Right Column:', rightColumn);
+  
+    return { leftColumn, rightColumn };
+  };
+  
+  console.log('Notes:', notes);
+  const { leftColumn, rightColumn } = splitIntoColumns(notes);
+  
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -578,28 +601,36 @@ export default function NotesScreen() {
 
           {/* Lista Notatek */}
           {loading ? (
-            <ActivityIndicator size="large" color={theme.colors.primary} />
-          ) : notes.length > 0 ? (
-            <FlatList
-              data={notes}
-              keyExtractor={(item) => item.id}
-              renderItem={renderNoteItem}
-              contentContainerStyle={styles.notesList}
-              numColumns={2}
-              columnWrapperStyle={styles.columnWrapper}
-              showsVerticalScrollIndicator={false}
-              initialNumToRender={10}
-              removeClippedSubviews={true}
-              maxToRenderPerBatch={10}
-              windowSize={21}
-            />
-          ) : (
-            <View style={styles.noNotesContainer}>
-              <Text style={[styles.noNotesText, { color: theme.colors.onSurface }]}>
-                You haven't created any notes yet.
-              </Text>
-            </View>
-          )}
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+        ) : notes.length > 0 ? (
+<ScrollView contentContainerStyle={styles.masonryContainer}>
+  {/* Lewa kolumna */}
+  <View style={styles.column}>
+    <FlatList
+      data={leftColumn}
+      keyExtractor={(item) => item.id}
+      renderItem={({ item }) => renderNoteItem({ item })}
+      scrollEnabled={false} // Wyłączamy przewijanie wewnętrzne
+    />
+  </View>
+  {/* Prawa kolumna */}
+  <View style={styles.column}>
+    <FlatList
+      data={rightColumn}
+      keyExtractor={(item) => item.id}
+      renderItem={({ item }) => renderNoteItem({ item })}
+      scrollEnabled={false} // Wyłączamy przewijanie wewnętrzne
+    />
+  </View>
+</ScrollView>
+
+        ) : (
+          <View style={styles.noNotesContainer}>
+            <Text style={[styles.noNotesText, { color: theme.colors.onSurface }]}>
+              You haven't created any notes yet.
+            </Text>
+          </View>
+        )}
         </KeyboardAvoidingView>
       </SafeAreaView>
     </TouchableWithoutFeedback>
@@ -627,6 +658,34 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
   },
+  masonryContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    // flex: 1, // Umożliwienie zajmowania pełnej wysokości
+  },
+  column: {
+    flex: 1, // Każda kolumna zajmuje połowę szerokości
+    paddingHorizontal: 5, // Odstępy między kolumnami
+  },
+  // noteItem: {
+  //   width: '95%', // Stała szerokość notatki
+  //   borderRadius: 10,
+  //   marginBottom: 16,
+  //   padding: 16,
+  //   backgroundColor: isDarkTheme ? '#333' : '#fff',
+  //   shadowColor: '#000',
+  //   shadowOffset: { width: 0, height: 2 },
+  //   shadowOpacity: 0.1,
+  //   shadowRadius: 4,
+  //   elevation: 3,
+  // },
+  // noteFlag: {
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   marginBottom: 8,
+  // },
+
   modalContainer: {
     flex: 1,
     justifyContent: 'center', // Wyśrodkowanie modala
@@ -785,11 +844,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   noteItem: {
-    backgroundColor: '#f9f9f9',
     borderRadius: 10,
     padding: 16,
     marginBottom: 10,
-    flex: 1,
+    // flex: 1,
+    backgroundColor: '#f9f9f9',
     marginHorizontal: 5,
     // Dodaj cienie dla iOS
     shadowColor: '#000',
@@ -811,9 +870,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   noteText: {
-    flex: 1,
+    // flex: 1,
     fontSize: 14,
-    marginRight: 10,
+    // marginRight: 10,
+    //  lineHeight: 20,
+     color: '#000', // Tekst czarny
   },
   noNotesContainer: {
     alignItems: 'center',
