@@ -1,5 +1,7 @@
+// components/NoteItem.tsx
+
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import CountryFlag from 'react-native-country-flag';
 import { useTheme } from 'react-native-paper';
@@ -9,23 +11,38 @@ interface NoteItemProps {
     id: string;
     countryCca2: string;
     noteText: string;
+    createdAt: any;
   };
-  onDelete: (id: string) => void;
+  onDelete: (noteId: string) => void;
+  country?: {
+    id: string;
+    name: string;
+    officialName: string;
+    cca2: string;
+    cca3: string;
+    region: string;
+    subregion: string;
+    class: string | null;
+    path: string;
+  };
 }
 
-const NoteItem: React.FC<NoteItemProps> = ({ note, onDelete }) => {
+const NoteItem: React.FC<NoteItemProps> = ({ note, onDelete, country }) => {
   const theme = useTheme();
+
   return (
-    <View style={[styles.noteItem, { backgroundColor: theme.colors.surface }]}>
-      <CountryFlag isoCode={note.countryCca2} size={25} style={styles.noteFlag} />
-      <View style={styles.noteTextContainer}>
-        <Text style={[styles.noteCountryName, { color: theme.colors.onBackground }]}>
-          {note.countryCca2}
-        </Text>
-        <Text style={[styles.noteText, { color: theme.colors.onBackground }]}>
-          {note.noteText}
-        </Text>
-      </View>
+    <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
+      {country ? (
+        <View style={styles.countryInfo}>
+          <CountryFlag isoCode={country.cca2} size={25} />
+          <Text style={[styles.countryName, { color: theme.colors.onSurface }]}>{country.name}</Text>
+        </View>
+      ) : (
+        <View style={styles.countryInfo}>
+          <Text style={{ color: theme.colors.onSurface }}>Unknown Country</Text>
+        </View>
+      )}
+      <Text style={[styles.noteText, { color: theme.colors.onSurface }]}>{note.noteText}</Text>
       <TouchableOpacity onPress={() => onDelete(note.id)}>
         <Ionicons name="trash" size={24} color="red" />
       </TouchableOpacity>
@@ -34,7 +51,7 @@ const NoteItem: React.FC<NoteItemProps> = ({ note, onDelete }) => {
 };
 
 const styles = StyleSheet.create({
-  noteItem: {
+  container: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
@@ -46,19 +63,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
   },
-  noteFlag: {
+  countryInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginRight: 10,
   },
-  noteTextContainer: {
-    flex: 1,
-  },
-  noteCountryName: {
+  countryName: {
+    marginLeft: 5,
     fontSize: 16,
     fontWeight: '600',
   },
   noteText: {
+    flex: 1,
     fontSize: 14,
-    marginTop: 2,
+    marginRight: 10,
   },
 });
 
