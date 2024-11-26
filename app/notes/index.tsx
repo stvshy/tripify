@@ -19,8 +19,9 @@ import { db, auth } from '../config/firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import countriesData from '../../assets/maps/countries.json';
 import CountryFlag from 'react-native-country-flag';
-import { Country } from '../../.expo/types/country';
+
 import NoteItem from '@/components/NoteItem';
+import filteredCountriesData from '../../components/filteredCountries.json';
 
 
 interface Note {
@@ -29,6 +30,13 @@ interface Note {
   noteText: string;
   createdAt: any;
 }
+
+type Country = {
+    id: string;
+    cca2: string;
+    name: string;
+    flag: string;
+  }
 
 export default function NotesScreen() {
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
@@ -42,59 +50,40 @@ export default function NotesScreen() {
   const { height } = Dimensions.get('window');
 
   const mappedCountries: Country[] = useMemo(() => {
-    return countriesData.countries.map((country) => ({
+    return filteredCountriesData.countries.map((country) => ({
       ...country,
-      cca2: country.id,
-      flag: `https://flagcdn.com/w40/${country.id.toLowerCase()}.png`,
-      name: country.name || 'Unknown',      // Dodane
-      class: country.class || 'Unknown',    // Dodane
-      path: country.path || 'Unknown',      // Dodane
+      cca2: country.cca2,
+      flag: `https://flagcdn.com/w40/${country.cca2.toLowerCase()}.png`,
+      name: country.name,
     }));
   }, []);
-  const removeDuplicateNotes = (notesArray: Note[]): Note[] => {
-    const uniqueNotes = new Map<string, Note>();
-    notesArray.forEach((note) => uniqueNotes.set(note.id, note));
-    return Array.from(uniqueNotes.values());
-  };
 
-  useEffect(() => {
-    const fetchNotes = async () => {
-      try {
-        const currentUser = auth.currentUser;
-        if (!currentUser) throw new Error('No current user.');
-
+  const fetchNotes = async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
         const notesCollectionRef = collection(db, 'users', currentUser.uid, 'notes');
         const notesSnapshot = await getDocs(notesCollectionRef);
-        const notesList: Note[] = notesSnapshot.docs.map(doc => ({
+        const notesList: Note[] = notesSnapshot.docs.map((doc) => ({
           id: doc.id,
           countryCca2: doc.data().countryCca2,
           noteText: doc.data().noteText,
           createdAt: doc.data().createdAt,
         }));
-        setNotes(removeDuplicateNotes(notesList));
-      } catch (error) {
-        console.error('Error fetching notes:', error);
-      } finally {
-        setLoading(false);
+        setNotes(notesList);
       }
-    };
-
-    fetchNotes();
-  }, []);
-
-  const handleDeleteNote = async (noteId: string) => {
-    try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error('No current user.');
-
-      const noteDocRef = doc(db, 'users', currentUser.uid, 'notes', noteId);
-      await deleteDoc(noteDocRef);
-      setNotes(notes.filter(note => note.id !== noteId));
-      Alert.alert('Success', 'Note deleted successfully.');
     } catch (error) {
-      console.error('Error deleting note:', error);
-      Alert.alert('Error', 'Unable to delete note. Please try again.');
+      console.error('Error fetching notes:', error);
+      Alert.alert('Error', 'Unable to fetch notes.');
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const removeDuplicateNotes = (notesArray: Note[]): Note[] => {
+    const uniqueNotes = new Map<string, Note>();
+    notesArray.forEach((note) => uniqueNotes.set(note.id, note));
+    return Array.from(uniqueNotes.values());
   };
 
   const handleAddNote = async () => {
@@ -106,16 +95,11 @@ export default function NotesScreen() {
       Alert.alert('Error', 'Please enter a note.');
       return;
     }
-
     try {
       const currentUser = auth.currentUser;
       if (currentUser) {
         const notesCollectionRef = collection(db, 'users', currentUser.uid, 'notes');
-        const newNote = {
-          countryCca2: selectedCountry,
-          noteText: noteText.trim(),
-          createdAt: new Date(),
-        };
+        const newNote = { countryCca2: selectedCountry, noteText: noteText.trim(), createdAt: new Date() };
         const docRef = await addDoc(notesCollectionRef, newNote);
         setNotes([...notes, { id: docRef.id, ...newNote }]);
         setSelectedCountry('');
@@ -124,9 +108,28 @@ export default function NotesScreen() {
       }
     } catch (error) {
       console.error('Error adding note:', error);
-      Alert.alert('Error', 'Unable to add note. Please try again.');
+      Alert.alert('Error', 'Unable to add note.');
     }
   };
+
+  const handleDeleteNote = async (noteId: string) => {
+    try {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        const noteDocRef = doc(db, 'users', currentUser.uid, 'notes', noteId);
+        await deleteDoc(noteDocRef);
+        setNotes(notes.filter((note) => note.id !== noteId));
+        Alert.alert('Success', 'Note deleted successfully.');
+      }
+    } catch (error) {
+      console.error('Error deleting note:', error);
+      Alert.alert('Error', 'Unable to delete note.');
+    }
+  };
+
+  useEffect(() => {
+    fetchNotes();
+  }, []);
 
 <FlatList
   data={notes}
