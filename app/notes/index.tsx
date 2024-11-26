@@ -23,7 +23,7 @@ import {
 import { useRouter } from 'expo-router';
 import { ThemeContext } from '../config/ThemeContext';
 import { useTheme, TextInput as PaperTextInput } from 'react-native-paper';
-import { collection, getDocs, deleteDoc, addDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../config/firebaseConfig';
 import { Ionicons, FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
@@ -70,8 +70,11 @@ export default function NotesScreen() {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState<boolean>(false); // Dodany stan
   const fadeAnim = useRef(new AnimatedRN.Value(1)).current;
   const scaleValue = useRef(new AnimatedRN.Value(1)).current;
-
-  const { height, width } = Dimensions.get('window');
+  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [isEditModalVisible, setIsEditModalVisible] = useState<boolean>(false);
+  const [editedNoteText, setEditedNoteText] = useState<string>('');
+  
+  const { height, width: deviceWidth } = Dimensions.get('window');
   const deviceHeight = height; // Używamy deviceHeight w stylach
 
   // Stała wysokości elementu listy
@@ -233,11 +236,26 @@ export default function NotesScreen() {
     ({ item }: { item: Note }) => {
       const country = mappedCountries.find((c) => c.cca2 === item.countryCca2);
       return (
-        <NoteItem
-          note={item}
-          onDelete={handleDeleteNote}
-          country={country}
-        />
+        <TouchableOpacity
+          style={styles.noteItem}
+          onPress={() => {
+            setSelectedNote(item);
+            setEditedNoteText(item.noteText); // Ustawienie istniejącego tekstu
+            setIsEditModalVisible(true);
+          }}
+        >
+          {/* Flaga i nazwa kraju */}
+          <View style={styles.noteFlag}>
+            {country && <CountryFlag isoCode={country.cca2} size={25} />}
+            <Text style={{ fontWeight: 'bold', marginTop: 5 }}>{country?.name}</Text>
+          </View>
+          {/* Tekst notatki */}
+          <Text style={styles.noteText}>{item.noteText}</Text>
+          {/* Opcjonalnie: Przycisk usunięcia */}
+          <TouchableOpacity onPress={() => handleDeleteNote(item.id)} style={{ position: 'absolute', top: 10, right: 10 }}>
+            <Ionicons name="trash" size={20} color="red" />
+          </TouchableOpacity>
+        </TouchableOpacity>
       );
     },
     [handleDeleteNote, mappedCountries]
@@ -259,6 +277,36 @@ export default function NotesScreen() {
       }),
     ]).start();
   }, [scaleValue, toggleTheme]);
+
+  // Funkcja edytująca notatkę
+  const handleEditNote = useCallback(async () => {
+    if (!selectedNote) return;
+
+    if (!editedNoteText.trim()) {
+      Alert.alert('Error', 'Please enter a note.');
+      return;
+    }
+
+    try {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        const noteDocRef = doc(db, 'users', currentUser.uid, 'notes', selectedNote.id);
+        await updateDoc(noteDocRef, { noteText: editedNoteText.trim() });
+        setNotes((prevNotes) =>
+          prevNotes.map((note) =>
+            note.id === selectedNote.id ? { ...note, noteText: editedNoteText.trim() } : note
+          )
+        );
+        Alert.alert('Success', 'Note updated successfully.');
+        setIsEditModalVisible(false);
+        setSelectedNote(null);
+        setEditedNoteText('');
+      }
+    } catch (error) {
+      console.error('Error updating note:', error);
+      Alert.alert('Error', 'Unable to update note.');
+    }
+  }, [editedNoteText, selectedNote]);
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -285,7 +333,7 @@ export default function NotesScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Modal */}
+          {/* Modal dodawania notatki */}
           <Modal
             visible={isModalVisible}
             transparent
@@ -462,6 +510,72 @@ export default function NotesScreen() {
             </KeyboardAvoidingView>
           </Modal>
 
+          {/* Modal edycji notatki */}
+          <Modal
+            visible={isEditModalVisible}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setIsEditModalVisible(false)}
+          >
+            <TouchableWithoutFeedback onPress={() => setIsEditModalVisible(false)}>
+              <BlurView intensity={50} tint={isDarkTheme ? 'dark' : 'light'} style={styles.blurView} />
+            </TouchableWithoutFeedback>
+            <KeyboardAvoidingView
+              style={styles.modalContainer}
+              behavior={Platform.OS === "ios" ? "padding" : "height"}
+              keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 20}
+            >
+              <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                <View style={[
+                  styles.modalContent, 
+                  { 
+                    backgroundColor: theme.colors.surface,
+                    height: isKeyboardVisible ? deviceHeight * 0.81 : deviceHeight * 0.95,
+                  }
+                ]}>
+                  {/* Close Button */}
+                  <TouchableOpacity
+                    onPress={() => setIsEditModalVisible(false)}
+                    style={styles.modalCloseButton}
+                  >
+                    <Ionicons name="close" size={24} color={theme.colors.onSurface} />
+                  </TouchableOpacity>
+
+                  {/* Modal Header */}
+                  <Text style={[styles.modalHeader, { color: theme.colors.onSurface }]}>Edit Note</Text>
+
+                  {/* Formularz edycji notatki */}
+                  <View style={[styles.formContainer, { backgroundColor: theme.colors.surface }]}>
+                    {/* Pole tekstowe na edytowaną notatkę */}
+                    <View style={styles.textInputContainer}>
+                      <TextInput
+                        style={[
+                          styles.textInput,
+                          { color: theme.colors.onSurface, borderColor: theme.colors.onSurface, paddingTop: 10 },
+                        ]}
+                        placeholder="Edit your note"
+                        placeholderTextColor="gray"
+                        value={editedNoteText}
+                        onChangeText={setEditedNoteText}
+                        multiline
+                        scrollEnabled
+                        textAlignVertical="top"
+                      />
+                    </View>
+
+                    {/* Przycisk zapisywania zmian */}
+                    <TouchableOpacity
+                      style={[styles.addButton, { backgroundColor: theme.colors.primary }]}
+                      onPress={handleEditNote}
+                    >
+                      <Text style={styles.addButtonText}>Save Changes</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </TouchableWithoutFeedback>
+            </KeyboardAvoidingView>
+          </Modal>
+
           {/* Lista Notatek */}
           {loading ? (
             <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -471,6 +585,13 @@ export default function NotesScreen() {
               keyExtractor={(item) => item.id}
               renderItem={renderNoteItem}
               contentContainerStyle={styles.notesList}
+              numColumns={2}
+              columnWrapperStyle={styles.columnWrapper}
+              showsVerticalScrollIndicator={false}
+              initialNumToRender={10}
+              removeClippedSubviews={true}
+              maxToRenderPerBatch={10}
+              windowSize={21}
             />
           ) : (
             <View style={styles.noNotesContainer}>
@@ -484,8 +605,6 @@ export default function NotesScreen() {
     </TouchableWithoutFeedback>
   );
 }
-
-const { width, height: deviceHeight } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
@@ -515,12 +634,9 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    width: width * 0.95,
-    // height: deviceHeight * 0.95, // Usunięto statyczne ustawienie wysokości
-    // Dodano dynamiczne ustawienie wysokości w zależności od isKeyboardVisible
+    width: '95%',
     padding: 20,
     borderRadius: 20,
-    // backgroundColor: theme.colors.surface,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
@@ -662,21 +778,30 @@ const styles = StyleSheet.create({
   },
   notesList: {
     paddingBottom: 20,
+    flexGrow: 1, // Dodane
+  },
+  columnWrapper: {
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
   noteItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 10,
+    padding: 16,
     marginBottom: 10,
-    elevation: 2,
+    flex: 1,
+    marginHorizontal: 5,
+    // Dodaj cienie dla iOS
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 4,
+    // Dodaj cienie dla Android
+    elevation: 3,
   },
   noteFlag: {
-    marginRight: 10,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
   },
   noteTextContainer: {
     flex: 1,
