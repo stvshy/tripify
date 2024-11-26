@@ -19,7 +19,6 @@ import {
   Platform,
   TextInput,
   Modal,
-  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ThemeContext } from '../config/ThemeContext';
@@ -33,6 +32,7 @@ import filteredCountriesData from '../../components/filteredCountries.json';
 import NoteItem from '@/components/NoteItem';
 import CountryItem from '@/components/CountryItem';
 import { Animated as AnimatedRN } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // Interface definitions
 interface Note {
@@ -71,6 +71,19 @@ export default function NotesScreen() {
   const scaleValue = useRef(new AnimatedRN.Value(1)).current;
 
   const { height, width } = Dimensions.get('window');
+
+  // Stała wysokości elementu listy
+  const ITEM_HEIGHT = 50;
+
+  // Obliczanie dynamicznej wysokości listy
+  const listHeight = useMemo(() => {
+    if (filteredCountries.length === 1) {
+      return ITEM_HEIGHT;
+    } else if (filteredCountries.length >= 2) {
+      return ITEM_HEIGHT * 2; // Wyświetl dwa elementy
+    }
+    return 0;
+  }, [filteredCountries.length]);
 
   // Mapowanie krajów z filteredCountries.json
   const mappedCountries: Country[] = useMemo(() => {
@@ -148,6 +161,7 @@ export default function NotesScreen() {
       Alert.alert('Error', 'Unable to add note.');
     }
   }, [selectedCountry, noteText]);
+
   // Funkcja usuwająca notatkę
   const handleDeleteNote = useCallback(async (noteId: string) => {
     try {
@@ -253,13 +267,15 @@ export default function NotesScreen() {
               <Ionicons name="add" size={24} color="#fff" />
             </TouchableOpacity>
           </View>
+
+          {/* Modal */}
           <Modal
             visible={isModalVisible}
             transparent
             animationType="slide"
             onRequestClose={() => setIsModalVisible(false)}
           >
-                 <TouchableWithoutFeedback onPress={() => setIsModalVisible(false)}>
+            <TouchableWithoutFeedback onPress={() => setIsModalVisible(false)}>
               <BlurView intensity={50} tint={isDarkTheme ? 'dark' : 'light'} style={styles.blurView} />
             </TouchableWithoutFeedback>
             <View style={styles.modalContainer}>
@@ -270,75 +286,94 @@ export default function NotesScreen() {
                 </TouchableOpacity>
 
                 {/* Modal Header */}
-                <Text style={[styles.modalHeader, { color: theme.colors.onSurface }]}>Add a Note</Text>
+                <Text style={[styles.modalHeader, { color: theme.colors.onSurface, marginTop: -28 }]}>Add a Note</Text>
+
                 {/* Formularz Dodawania Notatki */}
                 <View style={[styles.formContainer, { backgroundColor: theme.colors.surface }]}>
                   {/* Pasek wyszukiwania kraju */}
-                  {/* <Text style={[styles.formLabel, { color: theme.colors.onSurface }]}>Search Country:</Text> */}
-                  <View style={[styles.inputContainer, isModalInputFocused  && styles.inputFocused]}>
+                  <View style={[styles.inputContainer, isModalInputFocused && styles.inputFocused]}>
                     <PaperTextInput
                       label="Search Country"
                       value={searchQuery}
                       onChangeText={setSearchQuery}
                       mode="flat"
                       style={{
-                          flex: 1,
-                          paddingLeft: 10,
-                          height: 50,
-                          fontSize: 14,
-                          backgroundColor: 'transparent',
-                          borderRadius: 0,
-                          color: '#000',
+                        flex: 1,
+                        paddingLeft: 10,
+                        height: 50,
+                        fontSize: 14,
+                        backgroundColor: 'transparent',
+                        borderRadius: 0,
+                        color: '#000',
                       }}
                       theme={{
-                          colors: {
-                              primary: isModalInputFocused  ? theme.colors.primary : theme.colors.outline,
-                              background: 'transparent',
-                              text: theme.colors.onSurface,
-                          },
+                        colors: {
+                          primary: isModalInputFocused ? theme.colors.primary : theme.colors.outline,
+                          background: 'transparent',
+                          text: theme.colors.onSurface,
+                        },
                       }}
                       underlineColor="transparent"
                       left={
+                        <PaperTextInput.Icon
+                          icon={() => <FontAwesome name="search" size={20} color={isModalInputFocused ? theme.colors.primary : theme.colors.outline} />}
+                          style={styles.iconLeft}
+                        />
+                      }
+                      right={
+                        searchQuery ? (
                           <PaperTextInput.Icon
-                            icon={() => <FontAwesome name="search" size={20} color={isModalInputFocused  ? theme.colors.primary : theme.colors.outline} />}
-                            style={styles.iconLeft}
+                            icon={() => <MaterialIcons name="close" size={17} color={theme.colors.outline} />}
+                            onPress={() => setSearchQuery('')}
                           />
-                        }
-                        right={
-                          searchQuery ? (
-                            <PaperTextInput.Icon
-                              icon={() => <MaterialIcons name="close" size={17} color={theme.colors.outline} />}
-                              onPress={() => setSearchQuery('')}
-                            />
-                          ) : null
+                        ) : null
                       }
                       autoCapitalize="none"
                       onFocus={() => {
-                          setIsModalInputFocused(true);
+                        setIsModalInputFocused(true);
                         fadeAnim.setValue(0);
                       }}
                       onBlur={() => {
-                          setIsModalInputFocused(false);
-                          AnimatedRN.timing(fadeAnim, {
-                            toValue: 1,
-                            duration: 300,
-                            useNativeDriver: true,
-                          }).start();
-                        }}
+                        setIsModalInputFocused(false);
+                        AnimatedRN.timing(fadeAnim, {
+                          toValue: 1,
+                          duration: 300,
+                          useNativeDriver: true,
+                        }).start();
+                      }}
                     />
                   </View>
 
                   {/* Lista wyników wyszukiwania */}
                   {filteredCountries.length > 0 && (
-                    <View style={[styles.countriesListContainer, { backgroundColor: theme.colors.surface }]}>
+                    <View
+                      style={[
+                        styles.countriesListWrapper,
+                        { height: listHeight, backgroundColor: theme.colors.surface },
+                      ]}
+                    >
                       <FlatList
                         data={filteredCountries}
                         keyExtractor={(item) => item.cca2}
                         renderItem={renderCountryItem}
-                        keyboardShouldPersistTaps="handled"
+                        scrollEnabled={filteredCountries.length > 2}
                       />
-                      {/* Tymczasowy tekst do debugowania - Usuń po naprawieniu błędu */}
-                      {/* <Text>Lista krajów jest wyświetlana</Text> */}
+                      {filteredCountries.length > 2 && (
+                        <>
+                          {/* Gradient na górze */}
+                          <LinearGradient
+                            colors={['rgba(255,255,255,1)', 'rgba(255,255,255,0)']}
+                            style={styles.topGradient}
+                            pointerEvents="none"
+                          />
+                          {/* Gradient na dole */}
+                          <LinearGradient
+                            colors={['rgba(255,255,255,0)', 'rgba(255,255,255,1)']}
+                            style={styles.bottomGradient}
+                            pointerEvents="none"
+                          />
+                        </>
+                      )}
                     </View>
                   )}
 
@@ -358,12 +393,11 @@ export default function NotesScreen() {
                   </View>
 
                   {/* Pole tekstowe na notatkę */}
-                  {/* <Text style={[styles.formLabel, { color: theme.colors.onSurface }]}>Note:</Text> */}
-                  <ScrollView style={{ flex: 1, marginBottom: 10 }}>
+                  <View style={styles.textInputContainer}>
                     <TextInput
                       style={[
                         styles.textInput,
-                        { color: theme.colors.onSurface, borderColor: theme.colors.onSurface },
+                        { color: theme.colors.onSurface, borderColor: theme.colors.onSurface, paddingTop: 10 },
                       ]}
                       placeholder="Enter your note"
                       placeholderTextColor="gray"
@@ -371,43 +405,22 @@ export default function NotesScreen() {
                       onChangeText={setNoteText}
                       multiline
                       scrollEnabled
+                      textAlignVertical="top"
                     />
-                  </ScrollView>
+                  </View>
 
                   {/* Przycisk dodawania notatki */}
-                  {/* <TouchableOpacity
+                  <TouchableOpacity
                     style={[styles.addButton, { backgroundColor: theme.colors.primary }]}
                     onPress={handleAddNote}
                   >
                     <Text style={styles.addButtonText}>Add Note</Text>
-                  </TouchableOpacity> */}
+                  </TouchableOpacity>
                 </View>
-
-            
-
-            {/* Pole tekstowe na notatkę */}
-            <TextInput
-              style={[
-                styles.textInput,
-                { color: theme.colors.onSurface, borderColor: theme.colors.onSurface },
-              ]}
-              placeholder="Enter your note"
-              placeholderTextColor="gray"
-              value={noteText}
-              onChangeText={setNoteText}
-              multiline
-            />
-
-            {/* Przycisk dodawania notatki */}
-            <TouchableOpacity
-              style={[styles.addButton, { backgroundColor: theme.colors.primary }]}
-              onPress={handleAddNote}
-            >
-              <Text style={styles.addButtonText}>Add Note</Text>
-            </TouchableOpacity>
               </View>
             </View>
           </Modal>
+
           {/* Lista Notatek */}
           {loading ? (
             <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -431,7 +444,7 @@ export default function NotesScreen() {
   );
 }
 
-const { width, height } = Dimensions.get('window');
+const { width, height: deviceHeight } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
@@ -456,15 +469,16 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'center', // Wyśrodkowanie modala
     alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
-    width: width * 0.95, // Almost full screen
-    height: height * 0.85, // Almost full screen
+    width: width * 0.95,
+    height: deviceHeight * 0.95, // Ustawienie wysokości modala na 95% wysokości ekranu
     padding: 20,
     borderRadius: 20,
-    alignItems: 'stretch',
+    backgroundColor: '#fff', // Tło domyślne, zostanie nadpisane dynamicznie
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
@@ -486,19 +500,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   formContainer: {
+    flex: 1, // Wypełnia całą dostępną przestrzeń
     padding: 4,
     borderRadius: 10,
-    // marginBottom: 20,
+    flexDirection: 'column',
   },
   formLabel: {
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 4,
-    // marginTop: 17,
   },
   inputContainer: {
     width: '100%',
-    // backgroundColor: '#f0f0f0',
     borderRadius: 28,
     overflow: 'hidden',
     borderWidth: 2,
@@ -507,7 +520,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 50, // Użyj jawnej liczby
     paddingHorizontal: 10, // Opcjonalnie, aby dodać przestrzeń wewnętrzną
-    marginBottom: 17,   
+    marginBottom: 17,
   },
   plusButtonContainer: {
     alignItems: 'center',
@@ -521,57 +534,60 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     elevation: 5,
   },
-  
-//   modalInputContainer: {
-//     width: '100%',
-//     backgroundColor: '#f0ed8f5',
-//     borderRadius: 28,
-//     overflow: 'hidden',
-//     borderWidth: 2,
-//     borderColor: '#ccc',
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     height: 50, // Fixed height
-//     flex: 1,
-//     marginBottom: 10,
-//   },
   inputFocused: {
     borderColor: '#6a1b9a',
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    backgroundColor: 'transparent',
-    color: '#000',
-    height: '100%', // Dopasowanie do kontenera
   },
   iconLeft: {
     marginLeft: 10,
   },
-  countriesListContainer: {
-    maxHeight: 200,
-    marginBottom: 10,
-    borderRadius: 28,
-    overflow: 'hidden',
+  countriesListWrapper: {
+    width: '100%',
+    borderRadius: 8,
+    overflow: 'hidden', // Ukryj elementy poza widocznym obszarem
     borderWidth: 0.5,
     borderColor: '#ccc',
-    marginTop: -6
+    marginTop: -6,
+    position: 'relative', // Dodane dla gradientów
+  },
+  topGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 20,
+  },
+  bottomGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 20,
   },
   selectedCountryContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    // marginBottom: 17,
+    padding: 10,
+    borderRadius: 28, // Dodanie zaokrąglenia
+    borderWidth: 1,
+    borderColor: '#ccc',
+    marginBottom: 17, // Dodanie marginesu
+    backgroundColor: 'transparent', // Opcjonalne tło
   },
   selectedCountryFlag: {
-    marginRight: 5,
+    marginRight: 10,
+    borderRadius: 8, // Dopasowanie zaokrąglenia flagi
+  },
+  textInputContainer: {
+    flex: 1, // Wypełnia całą dostępną przestrzeń
+    marginBottom: 10,
   },
   textInput: {
-    height: 80,
+    flex: 1, // Wypełnia całą dostępna przestrzeń w kontenerze
     borderWidth: 1,
     borderRadius: 8,
-    padding: 10,
-    textAlignVertical: 'top',
-    marginBottom: 10,
+    paddingHorizontal: 10, // Padding tylko po bokach
+    paddingVertical: 0, // Brak paddingu od góry i dołu
+    textAlignVertical: 'top', // Ustawienie tekstu na górze
   },
   addButton: {
     paddingVertical: 12,

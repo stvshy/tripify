@@ -72,7 +72,7 @@ const CountryItem: React.FC<CountryItemProps> = ({ item, onSelect, isSelected })
       ]}
       activeOpacity={0.7}
     >
-      <View style={[styles.countryItem, { backgroundColor: selectedBackgroundColor, borderRadius: isSelected ? 4.2 : 8 }]}>
+      <View style={[styles.countryItem, { backgroundColor: 'transparent', borderRadius: 30, overflow: 'hidden',}]}>
         <View style={[styles.flagContainer, styles.flagWithBorder, { borderColor: flagBorderColor }]}>
           <CountryFlag isoCode={item.cca2} size={25} />
         </View>
