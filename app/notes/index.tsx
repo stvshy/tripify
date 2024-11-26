@@ -396,13 +396,19 @@ export default function NotesScreen() {
                           <>
                             {/* Gradient na górze */}
                             <LinearGradient
-                              colors={['rgba(255,255,255,1)', 'rgba(255,255,255,0)']}
+                              colors={[
+                                isDarkTheme ? 'rgba(30,30,30,1)' : 'rgba(255,255,255,1)', 
+                                isDarkTheme ? 'rgba(30,30,30,0)' : 'rgba(255,255,255,0)'
+                              ]}
                               style={styles.topGradient}
                               pointerEvents="none"
                             />
                             {/* Gradient na dole */}
                             <LinearGradient
-                              colors={['rgba(255,255,255,0)', 'rgba(255,255,255,1)']}
+                              colors={[
+                                isDarkTheme ? 'rgba(30,30,30,0)' : 'rgba(255,255,255,0)',
+                                isDarkTheme ? 'rgba(30,30,30,1)' : 'rgba(255,255,255,1)'
+                              ]}
                               style={styles.bottomGradient}
                               pointerEvents="none"
                             />
@@ -592,6 +598,7 @@ const styles = StyleSheet.create({
     borderColor: '#ccc',
     marginTop: -6,
     position: 'relative', // Dodane dla gradientów
+    marginBottom: 7
   },
   topGradient: {
     position: 'absolute',
