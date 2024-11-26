@@ -281,12 +281,18 @@ export default function NotesScreen() {
             <View style={styles.modalContainer}>
               <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
                 {/* Close Button */}
-                <TouchableOpacity onPress={() => setIsModalVisible(false)} style={styles.modalCloseButton}>
-                  <Ionicons name="close" size={24} color={theme.colors.onSurface} />
+                <TouchableOpacity
+                    onPress={() => {
+                        console.log('Close button pressed');
+                        setIsModalVisible(false);
+                    }}
+                    style={styles.modalCloseButton}
+                    >
+                    <Ionicons name="close" size={24} color={theme.colors.onSurface} />
                 </TouchableOpacity>
 
                 {/* Modal Header */}
-                <Text style={[styles.modalHeader, { color: theme.colors.onSurface, marginTop: -28 }]}>Add a Note</Text>
+                <Text style={[styles.modalHeader, { color: theme.colors.onSurface, marginTop: -43 }]}>Add a Note</Text>
 
                 {/* Formularz Dodawania Notatki */}
                 <View style={[styles.formContainer, { backgroundColor: theme.colors.surface }]}>
@@ -484,6 +490,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+    paddingTop:5
   },
   blurView: {
     position: 'absolute',
@@ -492,7 +499,11 @@ const styles = StyleSheet.create({
   },
   modalCloseButton: {
     alignSelf: 'flex-end',
+    padding: 15, // Dodaj padding, aby zwiększyć obszar dotykowy
+    borderRadius: 40, // Zaokrąglenie dla lepszej widoczności
+    marginLeft: 40, // Dodatkowy margines od krawędzi
   },
+  
   modalHeader: {
     fontSize: 20,
     fontWeight: '700',
