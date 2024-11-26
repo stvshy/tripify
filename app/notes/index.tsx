@@ -279,15 +279,15 @@ export default function NotesScreen() {
               <BlurView intensity={50} tint={isDarkTheme ? 'dark' : 'light'} style={styles.blurView} />
             </TouchableWithoutFeedback>
             <View style={styles.modalContainer}>
-              <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
                 {/* Close Button */}
                 <TouchableOpacity
                     onPress={() => {
-                        console.log('Close button pressed');
-                        setIsModalVisible(false);
+                    console.log('Close button pressed');
+                    setIsModalVisible(false);
                     }}
                     style={styles.modalCloseButton}
-                    >
+                >
                     <Ionicons name="close" size={24} color={theme.colors.onSurface} />
                 </TouchableOpacity>
 
@@ -484,13 +484,13 @@ const styles = StyleSheet.create({
     height: deviceHeight * 0.95, // Ustawienie wysokości modala na 95% wysokości ekranu
     padding: 20,
     borderRadius: 20,
-    backgroundColor: '#fff', // Tło domyślne, zostanie nadpisane dynamicznie
+    // backgroundColor: theme.colors.surface,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
-    paddingTop:5
+    position: 'relative', // Upewnij się, że jest relative
   },
   blurView: {
     position: 'absolute',
@@ -498,17 +498,20 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   modalCloseButton: {
-    alignSelf: 'flex-end',
-    padding: 15, // Dodaj padding, aby zwiększyć obszar dotykowy
-    borderRadius: 40, // Zaokrąglenie dla lepszej widoczności
-    marginLeft: 40, // Dodatkowy margines od krawędzi
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    padding: 10, // Zwiększ obszar dotykowy
+    borderRadius: 20,
+    zIndex: 1, // Upewnij się, że jest na wierzchu
   },
-  
   modalHeader: {
     fontSize: 20,
     fontWeight: '700',
     marginBottom: 20,
     textAlign: 'center',
+    marginTop: 40, // Zapewnij odpowiednią przestrzeń od góry
+    paddingTop: 40,
   },
   formContainer: {
     flex: 1, // Wypełnia całą dostępną przestrzeń
