@@ -268,12 +268,12 @@ export default function RankingScreen() {
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         {/* Nagłówek z przyciskiem powrotu i przełącznikiem motywu */}
         <View style={[styles.header, { paddingTop: height * 0.03 }]}>
-          <TouchableOpacity onPress={handleGoBack} style={[styles.headerButton, { marginLeft: -17 }]}>
+          <TouchableOpacity onPress={handleGoBack} style={[styles.headerButton, { marginLeft: -19 }]}>
             <Ionicons name="arrow-back" size={28} color={theme.colors.onBackground} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: theme.colors.onBackground }]}>Rank Countries</Text>
-          <TouchableOpacity onPress={toggleTheme} style={[styles.headerButton, { marginRight: -17 }]}>
-            <Ionicons name={isDarkTheme ? "sunny" : "moon"} size={28} color={theme.colors.onBackground} />
+          <TouchableOpacity onPress={toggleTheme} style={[styles.headerButton, { marginRight: -16 }]}>
+            <Ionicons name={isDarkTheme ? "sunny" : "moon"} size={26} color={theme.colors.onBackground} />
           </TouchableOpacity>
         </View>
 

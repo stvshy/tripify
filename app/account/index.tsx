@@ -159,12 +159,12 @@ export default function AccountScreen() {
           <View>
             {/* Header with back button and theme toggle */}
             <View style={[styles.header, { paddingTop: height * 0.03 }]}>
-              <TouchableOpacity onPress={handleGoBack} style={[styles.headerButton, { marginLeft: -17 }]}>
+              <TouchableOpacity onPress={handleGoBack} style={[styles.headerButton, { marginLeft: -19 }]}>
                 <Ionicons name="arrow-back" size={28} color={theme.colors.onBackground} />
               </TouchableOpacity>
               <Text style={[styles.headerTitle, { color: theme.colors.onBackground }]}>Account</Text>
-              <TouchableOpacity onPress={toggleTheme} style={[styles.headerButton, { marginRight: -17 }]}>
-                <Ionicons name={isDarkTheme ? 'sunny' : 'moon'} size={28} color={theme.colors.onBackground} />
+              <TouchableOpacity onPress={toggleTheme} style={[styles.headerButton, { marginRight: -16 }]}>
+                <Ionicons name={isDarkTheme ? 'sunny' : 'moon'} size={26} color={theme.colors.onBackground} />
               </TouchableOpacity>
             </View>
 
@@ -307,7 +307,7 @@ export default function AccountScreen() {
         </TouchableWithoutFeedback>
       </ScrollView>
    {/* Note Preview Modal */}
-        <Modal
+      <Modal
         visible={isNotePreviewVisible}
         transparent
         animationType="fade"
@@ -327,16 +327,25 @@ export default function AccountScreen() {
                 <Ionicons name="close" size={24} color={theme.colors.onSurface} />
               </TouchableOpacity>
 
-              {/* Treść modala */}
+              {/* Zawartość Modala */}
               <ScrollView
                 contentContainerStyle={styles.modalScrollContent}
                 showsVerticalScrollIndicator={false}
               >
-                <Text style={[styles.modalHeader, { color: theme.colors.onSurface }]}>
-                  {selectedNote
-                    ? mappedCountries.find(c => c.cca2 === selectedNote.countryCca2)?.name
-                    : ''}
-                </Text>
+                {selectedNote && (
+                  <View style={styles.modalHeaderContainer}>
+                    {mappedCountries.find(c => c.cca2 === selectedNote.countryCca2) && (
+                      <CountryFlag
+                        isoCode={selectedNote.countryCca2}
+                        size={25}
+                        style={styles.modalFlag}
+                      />
+                    )}
+                    <Text style={[styles.modalHeader, { color: theme.colors.onSurface }]}>
+                      {mappedCountries.find(c => c.cca2 === selectedNote.countryCca2)?.name || ''}
+                    </Text>
+                  </View>
+                )}
                 <Text style={[styles.modalNoteText, { color: theme.colors.onSurface }]}>
                   {selectedNote ? selectedNote.noteText : ''}
                 </Text>
@@ -519,7 +528,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 20,
     paddingTop: 40, // Aby uwzględnić przycisk zamknięcia
-    maxHeight: '90%', // Maksymalna wysokość modala
+    maxHeight: '86%', // Maksymalna wysokość modala
     width: '90%', // Szerokość modala
   },
   modalCloseButton: {
@@ -528,10 +537,20 @@ const styles = StyleSheet.create({
     right: 10,
     zIndex: 1,
   },
+  modalHeaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalFlag: {
+    marginRight: 8,
+    borderRadius: 4,
+    width: 30,
+    height: 20,
+  },
   modalHeader: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 10,
   },
   modalNoteText: {
     fontSize: 16,

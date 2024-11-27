@@ -403,12 +403,12 @@ export default function NotesScreen() {
         >
           {/* Header */}
           <View style={[styles.header, { paddingTop: height * 0.03 }]}>
-            <TouchableOpacity onPress={() => router.back()} style={[styles.headerButton, { marginLeft: -17 }]}>
+            <TouchableOpacity onPress={() => router.back()} style={[styles.headerButton, { marginLeft: -19 }]}>
               <Ionicons name="arrow-back" size={28} color={theme.colors.onBackground} />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, { color: theme.colors.onBackground }]}>Notes</Text>
-            <TouchableOpacity onPress={handleToggleTheme} style={[styles.headerButton, { marginRight: -17 }]}>
-              <Ionicons name={isDarkTheme ? "sunny" : "moon"} size={28} color={theme.colors.onBackground} />
+            <TouchableOpacity onPress={handleToggleTheme} style={[styles.headerButton, { marginRight: -16 }]}>
+              <Ionicons name={isDarkTheme ? "sunny" : "moon"} size={26} color={theme.colors.onBackground} />
             </TouchableOpacity>
           </View>
 
