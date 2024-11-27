@@ -51,9 +51,9 @@ export default function AccountScreen() {
       ...country,
       cca2: country.id,
       flag: `https://flagcdn.com/w40/${country.id.toLowerCase()}.png`,
-      name: country.name || 'Unknown',      // Dodane
-      class: country.class || 'Unknown',    // Dodane
-      path: country.path || 'Unknown',      // Dodane
+      name: country.name || 'Unknown',
+      class: country.class || 'Unknown',
+      path: country.path || 'Unknown',
     }));
   }, []);
 
@@ -69,7 +69,7 @@ export default function AccountScreen() {
           const nickname: string | undefined = userData.nickname;
           const email: string | null | undefined = currentUser.email;
 
-          setUserName(nickname || 'Error: No nickname');  
+          setUserName(nickname || 'Error: No nickname');
           setUserEmail(email || 'user@error.com');
 
           // Utwórz initialSlots z unikalnym id
@@ -83,18 +83,17 @@ export default function AccountScreen() {
           });
 
           setRankingSlots(initialSlots);
-          
-            // Pobierz notatki użytkownika
+
+          // Pobierz notatki użytkownika
           const notesCollectionRef = collection(db, 'users', currentUser.uid, 'notes');
           const notesSnapshot = await getDocs(notesCollectionRef);
-          const notesList: Note[] = notesSnapshot.docs.map(doc => ({
+          const notesList: Note[] = notesSnapshot.docs.map((doc) => ({
             id: doc.id,
             countryCca2: doc.data().countryCca2,
             noteText: doc.data().noteText,
             createdAt: doc.data().createdAt,
           }));
           setNotes(notesList);
-
         } else {
           console.log('User document does not exist.');
         }
@@ -106,20 +105,15 @@ export default function AccountScreen() {
     fetchUserData();
   }, [mappedCountries]);
 
-  useEffect(() => {
-    console.log('rankingSlots:', rankingSlots.map(slot => slot.id));
-    console.log('notes:', notes);
-  }, [rankingSlots, notes]);
-
   const handleGoBack = () => {
     router.back();
   };
 
   const handleRemoveFromRanking = (index: number) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    if (index >= 0 && index < rankingSlots.length) { // Sprawdzenie indeksu
+    if (index >= 0 && index < rankingSlots.length) {
       const updatedSlots = [...rankingSlots];
-      updatedSlots.splice(index, 1); // Usunięcie slotu
+      updatedSlots.splice(index, 1);
       // Zaktualizuj rangi
       const reRankedSlots = updatedSlots.map((item, idx) => ({ ...item, rank: idx + 1 }));
       setRankingSlots(reRankedSlots);
@@ -143,7 +137,11 @@ export default function AccountScreen() {
   };
 
   const handleNavigateToNotes = () => {
-    router.push('/notes'); // Upewnij się, że masz zdefiniowaną trasę '/notes'
+    router.push('/notes');
+  };
+
+  const handleNotePress = (noteId: string) => {
+    // Możesz dodać akcję po kliknięciu notatki
   };
 
   return (
@@ -151,24 +149,24 @@ export default function AccountScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: 50 }}>
         <TouchableWithoutFeedback onPress={() => setActiveRankingItemId(null)}>
           <View>
-            {/* Header with back button and theme toggle */}
+            {/* Nagłówek z przyciskiem powrotu i przełącznikiem motywu */}
             <View style={[styles.header, { paddingTop: height * 0.03 }]}>
               <TouchableOpacity onPress={handleGoBack} style={[styles.headerButton, { marginLeft: -17 }]}>
                 <Ionicons name="arrow-back" size={28} color={theme.colors.onBackground} />
               </TouchableOpacity>
               <Text style={[styles.headerTitle, { color: theme.colors.onBackground }]}>Account</Text>
               <TouchableOpacity onPress={toggleTheme} style={[styles.headerButton, { marginRight: -17 }]}>
-                <Ionicons name={isDarkTheme ? "sunny" : "moon"} size={28} color={theme.colors.onBackground} />
+                <Ionicons name={isDarkTheme ? 'sunny' : 'moon'} size={28} color={theme.colors.onBackground} />
               </TouchableOpacity>
             </View>
-  
-            {/* User Panel */}
+
+            {/* Panel Użytkownika */}
             <View style={styles.userPanel}>
               <Ionicons name="person-circle" size={100} color={theme.colors.primary} />
               <Text style={[styles.userName, { color: theme.colors.onBackground }]}>{userName}</Text>
               <Text style={[styles.userEmail, { color: 'gray' }]}>{userEmail}</Text>
             </View>
-  
+
             {/* Ranking Window */}
             <View style={[styles.rankingWindow, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
               <Text style={[styles.rankingTitle, { color: theme.colors.onSurface }]}>Ranking</Text>
@@ -182,10 +180,15 @@ export default function AccountScreen() {
                 <Ionicons name="chevron-forward" size={15} color={theme.colors.primary} style={{ marginRight: -11 }} />
               </TouchableOpacity>
             </View>
-  
-            {/* Horizontal Ranking List */}
+
+            {/* Poziomo Przewijalna Lista Rankingu */}
             {rankingSlots.length > 0 ? (
-              <View style={[styles.horizontalRankingContainer, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
+              <View
+                style={[
+                  styles.horizontalRankingContainer,
+                  { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' },
+                ]}
+              >
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   {rankingSlots.map((slot, index) => (
                     <RankingItem
@@ -200,15 +203,25 @@ export default function AccountScreen() {
                 </ScrollView>
               </View>
             ) : (
-              <View style={[styles.noRankingContainer, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
+              <View
+                style={[
+                  styles.noRankingContainer,
+                  { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' },
+                ]}
+              >
                 <Text style={[styles.noRankingText, { color: theme.colors.onBackground }]}>
                   You haven't created a ranking yet.
                 </Text>
               </View>
             )}
-  
-            {/* Notes Container */}
-            <View style={[styles.notesContainer, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
+
+            {/* Kontener z Notatkami */}
+            <View
+              style={[
+                styles.notesContainer,
+                { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' },
+              ]}
+            >
               <Text style={[styles.notesTitle, { color: theme.colors.onSurface }]}>Notes</Text>
               <TouchableOpacity
                 style={styles.editButton}
@@ -220,31 +233,53 @@ export default function AccountScreen() {
                 <Ionicons name="chevron-forward" size={15} color={theme.colors.primary} style={{ marginRight: -11 }} />
               </TouchableOpacity>
             </View>
-  
-            {/* Notes List */}
+
+            {/* Poziomo Przewijalna Lista Notatek */}
             {notes.length > 0 ? (
-              <View style={[styles.notesListContainer, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
-                {notes.map(note => {
-                  const country = mappedCountries.find(c => c.cca2 === note.countryCca2);
-                  return (
-                    <View key={note.id} style={styles.noteItem}>
-                      {country && (
-                        <CountryFlag isoCode={country.cca2} size={25} style={styles.noteFlag} />
-                      )}
-                      <View style={styles.noteTextContainer}>
-                        <Text style={[styles.noteCountryName, { color: theme.colors.onSurface }]}>
-                          {country ? country.name : 'Unknown Country'}
-                        </Text>
-                        <Text style={[styles.noteText, { color: theme.colors.onSurface }]}>
+              <View
+                style={[
+                  styles.horizontalNotesContainer,
+                  { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' },
+                ]}
+              >
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {notes.map((note) => {
+                    const country = mappedCountries.find((c) => c.cca2 === note.countryCca2);
+                    return (
+                      <TouchableOpacity
+                        key={note.id}
+                        style={[
+                          styles.noteItem,
+                          { backgroundColor: isDarkTheme ? '#444' : '#ddd' },
+                        ]}
+                        onPress={() => handleNotePress(note.id)}
+                      >
+                        <View style={styles.noteHeader}>
+                          {country && (
+                            <CountryFlag isoCode={country.cca2} size={25} style={styles.noteFlag} />
+                          )}
+                          <Text style={[styles.noteCountryName, { color: theme.colors.onSurface }]}>
+                            {country ? country.name : 'Unknown Country'}
+                          </Text>
+                        </View>
+                        <Text
+                          style={[styles.noteText, { color: theme.colors.onSurface }]}
+                          numberOfLines={3}
+                        >
                           {note.noteText}
                         </Text>
-                      </View>
-                    </View>
-                  );
-                })}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
               </View>
             ) : (
-              <View style={[styles.noNotesContainer, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
+              <View
+                style={[
+                  styles.noNotesContainer,
+                  { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' },
+                ]}
+              >
                 <Text style={[styles.noNotesText, { color: theme.colors.onBackground }]}>
                   You haven't created any notes yet.
                 </Text>
@@ -255,7 +290,6 @@ export default function AccountScreen() {
       </ScrollView>
     </View>
   );
-  
 }
 
 const styles = StyleSheet.create({
@@ -270,7 +304,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 10,
-    marginBottom: 20, // Dodany margines poniżej nagłówka
+    marginBottom: 20,
   },
   headerButton: {
     padding: 8,
@@ -283,8 +317,8 @@ const styles = StyleSheet.create({
   },
   userPanel: {
     alignItems: 'center',
-    marginBottom: 30, // Zwiększony margines od dołu
-    marginTop :10,
+    marginBottom: 30,
+    marginTop: 10,
   },
   userName: {
     marginTop: 3,
@@ -301,12 +335,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 10,
-    // marginBottom: 20,
     paddingVertical: 5,
     paddingHorizontal: 15,
     borderTopLeftRadius: 10,
     borderTopRightRadius: 10,
-    // backgroundColor: 'grey', // Kolor tła, który będzie zmieniany dynamicznie
   },
   rankingTitle: {
     fontSize: 17,
@@ -328,88 +360,80 @@ const styles = StyleSheet.create({
     padding: 10,
     paddingBottom: 15,
     paddingTop: 10,
-    // marginTop: 1,
+    overflow: 'hidden',
   },
   noRankingContainer: {
     alignItems: 'center',
-    // marginBottom: 20,
     borderBottomLeftRadius: 10,
     borderBottomRightRadius: 10,
     marginBottom: 20,
     padding: 10,
     paddingBottom: 20,
     paddingTop: 20,
-    
   },
   noRankingText: {
     fontSize: 14,
     fontStyle: 'italic',
-  },
-  actionButtonsContainer: {
-    alignItems: 'center',
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-    backgroundColor: '#fff', // Możesz dostosować kolor tła
-    borderWidth: 1,
-    borderColor: '#6200ee', // Możesz dostosować kolor obramowania
-  },
-  actionButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginRight: 8,
   },
   notesContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 10,
-    // marginBottom: 20,
     paddingVertical: 5,
     paddingHorizontal: 15,
     borderTopLeftRadius: 10,
     borderTopRightRadius: 10,
-    // backgroundColor: 'grey', // Kolor tła, który będzie zmieniany dynamicznie
   },
   notesTitle: {
     fontSize: 17,
     fontWeight: '600',
   },
-  notesListContainer: {
+  horizontalNotesContainer: {
     marginBottom: 20,
     borderBottomLeftRadius: 10,
     borderBottomRightRadius: 10,
     padding: 10,
     paddingBottom: 15,
     paddingTop: 10,
-    // marginTop: 1,
   },
   noteItem: {
+    width: 200,
+    borderRadius: 10,
+    padding: 16,
+    marginRight: 10,
+    // Cienie dla iOS
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    // Cienie dla Androida
+    elevation: 3,
+  },
+  noteHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   noteFlag: {
-    marginRight: 10,
-  },
-  noteTextContainer: {
-    flex: 1,
+    marginRight: 8,
+    borderRadius: 4,
+    width: 30,
+    height: 20,
   },
   noteCountryName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
+    flexShrink: 1,
+    flexWrap: 'wrap',
+    marginRight: 5,
+    maxWidth: '90%',
   },
   noteText: {
     fontSize: 14,
-    marginTop: 2,
   },
   noNotesContainer: {
     alignItems: 'center',
-    // marginBottom: 20,
     borderBottomLeftRadius: 10,
     borderBottomRightRadius: 10,
     marginBottom: 20,
@@ -419,6 +443,6 @@ const styles = StyleSheet.create({
   },
   noNotesText: {
     fontSize: 14,
-    fontStyle: 'italic', //
+    fontStyle: 'italic',
   },
 });
