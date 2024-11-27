@@ -147,115 +147,115 @@ export default function AccountScreen() {
   };
 
   return (
-    <TouchableWithoutFeedback onPress={() => setActiveRankingItemId(null)}>
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        {/* Nagłówek z przyciskiem powrotu i przełącznikiem motywu */}
-        <View style={[styles.header, { paddingTop: height * 0.03 }]}>
-          <TouchableOpacity onPress={handleGoBack} style={[styles.headerButton, { marginLeft: -17 }]}>
-            <Ionicons name="arrow-back" size={28} color={theme.colors.onBackground} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: theme.colors.onBackground }]}>Account</Text>
-          <TouchableOpacity onPress={toggleTheme} style={[styles.headerButton, { marginRight: -17 }]}>
-            <Ionicons name={isDarkTheme ? "sunny" : "moon"} size={28} color={theme.colors.onBackground} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Panel Użytkownika */}
-        <View style={styles.userPanel}>
-          <Ionicons name="person-circle" size={100} color={theme.colors.primary} />
-          <Text style={[styles.userName, { color: theme.colors.onBackground }]}>{userName}</Text>
-          <Text style={[styles.userEmail, { color: 'gray' }]}>{userEmail}</Text>
-        </View>
-
-        {/* Ranking Window */}
-        <View style={[styles.rankingWindow, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
-          <Text style={[styles.rankingTitle, { color: theme.colors.onSurface }]}>Ranking</Text>
-            <TouchableOpacity
-            style={styles.editButton}
-            onPress={() => router.push('/ranking')} // Używamy '/ranking' zgodnie z Twoim wymaganiem
-            >
-            <Text style={[styles.editButtonText, { color: theme.colors.primary }]}>
-              {rankingSlots.length > 0 ? 'Show and Edit Ranking' : 'Create Ranking'}
-            </Text>
-            <Ionicons name="chevron-forward" size={15} color={theme.colors.primary} style={{ marginRight: -11 }} />
-            </TouchableOpacity>
-        </View>
-
-        {/* Poziomo Przewijalna Lista Rankingu */}
-        {rankingSlots.length > 0 ? (
-            <View style={[styles.horizontalRankingContainer, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {rankingSlots.map((slot, index) => (
-              <RankingItem
-                key={slot.id}
-                slot={slot}
-                index={index}
-                onRemove={handleRemoveFromRanking}
-                activeRankingItemId={activeRankingItemId}
-                setActiveRankingItemId={setActiveRankingItemId}
-                
-              />
-              ))}
-            </ScrollView>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 50 }}>
+        <TouchableWithoutFeedback onPress={() => setActiveRankingItemId(null)}>
+          <View>
+            {/* Header with back button and theme toggle */}
+            <View style={[styles.header, { paddingTop: height * 0.03 }]}>
+              <TouchableOpacity onPress={handleGoBack} style={[styles.headerButton, { marginLeft: -17 }]}>
+                <Ionicons name="arrow-back" size={28} color={theme.colors.onBackground} />
+              </TouchableOpacity>
+              <Text style={[styles.headerTitle, { color: theme.colors.onBackground }]}>Account</Text>
+              <TouchableOpacity onPress={toggleTheme} style={[styles.headerButton, { marginRight: -17 }]}>
+                <Ionicons name={isDarkTheme ? "sunny" : "moon"} size={28} color={theme.colors.onBackground} />
+              </TouchableOpacity>
             </View>
-        ) : (
-          <View style={[styles.noRankingContainer, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
-            <Text style={[styles.noRankingText, { color: theme.colors.onBackground }]}>
-              You haven't created a ranking yet.
-            </Text>
-          </View>
-        )}
-
-
-        {/* Kontener z Notatkami */}
-        <View style={[styles.notesContainer, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
-          <Text style={[styles.notesTitle, { color: theme.colors.onSurface }]}>Notes</Text>
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={handleNavigateToNotes} // Nawigacja do '/notes'
-          >
-         <Text style={[styles.editButtonText, { color: theme.colors.primary }]}>
-              {notes.length > 0 ? 'View and Create Notes' : 'Create Note'}
-            </Text>
-            <Ionicons name="chevron-forward" size={15} color={theme.colors.primary} style={{ marginRight: -11 }} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Lista Notatek */}
-        {notes.length > 0 ? (
-         <View style={[styles.notesListContainer, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {notes.map(note => {
-                const country = mappedCountries.find(c => c.cca2 === note.countryCca2);
-                return (
-                  <View key={note.id} style={styles.noteItem}>
-                    {country && (
-                      <CountryFlag isoCode={country.cca2} size={25} style={styles.noteFlag} />
-                    )}
-                    <View style={styles.noteTextContainer}>
-                      <Text style={[styles.noteCountryName, { color: theme.colors.onSurface }]}>
-                        {country ? country.name : 'Unknown Country'}
-                      </Text>
-                      <Text style={[styles.noteText, { color: theme.colors.onSurface }]}>
-                        {note.noteText}
-                      </Text>
+  
+            {/* User Panel */}
+            <View style={styles.userPanel}>
+              <Ionicons name="person-circle" size={100} color={theme.colors.primary} />
+              <Text style={[styles.userName, { color: theme.colors.onBackground }]}>{userName}</Text>
+              <Text style={[styles.userEmail, { color: 'gray' }]}>{userEmail}</Text>
+            </View>
+  
+            {/* Ranking Window */}
+            <View style={[styles.rankingWindow, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
+              <Text style={[styles.rankingTitle, { color: theme.colors.onSurface }]}>Ranking</Text>
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={() => router.push('/ranking')}
+              >
+                <Text style={[styles.editButtonText, { color: theme.colors.primary }]}>
+                  {rankingSlots.length > 0 ? 'Show and Edit Ranking' : 'Create Ranking'}
+                </Text>
+                <Ionicons name="chevron-forward" size={15} color={theme.colors.primary} style={{ marginRight: -11 }} />
+              </TouchableOpacity>
+            </View>
+  
+            {/* Horizontal Ranking List */}
+            {rankingSlots.length > 0 ? (
+              <View style={[styles.horizontalRankingContainer, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {rankingSlots.map((slot, index) => (
+                    <RankingItem
+                      key={slot.id}
+                      slot={slot}
+                      index={index}
+                      onRemove={handleRemoveFromRanking}
+                      activeRankingItemId={activeRankingItemId}
+                      setActiveRankingItemId={setActiveRankingItemId}
+                    />
+                  ))}
+                </ScrollView>
+              </View>
+            ) : (
+              <View style={[styles.noRankingContainer, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
+                <Text style={[styles.noRankingText, { color: theme.colors.onBackground }]}>
+                  You haven't created a ranking yet.
+                </Text>
+              </View>
+            )}
+  
+            {/* Notes Container */}
+            <View style={[styles.notesContainer, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
+              <Text style={[styles.notesTitle, { color: theme.colors.onSurface }]}>Notes</Text>
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={handleNavigateToNotes}
+              >
+                <Text style={[styles.editButtonText, { color: theme.colors.primary }]}>
+                  {notes.length > 0 ? 'View and Create Notes' : 'Create Note'}
+                </Text>
+                <Ionicons name="chevron-forward" size={15} color={theme.colors.primary} style={{ marginRight: -11 }} />
+              </TouchableOpacity>
+            </View>
+  
+            {/* Notes List */}
+            {notes.length > 0 ? (
+              <View style={[styles.notesListContainer, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
+                {notes.map(note => {
+                  const country = mappedCountries.find(c => c.cca2 === note.countryCca2);
+                  return (
+                    <View key={note.id} style={styles.noteItem}>
+                      {country && (
+                        <CountryFlag isoCode={country.cca2} size={25} style={styles.noteFlag} />
+                      )}
+                      <View style={styles.noteTextContainer}>
+                        <Text style={[styles.noteCountryName, { color: theme.colors.onSurface }]}>
+                          {country ? country.name : 'Unknown Country'}
+                        </Text>
+                        <Text style={[styles.noteText, { color: theme.colors.onSurface }]}>
+                          {note.noteText}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                );
-              })}
-            </ScrollView>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={[styles.noNotesContainer, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
+                <Text style={[styles.noNotesText, { color: theme.colors.onBackground }]}>
+                  You haven't created any notes yet.
+                </Text>
+              </View>
+            )}
           </View>
-        ) : (
-          <View style={[styles.noNotesContainer, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
-            <Text style={[styles.noNotesText, { color: theme.colors.onBackground }]}>
-              You haven't created any notes yet.
-            </Text>
-          </View>
-        )}
-
-      </View>
-    </TouchableWithoutFeedback>
+        </TouchableWithoutFeedback>
+      </ScrollView>
+    </View>
   );
+  
 }
 
 const styles = StyleSheet.create({
