@@ -1,5 +1,5 @@
 // app/account/index.tsx
-import React, { useContext, useEffect, useState, useMemo } from 'react';
+import React, { useContext, useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import countriesData from '../../assets/maps/countries.json';
 import CountryFlag from 'react-native-country-flag';
 import { Country } from '../../.expo/types/country';
 import RankingItem from '../../components/RankItem'; // Ensure the path is correct
+import { useFocusEffect } from '@react-navigation/native'; // Import useFocusEffect
 
 interface RankingSlot {
   id: string;
@@ -57,54 +58,55 @@ export default function AccountScreen() {
     }));
   }, []);
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      const currentUser = auth.currentUser;
-      if (currentUser) {
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          const rankingData: string[] = userData.ranking || [];
-          const nickname: string | undefined = userData.nickname;
-          const email: string | null | undefined = currentUser.email;
+  const fetchUserData = useCallback(async () => {
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const rankingData: string[] = userData.ranking || [];
+        const nickname: string | undefined = userData.nickname;
+        const email: string | null | undefined = currentUser.email;
 
-          setUserName(nickname || 'Error: No nickname');
-          setUserEmail(email || 'user@error.com');
+        setUserName(nickname || 'Error: No nickname');
+        setUserEmail(email || 'user@error.com');
 
-          // Create initial ranking slots with unique IDs
-          const initialSlots: RankingSlot[] = rankingData.map((cca2, index) => {
-            const country = mappedCountries.find((c: Country) => c.cca2 === cca2) || null;
-            return {
-              id: generateUniqueId(),
-              rank: index + 1,
-              country: country,
-            };
-          });
+        // Create initial ranking slots with unique IDs
+        const initialSlots: RankingSlot[] = rankingData.map((cca2, index) => {
+          const country = mappedCountries.find((c: Country) => c.cca2 === cca2) || null;
+          return {
+            id: generateUniqueId(),
+            rank: index + 1,
+            country: country,
+          };
+        });
 
-          setRankingSlots(initialSlots);
+        setRankingSlots(initialSlots);
 
-          // Fetch user notes
-          const notesCollectionRef = collection(db, 'users', currentUser.uid, 'notes');
-          const notesSnapshot = await getDocs(notesCollectionRef);
-          const notesList: Note[] = notesSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            countryCca2: doc.data().countryCca2,
-            noteText: doc.data().noteText,
-            createdAt: doc.data().createdAt,
-          }));
-          setNotes(notesList);
-        } else {
-          console.log('User document does not exist.');
-        }
+        // Fetch user notes
+        const notesCollectionRef = collection(db, 'users', currentUser.uid, 'notes');
+        const notesSnapshot = await getDocs(notesCollectionRef);
+        const notesList: Note[] = notesSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          countryCca2: doc.data().countryCca2,
+          noteText: doc.data().noteText,
+          createdAt: doc.data().createdAt,
+        }));
+        setNotes(notesList);
       } else {
-        console.log('No current user.');
+        console.log('User document does not exist.');
       }
-    };
-
-    fetchUserData();
+    } else {
+      console.log('No current user.');
+    }
   }, [mappedCountries]);
 
+  useFocusEffect(
+    useCallback(() => {
+      fetchUserData();
+    }, [fetchUserData])
+  );
   const handleGoBack = () => {
     router.back();
   };
