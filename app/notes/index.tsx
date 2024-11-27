@@ -251,36 +251,38 @@ export default function NotesScreen() {
       >
         {/* Nagłówek */}
         <View style={styles.noteHeader}>
-          {/* Flaga i nazwa kraju */}
-            <View style={styles.noteFlagContainer}>
-            {country && (
-              <CountryFlag
-              isoCode={country.cca2}
-              size={22}
-              style={{ marginRight: 10, borderRadius: 8, width: 30 }} // Dopasowanie zaokrąglenia flagi
-              />
-            )}
-            <Text
-              style={[
-              styles.noteCountryName,
-              { color: isDarkTheme ? '#fff' : '#000' },
-              ]}
-            >
-              {country?.name || 'Unknown Country'}
-            </Text>
-          </View>
-          {/* Ikona usuwania */}
-          <TouchableOpacity
-            onPress={() => handleDeleteNote(item.id)}
-            style={styles.deleteIcon}
-          >
-            <Ionicons
-              name="trash"
-              size={20}
-              color={isDarkTheme ? '#fff' : '#000'}
-            />
-          </TouchableOpacity>
-        </View>
+  {/* Flaga i nazwa kraju */}
+  <View style={styles.noteFlagContainer}>
+    {country && (
+      <CountryFlag
+        isoCode={country.cca2}
+        size={22}
+        style={{ marginRight: 10, borderRadius: 8, width: 30 }}
+      />
+    )}
+    <Text
+      style={[
+        styles.noteCountryName,
+        { color: isDarkTheme ? '#fff' : '#000' },
+      ]}
+      numberOfLines={2} // Ogranicz do 2 linii
+    >
+      {country?.name || 'Unknown Country'}
+    </Text>
+  </View>
+  {/* Ikona usuwania */}
+  <TouchableOpacity
+    onPress={() => handleDeleteNote(item.id)}
+    style={styles.deleteIcon}
+  >
+    <Ionicons
+      name="trash"
+      size={20}
+      color={isDarkTheme ? '#fff' : '#000'}
+    />
+  </TouchableOpacity>
+</View>
+
         {/* Treść notatki */}
         <Text
           style={[
@@ -364,7 +366,7 @@ export default function NotesScreen() {
   const { leftColumn, rightColumn } = splitIntoColumns(notes);
   
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+    // <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <KeyboardAvoidingView
           style={{ flex: 1 }}
@@ -631,45 +633,45 @@ export default function NotesScreen() {
             </KeyboardAvoidingView>
           </Modal>
 
-    {/* Lista Notatek */}
-    {loading ? (
-  <ActivityIndicator size="large" color={theme.colors.primary} />
-) : notes.length > 0 ? (
-  <ScrollView
-    keyboardShouldPersistTaps="handled"
-    style={{ flex: 1 }}
-    contentContainerStyle={[
-      styles.scrollContainer,
-      { backgroundColor: theme.colors.background },
-    ]}
-  >
-    <View style={styles.masonryContainer}>
-      {/* Lewa kolumna */}
-      <View style={styles.column}>
-        {leftColumn.map((item) => (
-          <View key={item.id}>{renderNoteItem({ item })}</View>
-        ))}
-      </View>
+     {/* Lista Notatek */}
+     {loading ? (
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      ) : notes.length > 0 ? (
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          style={{ flex: 1 }} // Upewnij się, że ScrollView zajmuje całą wysokość
+          contentContainerStyle={[
+            styles.scrollContainer,
+            { backgroundColor: theme.colors.background },
+          ]}
+        >
+          <View style={styles.masonryContainer}>
+            {/* Lewa kolumna */}
+            <View style={styles.column}>
+              {leftColumn.map((item) => (
+                <View key={item.id}>{renderNoteItem({ item })}</View>
+              ))}
+            </View>
 
-      {/* Prawa kolumna */}
-      <View style={styles.column}>
-        {rightColumn.map((item) => (
-          <View key={item.id}>{renderNoteItem({ item })}</View>
-        ))}
-      </View>
-    </View>
-  </ScrollView>
-) : (
-  <View style={styles.noNotesContainer}>
-    <Text style={[styles.noNotesText, { color: theme.colors.onSurface }]}>
-      You haven't created any notes yet.
-    </Text>
-  </View>
-)}
+            {/* Prawa kolumna */}
+            <View style={styles.column}>
+              {rightColumn.map((item) => (
+                <View key={item.id}>{renderNoteItem({ item })}</View>
+              ))}
+            </View>
+          </View>
+        </ScrollView>
+      ) : (
+        <View style={styles.noNotesContainer}>
+          <Text style={[styles.noNotesText, { color: theme.colors.onSurface }]}>
+            You haven't created any notes yet.
+          </Text>
+        </View>
+      )}
 
         </KeyboardAvoidingView>
       </SafeAreaView>
-    </TouchableWithoutFeedback>
+    // </TouchableWithoutFeedback>
   );
 }
 
@@ -717,15 +719,18 @@ const styles = StyleSheet.create({
   noteHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start', // Wyrównaj do góry, jeśli tekst się zawija
     marginBottom: 8,
   },
   noteFlagContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start', // Wyrównaj do góry
+    flex: 1, // Pozwól, aby zajmowało pozostałą przestrzeń
+    flexWrap: 'wrap',
   },
   deleteIcon: {
     padding: 8,
+    marginLeft: 5, // Dodaj odstęp
   },
   
   modalContent: {
@@ -903,6 +908,9 @@ const styles = StyleSheet.create({
   noteCountryName: {
     fontSize: 15,
     fontWeight: '600',
+    flexShrink: 1, // Pozwól, aby tekst się zmniejszał
+    flexWrap: 'wrap',
+    marginRight: 5, // Dodaj margines
   },
   noteText: {
     // flex: 1,
