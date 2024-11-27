@@ -20,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import countriesData from '../../assets/maps/countries.json';
 import CountryFlag from 'react-native-country-flag';
 import { Country } from '../../.expo/types/country';
-import RankingItem from '../../components/RankItem'; // Upewnij się, że ścieżka jest poprawna
+import RankingItem from '../../components/RankItem'; // Ensure the path is correct
 
 interface RankingSlot {
   id: string;
@@ -72,7 +72,7 @@ export default function AccountScreen() {
           setUserName(nickname || 'Error: No nickname');
           setUserEmail(email || 'user@error.com');
 
-          // Utwórz initialSlots z unikalnym id
+          // Create initial ranking slots with unique IDs
           const initialSlots: RankingSlot[] = rankingData.map((cca2, index) => {
             const country = mappedCountries.find((c: Country) => c.cca2 === cca2) || null;
             return {
@@ -84,7 +84,7 @@ export default function AccountScreen() {
 
           setRankingSlots(initialSlots);
 
-          // Pobierz notatki użytkownika
+          // Fetch user notes
           const notesCollectionRef = collection(db, 'users', currentUser.uid, 'notes');
           const notesSnapshot = await getDocs(notesCollectionRef);
           const notesList: Note[] = notesSnapshot.docs.map((doc) => ({
@@ -114,7 +114,7 @@ export default function AccountScreen() {
     if (index >= 0 && index < rankingSlots.length) {
       const updatedSlots = [...rankingSlots];
       updatedSlots.splice(index, 1);
-      // Zaktualizuj rangi
+      // Update ranks
       const reRankedSlots = updatedSlots.map((item, idx) => ({ ...item, rank: idx + 1 }));
       setRankingSlots(reRankedSlots);
       handleSaveRanking(reRankedSlots);
@@ -141,7 +141,7 @@ export default function AccountScreen() {
   };
 
   const handleNotePress = (noteId: string) => {
-    // Możesz dodać akcję po kliknięciu notatki
+    // Add action when a note is pressed
   };
 
   return (
@@ -149,7 +149,7 @@ export default function AccountScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: 50 }}>
         <TouchableWithoutFeedback onPress={() => setActiveRankingItemId(null)}>
           <View>
-            {/* Nagłówek z przyciskiem powrotu i przełącznikiem motywu */}
+            {/* Header with back button and theme toggle */}
             <View style={[styles.header, { paddingTop: height * 0.03 }]}>
               <TouchableOpacity onPress={handleGoBack} style={[styles.headerButton, { marginLeft: -17 }]}>
                 <Ionicons name="arrow-back" size={28} color={theme.colors.onBackground} />
@@ -160,14 +160,14 @@ export default function AccountScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Panel Użytkownika */}
+            {/* User Panel */}
             <View style={styles.userPanel}>
               <Ionicons name="person-circle" size={100} color={theme.colors.primary} />
               <Text style={[styles.userName, { color: theme.colors.onBackground }]}>{userName}</Text>
               <Text style={[styles.userEmail, { color: 'gray' }]}>{userEmail}</Text>
             </View>
 
-            {/* Ranking Window */}
+            {/* Ranking Section */}
             <View style={[styles.rankingWindow, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
               <Text style={[styles.rankingTitle, { color: theme.colors.onSurface }]}>Ranking</Text>
               <TouchableOpacity
@@ -181,7 +181,7 @@ export default function AccountScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Poziomo Przewijalna Lista Rankingu */}
+            {/* Horizontal Ranking List */}
             {rankingSlots.length > 0 ? (
               <View
                 style={[
@@ -198,6 +198,7 @@ export default function AccountScreen() {
                       onRemove={handleRemoveFromRanking}
                       activeRankingItemId={activeRankingItemId}
                       setActiveRankingItemId={setActiveRankingItemId}
+                      isDarkTheme={isDarkTheme} // Pass the theme prop
                     />
                   ))}
                 </ScrollView>
@@ -215,7 +216,7 @@ export default function AccountScreen() {
               </View>
             )}
 
-            {/* Kontener z Notatkami */}
+            {/* Notes Section */}
             <View
               style={[
                 styles.notesContainer,
@@ -234,7 +235,7 @@ export default function AccountScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Poziomo Przewijalna Lista Notatek */}
+            {/* Horizontal Notes List */}
             {notes.length > 0 ? (
               <View
                 style={[
@@ -250,21 +251,29 @@ export default function AccountScreen() {
                         key={note.id}
                         style={[
                           styles.noteItem,
-                          { backgroundColor: isDarkTheme ? '#444' : '#ddd' },
+                          {
+                            backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5', // Match ranking items
+                            borderColor: isDarkTheme ? '#555' : '#ccc', // Adjust border color
+                            borderWidth: 1,
+                          },
                         ]}
                         onPress={() => handleNotePress(note.id)}
                       >
                         <View style={styles.noteHeader}>
                           {country && (
-                            <CountryFlag isoCode={country.cca2} size={25} style={styles.noteFlag} />
+                            <CountryFlag isoCode={country.cca2} size={20} style={styles.noteFlag} />
                           )}
-                          <Text style={[styles.noteCountryName, { color: theme.colors.onSurface }]}>
+                          <Text
+                            style={[styles.noteCountryName, { color: theme.colors.onSurface }]}
+                            numberOfLines={2}
+                          >
                             {country ? country.name : 'Unknown Country'}
                           </Text>
                         </View>
                         <Text
                           style={[styles.noteText, { color: theme.colors.onSurface }]}
                           numberOfLines={3}
+                          ellipsizeMode="tail"
                         >
                           {note.noteText}
                         </Text>
@@ -360,7 +369,6 @@ const styles = StyleSheet.create({
     padding: 10,
     paddingBottom: 15,
     paddingTop: 10,
-    overflow: 'hidden',
   },
   noRankingContainer: {
     alignItems: 'center',
@@ -402,31 +410,26 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 16,
     marginRight: 10,
-    // Cienie dla iOS
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    // Cienie dla Androida
-    elevation: 3,
+    // Remove shadows
+    // Instead, use border to match ranking items
   },
   noteHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start', // Align items to the top
     marginBottom: 8,
   },
   noteFlag: {
     marginRight: 8,
     borderRadius: 4,
-    width: 30,
-    height: 20,
+    width: 25,
+    height: 15,
+    marginTop: 3, // Adjust to align with multi-line text
   },
   noteCountryName: {
     fontSize: 15,
     fontWeight: '600',
     flexShrink: 1,
     flexWrap: 'wrap',
-    marginRight: 5,
     maxWidth: '90%',
   },
   noteText: {

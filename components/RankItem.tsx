@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import CountryFlag from 'react-native-country-flag';
-import { Country } from '../.expo/types/country'; // Upewnij się, że ścieżka jest poprawna
+import { Country } from '../.expo/types/country'; // Ensure the path is correct
 import { useTheme } from 'react-native-paper';
 
 interface RankingItemProps {
@@ -22,6 +22,7 @@ interface RankingItemProps {
   onRemove: (index: number) => void;
   activeRankingItemId: string | null;
   setActiveRankingItemId: (id: string | null) => void;
+  isDarkTheme: boolean; // Added here
 }
 
 const RankingItem: React.FC<RankingItemProps> = ({
@@ -30,6 +31,7 @@ const RankingItem: React.FC<RankingItemProps> = ({
   onRemove,
   activeRankingItemId,
   setActiveRankingItemId,
+  isDarkTheme,
 }) => {
   const theme = useTheme();
   const removeAnim = useRef(new Animated.Value(0)).current;
@@ -60,17 +62,21 @@ const RankingItem: React.FC<RankingItemProps> = ({
     outputRange: [0.5, 1],
   });
 
+  // Dynamic styles based on theme
+  const dynamicStyles = StyleSheet.create({
+    rankingSlot: {
+      backgroundColor:
+        activeRankingItemId === slot.id
+          ? isDarkTheme ? '#333333' : '#e3e3e3'
+          : theme.colors.surface,
+      borderColor: isDarkTheme ? '#2b2b2b' : '#ccc',
+      borderWidth: 1,
+    },
+  });
+
   return (
     <TouchableOpacity
-      style={[
-        styles.rankingSlot,
-        {
-          backgroundColor:
-            activeRankingItemId === slot.id
-              ? theme.dark ? '#333333' : '#e3e3e3'
-              : theme.colors.surface,
-        },
-      ]}
+      style={[styles.rankingSlot, dynamicStyles.rankingSlot]}
       onLongPress={() => setActiveRankingItemId(slot.id)}
       delayLongPress={300}
       disabled={!slot.country}
@@ -94,7 +100,7 @@ const RankingItem: React.FC<RankingItemProps> = ({
         )}
       </View>
       <View style={styles.actionContainer}>
-        {/* Animowany przycisk "x" */}
+        {/* Animated "x" button */}
         <Animated.View style={{ opacity: removeOpacity, transform: [{ scale: removeScale }] }}>
           {activeRankingItemId === slot.id && (
             <TouchableOpacity
@@ -105,7 +111,6 @@ const RankingItem: React.FC<RankingItemProps> = ({
             </TouchableOpacity>
           )}
         </Animated.View>
-        {/* Możesz dodać tutaj przycisk przeciągania, jeśli potrzebujesz */}
       </View>
     </TouchableOpacity>
   );
@@ -117,16 +122,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    marginRight: 12, // Dla poziomego scrolla
+    marginRight: 12,
     borderRadius: 15,
-    borderWidth: 1,
     justifyContent: 'space-between',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    minWidth: 150, // Minimalna szerokość elementu
+    minWidth: 150,
   },
   slotContent: {
     flexDirection: 'row',
