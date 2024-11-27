@@ -467,7 +467,7 @@ export default function NotesScreen() {
                   </TouchableOpacity>
 
                   {/* Modal Header */}
-                  <Text style={[styles.modalHeader, { color: theme.colors.onSurface, marginTop: -43 }]}>Add a Note</Text>
+                  <Text style={[styles.modalAddHeader, { color: theme.colors.onSurface, marginTop: -43 }]}>Add a Note</Text>
 
                   {/* Formularz Dodawania Notatki */}
                   <View style={[styles.formContainer, { backgroundColor: theme.colors.surface }]}>
@@ -760,15 +760,15 @@ const styles = StyleSheet.create({
   },
   noteHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start', // Wyrównaj do góry, jeśli tekst się zawija
+    // justifyContent: 'space-between',
+    // alignItems: 'flex-start', // Wyrównaj do góry, jeśli tekst się zawija
     marginBottom: 8,
   },
   noteFlagContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start', // Wyrównaj do góry
+    alignItems: 'center', // Wyrównaj do góry
     flex: 1, // Pozwól, aby zajmowało pozostałą przestrzeń
-    flexWrap: 'wrap',
+    // flexWrap: 'wrap',
   },
   deleteIcon: {
     padding: 8,
@@ -777,6 +777,8 @@ const styles = StyleSheet.create({
   countryFlag: {
     marginRight: 8,
     borderRadius: 4,
+    width: 30, // Szerokość flagi
+    height: 20, // Wysokość flagi
   },
   modalContent: {
     width: '95%',
@@ -803,6 +805,15 @@ const styles = StyleSheet.create({
     zIndex: 1, // Upewnij się, że jest na wierzchu
   },
   modalHeader: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 20,
+    textAlign: 'center',
+    // marginTop: 40, // Zapewnij odpowiednią przestrzeń od góry
+    // paddingTop: 40,
+    paddingBottom: 20
+  },
+  modalAddHeader: {
     fontSize: 20,
     fontWeight: '700',
     marginBottom: 20,
@@ -956,6 +967,7 @@ const styles = StyleSheet.create({
     flexShrink: 1, // Pozwól, aby tekst się zmniejszał
     flexWrap: 'wrap',
     marginRight: 5, // Dodaj margines
+    maxWidth: '95%', // Maksymalna szerokość tekstu w stosunku do kontenera
   },
   noteText: {
     // flex: 1,
