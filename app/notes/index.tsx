@@ -35,6 +35,7 @@ import CountryItem from '@/components/CountryItem';
 import { Animated as AnimatedRN } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import MasonryList from 'react-native-masonry-list';
+import { writeBatch } from 'firebase/firestore';
 
 // Interface definitions
 interface Note {
@@ -75,7 +76,8 @@ export default function NotesScreen() {
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [isEditModalVisible, setIsEditModalVisible] = useState<boolean>(false);
   const [editedNoteText, setEditedNoteText] = useState<string>('');
-  
+  const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
+
   const { height, width: deviceWidth } = Dimensions.get('window');
   const deviceHeight = height; // Używamy deviceHeight w stylach
 
@@ -232,69 +234,75 @@ export default function NotesScreen() {
     ),
     [handleSelectCountry, selectedCountry]
   );
-
-  // Renderowanie elementu Notatki
-  const renderNoteItem = ({ item }: { item: Note }) => {
-    const country = mappedCountries.find((c) => c.cca2 === item.countryCca2);
-  
-    return (
-      <TouchableOpacity
-        style={[
-          styles.noteItem,
-          { backgroundColor: isDarkTheme ? '#1e1e1e' : '#f9f9f9' },
-        ]}
-        onPress={() => {
-          setSelectedNote(item);
-          setEditedNoteText(item.noteText);
-          setIsEditModalVisible(true);
-        }}
-      >
-        {/* Nagłówek */}
-        <View style={styles.noteHeader}>
-  {/* Flaga i nazwa kraju */}
-  <View style={styles.noteFlagContainer}>
-    {country && (
-      <CountryFlag
-        isoCode={country.cca2}
-        size={22}
-        style={{ marginRight: 10, borderRadius: 8, width: 30 }}
-      />
-    )}
-    <Text
-      style={[
-        styles.noteCountryName,
-        { color: isDarkTheme ? '#fff' : '#000' },
-      ]}
-      numberOfLines={2} // Ogranicz do 2 linii
-    >
-      {country?.name || 'Unknown Country'}
-    </Text>
-  </View>
-  {/* Ikona usuwania */}
-  <TouchableOpacity
-    onPress={() => handleDeleteNote(item.id)}
-    style={styles.deleteIcon}
-  >
-    <Ionicons
-      name="trash"
-      size={20}
-      color={isDarkTheme ? '#fff' : '#000'}
-    />
-  </TouchableOpacity>
-</View>
-
-        {/* Treść notatki */}
-        <Text
-          style={[
-            styles.noteText,
-            { color: isDarkTheme ? '#ffffff' : '#000000' },
-          ]}
-        >
-          {item.noteText}
-        </Text>
-      </TouchableOpacity>
-    );
+  const handleSelectNote = (noteId: string) => {
+    setSelectedNoteIds((prevSelected) => {
+      if (prevSelected.includes(noteId)) {
+        // Deselect if already selected
+        return prevSelected.filter((id) => id !== noteId);
+      } else {
+        // Select the note
+        return [...prevSelected, noteId];
+      }
+    });
   };
+  
+  const renderNoteItem = ({ item }: { item: Note }) => {
+      const country = mappedCountries.find((c) => c.cca2 === item.countryCca2);
+    
+      return (
+        <TouchableOpacity
+          style={[
+            styles.noteItem,
+            { backgroundColor: isDarkTheme ? '#1e1e1e' : '#f9f9f9' },
+            selectedNoteIds.includes(item.id) && { backgroundColor: isDarkTheme ? '#444' : '#ddd' }, // Highlight selected notes
+          ]}
+          onPress={() => {
+            if (selectedNoteIds.length > 0) {
+              handleSelectNote(item.id);
+            } else {
+              setSelectedNote(item);
+              setEditedNoteText(item.noteText);
+              setIsEditModalVisible(true);
+            }
+          }}
+          onLongPress={() => handleSelectNote(item.id)}
+        >
+          {/* Header */}
+          <View style={styles.noteHeader}>
+            {/* Flag and country name */}
+            <View style={styles.noteFlagContainer}>
+              {country && (
+                <CountryFlag
+                  isoCode={country.cca2}
+                  size={22}
+                  style={styles.countryFlag}
+                />
+              )}
+              <Text
+                style={[
+                  styles.noteCountryName,
+                  { color: isDarkTheme ? '#fff' : '#000' },
+                ]}
+                numberOfLines={2}
+              >
+                {country?.name || 'Unknown Country'}
+              </Text>
+            </View>
+          </View>
+    
+          {/* Note text */}
+          <Text
+            style={[
+              styles.noteText,
+              { color: isDarkTheme ? '#ffffff' : '#000000' },
+            ]}
+          >
+            {item.noteText}
+          </Text>
+        </TouchableOpacity>
+      );
+    };
+  
   
   
 
@@ -361,6 +369,27 @@ export default function NotesScreen() {
   
     return { leftColumn, rightColumn };
   };
+  const handleDeleteSelectedNotes = async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        const batch = writeBatch(db);
+        selectedNoteIds.forEach((noteId) => {
+          const noteDocRef = doc(db, 'users', currentUser.uid, 'notes', noteId);
+          batch.delete(noteDocRef);
+        });
+        await batch.commit();
+        setNotes((prevNotes) =>
+          prevNotes.filter((note) => !selectedNoteIds.includes(note.id))
+        );
+        setSelectedNoteIds([]);
+        Alert.alert('Success', 'Selected notes deleted successfully.');
+      }
+    } catch (error) {
+      console.error('Error deleting notes:', error);
+      Alert.alert('Error', 'Unable to delete selected notes.');
+    }
+  };
   
   console.log('Notes:', notes);
   const { leftColumn, rightColumn } = splitIntoColumns(notes);
@@ -383,12 +412,25 @@ export default function NotesScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Plus Button */}
+          {/* Plus Button or Delete Button */}
           <View style={styles.plusButtonContainer}>
-            <TouchableOpacity onPress={() => setIsModalVisible(true)} style={[styles.plusButton, { backgroundColor: theme.colors.primary }]}>
-              <Ionicons name="add" size={24} color="#fff" />
-            </TouchableOpacity>
+            {selectedNoteIds.length > 0 ? (
+              <TouchableOpacity
+                onPress={handleDeleteSelectedNotes}
+                style={[styles.plusButton, { backgroundColor: theme.colors.primary }]}
+              >
+                <Ionicons name="trash" size={23} color="#fff" />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={() => setIsModalVisible(true)}
+                style={[styles.plusButton, { backgroundColor: theme.colors.primary }]}
+              >
+                <Ionicons name="add" size={24} color="#fff" />
+              </TouchableOpacity>
+            )}
           </View>
+
 
           {/* Modal dodawania notatki */}
           <Modal
@@ -732,7 +774,10 @@ const styles = StyleSheet.create({
     padding: 8,
     marginLeft: 5, // Dodaj odstęp
   },
-  
+  countryFlag: {
+    marginRight: 8,
+    borderRadius: 4,
+  },
   modalContent: {
     width: '95%',
     padding: 20,
