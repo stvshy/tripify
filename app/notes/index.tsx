@@ -234,35 +234,67 @@ export default function NotesScreen() {
   );
 
   // Renderowanie elementu Notatki
-  const renderNoteItem = useCallback(
-    ({ item }: { item: Note }) => {
-      const country = mappedCountries.find((c) => c.cca2 === item.countryCca2);
-      
-      return (
-        <TouchableOpacity
-          style={[styles.noteItem, { backgroundColor: isDarkTheme ? '#000' : '#fff' }]}
-          onPress={() => {
-            setSelectedNote(item);
-            setEditedNoteText(item.noteText); // Ustawienie istniejącego tekstu
-            setIsEditModalVisible(true);
-          }}
-        >
+  const renderNoteItem = ({ item }: { item: Note }) => {
+    const country = mappedCountries.find((c) => c.cca2 === item.countryCca2);
+  
+    return (
+      <TouchableOpacity
+        style={[
+          styles.noteItem,
+          { backgroundColor: isDarkTheme ? '#1e1e1e' : '#f9f9f9' },
+        ]}
+        onPress={() => {
+          setSelectedNote(item);
+          setEditedNoteText(item.noteText);
+          setIsEditModalVisible(true);
+        }}
+      >
+        {/* Nagłówek */}
+        <View style={styles.noteHeader}>
           {/* Flaga i nazwa kraju */}
-          <View style={styles.noteFlag}>
-            {country && <CountryFlag isoCode={country.cca2} size={25} />}
-            <Text style={{ fontWeight: 'bold', marginTop: 5 }}>{country?.name}</Text>
+            <View style={styles.noteFlagContainer}>
+            {country && (
+              <CountryFlag
+              isoCode={country.cca2}
+              size={22}
+              style={{ marginRight: 10, borderRadius: 8, width: 30 }} // Dopasowanie zaokrąglenia flagi
+              />
+            )}
+            <Text
+              style={[
+              styles.noteCountryName,
+              { color: isDarkTheme ? '#fff' : '#000' },
+              ]}
+            >
+              {country?.name || 'Unknown Country'}
+            </Text>
           </View>
-          {/* Tekst notatki */}
-          <Text style={styles.noteText}>{item.noteText}</Text>
-          {/* Opcjonalnie: Przycisk usunięcia */}
-          <TouchableOpacity onPress={() => handleDeleteNote(item.id)} style={{ position: 'absolute', top: 10, right: 10 }}>
-            <Ionicons name="trash" size={20} color="red" />
+          {/* Ikona usuwania */}
+          <TouchableOpacity
+            onPress={() => handleDeleteNote(item.id)}
+            style={styles.deleteIcon}
+          >
+            <Ionicons
+              name="trash"
+              size={20}
+              color={isDarkTheme ? '#fff' : '#000'}
+            />
           </TouchableOpacity>
-        </TouchableOpacity>
-      );
-    },
-    [handleDeleteNote, mappedCountries]
-  );
+        </View>
+        {/* Treść notatki */}
+        <Text
+          style={[
+            styles.noteText,
+            { color: isDarkTheme ? '#ffffff' : '#000000' },
+          ]}
+        >
+          {item.noteText}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+  
+  
 
   // Funkcja obsługująca przełączanie motywu z animacją
   const handleToggleTheme = useCallback(() => {
@@ -599,38 +631,42 @@ export default function NotesScreen() {
             </KeyboardAvoidingView>
           </Modal>
 
-          {/* Lista Notatek */}
-          {loading ? (
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-        ) : notes.length > 0 ? (
-<ScrollView contentContainerStyle={styles.masonryContainer}>
-  {/* Lewa kolumna */}
-  <View style={styles.column}>
-    <FlatList
-      data={leftColumn}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => renderNoteItem({ item })}
-      scrollEnabled={false} // Wyłączamy przewijanie wewnętrzne
-    />
-  </View>
-  {/* Prawa kolumna */}
-  <View style={styles.column}>
-    <FlatList
-      data={rightColumn}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => renderNoteItem({ item })}
-      scrollEnabled={false} // Wyłączamy przewijanie wewnętrzne
-    />
-  </View>
-</ScrollView>
+    {/* Lista Notatek */}
+    {loading ? (
+  <ActivityIndicator size="large" color={theme.colors.primary} />
+) : notes.length > 0 ? (
+  <ScrollView
+    keyboardShouldPersistTaps="handled"
+    style={{ flex: 1 }}
+    contentContainerStyle={[
+      styles.scrollContainer,
+      { backgroundColor: theme.colors.background },
+    ]}
+  >
+    <View style={styles.masonryContainer}>
+      {/* Lewa kolumna */}
+      <View style={styles.column}>
+        {leftColumn.map((item) => (
+          <View key={item.id}>{renderNoteItem({ item })}</View>
+        ))}
+      </View>
 
-        ) : (
-          <View style={styles.noNotesContainer}>
-            <Text style={[styles.noNotesText, { color: theme.colors.onSurface }]}>
-              You haven't created any notes yet.
-            </Text>
-          </View>
-        )}
+      {/* Prawa kolumna */}
+      <View style={styles.column}>
+        {rightColumn.map((item) => (
+          <View key={item.id}>{renderNoteItem({ item })}</View>
+        ))}
+      </View>
+    </View>
+  </ScrollView>
+) : (
+  <View style={styles.noNotesContainer}>
+    <Text style={[styles.noNotesText, { color: theme.colors.onSurface }]}>
+      You haven't created any notes yet.
+    </Text>
+  </View>
+)}
+
         </KeyboardAvoidingView>
       </SafeAreaView>
     </TouchableWithoutFeedback>
@@ -662,10 +698,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     // paddingHorizontal: 10,
-    // flex: 1, // Umożliwienie zajmowania pełnej wysokości
+    flexGrow: 1,
+    
   },
   column: {
     flex: 1, // Każda kolumna zajmuje połowę szerokości
+  },
+  scrollContainer: {
+    flexGrow: 1, // Aby tło zajmowało całą dostępną przestrzeń
+    paddingBottom: 20,
   },
   modalContainer: {
     flex: 1,
@@ -673,6 +714,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     // padding: 20,
   },
+  noteHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  noteFlagContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  deleteIcon: {
+    padding: 8,
+  },
+  
   modalContent: {
     width: '95%',
     padding: 20,
@@ -829,7 +884,6 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 10,
     // flex: 1,
-    backgroundColor: '#f9f9f9',
     marginHorizontal: 5,
     // Dodaj cienie dla iOS
     shadowColor: '#000',
@@ -847,7 +901,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   noteCountryName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
   },
   noteText: {
@@ -855,7 +909,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     // marginRight: 10,
     //  lineHeight: 20,
-     color: '#000', // Tekst czarny
   },
   noNotesContainer: {
     alignItems: 'center',
