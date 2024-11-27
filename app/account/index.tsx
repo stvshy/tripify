@@ -10,6 +10,7 @@ import {
   ScrollView,
   LayoutAnimation,
   TouchableWithoutFeedback,
+  Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ThemeContext } from '../config/ThemeContext';
@@ -46,7 +47,9 @@ export default function AccountScreen() {
   const [userEmail, setUserEmail] = useState<string>('user@error.com');
   const [notes, setNotes] = useState<Note[]>([]);
   const { width, height } = Dimensions.get('window');
-
+  const [isNotePreviewVisible, setIsNotePreviewVisible] = useState<boolean>(false);
+  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  
   const mappedCountries: Country[] = useMemo(() => {
     return countriesData.countries.map((country) => ({
       ...country,
@@ -142,13 +145,16 @@ export default function AccountScreen() {
     router.push('/notes');
   };
 
-  const handleNotePress = (noteId: string) => {
-    // Add action when a note is pressed
+  const handleNotePress = (note: Note) => {
+    setSelectedNote(note);
+    setIsNotePreviewVisible(true);
   };
+  
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 50 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 20 }}
+       scrollIndicatorInsets={{ right: -3 }} >
         <TouchableWithoutFeedback onPress={() => setActiveRankingItemId(null)}>
           <View>
             {/* Header with back button and theme toggle */}
@@ -254,12 +260,13 @@ export default function AccountScreen() {
                         style={[
                           styles.noteItem,
                           {
-                            backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5', // Match ranking items
+                            backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5',
+                            // backgroundColor: theme.colors.surface,
                             borderColor: isDarkTheme ? '#555' : '#ccc', // Adjust border color
                             borderWidth: 1,
                           },
                         ]}
-                        onPress={() => handleNotePress(note.id)}
+                        onPress={() => handleNotePress(note)}
                       >
                         <View style={styles.noteHeader}>
                           {country && (
@@ -299,9 +306,50 @@ export default function AccountScreen() {
           </View>
         </TouchableWithoutFeedback>
       </ScrollView>
+   {/* Note Preview Modal */}
+        <Modal
+        visible={isNotePreviewVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsNotePreviewVisible(false)}
+      >
+        <View style={styles.modalBackground}>
+          <TouchableWithoutFeedback onPress={() => setIsNotePreviewVisible(false)}>
+            <View style={styles.modalOverlay} />
+          </TouchableWithoutFeedback>
+          <View style={styles.modalContainer}>
+            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+              {/* Przycisk zamknięcia */}
+              <TouchableOpacity
+                onPress={() => setIsNotePreviewVisible(false)}
+                style={styles.modalCloseButton}
+              >
+                <Ionicons name="close" size={24} color={theme.colors.onSurface} />
+              </TouchableOpacity>
+
+              {/* Treść modala */}
+              <ScrollView
+                contentContainerStyle={styles.modalScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                <Text style={[styles.modalHeader, { color: theme.colors.onSurface }]}>
+                  {selectedNote
+                    ? mappedCountries.find(c => c.cca2 === selectedNote.countryCca2)?.name
+                    : ''}
+                </Text>
+                <Text style={[styles.modalNoteText, { color: theme.colors.onSurface }]}>
+                  {selectedNote ? selectedNote.noteText : ''}
+                </Text>
+              </ScrollView>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
+
+
 
 const styles = StyleSheet.create({
   container: {
@@ -449,5 +497,46 @@ const styles = StyleSheet.create({
   noNotesText: {
     fontSize: 14,
     fontStyle: 'italic',
+  },
+  modalBackground: {
+    flex: 1,
+    position: 'relative',
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    borderRadius: 10,
+    padding: 20,
+    paddingTop: 40, // Aby uwzględnić przycisk zamknięcia
+    maxHeight: '90%', // Maksymalna wysokość modala
+    width: '90%', // Szerokość modala
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 1,
+  },
+  modalHeader: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  modalNoteText: {
+    fontSize: 16,
+  },
+  modalScrollContent: {
+    paddingBottom: 20,
   },
 });
