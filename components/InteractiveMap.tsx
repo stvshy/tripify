@@ -19,7 +19,7 @@ import Svg, { Path } from 'react-native-svg';
 import { ThemeContext } from '../app/config/ThemeContext';
 import { captureRef } from 'react-native-view-shot';
 import rawCountriesData from '../assets/maps/countries.json';
-import { Country, CountriesData } from '../.expo/types/country';
+// import { Country, CountriesData } from '../types/country';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Sharing from 'expo-sharing';
 import Animated, {
@@ -35,7 +35,17 @@ import * as Progress from 'react-native-progress';
 import logoTextImage from '../assets/images/logo-tripify-tekst.png';
 import logoTextImageDesaturated from '../assets/images/logo-tripify-tekst2.png';
 import CountryFlag from 'react-native-country-flag';
+export interface Country {
+  id: string;
+  name: string;
+  class: string | null;
+  path: string;
+  cca2: string;
+}
 
+export interface CountriesData {
+  countries: Country[];
+}
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
 const BUTTON_SIZE = Math.min(windowWidth, windowHeight) * 0.08;

@@ -20,8 +20,16 @@ import { db, auth } from '../config/firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import countriesData from '../../assets/maps/countries.json';
 import CountryFlag from 'react-native-country-flag';
-import { Country } from '../../.expo/types/country';
 import RankingItem from '../../components/RankItem'; // Ensure the path is correct
+
+interface Country {
+  id: string;
+  cca2: string;
+  name: string;
+  flag: string;
+  class: string;
+  path: string;
+}
 import { useFocusEffect } from '@react-navigation/native'; // Import useFocusEffect
 
 interface RankingSlot {

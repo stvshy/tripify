@@ -47,7 +47,7 @@ export default function TabLayout() {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         if (!currentUser.emailVerified) {
-          router.replace('/verifyEmail');
+          router.replace('/welcome');
           setLoading(false);
           return;
         }

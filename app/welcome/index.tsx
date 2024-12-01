@@ -148,15 +148,6 @@ export default function WelcomeScreen() {
         const userData = querySnapshot.docs[0].data();
         email = userData.email;
         console.log("Email found from nickname:", email);
-      } else {
-        // Obsługa przypadku, gdy identyfikator to e-mail
-        const signInMethods = await fetchSignInMethodsForEmail(auth, email);
-        if (signInMethods.length === 0) {
-          // Brak konta z tym e-mailem
-          setErrorMessage('No account was found with this email.');
-          setIsLoading(false);
-          return;
-        }
       }
   
       console.log("Attempting to sign in with email:", email);

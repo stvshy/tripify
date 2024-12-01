@@ -55,7 +55,7 @@ export default function RootLayout() {
           const firstLoginComplete = userData?.firstLoginComplete;
 
           if (!isVerified) {
-            setInitialRouteName('verifyEmail');
+            setInitialRouteName('welcome');
           } else if (!nickname) {
             setInitialRouteName('setNickname');
           } else if (!firstLoginComplete) {

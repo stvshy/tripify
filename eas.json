@@ -8,7 +8,10 @@
       "developmentClient": true,
       "distribution": "internal",
       "android": {
-        "gradleCommand": ":app:assembleDebug"  // Debug build for Android
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_NO_CPP": "1"
       }
     },
     "preview": {
@@ -17,7 +20,7 @@
     "production": {
       "autoIncrement": true,
       "android": {
-        "buildType": "apk"  // Change to "app-bundle" if needed for Google Play
+        "buildType": "apk"
       }
     }
   },

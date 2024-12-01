@@ -1,9 +1,0 @@
-<resources>
-  <string name="app_name">Tripify</string>
-  <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
-  <string name="expo_splash_screen_status_bar_translucent" translatable="false">false</string>
-  <string name="expo_system_ui_user_interface_style" translatable="false">automatic</string>
-  <string name="fb_login_protocol_scheme">fb517197711280428</string>
-  <string name="facebook_app_id">517197711280428</string>
-  <string name="facebook_client_token">e70a82b40276d3ae9177f7c0fc0dd241</string>
-</resources>
