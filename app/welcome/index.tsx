@@ -118,11 +118,10 @@ export default function WelcomeScreen() {
       return;
     }
       // Walidacja hasła
-  if (password.length === 0) {
-    setErrorMessage('Please enter your password.');
-    setIsLoading(false);
-    return;
-  }
+    if (!validatePassword()) {
+      setIsLoading(false);
+      return;
+    }
 
   
     let email = emailLower;
