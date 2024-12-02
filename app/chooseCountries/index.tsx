@@ -174,14 +174,14 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
     const checkPopup = async () => {
       try {
         const value = await AsyncStorage.getItem('hasShownPopup');
-        if (value !== null) {
-          setIsPopupVisible(false);
+        if (value !== 'true') {
+          setIsPopupVisible(true); // Pokaż pop-up tylko wtedy, gdy klucz nie istnieje lub ma inną wartość
         }
       } catch (e) {
         console.error('Failed to load popup status.');
       }
     };
-
+  
     checkPopup();
   }, []);
   
