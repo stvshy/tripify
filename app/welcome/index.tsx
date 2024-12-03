@@ -39,16 +39,13 @@ import {
   getFirestore, 
   updateDoc 
 } from 'firebase/firestore';
-import { auth, db } from '../config/firebaseConfig'; // Upewnij się, że eksportujesz db z firebaseConfig
+import { auth, db } from '../config/firebaseConfig'; 
 import { LinearGradient } from 'expo-linear-gradient';
-// Usuń nieużywane importy, jeśli nie są potrzebne
-// import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
 const { width, height } = Dimensions.get('window');
 
 export default function WelcomeScreen() {
   const router = useRouter();
-  // const auth = getAuth(); // Zakomentowane, ponieważ importujesz auth z firebaseConfig
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -126,7 +123,7 @@ export default function WelcomeScreen() {
   
     let email = emailLower;
 
-      // Walidacja formatu e-maila, jeśli identyfikator jest e-mailem
+    // Walidacja formatu e-maila, jeśli identyfikator jest e-mailem
 
     console.log(`Identifier: ${identifier}, Email Lowercased: ${emailLower}, Is Email: ${identifierIsEmail}`);
 
@@ -162,7 +159,7 @@ export default function WelcomeScreen() {
         if (userDoc.exists()) {
           const userData = userDoc.data();
   
-          // Sprawdź, kiedy ostatnio wysłano e-mail weryfikacyjny
+          // Sprawdzanie, kiedy ostatnio wysłano e-mail weryfikacyjny
           const emailSentAt = userData.emailSentAt;
           if (emailSentAt) {
             const elapsedSeconds = Math.floor((Date.now() - emailSentAt) / 1000);
@@ -223,12 +220,10 @@ export default function WelcomeScreen() {
         setIsLoading(false);
         return;
       }
-
-
         router.replace('/');
         setIsLoading(false);
         return;
-  
+
     }
     } catch (error: any) {
       console.log("Login error:", error.code, error.message);
@@ -261,7 +256,6 @@ export default function WelcomeScreen() {
       }
     }
   };
-  
 
   const handleFacebookLogin = async () => {
     try {
@@ -446,7 +440,7 @@ export default function WelcomeScreen() {
               onPress={handleLogin}
               style={styles.loginButton}
               labelStyle={styles.buttonLabel}
-              loading={isLoading} // Dodany spinner
+              loading={isLoading} // spinner
             >
               Log in
             </Button>
@@ -502,9 +496,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between', 
     alignItems: 'center',
-    // padding: 16,
     paddingBottom: 10,
-    // marginLeft: 5, // zmienione
     marginTop: height * 0.015
   },
   scrollView: {
@@ -548,17 +540,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 13,
     width: width * 0.89,
-    justifyContent: 'center', // Wyśrodkowanie w pionie
-    alignSelf: 'center', // Wyśrodkowanie na środku ekranu
-    
+    justifyContent: 'center',
+    alignSelf: 'center', 
   },
   
   input: {
-    height: height * 0.07, // Zwiększona wysokość pola tekstowego
-    fontSize: height * 0.022, // Większy rozmiar czcionki
+    height: height * 0.07, 
+    fontSize: height * 0.022,
     paddingLeft: 1,
-    textAlignVertical: 'center', // Wyrównanie tekstu w pionie
-    // lineHeight: height * 0.1, // Kontrola pionowego wyrównania tekstu
+    textAlignVertical: 'center', 
   },
   inputFocused: {
     borderColor: '#6a1b9a',
@@ -584,7 +574,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 25,
     marginTop: 8,
-    alignSelf: 'center', // Wyśrodkowanie na środku ekranu
+    alignSelf: 'center',
   },
   registerButton: {
     width: width * 0.89,
@@ -595,7 +585,7 @@ const styles = StyleSheet.create({
     marginTop: 11,
     borderWidth: 1.1,
     borderColor: '#340850',
-    alignSelf: 'center', // Wyśrodkowanie na środku ekranu
+    alignSelf: 'center', 
   },
   buttonLabel: {
     fontSize: 12.5,
@@ -609,8 +599,7 @@ const styles = StyleSheet.create({
     height: height * 0.054,
     justifyContent: 'center',
     borderRadius: 25,
-    // marginTop: 10, 
-    alignSelf: 'center', // Wyśrodkowanie na środku ekranu
+    alignSelf: 'center', 
   },
   facebookButtonText: {
     color: '#FFF',
@@ -640,7 +629,6 @@ const styles = StyleSheet.create({
     marginBottom: -10,
   },
   forgotPasswordButton: {
-   
   },
   forgotPasswordLabel: {
     fontSize: 13,

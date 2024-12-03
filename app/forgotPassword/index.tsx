@@ -144,7 +144,7 @@ export default function ForgotPasswordScreen() {
 
           </ScrollView>
           
-          {/* Footer with Buttons */}
+          {/* Stopka z przyciskami */}
           <View style={styles.footer}>
             <Pressable onPress={handlePasswordReset} style={styles.sendButton}>
               <Text style={styles.sendButtonText}>Send reset link</Text>

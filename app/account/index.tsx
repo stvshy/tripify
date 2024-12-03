@@ -1,4 +1,3 @@
-// app/account/index.tsx
 import React, { useContext, useState, useMemo, useCallback } from 'react';
 import {
   View,
@@ -20,7 +19,7 @@ import { db, auth } from '../config/firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import countriesData from '../../assets/maps/countries.json';
 import CountryFlag from 'react-native-country-flag';
-import RankingItem from '../../components/RankItem'; // Ensure the path is correct
+import RankingItem from '../../components/RankItem';
 
 interface Country {
   id: string;
@@ -30,7 +29,7 @@ interface Country {
   class: string;
   path: string;
 }
-import { useFocusEffect } from '@react-navigation/native'; // Import useFocusEffect
+import { useFocusEffect } from '@react-navigation/native'; 
 
 interface RankingSlot {
   id: string;
@@ -269,8 +268,7 @@ export default function AccountScreen() {
                           styles.noteItem,
                           {
                             backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5',
-                            // backgroundColor: theme.colors.surface,
-                            borderColor: isDarkTheme ? '#555' : '#ccc', // Adjust border color
+                            borderColor: isDarkTheme ? '#555' : '#ccc', 
                             borderWidth: 1,
                           },
                         ]}
@@ -327,7 +325,7 @@ export default function AccountScreen() {
           </TouchableWithoutFeedback>
           <View style={styles.modalContainer}>
             <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
-              {/* Przycisk zamknięcia */}
+              {/* Close Button */}
               <TouchableOpacity
                 onPress={() => setIsNotePreviewVisible(false)}
                 style={styles.modalCloseButton}
@@ -335,7 +333,7 @@ export default function AccountScreen() {
                 <Ionicons name="close" size={24} color={theme.colors.onSurface} />
               </TouchableOpacity>
 
-              {/* Zawartość Modala */}
+              {/* Modal interior */}
               <ScrollView
                 contentContainerStyle={styles.modalScrollContent}
                 showsVerticalScrollIndicator={false}

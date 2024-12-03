@@ -85,7 +85,7 @@ export default function TabLayout() {
   }, [router]);
 
   if (loading) {
-    return <LoadingScreen showLogo={true} />; // Set showLogo to false if you don't want the logo
+    return <LoadingScreen showLogo={true} />; 
   }
 
   if (!user) {
@@ -102,9 +102,6 @@ export default function TabLayout() {
   };
   const handleNavigateToAccount = () => {
     router.push('/account'); // Upewnij się, że masz skonfigurowany ekran /account
-  };
-  const tabBarIconStyle = {
-    marginTop: window.height * 0.02, // Adjust the margin to lower the icons
   };
   return (
     <Tabs

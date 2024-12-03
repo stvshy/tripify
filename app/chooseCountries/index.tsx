@@ -27,10 +27,9 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
 import { auth, db } from '../config/firebaseConfig';
 import CountryFlag from 'react-native-country-flag';
-// import countries from 'world-countries';
 import { ThemeContext } from '../config/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import filteredCountriesData from '../../components/filteredCountries.json'; // Zmień na właściwą ścieżkę
+import filteredCountriesData from '../../components/filteredCountries.json'; 
 
 const { width, height } = Dimensions.get('window');
 

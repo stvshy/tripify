@@ -130,11 +130,10 @@ export default function RegisterScreen() {
     }
 
     try {
-      // Create user account in Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Add user data to Firestore without sending verification email yet
+      
       await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
         email: user.email,
@@ -149,7 +148,7 @@ export default function RegisterScreen() {
       await sendEmailVerification(user);
       setErrorMessage(null);
       setResendTimer(60); // Ustawienie timera na 60 sekund;
-      router.replace('/setNickname'); // Proceed to nickname screen
+      router.replace('/setNickname'); // Przekierowanie do ekranu ustawienia pseudonimu
       
     } catch (error: any) {
       switch (error.code) {
@@ -209,7 +208,7 @@ export default function RegisterScreen() {
 
             {emailError && <Text style={styles.errorTop}>{emailError}</Text>}
 
-            {/* Email Input */}
+            {/* Pole do wpisania e-maila */}
             <View style={[styles.inputContainer, isFocused.email && styles.inputFocused]}>
               <TextInput
                 label="Email"
@@ -245,7 +244,7 @@ export default function RegisterScreen() {
               />
             </View>
 
-            {/* Password Input */}
+            {/* Pole do wpisania hasła */}
             <View style={[styles.inputContainer, isFocused.password && styles.inputFocused]}>
               <TextInput
                 label="Password"
@@ -287,7 +286,7 @@ export default function RegisterScreen() {
               />
             </View>
 
-            {/* Confirm Password Input */}
+            {/* Pole do potwierdzenia hasła */}
             <View style={[styles.inputContainer, isFocused.confirmPassword && styles.inputFocused]}>
               <TextInput
                 label="Confirm Password"
@@ -311,7 +310,7 @@ export default function RegisterScreen() {
                     icon={() => (
                       <FontAwesome 
                         name="lock" 
-                        size={23}  // Dostosowany rozmiar
+                        size={23}  
                         color={isFocused.confirmPassword ? '#6a1b9a' : '#606060'} 
                       />
                     )}
@@ -329,7 +328,7 @@ export default function RegisterScreen() {
               />
             </View>
 
-            {/* Password Requirements */}
+            {/* Wymogi do hasła */}
             <View style={[styles.requirementsContainer, { paddingBottom: requirementPaddingBottom}]}>
               {Object.entries(passwordRequirements).map(([key, value]) => (
                 <View style={styles.requirementRow} key={key}>
@@ -340,9 +339,6 @@ export default function RegisterScreen() {
                 </View>
               ))}
             </View>
-
-            {/* Error Message */}
-            {/* {errorMessage && <Text style={styles.error}>{errorMessage}</Text>} */}
           </ScrollView>
         </KeyboardAvoidingView>
 

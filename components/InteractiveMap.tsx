@@ -1,4 +1,3 @@
-// components/InteractiveMap.tsx
 import React, { useContext, forwardRef, useImperativeHandle, useRef, useState, useCallback } from 'react';
 import {
   StyleSheet,
@@ -19,7 +18,6 @@ import Svg, { Path } from 'react-native-svg';
 import { ThemeContext } from '../app/config/ThemeContext';
 import { captureRef } from 'react-native-view-shot';
 import rawCountriesData from '../assets/maps/countries.json';
-// import { Country, CountriesData } from '../types/country';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Sharing from 'expo-sharing';
 import Animated, {
@@ -122,21 +120,6 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       transform: [{ scale: scaleValue.value }],
     }));
 
-    const calculateDistance = (p1: { x: number; y: number }, p2: { x: number; y: number }): number => {
-      'worklet';
-      const dx = p2.x - p1.x;
-      const dy = p2.y - p1.y;
-      return Math.hypot(dx, dy);
-    };
-
-    const calculateMidpoint = (p1: { x: number; y: number }, p2: { x: number; y: number }): { x: number; y: number } => {
-      'worklet';
-      return {
-        x: (p1.x + p2.x) / 2,
-        y: (p1.y + p2.y) / 2,
-      };
-    };
-
     const handleToggleTheme = () => {
       scaleValue.value = withTiming(1.2, { duration: 100 }, () => {
         scaleValue.value = withTiming(1, { duration: 100 });
@@ -233,7 +216,6 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         }
       })
       .onEnd(() => {
-        // Opcjonalnie: Możesz tutaj dodać logikę końcową
       });
     
 
@@ -355,7 +337,6 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     console.log('Total Countries:', totalCountries);
     console.log('Percentage Visited:', percentageVisited);
 
-    // Zaktualizowana funkcja handlePathPress
     const handlePathPress = useCallback((event: GestureResponderEvent, countryCode: string) => {
       const { locationX, locationY } = event.nativeEvent;
     
@@ -428,46 +409,45 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
 
                   {/* Renderowanie Tooltipa wewnątrz kontenera mapy */}
                   {isTooltipVisible && tooltip && scale.value > 0 && (
-  <Animated.View
-    style={[
-      styles.tooltip,
-      tooltipAnimatedStyle,
-      {
-        position: 'absolute',
-        
-        left: tooltip.x * scale.value + translateX.value - 75,
-        top: tooltip.y * scale.value + translateY.value - 
-          (tooltip.position === 'top' ? 
-            (24 + (20 * (1.46 / scale.value))) : 
-            (10 + (10 * (0.3 / scale.value)))) + (scale.value > 1.5 ? 5 : 0)  - (scale.value > 2.2 ? 1.8 : 0) - (scale.value > 2.7 ? 2.6 : 0) - (scale.value > 3.15 ? 1.2 : 0) - (scale.value > 3.33 ? 1 : 0) - (scale.value > 3.5 ? 1.8 : 0) - (scale.value > 4.0 ? 0.3 : 0) - (scale.value > 4.2 ? 2 : 0) -  (scale.value > 5.0 ? 0.1 : 0),
-        width: 150,
-        transform: [{ scale: 1 / scale.value }],
-      },
-    ]}
-  >
-    {tooltip.position === 'top' && (
-      <View
-        style={[
-          styles.arrowBottom,
-          { left: 75 - 5 },
-        ]}
-      />
-    )}
-    {tooltip.position === 'bottom' && (
-      <View
-        style={[
-          styles.arrowTop,
-          { left: 75 - 5 },
-        ]}
-      />
-    )}
-    <View style={styles.tooltipContent}>
-      <CountryFlag isoCode={tooltip.country.cca2} size={25} />
-      <Text style={styles.tooltipText}>{tooltip.country.name}</Text>
-    </View>
-  </Animated.View>
-)}
-
+                    <Animated.View
+                      style={[
+                        styles.tooltip,
+                        tooltipAnimatedStyle,
+                        {
+                          position: 'absolute',
+                          
+                          left: tooltip.x * scale.value + translateX.value - 75,
+                          top: tooltip.y * scale.value + translateY.value - 
+                            (tooltip.position === 'top' ? 
+                              (24 + (20 * (1.46 / scale.value))) : 
+                              (10 + (10 * (0.3 / scale.value)))) + (scale.value > 1.5 ? 5 : 0)  - (scale.value > 2.2 ? 1.8 : 0) - (scale.value > 2.7 ? 2.6 : 0) - (scale.value > 3.15 ? 1.2 : 0) - (scale.value > 3.33 ? 1 : 0) - (scale.value > 3.5 ? 1.8 : 0) - (scale.value > 4.0 ? 0.3 : 0) - (scale.value > 4.2 ? 2 : 0) -  (scale.value > 5.0 ? 0.1 : 0),
+                          width: 150,
+                          transform: [{ scale: 1 / scale.value }],
+                        },
+                      ]}
+                    >
+                      {tooltip.position === 'top' && (
+                        <View
+                          style={[
+                            styles.arrowBottom,
+                            { left: 75 - 5 },
+                          ]}
+                        />
+                      )}
+                      {tooltip.position === 'bottom' && (
+                        <View
+                          style={[
+                            styles.arrowTop,
+                            { left: 75 - 5 },
+                          ]}
+                        />
+                      )}
+                      <View style={styles.tooltipContent}>
+                        <CountryFlag isoCode={tooltip.country.cca2} size={25} />
+                        <Text style={styles.tooltipText}>{tooltip.country.name}</Text>
+                      </View>
+                    </Animated.View>
+                  )}
                 </View>
               </Animated.View>
             </GestureDetector>
