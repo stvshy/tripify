@@ -21,8 +21,14 @@ import { db, auth } from '../config/firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import countriesData from '../../assets/maps/countries.json';
 import CountryFlag from 'react-native-country-flag';
-import { Country } from '../../.expo/types/country';
 import DraggableFlatList, { RenderItemParams, DragEndParams } from 'react-native-draggable-flatlist';
+
+interface Country {
+  id: string;
+  cca2: string;
+  name: string;
+  // Add other fields as necessary
+}
 
 interface RankingSlot {
   id: string;

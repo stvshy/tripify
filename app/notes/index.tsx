@@ -34,7 +34,7 @@ import NoteItem from '@/components/NoteItem';
 import CountryItem from '@/components/CountryItem';
 import { Animated as AnimatedRN } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import MasonryList from 'react-native-masonry-list';
+// import MasonryList from 'react-native-masonry-list';
 import { writeBatch } from 'firebase/firestore';
 
 // Interface definitions

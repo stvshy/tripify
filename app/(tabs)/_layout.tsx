@@ -169,6 +169,22 @@ export default function TabLayout() {
         ),
       }}
     >
+    <Tabs.Screen
+      name="three"
+      options={{
+        title: '',
+        tabBarButton: (props) => (
+          <CustomTabBarButton onPress={props.onPress}>
+            {props.children}
+          </CustomTabBarButton>
+        ),
+        tabBarIcon: ({ color }) => (
+          <View style={styles.tabIconContainer}>
+            <Ionicons name="people" size={26} color={color} />
+          </View>
+        ),
+      }}
+    />
       <Tabs.Screen
         name="index"
         options={{
