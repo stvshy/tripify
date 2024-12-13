@@ -141,7 +141,6 @@ export default function SearchFriendsScreen() {
     const currentUser = auth.currentUser;
     if (!currentUser) {
       Alert.alert('Błąd', 'Użytkownik nie jest zalogowany.');
-      console.log('User is not authenticated.');
       return;
     }
   
@@ -149,19 +148,17 @@ export default function SearchFriendsScreen() {
     const receiverUid = friendUid;
   
     try {
-      // Logowanie startu procesu
-      console.log(`Attempting to send friend request from ${senderUid} to ${receiverUid}`);
-  
       // Sprawdź, czy już są znajomymi
-      const senderDoc = await getSingleDoc(doc(db, 'users', senderUid));
-      if (senderDoc.exists()) {
-        const senderData = senderDoc.data();
-        const friendsList: string[] = senderData.friends || [];
-        if (friendsList.includes(receiverUid)) {
-          Alert.alert('Info', 'Ta osoba jest już Twoim znajomym.');
-          console.log('User is already a friend.');
-          return;
-        }
+      const friendshipQuery = query(
+        collection(db, 'friendships'),
+        where('userAUid', '==', senderUid),
+        where('userBUid', '==', receiverUid),
+        where('status', '==', 'accepted')
+      );
+      const friendshipSnapshot = await getDocs(friendshipQuery);
+      if (!friendshipSnapshot.empty) {
+        Alert.alert('Info', 'Ta osoba jest już Twoim znajomym.');
+        return;
       }
   
       // Sprawdź, czy już wysłano zaproszenie wychodzące
@@ -173,7 +170,6 @@ export default function SearchFriendsScreen() {
       ));
       if (!outgoingSnapshot.empty) {
         Alert.alert('Info', 'Zaproszenie zostało już wysłane do tej osoby.');
-        console.log('Friend request already sent.');
         return;
       }
   
@@ -186,7 +182,6 @@ export default function SearchFriendsScreen() {
       ));
       if (!incomingSnapshot.empty) {
         Alert.alert('Info', 'Ta osoba już wysłała Ci zaproszenie.');
-        console.log('Received a friend request from this user.');
         return;
       }
   
@@ -200,17 +195,17 @@ export default function SearchFriendsScreen() {
         status: 'pending',
         createdAt: serverTimestamp(),
       });
-      console.log(`Added to friendRequests: ${friendRequestRef.path}`);
   
       await batch.commit();
   
       Alert.alert('Sukces', 'Wysłano zaproszenie do znajomych!');
-      console.log(`Friend request successfully sent from ${senderUid} to ${receiverUid}`);
     } catch (error) {
       console.error('Error sending friend request:', error);
       Alert.alert('Błąd', 'Nie udało się wysłać zaproszenia.');
     }
   };
+  
+  
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>

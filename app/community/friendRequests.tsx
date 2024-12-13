@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import { auth, db } from '../config/firebaseConfig';
-import { doc, updateDoc, collection, query, where, onSnapshot, arrayUnion, writeBatch, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, where, onSnapshot, arrayUnion, writeBatch, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useTheme } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -131,19 +131,22 @@ export default function FriendRequestsScreen() {
 
       const batch = writeBatch(db);
 
-      // Dodaj nadawcę do listy znajomych odbiorcy (User B)
-      const receiverDocRef = doc(db, 'users', receiverUid);
-      batch.update(receiverDocRef, {
-        friends: arrayUnion(senderUid),
-      });
-      console.log(`Added ${senderUid} to ${receiverUid}'s friends list.`);
-
       // Aktualizuj status zaproszenia w friendRequests na 'accepted'
       const friendRequestRef = doc(db, 'friendRequests', requestId);
       batch.update(friendRequestRef, {
         status: 'accepted',
       });
       console.log(`Updated friendRequest status to 'accepted' for request: ${friendRequestRef.path}`);
+
+      // Tworzenie dokumentu w kolekcji friendships
+      const friendshipRef = doc(collection(db, 'friendships'));
+      batch.set(friendshipRef, {
+        userAUid: senderUid,
+        userBUid: receiverUid,
+        createdAt: serverTimestamp(),
+        status: 'accepted'
+      });
+      console.log(`Created friendship document: ${friendshipRef.path}`);
 
       await batch.commit();
 
