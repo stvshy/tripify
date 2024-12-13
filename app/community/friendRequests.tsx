@@ -1,5 +1,5 @@
 // app/community/friendRequests.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import { auth, db } from '../config/firebaseConfig';
 import { doc, getDoc, updateDoc, collection, query, where, getDocs, arrayUnion, writeBatch } from 'firebase/firestore';
@@ -10,7 +10,7 @@ interface FriendRequest {
   id: string;
   senderUid: string;
   receiverUid: string;
-  status: string;
+  status: 'pending' | 'accepted' | 'rejected' | 'canceled';
   createdAt: any; // Firestore Timestamp
 }
 
@@ -40,61 +40,61 @@ export default function FriendRequestsScreen() {
       return;
     }
 
-    const userDocRef = doc(db, 'users', currentUser.uid);
-    const userDoc = await getDoc(userDocRef);
-    if (!userDoc.exists()) {
-      setLoading(false);
-      return;
-    }
-
-    const userData = userDoc.data();
-    setFriends(userData?.friends || []);
-
-    // Pobierz incoming zaproszenia
-    const incomingRef = collection(db, 'users', currentUser.uid, 'friendRequests');
-    const incomingQ = query(incomingRef, where('receiverUid', '==', currentUser.uid), where('status', '==', 'pending'));
-    const incomingSnapshot = await getDocs(incomingQ);
-    const incoming: FriendRequest[] = [];
-    incomingSnapshot.forEach((docSnap) => {
-      const data = docSnap.data();
-      incoming.push({
-        id: docSnap.id,
-        senderUid: data.senderUid,
-        receiverUid: data.receiverUid,
-        status: data.status,
-        createdAt: data.createdAt,
-      });
-    });
-    setIncomingRequests(incoming);
-
-    // Pobierz outgoing zaproszenia
-    const outgoingRef = collection(db, 'users', currentUser.uid, 'friendRequests');
-    const outgoingQ = query(outgoingRef, where('senderUid', '==', currentUser.uid));
-    const outgoingSnapshot = await getDocs(outgoingQ);
-    const outgoing: FriendRequest[] = [];
-    outgoingSnapshot.forEach((docSnap) => {
-      const data = docSnap.data();
-      outgoing.push({
-        id: docSnap.id,
-        senderUid: data.senderUid,
-        receiverUid: data.receiverUid,
-        status: data.status,
-        createdAt: data.createdAt,
-      });
-    });
-    setOutgoingRequests(outgoing);
-
-    // Sprawdź, czy jakieś wysłane zaproszenia zostały zaakceptowane i zaktualizuj listę znajomych nadawcy
-    const acceptedRequests = outgoing.filter((req) => req.status === 'accepted');
-    if (acceptedRequests.length > 0) {
-      for (const req of acceptedRequests) {
-        await updateDoc(userDocRef, {
-          friends: arrayUnion(req.receiverUid)
-        });
+    try {
+      // Pobierz listę znajomych
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        setFriends(userData.friends || []);
+      } else {
+        setFriends([]);
       }
-    }
 
-    setLoading(false);
+      // Pobierz incoming zaproszenia
+      const incomingRef = collection(db, 'users', currentUser.uid, 'friendRequests');
+      const incomingQ = query(incomingRef, where('receiverUid', '==', currentUser.uid), where('status', '==', 'pending'));
+      const incomingSnapshot = await getDocs(incomingQ);
+      const incoming: FriendRequest[] = [];
+      incomingSnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        incoming.push({
+          id: docSnap.id,
+          senderUid: data.senderUid,
+          receiverUid: data.receiverUid,
+          status: data.status,
+          createdAt: data.createdAt,
+        });
+      });
+      setIncomingRequests(incoming);
+
+      // Pobierz outgoing zaproszenia
+      const outgoingRef = collection(db, 'users', currentUser.uid, 'friendRequests');
+      const outgoingQ = query(
+        outgoingRef,
+        where('senderUid', '==', currentUser.uid),
+        where('status', '==', 'pending')
+      );
+      const outgoingSnapshot = await getDocs(outgoingQ);
+      const outgoing: FriendRequest[] = [];
+      outgoingSnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        outgoing.push({
+          id: docSnap.id,
+          senderUid: data.senderUid,
+          receiverUid: data.receiverUid,
+          status: data.status,
+          createdAt: data.createdAt,
+        });
+      });
+      setOutgoingRequests(outgoing);
+
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching friend requests:', error);
+      Alert.alert('Błąd', 'Nie udało się pobrać zaproszeń.');
+      setLoading(false);
+    }
   };
 
   // Użyj useFocusEffect, aby pobierać dane przy każdym wejściu na ekran
@@ -105,46 +105,42 @@ export default function FriendRequestsScreen() {
   );
 
   const handleAccept = async (requestId: string, senderUid: string) => {
-  try {
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
 
-    const batch = writeBatch(db);
+      // Sprawdź, czy senderUid jest już w liście znajomych
+      if (friends.includes(senderUid)) {
+        Alert.alert('Info', 'Ta osoba jest już na Twojej liście znajomych.');
+        return;
+      }
 
-    // Aktualizuj listę znajomych bieżącego użytkownika
-    const currentUserDocRef = doc(db, 'users', currentUser.uid);
-    batch.update(currentUserDocRef, {
-      friends: arrayUnion(senderUid)
-    });
+      const batch = writeBatch(db);
 
-    // Aktualizuj listę znajomych nadawcy
-    const senderDocRef = doc(db, 'users', senderUid);
-    batch.update(senderDocRef, {
-      friends: arrayUnion(currentUser.uid)
-    });
+      // Aktualizuj listę znajomych bieżącego użytkownika (B)
+      const currentUserDocRef = doc(db, 'users', currentUser.uid);
+      batch.update(currentUserDocRef, {
+        friends: arrayUnion(senderUid),
+      });
 
-    // Aktualizuj status zaproszenia na 'accepted'
-    const friendRequestRef = doc(db, 'users', currentUser.uid, 'friendRequests', requestId);
-    batch.update(friendRequestRef, {
-      status: 'accepted'
-    });
+      // Aktualizuj status zaproszenia na 'accepted'
+      const friendRequestRef = doc(db, 'users', currentUser.uid, 'friendRequests', requestId);
+      batch.update(friendRequestRef, {
+        status: 'accepted',
+      });
 
-    await batch.commit();
+      await batch.commit();
 
-    // Aktualizuj lokalny stan
-    setFriends((prev) => [...prev, senderUid]);
-    setIncomingRequests((prev) => prev.filter(req => req.id !== requestId));
+      // Aktualizuj lokalny stan
+      setFriends((prev) => [...prev, senderUid]);
+      setIncomingRequests((prev) => prev.filter((req) => req.id !== requestId));
 
-    Alert.alert('Sukces', 'Dodano znajomego!');
-  } catch (error) {
-    console.error('Error accepting friend request:', error);
-    Alert.alert('Błąd', 'Nie udało się zaakceptować zaproszenia.');
-  }
-};
-
-  
-  
-  
+      Alert.alert('Sukces', 'Dodano znajomego!');
+    } catch (error) {
+      console.error('Error accepting friend request:', error);
+      Alert.alert('Błąd', 'Nie udało się zaakceptować zaproszenia.');
+    }
+  };
 
   const handleReject = async (requestId: string) => {
     try {
@@ -154,10 +150,10 @@ export default function FriendRequestsScreen() {
       // Aktualizuj status zaproszenia na 'rejected'
       const friendRequestRef = doc(db, 'users', currentUser.uid, 'friendRequests', requestId);
       await updateDoc(friendRequestRef, {
-        status: 'rejected'
+        status: 'rejected',
       });
 
-      setIncomingRequests((prev) => prev.filter(req => req.id !== requestId));
+      setIncomingRequests((prev) => prev.filter((req) => req.id !== requestId));
 
       Alert.alert('Odrzucono', 'Odrzucono zaproszenie do znajomych.');
     } catch (error) {
@@ -174,10 +170,10 @@ export default function FriendRequestsScreen() {
       // Aktualizuj status zaproszenia na 'canceled'
       const friendRequestRef = doc(db, 'users', currentUser.uid, 'friendRequests', requestId);
       await updateDoc(friendRequestRef, {
-        status: 'canceled'
+        status: 'canceled',
       });
 
-      setOutgoingRequests((prev) => prev.filter(req => req.id !== requestId));
+      setOutgoingRequests((prev) => prev.filter((req) => req.id !== requestId));
 
       Alert.alert('Anulowano', 'Anulowano wysłane zaproszenie.');
     } catch (error) {
@@ -214,11 +210,11 @@ export default function FriendRequestsScreen() {
       )}
 
       <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>Wysłane Zaproszenia</Text>
-      {outgoingRequests.filter(req => req.status === 'pending').length === 0 ? (
+      {outgoingRequests.length === 0 ? (
         <Text style={{ color: theme.colors.onBackground }}>Brak wysłanych zaproszeń w trakcie oczekiwania.</Text>
       ) : (
         <FlatList
-          data={outgoingRequests.filter(req => req.status === 'pending')}
+          data={outgoingRequests}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <OutgoingRequestItem

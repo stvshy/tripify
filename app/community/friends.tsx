@@ -1,8 +1,7 @@
-// app/community/friends.tsx
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import { auth, db } from '../config/firebaseConfig';
-import { doc, getDoc, arrayRemove, updateDoc, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, arrayRemove, updateDoc, onSnapshot, arrayUnion, writeBatch } from 'firebase/firestore';
 import { useTheme } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -44,6 +43,45 @@ export default function FriendsListScreen() {
     setLoading(false);
   };
 
+  // Listener do aktualizacji listy znajomych w czasie rzeczywistym
+  useEffect(() => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+
+    const unsubscribe = onSnapshot(doc(db, 'users', currentUser.uid), (docSnap) => {
+      if (docSnap.exists()) {
+        const userData = docSnap.data();
+        const friendUids: string[] = userData.friends || [];
+
+        // Aktualizuj listę znajomych
+        setFriends((prevFriends) => {
+          const prevFriendUids = prevFriends.map(f => f.uid);
+          const newFriendUids = friendUids.filter(uid => !prevFriendUids.includes(uid));
+          const removedFriendUids = prevFriendUids.filter(uid => !friendUids.includes(uid));
+
+          // Dodaj nowych znajomych
+          newFriendUids.forEach(async (uid) => {
+            const friendDocRef = doc(db, 'users', uid);
+            const friendDoc = await getDoc(friendDocRef);
+            if (friendDoc.exists()) {
+              const friendData = friendDoc.data();
+              setFriends((current) => [...current, { uid, nickname: friendData.nickname }]);
+            }
+          });
+
+          // Usuń znajomych, którzy zostali usunięci
+          if (removedFriendUids.length > 0) {
+            setFriends((current) => current.filter(friend => !removedFriendUids.includes(friend.uid)));
+          }
+
+          return prevFriends;
+        });
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   // Użyj useFocusEffect, aby pobierać dane przy każdym wejściu na ekran
   useFocusEffect(
     React.useCallback(() => {
@@ -55,33 +93,31 @@ export default function FriendsListScreen() {
     try {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
-  
+
       const batch = writeBatch(db);
-  
+
       // Usuń znajomego z listy bieżącego użytkownika
       const currentUserDocRef = doc(db, 'users', currentUser.uid);
       batch.update(currentUserDocRef, {
         friends: arrayRemove(friendUid)
       });
-  
+
       // Usuń bieżącego użytkownika z listy znajomych nadawcy
       const friendDocRef = doc(db, 'users', friendUid);
       batch.update(friendDocRef, {
         friends: arrayRemove(currentUser.uid)
       });
-  
+
       await batch.commit();
-  
-      // Aktualizacja lokalnego stanu
-      setFriends((prevFriends) => prevFriends.filter(friend => friend.uid !== friendUid));
-  
+
+      // Aktualizacja lokalnego stanu jest automatyczna dzięki listenerowi
+
       Alert.alert('Sukces', 'Usunięto znajomego!');
     } catch (error) {
       console.error('Error removing friend:', error);
       Alert.alert('Błąd', 'Nie udało się usunąć znajomego.');
     }
   };
-  
 
   if (loading) {
     return (
