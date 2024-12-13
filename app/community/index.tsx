@@ -1,8 +1,8 @@
 // app/community/index.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { auth, db } from '../config/firebaseConfig';
-import { doc, getDoc, collection, getDocs, orderBy, query, limit } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, orderBy, query, limit, onSnapshot } from 'firebase/firestore';
 import { useRouter, Href } from 'expo-router';
 import { useTheme } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
@@ -22,62 +22,68 @@ export default function CommunityScreen() {
   const router = useRouter();
   const theme = useTheme();
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = useCallback(() => {
     const currentUser = auth.currentUser;
     if (!currentUser) {
       setLoading(false);
       return;
     }
 
-    const userDocRef = doc(db, 'users', currentUser.uid);
-    const userDoc = await getDoc(userDocRef);
-    if (!userDoc.exists()) {
-      setLoading(false);
-      return;
-    }
+    const userId = currentUser.uid;
 
-    const userData = userDoc.data();
-    const friends: string[] = userData.friends || [];
+    // Listener dla aktywności znajomych
+    const userDocRef = doc(db, 'users', userId);
+    const unsubscribeUser = onSnapshot(userDocRef, async (docSnap) => {
+      if (docSnap.exists()) {
+        const userData = docSnap.data();
+        const friends: string[] = userData.friends || [];
 
-    // Pobieramy aktywności znajomych
-    const allActivities: {
-      createdAt: any;
-      friendUid: string;
-      countryCca2?: string;
-    }[] = [];
+        const allActivities: {
+          createdAt: any;
+          friendUid: string;
+          countryCca2?: string;
+        }[] = [];
 
-    for (const friendUid of friends) {
-      const activitiesRef = collection(db, 'users', friendUid, 'activities');
-      // Pobieramy ostatnich 10 aktywności i sortujemy malejąco po czasie
-      const q = query(activitiesRef, orderBy('createdAt', 'desc'), limit(10));
-      const querySnapshot = await getDocs(q);
-      querySnapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        allActivities.push({
-          friendUid,
-          createdAt: data.createdAt,
-          countryCca2: data.countryCca2,
+        // Używaj Promise.all z map, aby pobrać aktywności wszystkich znajomych równocześnie
+        const promises = friends.map(async (friendUid) => {
+          const activitiesRef = collection(db, 'users', friendUid, 'activities');
+          const activitiesQuery = query(activitiesRef, orderBy('createdAt', 'desc'), limit(10));
+          const activitiesSnapshot = await getDocs(activitiesQuery);
+          activitiesSnapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            allActivities.push({
+              friendUid,
+              createdAt: data.createdAt,
+              countryCca2: data.countryCca2,
+            });
+          });
         });
-      });
-    }
 
-    // Posortuj wszystkie aktywności po createdAt
-    allActivities.sort((a, b) => {
-      const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
-      const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
-      return dateB.getTime() - dateA.getTime();
+        await Promise.all(promises);
+
+        // Sortuj wszystkie aktywności po createdAt
+        allActivities.sort((a, b) => {
+          const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
+          const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
+          return dateB.getTime() - dateA.getTime();
+        });
+
+        setFeed(allActivities);
+      }
+      setLoading(false);
     });
 
-    setFeed(allActivities);
-    setLoading(false);
-  };
+    return () => {
+      unsubscribeUser();
+    };
+  }, []);
 
-  // Użyj useFocusEffect, aby pobierać dane przy każdym wejściu na ekran
+  // Użyj useFocusEffect, aby nasłuchiwać tylko, gdy ekran jest aktywny
   useFocusEffect(
     React.useCallback(() => {
-      fetchData();
-    }, [])
+      const unsubscribe = fetchData();
+      return () => unsubscribe && unsubscribe();
+    }, [fetchData])
   );
 
   if (loading) {

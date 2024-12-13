@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import { auth, db } from '../config/firebaseConfig';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs, arrayUnion, writeBatch } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, where, onSnapshot, arrayUnion, writeBatch, getDoc } from 'firebase/firestore';
 import { useTheme } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -32,31 +32,26 @@ export default function FriendRequestsScreen() {
   const [friends, setFriends] = useState<string[]>([]);
   const theme = useTheme();
 
-  const fetchRequests = async () => {
-    setLoading(true);
+  const fetchRequests = useCallback(() => {
     const currentUser = auth.currentUser;
     if (!currentUser) {
       setLoading(false);
       return;
     }
 
-    try {
-      // Pobierz listę znajomych
-      const userDocRef = doc(db, 'users', currentUser.uid);
-      const userDoc = await getDoc(userDocRef);
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        setFriends(userData.friends || []);
-      } else {
-        setFriends([]);
-      }
+    const userId = currentUser.uid;
 
-      // Pobierz incoming zaproszenia
-      const incomingRef = collection(db, 'users', currentUser.uid, 'friendRequests');
-      const incomingQ = query(incomingRef, where('receiverUid', '==', currentUser.uid), where('status', '==', 'pending'));
-      const incomingSnapshot = await getDocs(incomingQ);
+    console.log(`Setting up listeners for friend requests of user: ${userId}`);
+
+    // Listener dla incomingFriendRequests (receiverUid == userId, status == pending)
+    const incomingQuerySnap = query(
+      collection(db, 'friendRequests'),
+      where('receiverUid', '==', userId),
+      where('status', '==', 'pending')
+    );
+    const unsubscribeIncoming = onSnapshot(incomingQuerySnap, (snapshot) => {
       const incoming: FriendRequest[] = [];
-      incomingSnapshot.forEach((docSnap) => {
+      snapshot.forEach((docSnap) => {
         const data = docSnap.data();
         incoming.push({
           id: docSnap.id,
@@ -67,17 +62,18 @@ export default function FriendRequestsScreen() {
         });
       });
       setIncomingRequests(incoming);
+      console.log('Incoming friend requests updated:', incoming);
+    });
 
-      // Pobierz outgoing zaproszenia
-      const outgoingRef = collection(db, 'users', currentUser.uid, 'friendRequests');
-      const outgoingQ = query(
-        outgoingRef,
-        where('senderUid', '==', currentUser.uid),
-        where('status', '==', 'pending')
-      );
-      const outgoingSnapshot = await getDocs(outgoingQ);
+    // Listener dla outgoingFriendRequests (senderUid == userId, status == pending)
+    const outgoingQuerySnap = query(
+      collection(db, 'friendRequests'),
+      where('senderUid', '==', userId),
+      where('status', '==', 'pending')
+    );
+    const unsubscribeOutgoing = onSnapshot(outgoingQuerySnap, (snapshot) => {
       const outgoing: FriendRequest[] = [];
-      outgoingSnapshot.forEach((docSnap) => {
+      snapshot.forEach((docSnap) => {
         const data = docSnap.data();
         outgoing.push({
           id: docSnap.id,
@@ -88,20 +84,35 @@ export default function FriendRequestsScreen() {
         });
       });
       setOutgoingRequests(outgoing);
+      console.log('Outgoing friend requests updated:', outgoing);
+    });
 
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching friend requests:', error);
-      Alert.alert('Błąd', 'Nie udało się pobrać zaproszeń.');
-      setLoading(false);
-    }
-  };
+    // Listener dla listy znajomych
+    const userDocRef = doc(db, 'users', userId);
+    const unsubscribeFriends = onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const userData = docSnap.data();
+        setFriends(userData.friends || []);
+        console.log('Updated friends list:', userData.friends);
+      }
+    });
 
-  // Użyj useFocusEffect, aby pobierać dane przy każdym wejściu na ekran
+    setLoading(false);
+
+    return () => {
+      console.log('Unsubscribing from friend requests listeners.');
+      unsubscribeIncoming();
+      unsubscribeOutgoing();
+      unsubscribeFriends();
+    };
+  }, []);
+
+  // Użyj useFocusEffect, aby nasłuchiwać tylko, gdy ekran jest aktywny
   useFocusEffect(
     React.useCallback(() => {
-      fetchRequests();
-    }, [])
+      const unsubscribe = fetchRequests();
+      return () => unsubscribe && unsubscribe();
+    }, [fetchRequests])
   );
 
   const handleAccept = async (requestId: string, senderUid: string) => {
@@ -109,33 +120,35 @@ export default function FriendRequestsScreen() {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
 
+      const receiverUid = currentUser.uid;
+
       // Sprawdź, czy senderUid jest już w liście znajomych
       if (friends.includes(senderUid)) {
         Alert.alert('Info', 'Ta osoba jest już na Twojej liście znajomych.');
+        console.log('Sender is already a friend.');
         return;
       }
 
       const batch = writeBatch(db);
 
-      // Aktualizuj listę znajomych bieżącego użytkownika (B)
-      const currentUserDocRef = doc(db, 'users', currentUser.uid);
-      batch.update(currentUserDocRef, {
+      // Dodaj nadawcę do listy znajomych odbiorcy (User B)
+      const receiverDocRef = doc(db, 'users', receiverUid);
+      batch.update(receiverDocRef, {
         friends: arrayUnion(senderUid),
       });
+      console.log(`Added ${senderUid} to ${receiverUid}'s friends list.`);
 
-      // Aktualizuj status zaproszenia na 'accepted'
-      const friendRequestRef = doc(db, 'users', currentUser.uid, 'friendRequests', requestId);
+      // Aktualizuj status zaproszenia w friendRequests na 'accepted'
+      const friendRequestRef = doc(db, 'friendRequests', requestId);
       batch.update(friendRequestRef, {
         status: 'accepted',
       });
+      console.log(`Updated friendRequest status to 'accepted' for request: ${friendRequestRef.path}`);
 
       await batch.commit();
 
-      // Aktualizuj lokalny stan
-      setFriends((prev) => [...prev, senderUid]);
-      setIncomingRequests((prev) => prev.filter((req) => req.id !== requestId));
-
       Alert.alert('Sukces', 'Dodano znajomego!');
+      console.log(`Friend request accepted: ${requestId}`);
     } catch (error) {
       console.error('Error accepting friend request:', error);
       Alert.alert('Błąd', 'Nie udało się zaakceptować zaproszenia.');
@@ -147,13 +160,14 @@ export default function FriendRequestsScreen() {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
 
-      // Aktualizuj status zaproszenia na 'rejected'
-      const friendRequestRef = doc(db, 'users', currentUser.uid, 'friendRequests', requestId);
+      const receiverUid = currentUser.uid;
+
+      // Aktualizuj status zaproszenia w friendRequests na 'rejected'
+      const friendRequestRef = doc(db, 'friendRequests', requestId);
       await updateDoc(friendRequestRef, {
         status: 'rejected',
       });
-
-      setIncomingRequests((prev) => prev.filter((req) => req.id !== requestId));
+      console.log(`Updated friendRequest status to 'rejected' for request: ${friendRequestRef.path}`);
 
       Alert.alert('Odrzucono', 'Odrzucono zaproszenie do znajomych.');
     } catch (error) {
@@ -167,13 +181,14 @@ export default function FriendRequestsScreen() {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
 
-      // Aktualizuj status zaproszenia na 'canceled'
-      const friendRequestRef = doc(db, 'users', currentUser.uid, 'friendRequests', requestId);
+      const senderUid = currentUser.uid;
+
+      // Aktualizuj status zaproszenia na 'canceled' w friendRequests
+      const friendRequestRef = doc(db, 'friendRequests', requestId);
       await updateDoc(friendRequestRef, {
         status: 'canceled',
       });
-
-      setOutgoingRequests((prev) => prev.filter((req) => req.id !== requestId));
+      console.log(`Updated friendRequest status to 'canceled' for request: ${friendRequestRef.path}`);
 
       Alert.alert('Anulowano', 'Anulowano wysłane zaproszenie.');
     } catch (error) {
@@ -241,6 +256,7 @@ const FriendRequestItem: React.FC<FriendRequestItemProps> = ({ request, onAccept
         if (senderDoc.exists()) {
           const senderData = senderDoc.data();
           setNickname(senderData.nickname || 'Unknown');
+          console.log(`Fetched nickname for sender ${senderUid}: ${senderData.nickname}`);
         }
       } catch (error) {
         console.error('Error fetching sender nickname:', error);
@@ -278,6 +294,7 @@ const OutgoingRequestItem: React.FC<OutgoingRequestItemProps> = ({ request, onCa
         if (receiverDoc.exists()) {
           const receiverData = receiverDoc.data();
           setNickname(receiverData.nickname || 'Unknown');
+          console.log(`Fetched nickname for receiver ${receiverUid}: ${receiverData.nickname}`);
         }
       } catch (error) {
         console.error('Error fetching receiver nickname:', error);

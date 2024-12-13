@@ -1,5 +1,5 @@
 // app/community/search.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, TextInput, FlatList, TouchableOpacity, Text, StyleSheet, Alert } from 'react-native';
 import { db, auth } from '../config/firebaseConfig';
 import {
@@ -8,14 +8,14 @@ import {
   where,
   getDocs,
   doc,
-  setDoc,
   serverTimestamp,
   limit,
   getDoc as getSingleDoc,
+  onSnapshot,
+  writeBatch
 } from 'firebase/firestore';
 import { useTheme } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
-import { User as FirebaseUser } from 'firebase/auth';
 
 interface User {
   uid: string;
@@ -37,7 +37,7 @@ export default function SearchFriendsScreen() {
   const [outgoingRequests, setOutgoingRequests] = useState<FriendRequest[]>([]);
   const theme = useTheme();
 
-  const fetchFriendsAndOutgoingRequests = async () => {
+  const fetchFriendsAndOutgoingRequests = useCallback(() => {
     const currentUser = auth.currentUser;
     if (!currentUser) {
       setFriends([]);
@@ -45,27 +45,29 @@ export default function SearchFriendsScreen() {
       return;
     }
 
-    try {
-      // Pobierz listę znajomych
-      const userDocRef = doc(db, 'users', currentUser.uid);
-      const userDoc = await getSingleDoc(userDocRef);
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        setFriends(userData.friends || []);
-      } else {
-        setFriends([]);
-      }
+    const userId = currentUser.uid;
 
-      // Pobierz wysłane zaproszenia
-      const outgoingRef = collection(db, 'users', currentUser.uid, 'friendRequests');
-      const outgoingQ = query(
-        outgoingRef,
-        where('senderUid', '==', currentUser.uid),
-        where('status', '==', 'pending')
-      );
-      const outgoingSnapshot = await getDocs(outgoingQ);
+    console.log(`Setting up listeners for user: ${userId}`);
+
+    // Listener dla listy znajomych
+    const userDocRef = doc(db, 'users', userId);
+    const unsubscribeFriends = onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const userData = docSnap.data();
+        setFriends(userData.friends || []);
+        console.log('Updated friends list:', userData.friends);
+      }
+    });
+
+    // Listener dla outgoingFriendRequests (senderUid == userId, status == pending)
+    const outgoingQuerySnap = query(
+      collection(db, 'friendRequests'),
+      where('senderUid', '==', userId),
+      where('status', '==', 'pending')
+    );
+    const unsubscribeOutgoing = onSnapshot(outgoingQuerySnap, (snapshot) => {
       const outgoing: FriendRequest[] = [];
-      outgoingSnapshot.forEach((docSnap) => {
+      snapshot.forEach((docSnap) => {
         const data = docSnap.data();
         outgoing.push({
           id: docSnap.id,
@@ -76,17 +78,22 @@ export default function SearchFriendsScreen() {
         });
       });
       setOutgoingRequests(outgoing);
-    } catch (error) {
-      console.error('Error fetching friends and outgoing requests:', error);
-      Alert.alert('Błąd', 'Nie udało się pobrać danych znajomych.');
-    }
-  };
+      console.log('Updated outgoing friend requests:', outgoing);
+    });
 
-  // Użyj useFocusEffect, aby pobierać dane przy każdym wejściu na ekran
+    return () => {
+      console.log('Unsubscribing from listeners.');
+      unsubscribeFriends();
+      unsubscribeOutgoing();
+    };
+  }, []);
+
+  // Użyj useFocusEffect, aby nasłuchiwać tylko, gdy ekran jest aktywny
   useFocusEffect(
     React.useCallback(() => {
-      fetchFriendsAndOutgoingRequests();
-    }, [])
+      const unsubscribe = fetchFriendsAndOutgoingRequests();
+      return () => unsubscribe && unsubscribe();
+    }, [fetchFriendsAndOutgoingRequests])
   );
 
   const handleSearch = async (text: string) => {
@@ -113,6 +120,7 @@ export default function SearchFriendsScreen() {
         }
       });
       setResults(foundUsers);
+      console.log(`Found ${foundUsers.length} users matching "${text}".`);
     } catch (error) {
       console.error('Error searching users:', error);
       Alert.alert('Błąd', 'Nie udało się wyszukać użytkowników.');
@@ -133,78 +141,71 @@ export default function SearchFriendsScreen() {
     const currentUser = auth.currentUser;
     if (!currentUser) {
       Alert.alert('Błąd', 'Użytkownik nie jest zalogowany.');
+      console.log('User is not authenticated.');
       return;
     }
-
+  
+    const senderUid = currentUser.uid;
+    const receiverUid = friendUid;
+  
     try {
-      // Sprawdź, czy znajomy jest już na liście znajomych
-      if (isAlreadyFriend(friendUid)) {
-        Alert.alert('Info', 'Ta osoba jest już na Twojej liście znajomych.');
-        return;
-      }
-
-      // Sprawdź, czy istnieje już pending lub accepted zaproszenie
-      const receiverFriendRequestsRef = collection(db, 'users', friendUid, 'friendRequests');
-      const qPending = query(receiverFriendRequestsRef, where('senderUid', '==', currentUser.uid));
-      const existingRequestsSnap = await getDocs(qPending);
-
-      let alreadyRequested = false;
-      existingRequestsSnap.forEach((docSnap) => {
-        const reqData = docSnap.data();
-        if (['pending', 'accepted'].includes(reqData.status)) {
-          alreadyRequested = true;
+      // Logowanie startu procesu
+      console.log(`Attempting to send friend request from ${senderUid} to ${receiverUid}`);
+  
+      // Sprawdź, czy już są znajomymi
+      const senderDoc = await getSingleDoc(doc(db, 'users', senderUid));
+      if (senderDoc.exists()) {
+        const senderData = senderDoc.data();
+        const friendsList: string[] = senderData.friends || [];
+        if (friendsList.includes(receiverUid)) {
+          Alert.alert('Info', 'Ta osoba jest już Twoim znajomym.');
+          console.log('User is already a friend.');
+          return;
         }
-      });
-
-      if (alreadyRequested) {
-        Alert.alert('Info', 'Zaproszenie już zostało wysłane lub ta osoba jest już znajomym.');
+      }
+  
+      // Sprawdź, czy już wysłano zaproszenie wychodzące
+      const outgoingSnapshot = await getDocs(query(
+        collection(db, 'friendRequests'),
+        where('senderUid', '==', senderUid),
+        where('receiverUid', '==', receiverUid),
+        where('status', '==', 'pending')
+      ));
+      if (!outgoingSnapshot.empty) {
+        Alert.alert('Info', 'Zaproszenie zostało już wysłane do tej osoby.');
+        console.log('Friend request already sent.');
         return;
       }
-
-      // Sprawdź, czy istnieje odwrotne zaproszenie (od odbiorcy do nadawcy)
-      const reverseFriendRequestsRef = collection(db, 'users', currentUser.uid, 'friendRequests');
-      const reverseQ = query(
-        reverseFriendRequestsRef,
-        where('senderUid', '==', friendUid),
-        where('receiverUid', '==', currentUser.uid)
-      );
-      const reverseRequestsSnap = await getDocs(reverseQ);
-
-      let reverseRequested = false;
-      reverseRequestsSnap.forEach((docSnap) => {
-        const reqData = docSnap.data();
-        if (['pending', 'accepted'].includes(reqData.status)) {
-          reverseRequested = true;
-        }
-      });
-
-      if (reverseRequested) {
-        Alert.alert('Info', 'Ta osoba już wysłała Ci zaproszenie do znajomych.');
+  
+      // Sprawdź, czy odbiorca już wysłał zaproszenie do nadawcy (mutual request)
+      const incomingSnapshot = await getDocs(query(
+        collection(db, 'friendRequests'),
+        where('senderUid', '==', receiverUid),
+        where('receiverUid', '==', senderUid),
+        where('status', '==', 'pending')
+      ));
+      if (!incomingSnapshot.empty) {
+        Alert.alert('Info', 'Ta osoba już wysłała Ci zaproszenie.');
+        console.log('Received a friend request from this user.');
         return;
       }
-
-      // Tworzymy zaproszenie tylko w podkolekcji odbiorcy
-      const newRequestRef = doc(collection(db, 'users', friendUid, 'friendRequests'));
-      await setDoc(newRequestRef, {
-        senderUid: currentUser.uid,
-        receiverUid: friendUid,
+  
+      const batch = writeBatch(db);
+  
+      // Dodaj zaproszenie do friendRequests (status: pending)
+      const friendRequestRef = doc(collection(db, 'friendRequests'));
+      batch.set(friendRequestRef, {
+        senderUid: senderUid,
+        receiverUid: receiverUid,
         status: 'pending',
         createdAt: serverTimestamp(),
       });
-
-      // Dodaj zaproszenie do listy wysłanych zaproszeń
-      setOutgoingRequests((prev) => [
-        ...prev,
-        {
-          id: newRequestRef.id,
-          senderUid: currentUser.uid,
-          receiverUid: friendUid,
-          status: 'pending',
-          createdAt: serverTimestamp(),
-        },
-      ]);
-
+      console.log(`Added to friendRequests: ${friendRequestRef.path}`);
+  
+      await batch.commit();
+  
       Alert.alert('Sukces', 'Wysłano zaproszenie do znajomych!');
+      console.log(`Friend request successfully sent from ${senderUid} to ${receiverUid}`);
     } catch (error) {
       console.error('Error sending friend request:', error);
       Alert.alert('Błąd', 'Nie udało się wysłać zaproszenia.');

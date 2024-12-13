@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+// app/community/friends.tsx
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import { auth, db } from '../config/firebaseConfig';
-import { doc, getDoc, arrayRemove, updateDoc, onSnapshot, arrayUnion, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, arrayRemove, updateDoc, onSnapshot, arrayUnion, writeBatch, query, where, getDocs, collection } from 'firebase/firestore';
 import { useTheme } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -10,83 +11,79 @@ export default function FriendsListScreen() {
   const [friends, setFriends] = useState<{ uid: string; nickname?: string }[]>([]);
   const theme = useTheme();
 
-  const fetchFriends = async () => {
-    setLoading(true);
+  const fetchFriends = useCallback(() => {
     const currentUser = auth.currentUser;
     if (!currentUser) {
       setLoading(false);
       return;
     }
 
-    const userDocRef = doc(db, 'users', currentUser.uid);
-    const userDoc = await getDoc(userDocRef);
-    if (!userDoc.exists()) {
-      setLoading(false);
-      return;
-    }
+    const userId = currentUser.uid;
 
-    const userData = userDoc.data();
-    const friendUids = userData.friends || [];
-
-    const fetchedFriends: { uid: string; nickname?: string }[] = [];
-
-    for (const friendUid of friendUids) {
-      const friendDocRef = doc(db, 'users', friendUid);
-      const friendDoc = await getDoc(friendDocRef);
-      if (friendDoc.exists()) {
-        const friendData = friendDoc.data();
-        fetchedFriends.push({ uid: friendUid, nickname: friendData.nickname });
-      }
-    }
-
-    setFriends(fetchedFriends);
-    setLoading(false);
-  };
-
-  // Listener do aktualizacji listy znajomych w czasie rzeczywistym
-  useEffect(() => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
-
-    const unsubscribe = onSnapshot(doc(db, 'users', currentUser.uid), (docSnap) => {
+    // Listener dla listy znajomych
+    const userDocRef = doc(db, 'users', userId);
+    const unsubscribeFriends = onSnapshot(userDocRef, async (docSnap) => {
       if (docSnap.exists()) {
         const userData = docSnap.data();
         const friendUids: string[] = userData.friends || [];
 
-        // Aktualizuj listę znajomych
-        setFriends((prevFriends) => {
-          const prevFriendUids = prevFriends.map(f => f.uid);
-          const newFriendUids = friendUids.filter(uid => !prevFriendUids.includes(uid));
-          const removedFriendUids = prevFriendUids.filter(uid => !friendUids.includes(uid));
+        const friendsData: { uid: string; nickname?: string }[] = [];
 
-          // Dodaj nowych znajomych
-          newFriendUids.forEach(async (uid) => {
-            const friendDocRef = doc(db, 'users', uid);
-            const friendDoc = await getDoc(friendDocRef);
-            if (friendDoc.exists()) {
-              const friendData = friendDoc.data();
-              setFriends((current) => [...current, { uid, nickname: friendData.nickname }]);
-            }
-          });
-
-          // Usuń znajomych, którzy zostali usunięci
-          if (removedFriendUids.length > 0) {
-            setFriends((current) => current.filter(friend => !removedFriendUids.includes(friend.uid)));
+        // Pobierz dane wszystkich znajomych równocześnie
+        const promises = friendUids.map(async (uid) => {
+          const friendDocRef = doc(db, 'users', uid);
+          const friendDoc = await getDoc(friendDocRef);
+          if (friendDoc.exists()) {
+            const friendData = friendDoc.data();
+            friendsData.push({ uid, nickname: friendData.nickname });
           }
-
-          return prevFriends;
         });
+
+        await Promise.all(promises);
+
+        setFriends(friendsData);
+      } else {
+        setFriends([]);
       }
+      setLoading(false);
     });
 
-    return () => unsubscribe();
+    // Listener na zaakceptowane zaproszenia, aby dodać znajomego do własnej listy
+    const acceptedFriendRequestsQuery = query(
+      collection(db, 'friendRequests'),
+      where('senderUid', '==', userId),
+      where('status', '==', 'accepted')
+    );
+
+    const unsubscribeAccepted = onSnapshot(acceptedFriendRequestsQuery, (snapshot) => {
+      snapshot.forEach(async (docSnap) => {
+        const data = docSnap.data();
+        const receiverUid = data.receiverUid;
+
+        // Aktualizuj własną tablicę friends
+        const userDocRef = doc(db, 'users', userId);
+        await updateDoc(userDocRef, {
+          friends: arrayUnion(receiverUid),
+        });
+
+        console.log(`Added ${receiverUid} to ${userId}'s friends list.`);
+      });
+    });
+
+    setLoading(false);
+
+    return () => {
+      unsubscribeFriends();
+      unsubscribeAccepted();
+    };
   }, []);
 
-  // Użyj useFocusEffect, aby pobierać dane przy każdym wejściu na ekran
+  // Użyj useFocusEffect, aby nasłuchiwać tylko, gdy ekran jest aktywny
   useFocusEffect(
     React.useCallback(() => {
-      fetchFriends();
-    }, [])
+      const unsubscribe = fetchFriends();
+      return () => unsubscribe && unsubscribe();
+    }, [fetchFriends])
   );
 
   const handleRemoveFriend = async (friendUid: string) => {
@@ -94,23 +91,24 @@ export default function FriendsListScreen() {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
 
+      const senderUid = currentUser.uid;
+      const receiverUid = friendUid;
+
       const batch = writeBatch(db);
 
       // Usuń znajomego z listy bieżącego użytkownika
-      const currentUserDocRef = doc(db, 'users', currentUser.uid);
+      const currentUserDocRef = doc(db, 'users', senderUid);
       batch.update(currentUserDocRef, {
-        friends: arrayRemove(friendUid)
+        friends: arrayRemove(receiverUid)
       });
 
-      // Usuń bieżącego użytkownika z listy znajomych nadawcy
-      const friendDocRef = doc(db, 'users', friendUid);
-      batch.update(friendDocRef, {
-        friends: arrayRemove(currentUser.uid)
+      // Usuń bieżącego użytkownika z listy znajomych odbiorcy
+      const receiverDocRef = doc(db, 'users', receiverUid);
+      batch.update(receiverDocRef, {
+        friends: arrayRemove(senderUid)
       });
 
       await batch.commit();
-
-      // Aktualizacja lokalnego stanu jest automatyczna dzięki listenerowi
 
       Alert.alert('Sukces', 'Usunięto znajomego!');
     } catch (error) {
