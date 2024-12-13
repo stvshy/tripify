@@ -1,28 +1,36 @@
 // app/community/index.tsx
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { auth, db } from '../config/firebaseConfig';
-import { doc, getDoc, collection, getDocs, orderBy, query, limit, onSnapshot } from 'firebase/firestore';
-import { useRouter, Href } from 'expo-router';
+import { doc, getDoc, collection, query, where, onSnapshot, deleteDoc } from 'firebase/firestore';
+import { useRouter } from 'expo-router';
 import { useTheme } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 
-interface FeedItemProps {
-  friendUid: string;
-  countryCca2?: string;
+
+interface User {
+  uid: string;
+  nickname?: string;
 }
 
+interface Friendship {
+  id: string;
+  userAUid: string;
+  userBUid: string;
+  nickname: string;
+}
+
+
+// app/community/index.tsx
 export default function CommunityScreen() {
   const [loading, setLoading] = useState(true);
-  const [feed, setFeed] = useState<{
-    createdAt: any;
-    friendUid: string;
-    countryCca2?: string;
-  }[]>([]);
+  const [friendships, setFriendships] = useState<Friendship[]>([]);
+  const [searchText, setSearchText] = useState('');
+  const [filteredFriends, setFilteredFriends] = useState<Friendship[]>([]);
   const router = useRouter();
   const theme = useTheme();
 
-  const fetchData = useCallback(() => {
+  const fetchFriendships = useCallback(() => {
     const currentUser = auth.currentUser;
     if (!currentUser) {
       setLoading(false);
@@ -31,60 +39,106 @@ export default function CommunityScreen() {
 
     const userId = currentUser.uid;
 
-    // Listener dla aktywności znajomych
-    const userDocRef = doc(db, 'users', userId);
-    const unsubscribeUser = onSnapshot(userDocRef, async (docSnap) => {
-      if (docSnap.exists()) {
-        const userData = docSnap.data();
-        const friends: string[] = userData.friends || [];
+    // Listener dla kolekcji friendships gdzie użytkownik jest jednym z dwóch
+    const friendshipsQueryA = query(
+      collection(db, 'friendships'),
+      where('userAUid', '==', userId),
+      where('status', '==', 'accepted')
+    );
 
-        const allActivities: {
-          createdAt: any;
-          friendUid: string;
-          countryCca2?: string;
-        }[] = [];
+    const friendshipsQueryB = query(
+      collection(db, 'friendships'),
+      where('userBUid', '==', userId),
+      where('status', '==', 'accepted')
+    );
 
-        // Używaj Promise.all z map, aby pobrać aktywności wszystkich znajomych równocześnie
-        const promises = friends.map(async (friendUid) => {
-          const activitiesRef = collection(db, 'users', friendUid, 'activities');
-          const activitiesQuery = query(activitiesRef, orderBy('createdAt', 'desc'), limit(10));
-          const activitiesSnapshot = await getDocs(activitiesQuery);
-          activitiesSnapshot.forEach((docSnap) => {
-            const data = docSnap.data();
-            allActivities.push({
-              friendUid,
-              createdAt: data.createdAt,
-              countryCca2: data.countryCca2,
-            });
+    const unsubscribeA = onSnapshot(friendshipsQueryA, async (snapshot) => {
+      const fetchedFriendships: Friendship[] = [];
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
+        const friendUid = data.userBUid;
+        const friendDoc = await getDoc(doc(db, 'users', friendUid));
+        if (friendDoc.exists()) {
+          const friendData = friendDoc.data();
+          fetchedFriendships.push({
+            id: docSnap.id,
+            userAUid: data.userAUid,
+            userBUid: data.userBUid,
+            nickname: friendData.nickname || 'Unknown',
           });
-        });
-
-        await Promise.all(promises);
-
-        // Sortuj wszystkie aktywności po createdAt
-        allActivities.sort((a, b) => {
-          const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
-          const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
-          return dateB.getTime() - dateA.getTime();
-        });
-
-        setFeed(allActivities);
+        }
       }
-      setLoading(false);
+      setFriendships((prev) => {
+        // Usuń stare znajomości dotyczące tego użytkownika, aby uniknąć duplikatów
+        const filtered = prev.filter(
+          (f) => f.userAUid !== userId && f.userBUid !== userId
+        );
+        return [...filtered, ...fetchedFriendships];
+      });
     });
 
+    const unsubscribeB = onSnapshot(friendshipsQueryB, async (snapshot) => {
+      const fetchedFriendships: Friendship[] = [];
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
+        const friendUid = data.userAUid;
+        const friendDoc = await getDoc(doc(db, 'users', friendUid));
+        if (friendDoc.exists()) {
+          const friendData = friendDoc.data();
+          fetchedFriendships.push({
+            id: docSnap.id,
+            userAUid: data.userAUid,
+            userBUid: data.userBUid,
+            nickname: friendData.nickname || 'Unknown',
+          });
+        }
+      }
+      setFriendships((prev) => {
+        // Usuń stare znajomości dotyczące tego użytkownika, aby uniknąć duplikatów
+        const filtered = prev.filter(
+          (f) => f.userAUid !== userId && f.userBUid !== userId
+        );
+        return [...filtered, ...fetchedFriendships];
+      });
+    });
+
+    setLoading(false);
+
     return () => {
-      unsubscribeUser();
+      unsubscribeA();
+      unsubscribeB();
     };
   }, []);
 
-  // Użyj useFocusEffect, aby nasłuchiwać tylko, gdy ekran jest aktywny
   useFocusEffect(
     React.useCallback(() => {
-      const unsubscribe = fetchData();
+      const unsubscribe = fetchFriendships();
       return () => unsubscribe && unsubscribe();
-    }, [fetchData])
+    }, [fetchFriendships])
   );
+
+  useEffect(() => {
+    if (searchText === '') {
+      setFilteredFriends(friendships);
+    } else {
+      const filtered = friendships.filter((friend) =>
+        friend.nickname.toLowerCase().includes(searchText.toLowerCase())
+      );
+      setFilteredFriends(filtered);
+    }
+  }, [searchText, friendships]);
+
+  const handleRemoveFriend = async (friendshipId: string) => {
+    try {
+      const friendshipDocRef = doc(db, 'friendships', friendshipId);
+      await deleteDoc(friendshipDocRef);
+      Alert.alert('Sukces', 'Usunięto znajomego!');
+      console.log(`Removed friendship document: ${friendshipId}`);
+    } catch (error) {
+      console.error('Error removing friend:', error);
+      Alert.alert('Błąd', 'Nie udało się usunąć znajomego.');
+    }
+  };
 
   if (loading) {
     return (
@@ -96,123 +150,99 @@ export default function CommunityScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Nagłówek z przyciskami do wyszukiwania i listy znajomych */}
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: theme.colors.onBackground }]}>Aktualności</Text>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity
-            onPress={() => router.push({ pathname: '/community/search' } as Href<string | object>)}
-            style={[styles.headerButton, { backgroundColor: theme.colors.primary }]}
-          >
-            <Text style={styles.headerButtonText}>Szukaj</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => router.push({ pathname: '/community/friends' } as Href<string | object>)}
-            style={[styles.headerButton, { backgroundColor: theme.colors.primary }]}
-          >
-            <Text style={styles.headerButtonText}>Znajomi</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => router.push({ pathname: '/community/friendRequests' } as Href<string | object>)}
-            style={[styles.headerButton, { backgroundColor: theme.colors.primary }]}
-          >
-            <Text style={styles.headerButtonText}>Zaproszenia</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      {/* Pole wyszukiwania */}
+      <TextInput
+        placeholder="Szukaj znajomych..."
+        value={searchText}
+        onChangeText={setSearchText}
+        style={[
+          styles.input,
+          {
+            borderColor: theme.colors.outline,
+            color: theme.colors.onBackground,
+          },
+        ]}
+        placeholderTextColor={theme.colors.onSurfaceVariant}
+      />
 
-      {feed.length === 0 ? (
+      {/* Przycisk do dodawania nowych znajomych */}
+      <TouchableOpacity
+        onPress={() => router.push('/community/search')}
+        style={[styles.addButton, { backgroundColor: theme.colors.primary }]}
+      >
+        <Text style={styles.addButtonText}>Dodaj Znajomego</Text>
+      </TouchableOpacity>
+
+      {/* Lista znajomych */}
+      {filteredFriends.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={{ color: theme.colors.onBackground }}>Twoi znajomi nie mają jeszcze żadnych aktywności!</Text>
+          <Text style={{ color: theme.colors.onBackground }}>Brak znajomych do wyświetlenia.</Text>
         </View>
       ) : (
         <FlatList
-          data={feed}
-          keyExtractor={(item, index) => `${item.friendUid}-${item.createdAt?.seconds}-${index}`}
+          data={filteredFriends}
+          keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <FeedItem friendUid={item.friendUid} countryCca2={item.countryCca2} />
+            <View style={[styles.friendItem, { borderBottomColor: theme.colors.outline }]}>
+              <Text style={{ color: theme.colors.onBackground }}>{item.nickname}</Text>
+              <TouchableOpacity
+                onPress={() => handleRemoveFriend(item.id)}
+                style={[styles.removeButton, { backgroundColor: theme.colors.error }]}
+              >
+                <Text style={styles.removeButtonText}>Usuń</Text>
+              </TouchableOpacity>
+            </View>
           )}
         />
       )}
     </View>
   );
 }
-
-// Komponent FeedItem do wyświetlania pojedynczej aktywności
-const FeedItem: React.FC<FeedItemProps> = ({ friendUid, countryCca2 }) => {
-  const [nickname, setNickname] = useState('');
-  const [countryName, setCountryName] = useState('');
-  const theme = useTheme();
-
-  useEffect(() => {
-    const fetchFriendNickname = async () => {
-      try {
-        const friendDocRef = doc(db, 'users', friendUid);
-        const friendDoc = await getDoc(friendDocRef);
-        if (friendDoc.exists()) {
-          const friendData = friendDoc.data();
-          setNickname(friendData.nickname || 'Unknown');
-        }
-      } catch (error) {
-        console.error('Error fetching friend nickname:', error);
-        setNickname('Unknown');
-      }
-    };
-
-    const fetchCountryName = async () => {
-      // Zakładając, że masz lokalny plik countries.json z nazwami krajów
-      try {
-        const countries = require('../../assets/maps/countries.json').countries;
-        const country = countries.find((c: { id: string; name: string }) => c.id === countryCca2);
-        setCountryName(country ? country.name : 'Unknown');
-      } catch (error) {
-        console.error('Error fetching country name:', error);
-        setCountryName('Unknown');
-      }
-    };
-
-    fetchFriendNickname();
-    fetchCountryName();
-  }, [friendUid, countryCca2]);
-
-  return (
-    <View style={[styles.feedItem, { borderBottomColor: theme.colors.outline }]}>
-      <Text style={{ color: theme.colors.onBackground }}>
-        {nickname} odwiedził {countryName}
-      </Text>
-    </View>
-  );
-};
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: {
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  loading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  headerButtons: {
-    flexDirection: 'row',
-    marginTop: 10,
-    justifyContent: 'space-between',
+  input: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 10,
   },
-  headerButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 4,
-    marginRight: 10,
+  addButton: {
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 20,
   },
-  headerButtonText: {
+  addButtonText: {
     color: '#fff',
     fontWeight: 'bold',
   },
-  empty: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  feedItem: { padding: 10, borderBottomWidth: 1 },
+  friendItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  removeButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 4,
+  },
+  removeButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  empty: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });

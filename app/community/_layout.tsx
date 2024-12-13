@@ -15,7 +15,8 @@ export default function CommunityLayout() {
         headerTintColor: theme.colors.onSurface,
       }}
     >
-      <Stack.Screen name="index" options={{ title: 'Aktualności' }} />
+      {/* Zaktualizowany tytuł na "Znajomi" */}
+      <Stack.Screen name="index" options={{ title: 'Znajomi' }} />
       <Stack.Screen name="search" options={{ title: 'Szukaj Znajomych' }} />
       <Stack.Screen name="friends" options={{ title: 'Twoi Znajomi' }} />
       <Stack.Screen name="friendRequests" options={{ title: 'Zaproszenia' }} />
