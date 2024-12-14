@@ -213,7 +213,7 @@ const TabLayoutContent: React.FC = () => {
               ]}
             >
               <View style={{ position: 'relative' }}>
-                <Ionicons name="mail-outline" size={24} color={theme.colors.onSurface} />
+                <Ionicons name="mail-outline" size={23} color={theme.colors.onSurface} />
                 <Badge count={friendRequestsCount} />
               </View>
             </Pressable>
@@ -242,7 +242,7 @@ const TabLayoutContent: React.FC = () => {
                 pressed && styles.pressedHeaderRight,
               ]}
             >
-              <FontAwesome name="search" size={24} color={theme.colors.onSurface} />
+              <AntDesign name="search1" size={20} color={theme.colors.onSurface} />
             </Pressable>
           ),
         }}

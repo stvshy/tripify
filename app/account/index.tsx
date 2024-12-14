@@ -30,6 +30,7 @@ interface Country {
   path: string;
 }
 import { useFocusEffect } from '@react-navigation/native'; 
+import { signOut } from 'firebase/auth';
 
 interface RankingSlot {
   id: string;
@@ -155,6 +156,15 @@ export default function AccountScreen() {
   const handleNotePress = (note: Note) => {
     setSelectedNote(note);
     setIsNotePreviewVisible(true);
+  };
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      router.replace('/welcome');
+    } catch (error) {
+      console.error("Error logging out:", error);
+      Alert.alert('Error', 'Failed to log out. Please try again.');
+    }
   };
   
 
@@ -312,6 +322,14 @@ export default function AccountScreen() {
           </View>
         </TouchableWithoutFeedback>
       </ScrollView>
+       {/* Logout Link */}
+       <View style={{ alignItems: 'center', marginBottom: -30 }}>
+        <TouchableOpacity onPress={handleLogout}>
+          <Text style={{ color: theme.colors.primary, fontSize: 12}}>
+            Logout
+          </Text>
+        </TouchableOpacity>
+      </View>
    {/* Note Preview Modal */}
       <Modal
         visible={isNotePreviewVisible}
@@ -564,4 +582,19 @@ const styles = StyleSheet.create({
   modalScrollContent: {
     paddingBottom: 20,
   },
+  logoutButton: {
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 10,
+  },
+  logoutText: {
+    fontSize: 16,
+    color: '#FF0000', // Czerwony kolor tekstu, możesz zmienić
+    fontWeight: 'bold',
+  },
+  
 });
