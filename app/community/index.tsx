@@ -32,7 +32,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useTheme } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
-import { AntDesign, Ionicons } from '@expo/vector-icons';
+import { AntDesign, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LayoutAnimation, UIManager } from 'react-native';
 
 // Enable LayoutAnimation for Android
@@ -337,6 +337,8 @@ export default function CommunityScreen() {
                     styles.input,
                     {
                       color: theme.colors.onBackground,
+                      opacity: 0.97,
+                      marginLeft: 4 
                     },
                   ]}
                   placeholderTextColor={theme.colors.onSurfaceVariant}
@@ -349,7 +351,7 @@ export default function CommunityScreen() {
                     onPress={() => setSearchText('')}
                     style={styles.clearIcon}
                   >
-                    <Ionicons name="close-circle" size={18} color={theme.colors.onSurfaceVariant} />
+                    <MaterialIcons name="close" size={18} color={theme.colors.onSurfaceVariant} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -428,8 +430,8 @@ export default function CommunityScreen() {
                         ]}
                       >
                         <View style={styles.friendInfo}>
-                          <AntDesign name="smileo" size={24} color={theme.colors.primary} style={styles.friendIcon} />
-                          <Text style={{ color: theme.colors.onBackground }}>{item.nickname}</Text>
+                          <AntDesign name="smileo" size={18.3} color={theme.colors.primary} style={styles.friendIcon} />
+                          <Text style={{ color: theme.colors.onBackground, fontSize:15, marginLeft: 1.4 }}>{item.nickname}</Text>
                         </View>
                         {activeFriendId === item.id && (
                           <TouchableOpacity
@@ -512,7 +514,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     paddingLeft: 40, // Padding for search icon
     paddingRight: 40, // Padding for clear icon
-    height: 48,
+    height: 45,
   },
   searchIcon: {
     position: 'absolute',
@@ -524,7 +526,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 13,
   },
   modeToggleContainer: {
     flex: 1.2, // 20% width
@@ -535,14 +537,14 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12.8,
+    paddingVertical: 12,
   },
   friendItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 11,
     borderBottomWidth: 1,
     borderRadius: 15,
     marginBottom: 7,

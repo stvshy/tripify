@@ -23,7 +23,7 @@ import {
   LayoutAnimation,
 } from 'react-native';
 import { TextInput as PaperTextInput, useTheme } from 'react-native-paper';
-import { FontAwesome, MaterialIcons } from '@expo/vector-icons'; 
+import { AntDesign, FontAwesome, MaterialIcons } from '@expo/vector-icons'; 
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
 import { auth, db } from '../config/firebaseConfig';
@@ -441,7 +441,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
                   underlineColor="transparent"
                   left={
                     <PaperTextInput.Icon
-                      icon={() => <FontAwesome name="search" size={20} color={isFocused ? theme.colors.primary : theme.colors.outline} />}
+                      icon={() => <AntDesign name="search1" size={21.5} color={isFocused ? theme.colors.primary : theme.colors.outline} />}
                       style={styles.iconLeft}
                     />
                   }
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    paddingLeft: 10,
+    // paddingLeft: 10,
     height: 50,
     fontSize: 14,
     backgroundColor: 'transparent',
