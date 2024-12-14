@@ -60,6 +60,7 @@ export default function CommunityScreen() {
   const [isSearchMode, setIsSearchMode] = useState(false); // Mode: false - Friends, true - Search
   const [activeFriendId, setActiveFriendId] = useState<string | null>(null); // Active friend to remove
   const [isFocused, setIsFocused] = useState(false); // State to track focus
+  const [sentRequests, setSentRequests] = useState<string[]>([]); // Nowy stan dla wysłanych zaproszeń
   const router = useRouter();
   const theme = useTheme();
 
@@ -280,6 +281,9 @@ export default function CommunityScreen() {
       await batch.commit();
 
       Alert.alert('Success', 'Friend request sent!');
+
+      // Aktualizacja stanu wysłanych zaproszeń
+      setSentRequests(prev => [...prev, friendUid]);
     } catch (error) {
       console.error('Error sending friend request:', error);
       Alert.alert('Error', 'Failed to send friend request.');
@@ -298,6 +302,32 @@ export default function CommunityScreen() {
       (friend) => friend.userAUid === uid || friend.userBUid === uid
     );
   };
+
+  const hasSentRequest = (uid: string): boolean => {
+    return sentRequests.includes(uid);
+  };
+
+  // Pobranie wysłanych zaproszeń podczas montowania komponentu
+  useEffect(() => {
+    const fetchSentRequests = async () => {
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+      try {
+        const q = query(
+          collection(db, 'friendRequests'),
+          where('senderUid', '==', currentUser.uid),
+          where('status', '==', 'pending')
+        );
+        const snapshot = await getDocs(q);
+        const sent = snapshot.docs.map(doc => doc.data().receiverUid);
+        setSentRequests(sent);
+      } catch (error) {
+        console.error('Error fetching sent friend requests:', error);
+      }
+    };
+
+    fetchSentRequests();
+  }, []);
 
   if (loading) {
     return (
@@ -333,6 +363,7 @@ export default function CommunityScreen() {
                   placeholder={isSearchMode ? "Enter friend's nickname..." : "Search friends..."}
                   value={searchText}
                   onChangeText={setSearchText}
+                  keyboardType="default"
                   style={[
                     styles.input,
                     {
@@ -462,21 +493,26 @@ export default function CommunityScreen() {
                     keyExtractor={(item) => item.uid}
                     renderItem={({ item }) => (
                       <View style={[styles.searchItem, { borderBottomColor: theme.colors.outline }]}>
-                        <Text style={{ color: theme.colors.onBackground }}>{item.nickname}</Text>
+                        <Text style={{ color: theme.colors.onBackground, fontSize: 15}}>{item.nickname}</Text>
                         <TouchableOpacity
                           onPress={() => handleAddFriend(item.uid)}
                           style={[
-                            styles.addButton,
+                            hasSentRequest(item.uid) ? styles.sentButton : styles.addCircle,
                             {
-                              backgroundColor:
-                                isAlreadyFriend(item.uid) ? '#ccc' : theme.colors.primary,
+                              backgroundColor: hasSentRequest(item.uid)
+                                ? '#ccc' // Szary przycisk dla „Sent”
+                                : theme.colors.primary, // Fioletowe kółko dla „Add”
                             },
                           ]}
-                          disabled={isAlreadyFriend(item.uid)}
+                          disabled={isAlreadyFriend(item.uid) || hasSentRequest(item.uid)}
                         >
-                          <Text style={styles.addButtonText}>
-                            {isAlreadyFriend(item.uid) ? 'Friend' : 'Add'}
-                          </Text>
+                          {isAlreadyFriend(item.uid) ? (
+                            <Text style={styles.addButtonText}>Friend</Text>
+                          ) : hasSentRequest(item.uid) ? (
+                            <Text style={styles.sentButtonText}>Sent</Text>
+                          ) : (
+                            <Ionicons name="add" size={17} color="#fff" />
+                          )}
                         </TouchableOpacity>
                       </View>
                     )}
@@ -494,7 +530,7 @@ export default function CommunityScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 12,
+    padding: 10,
     paddingTop: 4,
   },
   keyboardAvoidingView: {
@@ -529,7 +565,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   modeToggleContainer: {
-    flex: 1.2, // 20% width
+    flex: 1.1 , // 20% width
     flexDirection: 'row',
     marginLeft: 5,
   },
@@ -552,6 +588,7 @@ const styles = StyleSheet.create({
   friendInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginLeft: 4.8,
   },
   friendIcon: {
     marginRight: 10,
@@ -559,11 +596,20 @@ const styles = StyleSheet.create({
   removeButton: {
     padding: 4,
   },
-  addButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
+  addCircle: {
+    width: 27, // Szerokość kółka
+    height: 27, // Wysokość kółka
+    borderRadius: 20, // Zaokrąglenie, aby utworzyć kółko
+    alignItems: 'center', // Wyśrodkowanie ikony w poziomie
+    justifyContent: 'center', // Wyśrodkowanie ikony w pionie
+    elevation: 2, // Dodanie cienia (opcjonalnie)
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    marginRight: 10, // Opcjonalny margines
   },
+  
   addButtonText: {
     color: '#fff',
     fontWeight: 'bold',
@@ -575,6 +621,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
+    marginLeft: 4,
   },
   noResults: {
     alignItems: 'center',
@@ -589,5 +636,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  sentButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    left:2.7
+  },
+  sentButtonText: {
+    color: '#fff', // Kolor tekstu dla „Sent”
+    // fontWeight: 'bold',
+    fontSize: 14, // Rozmiar tekstu
   },
 });
