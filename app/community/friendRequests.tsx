@@ -1,10 +1,32 @@
 // app/community/friendRequests.tsx
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+  Alert,
+  Animated,
+  PanResponder,
+  Dimensions,
+} from 'react-native';
 import { auth, db } from '../config/firebaseConfig';
-import { doc, updateDoc, collection, query, where, onSnapshot, arrayUnion, writeBatch, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import {
+  doc,
+  updateDoc,
+  collection,
+  query,
+  where,
+  onSnapshot,
+  writeBatch,
+  getDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
 import { useTheme } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
+import { AntDesign } from '@expo/vector-icons';
 
 interface FriendRequest {
   id: string;
@@ -32,6 +54,11 @@ export default function FriendRequestsScreen() {
   const [friends, setFriends] = useState<string[]>([]);
   const theme = useTheme();
 
+  // Animation for outgoing requests panel
+  const screenHeight = Dimensions.get('window').height;
+  const panelHeight = screenHeight * 0.5; // Increased to 50% for better visibility
+  const animatedValue = useRef(new Animated.Value(screenHeight)).current;
+
   const fetchRequests = useCallback(() => {
     const currentUser = auth.currentUser;
     if (!currentUser) {
@@ -43,7 +70,7 @@ export default function FriendRequestsScreen() {
 
     console.log(`Setting up listeners for friend requests of user: ${userId}`);
 
-    // Listener dla incomingFriendRequests (receiverUid == userId, status == pending)
+    // Listener for incoming friend requests
     const incomingQuerySnap = query(
       collection(db, 'friendRequests'),
       where('receiverUid', '==', userId),
@@ -65,7 +92,7 @@ export default function FriendRequestsScreen() {
       console.log('Incoming friend requests updated:', incoming);
     });
 
-    // Listener dla outgoingFriendRequests (senderUid == userId, status == pending)
+    // Listener for outgoing friend requests
     const outgoingQuerySnap = query(
       collection(db, 'friendRequests'),
       where('senderUid', '==', userId),
@@ -87,7 +114,7 @@ export default function FriendRequestsScreen() {
       console.log('Outgoing friend requests updated:', outgoing);
     });
 
-    // Listener dla listy znajomych
+    // Listener for friends list
     const userDocRef = doc(db, 'users', userId);
     const unsubscribeFriends = onSnapshot(userDocRef, (docSnap) => {
       if (docSnap.exists()) {
@@ -107,7 +134,7 @@ export default function FriendRequestsScreen() {
     };
   }, []);
 
-  // Użyj useFocusEffect, aby nasłuchiwać tylko, gdy ekran jest aktywny
+  // Use useFocusEffect to listen only when the screen is active
   useFocusEffect(
     React.useCallback(() => {
       const unsubscribe = fetchRequests();
@@ -122,39 +149,39 @@ export default function FriendRequestsScreen() {
 
       const receiverUid = currentUser.uid;
 
-      // Sprawdź, czy senderUid jest już w liście znajomych
+      // Check if senderUid is already a friend
       if (friends.includes(senderUid)) {
-        Alert.alert('Info', 'Ta osoba jest już na Twojej liście znajomych.');
+        Alert.alert('Info', 'This person is already in your friends list.');
         console.log('Sender is already a friend.');
         return;
       }
 
       const batch = writeBatch(db);
 
-      // Aktualizuj status zaproszenia w friendRequests na 'accepted'
+      // Update friend request status to 'accepted'
       const friendRequestRef = doc(db, 'friendRequests', requestId);
       batch.update(friendRequestRef, {
         status: 'accepted',
       });
       console.log(`Updated friendRequest status to 'accepted' for request: ${friendRequestRef.path}`);
 
-      // Tworzenie dokumentu w kolekcji friendships
+      // Create a document in the friendships collection
       const friendshipRef = doc(collection(db, 'friendships'));
       batch.set(friendshipRef, {
         userAUid: senderUid,
         userBUid: receiverUid,
         createdAt: serverTimestamp(),
-        status: 'accepted'
+        status: 'accepted',
       });
       console.log(`Created friendship document: ${friendshipRef.path}`);
 
       await batch.commit();
 
-      Alert.alert('Sukces', 'Dodano znajomego!');
+      Alert.alert('Success', 'Friend added!');
       console.log(`Friend request accepted: ${requestId}`);
     } catch (error) {
       console.error('Error accepting friend request:', error);
-      Alert.alert('Błąd', 'Nie udało się zaakceptować zaproszenia.');
+      Alert.alert('Error', 'Failed to accept the friend request.');
     }
   };
 
@@ -163,19 +190,17 @@ export default function FriendRequestsScreen() {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
 
-      const receiverUid = currentUser.uid;
-
-      // Aktualizuj status zaproszenia w friendRequests na 'rejected'
+      // Update friend request status to 'rejected'
       const friendRequestRef = doc(db, 'friendRequests', requestId);
       await updateDoc(friendRequestRef, {
         status: 'rejected',
       });
       console.log(`Updated friendRequest status to 'rejected' for request: ${friendRequestRef.path}`);
 
-      Alert.alert('Odrzucono', 'Odrzucono zaproszenie do znajomych.');
+      Alert.alert('Rejected', 'Friend request has been rejected.');
     } catch (error) {
       console.error('Error rejecting friend request:', error);
-      Alert.alert('Błąd', 'Nie udało się odrzucić zaproszenia.');
+      Alert.alert('Error', 'Failed to reject the friend request.');
     }
   };
 
@@ -184,20 +209,60 @@ export default function FriendRequestsScreen() {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
 
-      const senderUid = currentUser.uid;
-
-      // Aktualizuj status zaproszenia na 'canceled' w friendRequests
+      // Update friend request status to 'canceled'
       const friendRequestRef = doc(db, 'friendRequests', requestId);
       await updateDoc(friendRequestRef, {
         status: 'canceled',
       });
       console.log(`Updated friendRequest status to 'canceled' for request: ${friendRequestRef.path}`);
 
-      Alert.alert('Anulowano', 'Anulowano wysłane zaproszenie.');
+      Alert.alert('Canceled', 'Outgoing friend request has been canceled.');
     } catch (error) {
       console.error('Error canceling outgoing request:', error);
-      Alert.alert('Błąd', 'Nie udało się anulować zaproszenia.');
+      Alert.alert('Error', 'Failed to cancel the friend request.');
     }
+  };
+
+  // Swipe-up gesture handlers for outgoing requests panel
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        const { dy } = gestureState;
+        return Math.abs(dy) > 10;
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy < 0) {
+          // Swiping up
+          animatedValue.setValue(screenHeight + gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy < -50) {
+          // Swiped up enough to open the panel
+          Animated.timing(animatedValue, {
+            toValue: screenHeight - panelHeight,
+            duration: 300,
+            useNativeDriver: false,
+          }).start();
+        } else {
+          // Not enough swipe, return to closed position
+          Animated.timing(animatedValue, {
+            toValue: screenHeight,
+            duration: 300,
+            useNativeDriver: false,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
+  const closePanel = () => {
+    Animated.timing(animatedValue, {
+      toValue: screenHeight,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
   };
 
   if (loading) {
@@ -210,38 +275,68 @@ export default function FriendRequestsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>Otrzymane Zaproszenia</Text>
+      <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>Incoming Friend Requests</Text>
       {incomingRequests.length === 0 ? (
-        <Text style={{ color: theme.colors.onBackground, marginBottom: 20 }}>Brak otrzymanych zaproszeń.</Text>
+        <Text style={{ color: theme.colors.onBackground, marginBottom: 20 }}>No incoming friend requests.</Text>
       ) : (
         <FlatList
           data={incomingRequests}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <FriendRequestItem
-              request={item}
-              onAccept={handleAccept}
-              onReject={handleReject}
-            />
+            <FriendRequestItem request={item} onAccept={handleAccept} onReject={handleReject} />
           )}
         />
       )}
 
-      <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>Wysłane Zaproszenia</Text>
-      {outgoingRequests.length === 0 ? (
-        <Text style={{ color: theme.colors.onBackground }}>Brak wysłanych zaproszeń w trakcie oczekiwania.</Text>
-      ) : (
-        <FlatList
-          data={outgoingRequests}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <OutgoingRequestItem
-              request={item}
-              onCancel={handleCancelOutgoing}
-            />
-          )}
-        />
-      )}
+      {/* Button to open outgoing requests panel */}
+      <TouchableOpacity
+        style={[styles.outgoingButton, { backgroundColor: theme.colors.primary }]}
+        onPress={() => {
+          Animated.timing(animatedValue, {
+            toValue: screenHeight - panelHeight,
+            duration: 300,
+            useNativeDriver: false,
+          }).start();
+        }}
+      >
+        <AntDesign name="arrowup" size={20} color="#fff" />
+        <Text style={styles.outgoingButtonText}>Show Sent Requests</Text>
+      </TouchableOpacity>
+
+      {/* Animated Panel for Outgoing Requests */}
+      <Animated.View
+        style={[
+          styles.outgoingPanel,
+          {
+            top: animatedValue,
+            backgroundColor: theme.colors.surface,
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+          },
+        ]}
+        {...panResponder.panHandlers}
+      >
+        <View style={styles.panelHeader}>
+          <View style={styles.panelHandleContainer}>
+            <View style={styles.panelHandle} />
+          </View>
+          <TouchableOpacity onPress={closePanel} style={styles.closeButton}>
+            <AntDesign name="closecircle" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
+        {outgoingRequests.length === 0 ? (
+          <Text style={{ color: theme.colors.onSurfaceVariant, padding: 20 }}>No sent friend requests.</Text>
+        ) : (
+          <FlatList
+            data={outgoingRequests}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <OutgoingRequestItem request={item} onCancel={handleCancelOutgoing} />
+            )}
+            contentContainerStyle={{ paddingBottom: 20 }}
+          />
+        )}
+      </Animated.View>
     </View>
   );
 }
@@ -271,13 +366,23 @@ const FriendRequestItem: React.FC<FriendRequestItemProps> = ({ request, onAccept
 
   return (
     <View style={[styles.requestItem, { borderBottomColor: theme.colors.outline }]}>
-      <Text style={{ color: theme.colors.onBackground }}>{nickname} chce być Twoim znajomym.</Text>
+      <Text style={{ color: theme.colors.onBackground }}>{nickname} wants to be your friend.</Text>
       <View style={styles.requestButtons}>
-        <TouchableOpacity onPress={() => onAccept(id, senderUid)} style={[styles.acceptButton, { backgroundColor: theme.colors.primary }]}>
-          <Text style={styles.buttonText}>Akceptuj</Text>
+        <TouchableOpacity
+          onPress={() => onAccept(id, senderUid)}
+          style={[styles.iconButton, { backgroundColor: 'green' }]}
+          accessibilityLabel="Accept Friend Request"
+          accessibilityRole="button"
+        >
+          <AntDesign name="check" size={16} color="#fff" />
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => onReject(id)} style={[styles.rejectButton, { backgroundColor: theme.colors.error }]}>
-          <Text style={styles.buttonText}>Odrzuć</Text>
+        <TouchableOpacity
+          onPress={() => onReject(id)}
+          style={[styles.iconButton, { backgroundColor: 'red', marginLeft: 10 }]}
+          accessibilityLabel="Reject Friend Request"
+          accessibilityRole="button"
+        >
+          <AntDesign name="close" size={16} color="#fff" />
         </TouchableOpacity>
       </View>
     </View>
@@ -309,9 +414,14 @@ const OutgoingRequestItem: React.FC<OutgoingRequestItemProps> = ({ request, onCa
 
   return (
     <View style={[styles.requestItem, { borderBottomColor: theme.colors.outline }]}>
-      <Text style={{ color: theme.colors.onBackground }}>Zaproszenie wysłane do {nickname}.</Text>
-      <TouchableOpacity onPress={() => onCancel(id)} style={[styles.cancelButton, { backgroundColor: theme.colors.error }]}>
-        <Text style={styles.buttonText}>Anuluj</Text>
+      <Text style={{ color: theme.colors.onBackground }}>Friend request sent to {nickname}.</Text>
+      <TouchableOpacity
+        onPress={() => onCancel(id)}
+        style={[styles.iconButton, { backgroundColor: 'red' }]}
+        accessibilityLabel="Cancel Sent Friend Request"
+        accessibilityRole="button"
+      >
+        <AntDesign name="close" size={16} color="#fff" />
       </TouchableOpacity>
     </View>
   );
@@ -329,34 +439,77 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   requestItem: {
-    paddingVertical: 10,
+    paddingVertical: 15,
     borderBottomWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   requestButtons: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 5,
   },
-  acceptButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 4,
-    marginRight: 10,
+  iconButton: {
+    width: 32, // Reduced size
+    height: 32, // Reduced size
+    borderRadius: 16, // Perfect circle
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  rejectButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 4,
+  outgoingButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8, // Reduced padding
+    paddingHorizontal: 16, // Adjusted padding
+    borderRadius: 20, // Reduced border radius
+    position: 'absolute',
+    bottom: 20, // Adjusted position
+    left: '35%', // Centered more
+    right: '35%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
-  cancelButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 4,
-    marginTop: 5,
-    alignSelf: 'flex-end'
-  },
-  buttonText: {
+  outgoingButtonText: {
     color: '#fff',
+    marginLeft: 6,
     fontWeight: 'bold',
+    fontSize: 14, // Reduced font size
+  },
+  outgoingPanel: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: Dimensions.get('window').height * 0.5, // Increased to 50%
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  panelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  panelHandleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  panelHandle: {
+    width: 40,
+    height: 5,
+    backgroundColor: '#ccc',
+    borderRadius: 2.5,
+    marginBottom: 10,
+  },
+  closeButton: {
+    // Adjust position if needed
   },
 });
