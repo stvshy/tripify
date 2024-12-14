@@ -1,14 +1,44 @@
 // app/community/index.tsx
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, TextInput, Alert } from 'react-native';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { 
+  View, 
+  Text, 
+  FlatList, 
+  StyleSheet, 
+  ActivityIndicator, 
+  TouchableOpacity, 
+  TextInput, 
+  Alert, 
+  Animated, 
+  TouchableWithoutFeedback, 
+  SafeAreaView, 
+  KeyboardAvoidingView, 
+  Platform 
+} from 'react-native';
 import { auth, db } from '../config/firebaseConfig';
-import { doc, getDoc, collection, query, where, onSnapshot, deleteDoc, getDocs, writeBatch, serverTimestamp, limit } from 'firebase/firestore';
+import { 
+  doc, 
+  getDoc, 
+  collection, 
+  query, 
+  where, 
+  onSnapshot, 
+  deleteDoc, 
+  getDocs, 
+  writeBatch, 
+  serverTimestamp, 
+  limit
+} from 'firebase/firestore';
 import { useRouter } from 'expo-router';
 import { useTheme } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
-import { AntDesign } from '@expo/vector-icons';
+import { AntDesign, Ionicons } from '@expo/vector-icons';
+import { LayoutAnimation, UIManager } from 'react-native';
 
-
+// Włączenie LayoutAnimation dla Androida
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 interface User {
   uid: string;
@@ -22,13 +52,13 @@ interface Friendship {
   nickname: string;
 }
 
-// app/community/index.tsx
 export default function CommunityScreen() {
   const [loading, setLoading] = useState(true);
   const [friendships, setFriendships] = useState<Friendship[]>([]);
   const [searchText, setSearchText] = useState('');
   const [searchResults, setSearchResults] = useState<User[]>([]);
   const [isSearchMode, setIsSearchMode] = useState(false); // Tryb: false - Znajomi, true - Wyszukiwanie
+  const [activeFriendId, setActiveFriendId] = useState<string | null>(null); // Aktywny znajomy do usunięcia
   const router = useRouter();
   const theme = useTheme();
 
@@ -122,6 +152,8 @@ export default function CommunityScreen() {
   useEffect(() => {
     if (isSearchMode) {
       handleSearch(searchText);
+    } else {
+      setSearchResults([]);
     }
   }, [searchText, isSearchMode]);
 
@@ -156,15 +188,33 @@ export default function CommunityScreen() {
   };
 
   const handleRemoveFriend = async (friendshipId: string) => {
-    try {
-      const friendshipDocRef = doc(db, 'friendships', friendshipId);
-      await deleteDoc(friendshipDocRef);
-      Alert.alert('Sukces', 'Usunięto znajomego!');
-      console.log(`Removed friendship document: ${friendshipId}`);
-    } catch (error) {
-      console.error('Error removing friend:', error);
-      Alert.alert('Błąd', 'Nie udało się usunąć znajomego.');
-    }
+    Alert.alert(
+      'Potwierdzenie',
+      'Czy na pewno chcesz usunąć tego znajomego?',
+      [
+        {
+          text: 'Anuluj',
+          style: 'cancel',
+        },
+        {
+          text: 'Usuń',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Animacja usuwania
+              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+              await deleteDoc(doc(db, 'friendships', friendshipId));
+              Alert.alert('Sukces', 'Usunięto znajomego!');
+              console.log(`Removed friendship document: ${friendshipId}`);
+              setActiveFriendId(null);
+            } catch (error) {
+              console.error('Error removing friend:', error);
+              Alert.alert('Błąd', 'Nie udało się usunąć znajomego.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleAddFriend = async (friendUid: string) => {
@@ -239,6 +289,7 @@ export default function CommunityScreen() {
     setIsSearchMode((prev) => !prev);
     setSearchText('');
     setSearchResults([]);
+    setActiveFriendId(null);
   };
 
   const isAlreadyFriend = (uid: string): boolean => {
@@ -250,216 +301,250 @@ export default function CommunityScreen() {
   if (loading) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Przełącznik między trybami */}
-      <View style={styles.toggleContainer}>
-        <TouchableOpacity
-          style={[
-            styles.toggleButton,
-            {
-              backgroundColor: isSearchMode ? theme.colors.surfaceVariant : theme.colors.primary,
-              borderTopLeftRadius: 8,
-              borderBottomLeftRadius: 8,
-            },
-          ]}
-          onPress={() => {
-            if (isSearchMode) toggleMode();
-          }}
+    <TouchableWithoutFeedback onPress={() => setActiveFriendId(null)}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.keyboardAvoidingView}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 20}
         >
-          <AntDesign
-            name="smileo"
-            size={24}
-            color={isSearchMode ? theme.colors.onSurfaceVariant : '#fff'}
-          />
-          <Text
-            style={[
-              styles.toggleText,
-              {
-                color: isSearchMode ? theme.colors.onSurfaceVariant : '#fff',
-              },
-            ]}
-          >
-            Znajomi
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.toggleButton,
-            {
-              backgroundColor: isSearchMode ? theme.colors.primary : theme.colors.surfaceVariant,
-              borderTopRightRadius: 8,
-              borderBottomRightRadius: 8,
-            },
-          ]}
-          onPress={() => {
-            if (!isSearchMode) toggleMode();
-          }}
-        >
-          <AntDesign
-            name="adduser"
-            size={24}
-            color={!isSearchMode ? theme.colors.onSurfaceVariant : '#fff'}
-          />
-          <Text
-            style={[
-              styles.toggleText,
-              {
-                color: !isSearchMode ? theme.colors.onSurfaceVariant : '#fff',
-              },
-            ]}
-          >
-            Dodaj
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Tryb Znajomych */}
-      {!isSearchMode && (
-        <>
-          {/* Pole wyszukiwania w trybie znajomych */}
-          <TextInput
-            placeholder="Szukaj znajomych..."
-            value={searchText}
-            onChangeText={setSearchText}
-            style={[
-              styles.input,
-              {
-                borderColor: theme.colors.outline,
-                color: theme.colors.onBackground,
-              },
-            ]}
-            placeholderTextColor={theme.colors.onSurfaceVariant}
-          />
-
-          {/* Lista znajomych filtrowana */}
-          {friendships.length === 0 ? (
-            <View style={styles.empty}>
-              <Text style={{ color: theme.colors.onBackground }}>Nie masz jeszcze żadnych znajomych.</Text>
-            </View>
-          ) : (
-            <FlatList
-              data={friendships.filter((friend) =>
-                friend.nickname.toLowerCase().includes(searchText.toLowerCase())
-              )}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <View style={[styles.friendItem, { borderBottomColor: theme.colors.outline }]}>
-                  <View style={styles.friendInfo}>
-                    <AntDesign name="smileo" size={24} color={theme.colors.primary} style={styles.friendIcon} />
-                    <Text style={{ color: theme.colors.onBackground }}>{item.nickname}</Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => handleRemoveFriend(item.id)}
-                    style={[styles.removeButton, { backgroundColor: theme.colors.error }]}
-                  >
-                    <Text style={styles.removeButtonText}>Usuń</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            />
-          )}
-        </>
-      )}
-
-      {/* Tryb Wyszukiwania */}
-      {isSearchMode && (
-        <>
-          {/* Pole wyszukiwania w trybie dodawania znajomych */}
-          <TextInput
-            placeholder="Wpisz nick znajomego..."
-            value={searchText}
-            onChangeText={setSearchText}
-            style={[
-              styles.input,
-              {
-                borderColor: theme.colors.outline,
-                color: theme.colors.onBackground,
-              },
-            ]}
-            placeholderTextColor={theme.colors.onSurfaceVariant}
-          />
-
-          {/* Lista wyników wyszukiwania */}
-          <FlatList
-            data={searchResults}
-            keyExtractor={(item) => item.uid}
-            renderItem={({ item }) => (
-              <View style={[styles.searchItem, { borderBottomColor: theme.colors.outline }]}>
-                <Text style={{ color: theme.colors.onBackground }}>{item.nickname}</Text>
-                <TouchableOpacity
-                  onPress={() => handleAddFriend(item.uid)}
+          <View style={{ flex: 1 }}>
+            {/* Pasek wyszukiwania i przełącznik trybów */}
+            <View style={styles.searchAndToggleContainer}>
+              {/* Pole wyszukiwania */}
+              <View style={styles.searchContainer}>
+                <AntDesign
+                  name="search1"
+                  size={17}
+                  color={theme.colors.onSurfaceVariant}
+                  style={[styles.searchIcon]}
+                />
+                <TextInput
+                  placeholder={isSearchMode ? "Wpisz nick znajomego..." : "Szukaj znajomych..."}
+                  value={searchText}
+                  onChangeText={setSearchText}
                   style={[
-                    styles.addButton,
+                    styles.input,
                     {
-                      backgroundColor:
-                        isAlreadyFriend(item.uid) ? '#ccc' : theme.colors.primary,
+                      borderColor: theme.colors.outline,
+                      color: theme.colors.onBackground,
+                      marginLeft: 5,
                     },
                   ]}
-                  disabled={isAlreadyFriend(item.uid)}
+                  placeholderTextColor={theme.colors.onSurfaceVariant}
+                  autoCapitalize="none"
+                />
+                {searchText.length > 0 && (
+                  <TouchableOpacity
+                    onPress={() => setSearchText('')}
+                    style={styles.clearIcon}
+                  >
+                    <Ionicons name="close-circle" size={18} color={theme.colors.onSurfaceVariant} />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Przełącznik trybów */}
+              <View style={styles.modeToggleContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.modeButton,
+                    {
+                      backgroundColor: isSearchMode ? theme.colors.surfaceVariant : theme.colors.primary,
+                      borderTopLeftRadius: 25,
+                      borderBottomLeftRadius: 25,
+                    },
+                  ]}
+                  onPress={() => {
+                    if (isSearchMode) toggleMode();
+                  }}
                 >
-                  <Text style={styles.addButtonText}>
-                    {isAlreadyFriend(item.uid) ? 'Znajomy' : 'Dodaj'}
-                  </Text>
+                  <AntDesign
+                    name="smileo"
+                    size={19}
+                    color={isSearchMode ? theme.colors.onSurfaceVariant : '#fff'}
+                    style={{ marginLeft: 3 }}
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.modeButton,
+                    {
+                      backgroundColor: isSearchMode ? theme.colors.primary : theme.colors.surfaceVariant,
+                      borderTopRightRadius: 25,
+                      borderBottomRightRadius: 25,
+                    },
+                  ]}
+                  onPress={() => {
+                    if (!isSearchMode) toggleMode();
+                  }}
+                >
+                  <AntDesign
+                    name="adduser"
+                    size={19}
+                    color={!isSearchMode ? theme.colors.onSurfaceVariant : '#fff'}
+                    style={{ marginRight: 3 }}
+                  />
                 </TouchableOpacity>
               </View>
+            </View>
+
+            {/* Tryb Znajomych */}
+            {!isSearchMode && (
+              <>
+                {/* Lista znajomych filtrowana */}
+                {friendships.length === 0 ? (
+                  <View style={styles.empty}>
+                    <Text style={{ color: theme.colors.onBackground }}>Nie masz jeszcze żadnych znajomych.</Text>
+                  </View>
+                ) : (
+                  <FlatList
+                    data={friendships.filter((friend) =>
+                      friend.nickname.toLowerCase().includes(searchText.toLowerCase())
+                    )}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        onLongPress={() => setActiveFriendId(item.id)}
+                        style={[
+                          styles.friendItem,
+                          {
+                            backgroundColor: activeFriendId === item.id 
+                              ? theme.colors.surfaceVariant 
+                              : theme.colors.surface,
+                            borderBottomColor: theme.colors.outline,
+                          },
+                        ]}
+                      >
+                        <View style={styles.friendInfo}>
+                          <AntDesign name="smileo" size={24} color={theme.colors.primary} style={styles.friendIcon} />
+                          <Text style={{ color: theme.colors.onBackground }}>{item.nickname}</Text>
+                        </View>
+                        {activeFriendId === item.id && (
+                          <TouchableOpacity
+                            onPress={() => handleRemoveFriend(item.id)}
+                            style={styles.removeButton}
+                          >
+                            <Ionicons name="close-circle" size={24} color="red" />
+                          </TouchableOpacity>
+                        )}
+                      </TouchableOpacity>
+                    )}
+                  />
+                )}
+              </>
             )}
-            ListEmptyComponent={
-              searchText.length >= 3 ? (
-                <View style={styles.noResults}>
-                  <Text style={{ color: theme.colors.onBackground }}>Nie znaleziono użytkowników.</Text>
-                </View>
-              ) : null
-            }
-          />
-        </>
-      )}
-    </View>
+
+            {/* Tryb Wyszukiwania */}
+            {isSearchMode && (
+              <>
+                {/* Lista wyników wyszukiwania */}
+                {searchResults.length === 0 && searchText.length >= 3 ? (
+                  <View style={styles.noResults}>
+                    <Text style={{ color: theme.colors.onBackground }}>Nie znaleziono użytkowników.</Text>
+                  </View>
+                ) : (
+                  <FlatList
+                    data={searchResults}
+                    keyExtractor={(item) => item.uid}
+                    renderItem={({ item }) => (
+                      <View style={[styles.searchItem, { borderBottomColor: theme.colors.outline }]}>
+                        <Text style={{ color: theme.colors.onBackground }}>{item.nickname}</Text>
+                        <TouchableOpacity
+                          onPress={() => handleAddFriend(item.uid)}
+                          style={[
+                            styles.addButton,
+                            {
+                              backgroundColor:
+                                isAlreadyFriend(item.uid) ? '#ccc' : theme.colors.primary,
+                            },
+                          ]}
+                          disabled={isAlreadyFriend(item.uid)}
+                        >
+                          <Text style={styles.addButtonText}>
+                            {isAlreadyFriend(item.uid) ? 'Znajomy' : 'Dodaj'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  />
+                )}
+              </>
+            )}
+          </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </TouchableWithoutFeedback>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
+    padding: 12,
+    paddingTop: 4,
   },
-  toggleContainer: {
-    flexDirection: 'row',
-    marginBottom: 10,
-    borderRadius: 8,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#ccc',
-  },
-  toggleButton: {
+  keyboardAvoidingView: {
     flex: 1,
+  },
+  searchAndToggleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    marginBottom: 10,
   },
-  toggleText: {
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: 'bold',
+  searchContainer: {
+    flex: 2.5, // 80% szerokości
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 25,
+    paddingLeft: 40, // Odstęp na ikonę lupki
+    paddingRight: 40, // Odstęp na krzyżyk
+    height: 48,
+    borderColor: '#ccc',
+  },
+  searchIcon: {
+    position: 'absolute',
+    left: 16,
+  },
+  clearIcon: {
+    position: 'absolute',
+    right: 16,
   },
   input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 10,
+    flex: 1,
+    fontSize: 16,
+    color: '#000',
+  },
+  modeToggleContainer: {
+    flex: 1.2, // 20% szerokości
+    flexDirection: 'row',
+    marginLeft: 5,
+  },
+  modeButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12.8,
   },
   friendItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
+    borderRadius: 15,
+    marginBottom: 7,
   },
   friendInfo: {
     flexDirection: 'row',
@@ -469,11 +554,14 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   removeButton: {
+    padding: 4,
+  },
+  addButton: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 4,
+    borderRadius: 20,
   },
-  removeButtonText: {
+  addButtonText: {
     color: '#fff',
     fontWeight: 'bold',
   },
@@ -481,17 +569,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
-  },
-  addButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 4,
-  },
-  addButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    borderBottomColor: '#ccc',
   },
   noResults: {
     alignItems: 'center',
