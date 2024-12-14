@@ -1,25 +1,21 @@
 // app/(tabs)/_layout.tsx
 import React, { useEffect, useState, useContext } from 'react';
-import { 
-  View, 
-  Text, 
-  Pressable, 
-  StyleSheet, 
-  useWindowDimensions, 
-  SafeAreaView,
-  Alert,
-} from 'react-native';
-import { Tabs, useRouter, usePathname } from 'expo-router';
+import { View, Text, StyleSheet, useWindowDimensions, SafeAreaView, Pressable } from 'react-native';
+import { Tabs, useRouter } from 'expo-router';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { getFirestore, doc, getDoc, collection, query, where, onSnapshot, QuerySnapshot } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { auth } from '../config/firebaseConfig';
 import { ThemeContext } from '../config/ThemeContext';
 import { useTheme } from 'react-native-paper';
 import LoadingScreen from '@/components/LoadingScreen';
-import { AntDesign, Ionicons, FontAwesome6 } from '@expo/vector-icons';
+import AntDesign from '@expo/vector-icons/AntDesign';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
+import { TouchableOpacity } from 'react-native-gesture-handler';
+import { CountriesProvider, useCountries } from '../config/CountryContext';
+import { FontAwesome } from '@expo/vector-icons';
 
-// Initialize Firestore
 const db = getFirestore();
 
 // Custom TabBarButton component
@@ -28,191 +24,105 @@ const CustomTabBarButton: React.FC<BottomTabBarButtonProps> = ({ children, onPre
     onPress={onPress}
     style={({ pressed }) => [
       styles.customTabButton,
-      pressed && styles.pressedTabButton, // Add pressed effect
+      pressed && styles.pressedTabButton,
     ]}
   >
     {children}
   </Pressable>
 );
 
-// DynamicHeaderRight Component to handle dynamic header based on active tab
-interface DynamicHeaderRightProps {
-  activeRoute: string;
-  friendRequestsCount: number;
-  handleNavigateToFriendRequests: () => void;
-}
-
-const DynamicHeaderRight: React.FC<DynamicHeaderRightProps> = ({
-  activeRoute,
-  friendRequestsCount,
-  handleNavigateToFriendRequests,
-}) => {
-  const theme = useTheme();
-
-  if (activeRoute === 'index') {
-    // Search icon, no action yet
-    return (
-      <Pressable
-        onPress={() => {}}
-        style={({ pressed }) => [
-          styles.headerRightContainer,
-          pressed && styles.pressedHeaderRight, // Add pressed effect
-        ]}
-      >
-        <AntDesign
-          name="search1"
-          size={20}
-          color={theme.colors.onSurface}
-          style={styles.headerIcon}
-        />
-      </Pressable>
-    );
-  } else if (activeRoute === 'two') {
-    // Countries visited counter
-    // Since the counter is displayed in the tab icon, no additional header content is needed
-    return null;
-  } else if (activeRoute === 'three') {
-    // Mail icon with badge
-    return (
-      <Pressable
-        onPress={handleNavigateToFriendRequests}
-        style={({ pressed }) => [
-          styles.headerRightContainer,
-          pressed && styles.pressedHeaderRight, // Add pressed effect
-        ]}
-      >
-        <Ionicons
-          name="mail-outline"
-          size={24}
-          color={theme.colors.onSurface}
-          style={styles.headerIcon}
-        />
-        {friendRequestsCount > 0 && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{friendRequestsCount}</Text>
-          </View>
-        )}
-      </Pressable>
-    );
-  } else {
-    return null;
-  }
+// Badge component for displaying counts
+const Badge: React.FC<{ count: number }> = ({ count }) => {
+  if (count <= 0) return null;
+  return (
+    <View style={styles.badgeContainer}>
+      <Text style={styles.badgeText}>{count}</Text>
+    </View>
+  );
 };
 
 export default function TabLayout() {
+  return (
+    <CountriesProvider>
+      <TabLayoutContent />
+    </CountriesProvider>
+  );
+}
+
+const TabLayoutContent: React.FC = () => {
   const { isDarkTheme } = useContext(ThemeContext);
-  const theme = useTheme(); // Using useTheme hook
+  const theme = useTheme();
   const [user, setUser] = useState<User | null>(auth.currentUser);
   const [loading, setLoading] = useState(true);
   const [nickname, setNickname] = useState<string | null>(null);
-  const [countriesVisitedCount, setCountriesVisitedCount] = useState<number>(0);
-  const [totalCountries, setTotalCountries] = useState<number>(0);
-  const [friendRequestsCount, setFriendRequestsCount] = useState<number>(0);
   const router = useRouter();
-  const pathname = usePathname(); // Get current path
   const window = useWindowDimensions();
+  const { visitedCountriesCount } = useCountries();
+  const [friendRequestsCount, setFriendRequestsCount] = useState<number>(0);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
-        try {
-          if (!currentUser.emailVerified) {
-            router.replace('/welcome');
+        if (!currentUser.emailVerified) {
+          router.replace('/welcome');
+          setLoading(false);
+          return;
+        }
+
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const nickname = userData?.nickname;
+          const firstLoginComplete = userData?.firstLoginComplete;
+
+          if (!nickname) {
+            router.replace('/setNickname');
             setLoading(false);
             return;
           }
 
-          const userDocRef = doc(db, 'users', currentUser.uid);
-          const userDoc = await getDoc(userDocRef);
-
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            const nickname = userData?.nickname;
-            const firstLoginComplete = userData?.firstLoginComplete;
-            const countriesVisited = userData?.countriesVisited || [];
-
-            if (!nickname) {
-              router.replace('/setNickname');
-              setLoading(false);
-              return;
-            }
-
-            if (!firstLoginComplete) {
-              router.replace('/chooseCountries');
-              setLoading(false);
-              return;
-            }
-
-            setUser(currentUser);
-            setNickname(nickname);
-            setCountriesVisitedCount(countriesVisited.length);
-
-            // Fetch total number of countries with error handling
-            try {
-              const totalCountriesSnapshot = await getDoc(doc(db, 'metadata', 'countries'));
-              if (totalCountriesSnapshot.exists()) {
-                const data = totalCountriesSnapshot.data();
-                if (data && typeof data.total === 'number') {
-                  setTotalCountries(data.total);
-                } else {
-                  console.warn('Total countries field is missing or not a number.');
-                  setTotalCountries(0);
-                }
-              } else {
-                console.warn('metadata/countries document does not exist.');
-                setTotalCountries(0);
-              }
-            } catch (error) {
-              console.error('Error fetching total countries:', error);
-              Alert.alert('Error', 'Failed to fetch total countries.');
-              setTotalCountries(0);
-            }
-
-            // Fetch friend requests count with error handling
-            try {
-              const friendRequestsQuery = query(
-                collection(db, 'friendRequests'),
-                where('receiverUid', '==', currentUser.uid),
-                where('status', '==', 'pending')
-              );
-
-              const unsubscribeFriendRequests = onSnapshot(
-                friendRequestsQuery,
-                (snapshot: QuerySnapshot<any>) => {
-                  setFriendRequestsCount(snapshot.size);
-                },
-                (error) => {
-                  console.error('Error fetching friend requests:', error);
-                  Alert.alert('Error', 'Failed to fetch friend requests.');
-                }
-              );
-
-              // Optional: Store unsubscribe function if needed
-              // For now, it's managed by the onAuthStateChanged cleanup
-
-            } catch (error) {
-              console.error('Error setting up friend requests listener:', error);
-              Alert.alert('Error', 'Failed to set up friend requests listener.');
-            }
-          } else {
-            router.replace('/welcome');
+          if (!firstLoginComplete) {
+            router.replace('/chooseCountries');
+            setLoading(false);
+            return;
           }
-        } catch (error) {
-          console.error('Error during authentication state change:', error);
-          Alert.alert('Error', 'An unexpected error occurred.');
+
+          setUser(currentUser);
+          setNickname(nickname);
+          console.log(`User data loaded: ${nickname}`);
+        } else {
+          router.replace('/welcome');
         }
       } else {
         router.replace('/welcome');
       }
       setLoading(false);
     });
-
-    // Clean up authentication listener on unmount
     return () => unsubscribe();
   }, [router]);
 
+  useEffect(() => {
+    if (user) {
+      // Listener for friend requests count (where receiverUid == user.uid and status == 'pending')
+      const friendRequestsQuery = query(
+        collection(db, 'friendRequests'),
+        where('receiverUid', '==', user.uid),
+        where('status', '==', 'pending')
+      );
+      const unsubscribeFriendRequests = onSnapshot(friendRequestsQuery, (snapshot) => {
+        setFriendRequestsCount(snapshot.size);
+        console.log(`Friend requests count updated: ${snapshot.size}`);
+      });
+
+      return () => {
+        unsubscribeFriendRequests();
+      };
+    }
+  }, [user]);
+
   if (loading) {
-    return <LoadingScreen showLogo={true} />; 
+    return <LoadingScreen showLogo={true} />;
   }
 
   if (!user) {
@@ -225,56 +135,45 @@ export default function TabLayout() {
       router.replace('/welcome');
     } catch (error) {
       console.error("Error logging out:", error);
-      Alert.alert('Error', 'Failed to log out. Please try again.');
     }
   };
 
-  const handleNavigateToFriendRequests = () => {
-    router.push('/community/friendRequests');
+  const handleNavigateToAccount = () => {
+    router.push('/account');
   };
-
-  // Determine active route name based on pathname
-  let activeRoute = 'index'; // default
-  if (pathname.startsWith('/three')) {
-    activeRoute = 'three';
-  } else if (pathname.startsWith('/two')) {
-    activeRoute = 'two';
-  } else if (pathname.startsWith('/index')) {
-    activeRoute = 'index';
-  }
 
   return (
     <Tabs
       screenOptions={{
         tabBarIconStyle: {
-          marginTop: window.height * 0.014, // Adjust the margin to lower the icons
+          marginTop: window.height * 0.014,
         },
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
         tabBarStyle: {
           backgroundColor: theme.colors.surface,
-          height: window.height * 0.067, // Scaled height of tab bar
-          borderTopWidth: 0, // Remove top border of tab bar
-          justifyContent: 'center', // Center icons vertically
+          height: window.height * 0.067,
+          borderTopWidth: 0,
+          justifyContent: 'center',
         },
         tabBarItemStyle: {
           justifyContent: 'center',
-          alignItems: 'center', // Center icons horizontally
+          alignItems: 'center',
           marginTop: window.height * 0.014,
         },
         headerStyle: {
           backgroundColor: theme.colors.surface,
-          height: window.height * 0.105, // Set header height
-          shadowOpacity: 0, // Remove shadow for cleaner look on iOS
-          elevation: 0, // Remove shadow for cleaner look on Android
+          height: window.height * 0.105,
+          shadowOpacity: 0,
+          elevation: 0,
         },
         headerTitle: () => (
           <SafeAreaView>
             <Pressable
-              onPress={() => router.push('/account')}
+              onPress={handleNavigateToAccount}
               style={({ pressed }) => [
                 styles.headerTitleContainer,
-                pressed && styles.pressedHeader, // Add pressed effect
+                pressed && styles.pressedHeader,
               ]}
             >
               <AntDesign
@@ -289,68 +188,86 @@ export default function TabLayout() {
             </Pressable>
           </SafeAreaView>
         ),
-        headerRight: () => (
-          <DynamicHeaderRight 
-            activeRoute={activeRoute}
-            friendRequestsCount={friendRequestsCount}
-            handleNavigateToFriendRequests={handleNavigateToFriendRequests}
-          />
-        ),
+        // Remove global headerRight
       }}
     >
+      {/* Three Tab (Community) */}
       <Tabs.Screen
         name="three"
         options={{
           title: '',
-          // Adding custom tabBarButton
           tabBarButton: (props) => (
             <CustomTabBarButton onPress={props.onPress}>
               {props.children}
             </CustomTabBarButton>
           ),
           tabBarIcon: ({ color }) => (
-            <View style={styles.tabIconContainer}>
-              <Ionicons name="mail-outline" size={26} color={color} />
-              {friendRequestsCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{friendRequestsCount}</Text>
-                </View>
-              )}
-            </View>
+            <Ionicons name="people" size={26} color={color} />
+          ),
+          headerRight: () => (
+            <Pressable
+              onPress={() => router.push('/community/friendRequests')}
+              style={({ pressed }) => [
+                styles.headerRightContainer,
+                pressed && styles.pressedHeaderRight,
+              ]}
+            >
+              <View style={{ position: 'relative' }}>
+                <Ionicons name="mail-outline" size={24} color={theme.colors.onSurface} />
+                <Badge count={friendRequestsCount} />
+              </View>
+            </Pressable>
           ),
         }}
       />
+
+      {/* Index Tab (Main) */}
       <Tabs.Screen
         name="index"
         options={{
           title: '',
-          // Adding custom tabBarButton
           tabBarButton: (props) => (
             <CustomTabBarButton onPress={props.onPress}>
               {props.children}
             </CustomTabBarButton>
           ),
           tabBarIcon: ({ color }) => (
-            <Ionicons name="search" size={26} color={color} />
+            <Ionicons name="earth" size={26} color={color} />
+          ),
+          headerRight: () => (
+            <Pressable
+              onPress={() => {}}
+              style={({ pressed }) => [
+                styles.headerRightContainer,
+                pressed && styles.pressedHeaderRight,
+              ]}
+            >
+              <FontAwesome name="search" size={24} color={theme.colors.onSurface} />
+            </Pressable>
           ),
         }}
       />
+
+      {/* Two Tab (ChooseCountries) */}
       <Tabs.Screen
         name="two"
         options={{
           title: '',
-          // Adding custom tabBarButton
           tabBarButton: (props) => (
             <CustomTabBarButton onPress={props.onPress}>
               {props.children}
             </CustomTabBarButton>
           ),
           tabBarIcon: ({ color }) => (
-            <View style={styles.tabIconContainer}>
+            <View style={[styles.tabIconContainer, { marginTop: 1 }]}>
               <FontAwesome6 name="list-check" size={22} color={color} />
-              {totalCountries > 0 && (
-                <Text style={[styles.counterText, { color }]}>{`${countriesVisitedCount}/${totalCountries}`}</Text>
-              )}
+            </View>
+          ),
+          headerRight: () => (
+            <View style={styles.visitedCountriesContainer}>
+              <Text style={[styles.visitedCountriesText, { color: theme.colors.onSurface }]}>
+                {visitedCountriesCount}/195
+              </Text>
             </View>
           ),
         }}
@@ -359,71 +276,67 @@ export default function TabLayout() {
   );
 }
 
-// Styles
 const styles = StyleSheet.create({
-  customTabButton: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  pressedTabButton: {
-    opacity: 0.6, // Highlight effect by reducing opacity
-  },
-  tabIconContainer: {
-    position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  badge: {
-    position: 'absolute',
-    right: -6,
-    top: -3,
-    backgroundColor: 'red',
-    borderRadius: 8,
-    width: 16,
-    height: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  badgeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  counterText: {
-    position: 'absolute',
-    top: 0,
-    right: -10,
-    fontSize: 10,
-    fontWeight: 'bold',
-    backgroundColor: 'transparent', // Or a semi-transparent color if desired
-  },
-  headerRightContainer: {
-    marginRight: 16,
-    position: 'relative',
-  },
-  pressedHeaderRight: {
-    opacity: 0.6, // Highlight effect by reducing opacity
-  },
-  headerIcon: {
-    // Adjust icon positioning if needed
-  },
   headerTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
   pressedHeader: {
-    opacity: 0.6, // Highlight effect by reducing opacity
+    opacity: 0.6,
+  },
+  headerRightContainer: {
+    marginRight: 16,
+  },
+  pressedHeaderRight: {
+    opacity: 0.6,
+  },
+  pressedTabButton: {
+    opacity: 0.6,
+  },
+  customTabButton: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabIconContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   userIcon: {
     marginRight: 8,
-    marginLeft: -4
-  },
-  logoutIcon: {
-    marginRight: 13,
+    marginLeft: -4,
   },
   headerTitleText: {
     fontSize: 16,
+  },
+  badgeContainer: {
+    position: 'absolute',
+    right: -6,
+    top: -3,
+    backgroundColor: '#8A2BE2', // Purple color
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    minWidth: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  visitedCountriesContainer: {
+    marginRight: 16,
+    backgroundColor: '#8A2BE2', // Purple color
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  visitedCountriesText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 });

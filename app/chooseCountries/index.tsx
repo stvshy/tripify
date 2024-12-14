@@ -1,3 +1,4 @@
+// app/community/chooseCountries.tsx
 import React, { useState, useMemo, useCallback, useContext, useEffect, useRef } from 'react';
 import { 
   View, 
@@ -51,7 +52,7 @@ export type FilteredCountries = {
   countries: Country[];
 };
 
-// Funkcja do określania kontynentu
+// Function to determine the continent
 const getContinent = (region: string, subregion: string): Continent => {
   switch (region) {
     case 'Africa': return 'Africa';
@@ -64,6 +65,7 @@ const getContinent = (region: string, subregion: string): Continent => {
   }
 };
 
+// CountryItem component
 const CountryItem = React.memo(function CountryItem({
   item,
   onSelect,
@@ -90,7 +92,7 @@ const CountryItem = React.memo(function CountryItem({
     handleCheckboxPress();
   }, [handleCheckboxPress]);
 
-  // Kolory dynamiczne na podstawie motywu
+  // Dynamic colors based on the theme
   const selectedBackgroundColor = isSelected
     ? theme.colors.surfaceVariant
     : theme.colors.surface;
@@ -125,7 +127,7 @@ const CountryItem = React.memo(function CountryItem({
             styles.countryItem,
             {
               backgroundColor: selectedBackgroundColor,
-              borderRadius: isSelected ? 4.2 : 8, // Większe zaokrąglenie, gdy wybrane
+              borderRadius: isSelected ? 4.2 : 8, // Larger border radius when selected
             },
           ]}
           >
@@ -174,7 +176,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
       try {
         const value = await AsyncStorage.getItem('hasShownPopup');
         if (value !== 'true') {
-          setIsPopupVisible(true); // Pokaż pop-up tylko wtedy, gdy klucz nie istnieje lub ma inną wartość
+          setIsPopupVisible(true); // Show pop-up only if the key doesn't exist or has a different value
         }
       } catch (e) {
         console.error('Failed to load popup status.');
@@ -185,7 +187,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
   }, []);
   
   useEffect(() => {
-    // Pobranie zapisanych krajówVisited z Firestore
+    // Fetch saved countriesVisited from Firestore
     const fetchSelectedCountries = async () => {
       const user = auth.currentUser;
       if (user) {
@@ -255,7 +257,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
       }).start();
     });
 
-    // Dodanie listenera dla przycisku "back" na Androidzie
+    // Add listener for the "back" button on Android
     const handleBackPress = () => {
       if (isInputFocused && searchInputRef.current) {
         console.log('Back button pressed while input is focused. Blurring input.');
@@ -274,7 +276,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
     };
   }, [isInputFocused, fadeAnim]);
 
-  // Przetwarzanie danych krajów
+  // Processing country data
   const processedCountries = useMemo(() => {
     const filtered = filteredCountriesData.countries.filter((country: Country) =>
       country.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -325,6 +327,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
           countriesVisited: selectedCountries,
           firstLoginComplete: true,
         });
+        console.log('Selected countries saved:', selectedCountries);
         await AsyncStorage.setItem('hasShownPopup', 'true');
         router.replace('/');
       } catch (error) {
@@ -337,7 +340,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
     }
   }, [selectedCountries, router]);
 
-  // Funkcja do obsługi kliknięcia poza polem tekstowym
+  // Function to handle clicking outside the text input
   const dismissKeyboard = useCallback(() => {
     Keyboard.dismiss();
     setIsInputFocused(false);
@@ -378,7 +381,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
           fromTab ? styles.containerFromTab : styles.containerStandalone
         ]}
       >
-        {/* Popup Informacyjny */}
+        {/* Informational Popup */}
         {!fromTab && isPopupVisible && (
           <Modal
             transparent={true}
@@ -410,7 +413,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
           keyboardVerticalOffset={fromTab ? 0 : (Platform.OS === 'ios' ? 80 : 20)}
         >
           <View style={{ flex: 1 }}>
-            {/* Pasek wyszukiwania i przycisk przełączania motywu */}
+            {/* Search Bar and Theme Toggle Button */}
             <View style={styles.searchAndToggleContainer}>
               <View style={[
                   styles.inputContainer, 
@@ -463,7 +466,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
                 />
               </View>
 
-              {/* Okrągły przycisk do przełączania motywu */}
+              {/* Round Button to Toggle Theme */}
               <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
                 <Pressable
                   onPress={handleToggleTheme}
@@ -481,7 +484,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
               </Animated.View>
             </View>
 
-            {/* Lista krajów */}
+            {/* Country List */}
             <View style={{ flex: 1, marginBottom: fromTab ? -16 : -20 }}>
               <SectionList
                 sections={processedCountries}
@@ -501,7 +504,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
               />
             </View>
 
-            {/* Przycisk "Save and Continue" */}
+            {/* "Save and Continue" Button */}
             <Animated.View
               style={[
                 styles.footer,
@@ -581,7 +584,7 @@ const styles = StyleSheet.create({
     marginLeft: 7,
   },
   inputFocused: {
-    borderColor: '#6a1b9a',
+    borderColor: '#6a1b9a', // Purple color when focused
   },
   input: {
     flex: 1,

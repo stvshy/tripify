@@ -35,7 +35,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { AntDesign, Ionicons } from '@expo/vector-icons';
 import { LayoutAnimation, UIManager } from 'react-native';
 
-// Włączenie LayoutAnimation dla Androida
+// Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
@@ -57,8 +57,9 @@ export default function CommunityScreen() {
   const [friendships, setFriendships] = useState<Friendship[]>([]);
   const [searchText, setSearchText] = useState('');
   const [searchResults, setSearchResults] = useState<User[]>([]);
-  const [isSearchMode, setIsSearchMode] = useState(false); // Tryb: false - Znajomi, true - Wyszukiwanie
-  const [activeFriendId, setActiveFriendId] = useState<string | null>(null); // Aktywny znajomy do usunięcia
+  const [isSearchMode, setIsSearchMode] = useState(false); // Mode: false - Friends, true - Search
+  const [activeFriendId, setActiveFriendId] = useState<string | null>(null); // Active friend to remove
+  const [isFocused, setIsFocused] = useState(false); // State to track focus
   const router = useRouter();
   const theme = useTheme();
 
@@ -71,7 +72,7 @@ export default function CommunityScreen() {
 
     const userId = currentUser.uid;
 
-    // Listener dla kolekcji friendships gdzie użytkownik jest jednym z dwóch
+    // Listener for friendships where the user is one of the two
     const friendshipsQueryA = query(
       collection(db, 'friendships'),
       where('userAUid', '==', userId),
@@ -101,7 +102,7 @@ export default function CommunityScreen() {
         }
       }
       setFriendships((prev) => {
-        // Usuń stare znajomości dotyczące tego użytkownika, aby uniknąć duplikatów
+        // Remove old friendships to avoid duplicates
         const filtered = prev.filter(
           (f) => f.userAUid !== userId && f.userBUid !== userId
         );
@@ -126,7 +127,7 @@ export default function CommunityScreen() {
         }
       }
       setFriendships((prev) => {
-        // Usuń stare znajomości dotyczące tego użytkownika, aby uniknąć duplikatów
+        // Remove old friendships to avoid duplicates
         const filtered = prev.filter(
           (f) => f.userAUid !== userId && f.userBUid !== userId
         );
@@ -183,33 +184,33 @@ export default function CommunityScreen() {
       console.log(`Found ${foundUsers.length} users matching "${text}".`);
     } catch (error) {
       console.error('Error searching users:', error);
-      Alert.alert('Błąd', 'Nie udało się wyszukać użytkowników.');
+      Alert.alert('Error', 'Failed to search users.');
     }
   };
 
   const handleRemoveFriend = async (friendshipId: string) => {
     Alert.alert(
-      'Potwierdzenie',
-      'Czy na pewno chcesz usunąć tego znajomego?',
+      'Confirmation',
+      'Are you sure you want to remove this friend?',
       [
         {
-          text: 'Anuluj',
+          text: 'Cancel',
           style: 'cancel',
         },
         {
-          text: 'Usuń',
+          text: 'Remove',
           style: 'destructive',
           onPress: async () => {
             try {
-              // Animacja usuwania
+              // Animation for removal
               LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
               await deleteDoc(doc(db, 'friendships', friendshipId));
-              Alert.alert('Sukces', 'Usunięto znajomego!');
+              Alert.alert('Success', 'Friend removed!');
               console.log(`Removed friendship document: ${friendshipId}`);
               setActiveFriendId(null);
             } catch (error) {
               console.error('Error removing friend:', error);
-              Alert.alert('Błąd', 'Nie udało się usunąć znajomego.');
+              Alert.alert('Error', 'Failed to remove friend.');
             }
           },
         },
@@ -220,7 +221,7 @@ export default function CommunityScreen() {
   const handleAddFriend = async (friendUid: string) => {
     const currentUser = auth.currentUser;
     if (!currentUser) {
-      Alert.alert('Błąd', 'Użytkownik nie jest zalogowany.');
+      Alert.alert('Error', 'User is not logged in.');
       return;
     }
 
@@ -228,7 +229,7 @@ export default function CommunityScreen() {
     const receiverUid = friendUid;
 
     try {
-      // Sprawdź, czy już są znajomymi
+      // Check if already friends
       const friendshipQuery = query(
         collection(db, 'friendships'),
         where('userAUid', '==', senderUid),
@@ -237,11 +238,11 @@ export default function CommunityScreen() {
       );
       const friendshipSnapshot = await getDocs(friendshipQuery);
       if (!friendshipSnapshot.empty) {
-        Alert.alert('Info', 'Ta osoba jest już Twoim znajomym.');
+        Alert.alert('Info', 'This person is already your friend.');
         return;
       }
 
-      // Sprawdź, czy już wysłano zaproszenie wychodzące
+      // Check if an outgoing request already exists
       const outgoingSnapshot = await getDocs(query(
         collection(db, 'friendRequests'),
         where('senderUid', '==', senderUid),
@@ -249,11 +250,11 @@ export default function CommunityScreen() {
         where('status', '==', 'pending')
       ));
       if (!outgoingSnapshot.empty) {
-        Alert.alert('Info', 'Zaproszenie zostało już wysłane do tej osoby.');
+        Alert.alert('Info', 'A friend request has already been sent to this person.');
         return;
       }
 
-      // Sprawdź, czy odbiorca już wysłał zaproszenie do nadawcy (mutual request)
+      // Check if the receiver has already sent a friend request to the sender
       const incomingSnapshot = await getDocs(query(
         collection(db, 'friendRequests'),
         where('senderUid', '==', receiverUid),
@@ -261,13 +262,13 @@ export default function CommunityScreen() {
         where('status', '==', 'pending')
       ));
       if (!incomingSnapshot.empty) {
-        Alert.alert('Info', 'Ta osoba już wysłała Ci zaproszenie.');
+        Alert.alert('Info', 'This person has already sent you a friend request.');
         return;
       }
 
       const batch = writeBatch(db);
 
-      // Dodaj zaproszenie do friendRequests (status: pending)
+      // Add a friend request (status: pending)
       const friendRequestRef = doc(collection(db, 'friendRequests'));
       batch.set(friendRequestRef, {
         senderUid: senderUid,
@@ -278,10 +279,10 @@ export default function CommunityScreen() {
 
       await batch.commit();
 
-      Alert.alert('Sukces', 'Wysłano zaproszenie do znajomych!');
+      Alert.alert('Success', 'Friend request sent!');
     } catch (error) {
       console.error('Error sending friend request:', error);
-      Alert.alert('Błąd', 'Nie udało się wysłać zaproszenia.');
+      Alert.alert('Error', 'Failed to send friend request.');
     }
   };
 
@@ -315,30 +316,33 @@ export default function CommunityScreen() {
           keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 20}
         >
           <View style={{ flex: 1 }}>
-            {/* Pasek wyszukiwania i przełącznik trybów */}
+            {/* Search bar and mode toggle */}
             <View style={styles.searchAndToggleContainer}>
-              {/* Pole wyszukiwania */}
-              <View style={styles.searchContainer}>
+              {/* Search field */}
+              <View style={[
+                styles.searchContainer,
+                { borderColor: isFocused ? theme.colors.primary : theme.colors.outline }
+              ]}>
                 <AntDesign
                   name="search1"
                   size={17}
                   color={theme.colors.onSurfaceVariant}
-                  style={[styles.searchIcon]}
+                  style={styles.searchIcon}
                 />
                 <TextInput
-                  placeholder={isSearchMode ? "Wpisz nick znajomego..." : "Szukaj znajomych..."}
+                  placeholder={isSearchMode ? "Enter friend's nickname..." : "Search friends..."}
                   value={searchText}
                   onChangeText={setSearchText}
                   style={[
                     styles.input,
                     {
-                      borderColor: theme.colors.outline,
                       color: theme.colors.onBackground,
-                      marginLeft: 5,
                     },
                   ]}
                   placeholderTextColor={theme.colors.onSurfaceVariant}
                   autoCapitalize="none"
+                  onFocus={() => setIsFocused(true)}
+                  onBlur={() => setIsFocused(false)}
                 />
                 {searchText.length > 0 && (
                   <TouchableOpacity
@@ -350,7 +354,7 @@ export default function CommunityScreen() {
                 )}
               </View>
 
-              {/* Przełącznik trybów */}
+              {/* Mode toggle */}
               <View style={styles.modeToggleContainer}>
                 <TouchableOpacity
                   style={[
@@ -396,13 +400,13 @@ export default function CommunityScreen() {
               </View>
             </View>
 
-            {/* Tryb Znajomych */}
+            {/* Friends Mode */}
             {!isSearchMode && (
               <>
-                {/* Lista znajomych filtrowana */}
+                {/* Filtered friends list */}
                 {friendships.length === 0 ? (
                   <View style={styles.empty}>
-                    <Text style={{ color: theme.colors.onBackground }}>Nie masz jeszcze żadnych znajomych.</Text>
+                    <Text style={{ color: theme.colors.onBackground }}>You have no friends yet.</Text>
                   </View>
                 ) : (
                   <FlatList
@@ -442,13 +446,13 @@ export default function CommunityScreen() {
               </>
             )}
 
-            {/* Tryb Wyszukiwania */}
+            {/* Search Mode */}
             {isSearchMode && (
               <>
-                {/* Lista wyników wyszukiwania */}
+                {/* Search results list */}
                 {searchResults.length === 0 && searchText.length >= 3 ? (
                   <View style={styles.noResults}>
-                    <Text style={{ color: theme.colors.onBackground }}>Nie znaleziono użytkowników.</Text>
+                    <Text style={{ color: theme.colors.onBackground }}>No users found.</Text>
                   </View>
                 ) : (
                   <FlatList
@@ -469,7 +473,7 @@ export default function CommunityScreen() {
                           disabled={isAlreadyFriend(item.uid)}
                         >
                           <Text style={styles.addButtonText}>
-                            {isAlreadyFriend(item.uid) ? 'Znajomy' : 'Dodaj'}
+                            {isAlreadyFriend(item.uid) ? 'Friend' : 'Add'}
                           </Text>
                         </TouchableOpacity>
                       </View>
@@ -501,15 +505,14 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   searchContainer: {
-    flex: 2.5, // 80% szerokości
+    flex: 2.5, // 80% width
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderRadius: 25,
-    paddingLeft: 40, // Odstęp na ikonę lupki
-    paddingRight: 40, // Odstęp na krzyżyk
+    paddingLeft: 40, // Padding for search icon
+    paddingRight: 40, // Padding for clear icon
     height: 48,
-    borderColor: '#ccc',
   },
   searchIcon: {
     position: 'absolute',
@@ -522,10 +525,9 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#000',
   },
   modeToggleContainer: {
-    flex: 1.2, // 20% szerokości
+    flex: 1.2, // 20% width
     flexDirection: 'row',
     marginLeft: 5,
   },
@@ -542,7 +544,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
     borderRadius: 15,
     marginBottom: 7,
   },
@@ -572,7 +573,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
   },
   noResults: {
     alignItems: 'center',
