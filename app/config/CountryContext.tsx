@@ -1,57 +1,58 @@
-// app/context/CountriesContext.tsx
-import React, { createContext, useState, useEffect, useContext } from 'react';
-import { auth, db } from '../config/firebaseConfig';
+// app/config/CountryContext.tsx
+import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
+import { auth, db } from './firebaseConfig';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { User } from 'firebase/auth';
 
-// Define the shape of the context
-interface CountriesContextProps {
+// Definicja interfejsu dla kontekstu
+interface CountryContextProps {
+  visitedCountries: string[];
   visitedCountriesCount: number;
+  setVisitedCountries: (countries: string[]) => void;
 }
 
-// Create the context with a default value
-const CountriesContext = createContext<CountriesContextProps>({
+// Utworzenie kontekstu z domyślnymi wartościami
+const CountryContext = createContext<CountryContextProps>({
+  visitedCountries: [],
   visitedCountriesCount: 0,
+  setVisitedCountries: () => {},
 });
 
-// Provider component
-interface CountriesProviderProps {
-  children: React.ReactNode;
+// Definicja propsów dla providera
+interface CountryProviderProps {
+  children: ReactNode;
 }
 
-export const CountriesProvider: React.FC<CountriesProviderProps> = ({ children }) => {
-  const [visitedCountriesCount, setVisitedCountriesCount] = useState<number>(0);
+// Provider kontekstu zarządzający stanem odwiedzonych krajów
+export const CountriesProvider: React.FC<CountryProviderProps> = ({ children }) => {
+  const [visitedCountries, setVisitedCountries] = useState<string[]>([]);
 
   useEffect(() => {
-    const currentUser: User | null = auth.currentUser;
-
-    if (currentUser) {
-      const userDocRef = doc(db, 'users', currentUser.uid);
-
-      // Set up real-time listener for the user's document
-      const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
-        if (docSnap.exists()) {
-          const userData = docSnap.data();
-          const countriesVisited: string[] = userData.countriesVisited || [];
-          setVisitedCountriesCount(countriesVisited.length);
-          console.log(`CountriesContext: Visited countries count updated: ${countriesVisited.length}`);
-        } else {
-          setVisitedCountriesCount(0);
-          console.log('CountriesContext: User document does not exist.');
+    const user = auth.currentUser;
+    if (user) {
+      const userDocRef = doc(db, 'users', user.uid);
+      const unsubscribe = onSnapshot(userDocRef, (docSnapshot) => {
+        if (docSnapshot.exists()) {
+          const data = docSnapshot.data();
+          setVisitedCountries(data.countriesVisited || []);
         }
       });
 
-      // Clean up the listener on unmount
       return () => unsubscribe();
     }
   }, []);
 
   return (
-    <CountriesContext.Provider value={{ visitedCountriesCount }}>
+    <CountryContext.Provider
+      value={{
+        visitedCountries,
+        visitedCountriesCount: visitedCountries.length,
+        setVisitedCountries,
+      }}
+    >
       {children}
-    </CountriesContext.Provider>
+    </CountryContext.Provider>
   );
 };
 
-// Custom hook for consuming the context
-export const useCountries = () => useContext(CountriesContext);
+// Hook do korzystania z kontekstu
+export const useCountries = () => useContext(CountryContext);

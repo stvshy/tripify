@@ -266,7 +266,7 @@ const TabLayoutContent: React.FC = () => {
           headerRight: () => (
             <View style={styles.visitedCountriesContainer}>
               <Text style={[styles.visitedCountriesText, { color: theme.colors.onSurface }]}>
-                {visitedCountriesCount}/195
+                {visitedCountriesCount}/218
               </Text>
             </View>
           ),
@@ -274,7 +274,7 @@ const TabLayoutContent: React.FC = () => {
       />
     </Tabs>
   );
-}
+};
 
 const styles = StyleSheet.create({
   headerTitleContainer: {
@@ -330,13 +330,13 @@ const styles = StyleSheet.create({
   },
   visitedCountriesContainer: {
     marginRight: 16,
-    backgroundColor: '#8A2BE2', // Purple color
+    // backgroundColor: '#8A2BE2', // Purple color
     borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    // paddingHorizontal: 8,
+    // paddingVertical: 4,
   },
   visitedCountriesText: {
     color: '#fff',
-    fontWeight: 'bold',
+    // fontWeight: 'bold',
   },
 });

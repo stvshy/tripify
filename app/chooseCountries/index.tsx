@@ -1,4 +1,4 @@
-// app/community/chooseCountries.tsx
+// app/chooseCountries/index.tsx
 import React, { useState, useMemo, useCallback, useContext, useEffect, useRef } from 'react';
 import { 
   View, 
@@ -31,6 +31,7 @@ import CountryFlag from 'react-native-country-flag';
 import { ThemeContext } from '../config/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import filteredCountriesData from '../../components/filteredCountries.json'; 
+import { useCountries } from '../config/CountryContext'; // Import hook z kontekstu
 
 const { width, height } = Dimensions.get('window');
 
@@ -117,8 +118,7 @@ const CountryItem = React.memo(function CountryItem({
       style={[
         styles.countryItemContainer, 
         {
-          backgroundColor: selectedBackgroundColor,
-          borderRadius: isSelected ? 4.2 : 8,
+          backgroundColor: 'transparent',
         },
       ]}
       activeOpacity={0.7}
@@ -170,6 +170,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
   const scaleValue = useRef(new Animated.Value(1)).current;
   const [isPopupVisible, setIsPopupVisible] = useState(true);
   const searchInputRef = useRef<TextInput>(null);
+  const { visitedCountries, setVisitedCountries } = useCountries(); // Pobranie stanu z kontekstu
 
   useEffect(() => {
     const checkPopup = async () => {
@@ -198,6 +199,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
             const userData = userDoc.data();
             const countriesVisited: string[] = userData?.countriesVisited || [];
             setSelectedCountries(countriesVisited);
+            setVisitedCountries(countriesVisited); // Synchronizacja z kontekstem
           }
         } catch (error) {
           console.error('Error fetching selected countries:', error);
@@ -206,7 +208,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
     };
 
     fetchSelectedCountries();
-  }, []);
+  }, [setVisitedCountries]);
 
   const handleClosePopup = useCallback(async () => {
     setIsPopupVisible(false);
@@ -306,13 +308,16 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
 
   const handleSelectCountry = useCallback((countryCode: string) => {
     setSelectedCountries((prevSelected) => {
+      let updatedSelected;
       if (prevSelected.includes(countryCode)) {
-        return prevSelected.filter((c) => c !== countryCode);
+        updatedSelected = prevSelected.filter((c) => c !== countryCode);
       } else {
-        return [...prevSelected, countryCode];
+        updatedSelected = [...prevSelected, countryCode];
       }
+      setVisitedCountries(updatedSelected); // Aktualizacja kontekstu
+      return updatedSelected;
     });
-  }, []);
+  }, [setVisitedCountries]);
 
   const handleSaveCountries = useCallback(async () => {
     if (selectedCountries.length === 0) {
