@@ -280,8 +280,6 @@ export default function CommunityScreen() {
 
       await batch.commit();
 
-      Alert.alert('Success', 'Friend request sent!');
-
       // Aktualizacja stanu wysłanych zaproszeń
       setSentRequests(prev => [...prev, friendUid]);
     } catch (error) {
