@@ -368,7 +368,7 @@ export default function FriendRequestsScreen() {
             <View style={styles.panelHandle} />
           </View>
           <TouchableOpacity onPress={closePanel} style={styles.closeButton}>
-            <AntDesign name="closecircle" size={15} color="#fff" />
+            {/* <AntDesign name="closecircle" size={15} color="#fff" /> */}
           </TouchableOpacity>
         </View>
         {outgoingRequests.length === 0 ? (
@@ -469,7 +469,7 @@ const OutgoingRequestItem: React.FC<OutgoingRequestItemProps> = ({ request, onCa
       </Text>
       <TouchableOpacity
         onPress={() => onCancel(id)}
-        style={[styles.iconButtonSend, { backgroundColor: 'rgba(28, 28, 28, 0.21)' }]}
+        style={[styles.iconButtonSend, { backgroundColor: 'rgba(116, 116, 116, 0.3)' }]}
         accessibilityLabel="Cancel Sent Friend Request"
         accessibilityRole="button"
       >
@@ -562,7 +562,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   panelHandle: {
-    width: 60, // Increased width
+    width: '23%', // Increased width
     height: 5,
     backgroundColor: '#ccc',
     borderRadius: 2.5,

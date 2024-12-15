@@ -177,11 +177,11 @@ export default function AccountScreen() {
             {/* Header with back button and theme toggle */}
             <View style={[styles.header, { paddingTop: height * 0.03 }]}>
               <TouchableOpacity onPress={handleGoBack} style={[styles.headerButton, { marginLeft: -19 }]}>
-                <Ionicons name="arrow-back" size={28} color={theme.colors.onBackground} />
+                <Ionicons name="arrow-back" size={26} color={theme.colors.onBackground} />
               </TouchableOpacity>
               <Text style={[styles.headerTitle, { color: theme.colors.onBackground }]}>Account</Text>
               <TouchableOpacity onPress={toggleTheme} style={[styles.headerButton, { marginRight: -16 }]}>
-                <Ionicons name={isDarkTheme ? 'sunny' : 'moon'} size={26} color={theme.colors.onBackground} />
+                <Ionicons name={isDarkTheme ? 'sunny' : 'moon'} size={24} color={theme.colors.onBackground} />
               </TouchableOpacity>
             </View>
 
@@ -404,7 +404,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 21,
     fontWeight: '700',
   },
   userPanel: {
