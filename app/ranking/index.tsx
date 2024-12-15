@@ -275,11 +275,11 @@ export default function RankingScreen() {
         {/* Nagłówek z przyciskiem powrotu i przełącznikiem motywu */}
         <View style={[styles.header, { paddingTop: height * 0.03 }]}>
           <TouchableOpacity onPress={handleGoBack} style={[styles.headerButton, { marginLeft: -19 }]}>
-            <Ionicons name="arrow-back" size={28} color={theme.colors.onBackground} />
+            <Ionicons name="arrow-back" size={26} color={theme.colors.onBackground} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: theme.colors.onBackground }]}>Rank Countries</Text>
           <TouchableOpacity onPress={toggleTheme} style={[styles.headerButton, { marginRight: -16 }]}>
-            <Ionicons name={isDarkTheme ? "sunny" : "moon"} size={26} color={theme.colors.onBackground} />
+            <Ionicons name={isDarkTheme ? "sunny" : "moon"} size={24} color={theme.colors.onBackground} />
           </TouchableOpacity>
         </View>
 
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   headerTitle: {
-    fontSize: 24, // Zwiększony rozmiar fontu
+    fontSize: 20, // Zwiększony rozmiar fontu
     fontWeight: '700',
   },
   sectionTitle: {
