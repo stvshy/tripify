@@ -13,13 +13,14 @@ export default function CommunityLayout() {
           backgroundColor: theme.colors.surface,
         },
         headerTintColor: theme.colors.onSurface,
+        headerTitleAlign: 'center', // Center the titles
       }}
     >
       {/* Zaktualizowany tytuł na "Znajomi" */}
-      <Stack.Screen name="index" options={{ title: 'Znajomi' }} />
-      <Stack.Screen name="search" options={{ title: 'Szukaj Znajomych' }} />
-      <Stack.Screen name="friends" options={{ title: 'Twoi Znajomi' }} />
-      <Stack.Screen name="friendRequests" options={{ title: 'Zaproszenia' }} />
+      <Stack.Screen name="index" options={{ title: 'Your Friends' }} />
+      <Stack.Screen name="search" options={{ title: 'Find Friends' }} />
+      <Stack.Screen name="friends" options={{ title: 'Your Friends' }} />
+      <Stack.Screen name="friendRequests" options={{ title: 'Friend Requests' }} />
     </Stack>
   );
 }

@@ -26,7 +26,7 @@ import {
 } from 'firebase/firestore';
 import { useTheme } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
-import { AntDesign } from '@expo/vector-icons';
+import { AntDesign, Feather, MaterialIcons } from '@expo/vector-icons';
 
 interface FriendRequest {
   id: string;
@@ -47,6 +47,8 @@ interface OutgoingRequestItemProps {
   onCancel: (requestId: string) => void;
 }
 
+const ITEM_HEIGHT = 60; // Wysokość pojedynczego elementu listy
+
 export default function FriendRequestsScreen() {
   const [loading, setLoading] = useState(true);
   const [incomingRequests, setIncomingRequests] = useState<FriendRequest[]>([]);
@@ -56,8 +58,22 @@ export default function FriendRequestsScreen() {
 
   // Animation for outgoing requests panel
   const screenHeight = Dimensions.get('window').height;
-  const panelHeight = screenHeight * 0.5; // Increased to 50% for better visibility
+  const maxPanelHeight = screenHeight * 0.8; // Maksymalna wysokość panelu
+  const minPanelHeight = 100; // Minimalna wysokość panelu, gdy jest niewiele zaproszeń
   const animatedValue = useRef(new Animated.Value(screenHeight)).current;
+  const animatedValueRef = useRef<number>(screenHeight); // Ref to track animatedValue
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+
+  // Listener to update animatedValueRef.current
+  useEffect(() => {
+    const listenerId = animatedValue.addListener(({ value }) => {
+      animatedValueRef.current = value;
+    });
+
+    return () => {
+      animatedValue.removeListener(listenerId);
+    };
+  }, [animatedValue]);
 
   const fetchRequests = useCallback(() => {
     const currentUser = auth.currentUser;
@@ -223,6 +239,14 @@ export default function FriendRequestsScreen() {
     }
   };
 
+  // Calculate dynamic panel height based on number of outgoing requests
+  const calculatePanelHeight = (): number => {
+    const totalHeight = outgoingRequests.length * ITEM_HEIGHT + 40; // 40 for padding
+    return Math.min(totalHeight, maxPanelHeight);
+  };
+
+  const currentPanelHeight = calculatePanelHeight();
+
   // Swipe-up gesture handlers for outgoing requests panel
   const panResponder = useRef(
     PanResponder.create({
@@ -234,36 +258,64 @@ export default function FriendRequestsScreen() {
       onPanResponderMove: (_, gestureState) => {
         if (gestureState.dy < 0) {
           // Swiping up
-          animatedValue.setValue(screenHeight + gestureState.dy);
+          const newValue = animatedValueRef.current + gestureState.dy;
+          const minValue = screenHeight - currentPanelHeight;
+          animatedValue.setValue(Math.max(newValue, minValue));
+        } else if (gestureState.dy > 0) {
+          // Swiping down
+          const newValue = animatedValueRef.current + gestureState.dy;
+          animatedValue.setValue(Math.min(newValue, screenHeight));
         }
       },
       onPanResponderRelease: (_, gestureState) => {
         if (gestureState.dy < -50) {
           // Swiped up enough to open the panel
-          Animated.timing(animatedValue, {
-            toValue: screenHeight - panelHeight,
-            duration: 300,
-            useNativeDriver: false,
-          }).start();
+          openPanel();
+        } else if (gestureState.dy > 50) {
+          // Swiped down enough to close the panel
+          closePanel();
         } else {
-          // Not enough swipe, return to closed position
-          Animated.timing(animatedValue, {
-            toValue: screenHeight,
-            duration: 300,
-            useNativeDriver: false,
-          }).start();
+          // Not enough swipe, return to previous state
+          if (isPanelOpen) {
+            openPanel();
+          } else {
+            closePanel();
+          }
         }
       },
     })
   ).current;
+
+  const openPanel = () => {
+    Animated.timing(animatedValue, {
+      toValue: screenHeight - currentPanelHeight,
+      duration: 300,
+      useNativeDriver: false,
+    }).start(() => {
+      setIsPanelOpen(true);
+    });
+  };
 
   const closePanel = () => {
     Animated.timing(animatedValue, {
       toValue: screenHeight,
       duration: 300,
       useNativeDriver: false,
-    }).start();
+    }).start(() => {
+      setIsPanelOpen(false);
+    });
   };
+
+  // Update animatedValue when outgoingRequests changes and panel is open
+  useEffect(() => {
+    if (isPanelOpen) {
+      Animated.timing(animatedValue, {
+        toValue: screenHeight - calculatePanelHeight(),
+        duration: 300,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [outgoingRequests]);
 
   if (loading) {
     return (
@@ -275,7 +327,7 @@ export default function FriendRequestsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>Incoming Friend Requests</Text>
+      {/* <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>Friend Requests</Text> */}
       {incomingRequests.length === 0 ? (
         <Text style={{ color: theme.colors.onBackground, marginBottom: 20 }}>No incoming friend requests.</Text>
       ) : (
@@ -291,16 +343,10 @@ export default function FriendRequestsScreen() {
       {/* Button to open outgoing requests panel */}
       <TouchableOpacity
         style={[styles.outgoingButton, { backgroundColor: theme.colors.primary }]}
-        onPress={() => {
-          Animated.timing(animatedValue, {
-            toValue: screenHeight - panelHeight,
-            duration: 300,
-            useNativeDriver: false,
-          }).start();
-        }}
+        onPress={openPanel}
       >
-        <AntDesign name="arrowup" size={20} color="#fff" />
-        <Text style={styles.outgoingButtonText}>Show Sent Requests</Text>
+        <Text style={styles.outgoingButtonText}>Sent Requests</Text>
+        <MaterialIcons name="keyboard-arrow-up" size={16} color="#fff" style={{ marginLeft: 4 }} />
       </TouchableOpacity>
 
       {/* Animated Panel for Outgoing Requests */}
@@ -312,6 +358,7 @@ export default function FriendRequestsScreen() {
             backgroundColor: theme.colors.surface,
             borderTopLeftRadius: 20,
             borderTopRightRadius: 20,
+            height: currentPanelHeight,
           },
         ]}
         {...panResponder.panHandlers}
@@ -321,7 +368,7 @@ export default function FriendRequestsScreen() {
             <View style={styles.panelHandle} />
           </View>
           <TouchableOpacity onPress={closePanel} style={styles.closeButton}>
-            <AntDesign name="closecircle" size={24} color="#fff" />
+            <AntDesign name="closecircle" size={15} color="#fff" />
           </TouchableOpacity>
         </View>
         {outgoingRequests.length === 0 ? (
@@ -333,7 +380,8 @@ export default function FriendRequestsScreen() {
             renderItem={({ item }) => (
               <OutgoingRequestItem request={item} onCancel={handleCancelOutgoing} />
             )}
-            contentContainerStyle={{ paddingBottom: 20 }}
+            contentContainerStyle={{ paddingBottom: 40 }} // Zwiększony padding na dole
+            showsVerticalScrollIndicator={true}
           />
         )}
       </Animated.View>
@@ -366,11 +414,13 @@ const FriendRequestItem: React.FC<FriendRequestItemProps> = ({ request, onAccept
 
   return (
     <View style={[styles.requestItem, { borderBottomColor: theme.colors.outline }]}>
-      <Text style={{ color: theme.colors.onBackground }}>{nickname} wants to be your friend.</Text>
+      <Text style={{ color: theme.colors.onBackground, fontSize: 14.4 }}>
+        <Text style={{ fontWeight: '500', color: theme.colors.primary }}>{nickname}</Text> wants to be your friend
+      </Text>
       <View style={styles.requestButtons}>
         <TouchableOpacity
           onPress={() => onAccept(id, senderUid)}
-          style={[styles.iconButton, { backgroundColor: 'green' }]}
+          style={[styles.iconButton, { backgroundColor: theme.colors.primary }]} // Use theme color
           accessibilityLabel="Accept Friend Request"
           accessibilityRole="button"
         >
@@ -378,7 +428,7 @@ const FriendRequestItem: React.FC<FriendRequestItemProps> = ({ request, onAccept
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => onReject(id)}
-          style={[styles.iconButton, { backgroundColor: 'red', marginLeft: 10 }]}
+          style={[styles.iconButton, { backgroundColor: 'rgba(116, 116, 116, 0.3)', marginLeft: 6 }]}
           accessibilityLabel="Reject Friend Request"
           accessibilityRole="button"
         >
@@ -414,14 +464,16 @@ const OutgoingRequestItem: React.FC<OutgoingRequestItemProps> = ({ request, onCa
 
   return (
     <View style={[styles.requestItem, { borderBottomColor: theme.colors.outline }]}>
-      <Text style={{ color: theme.colors.onBackground }}>Friend request sent to {nickname}.</Text>
+      <Text style={{ color: theme.colors.onBackground }}>
+        Friend request sent to <Text style={{ fontWeight: '500', color: '#9f7fc7' }}>{nickname}</Text>
+      </Text>
       <TouchableOpacity
         onPress={() => onCancel(id)}
-        style={[styles.iconButton, { backgroundColor: 'red' }]}
+        style={[styles.iconButtonSend, { backgroundColor: 'rgba(28, 28, 28, 0.21)' }]}
         accessibilityLabel="Cancel Sent Friend Request"
         accessibilityRole="button"
       >
-        <AntDesign name="close" size={16} color="#fff" />
+        <AntDesign name="close" size={11} color="#fff" />
       </TouchableOpacity>
     </View>
   );
@@ -440,6 +492,7 @@ const styles = StyleSheet.create({
   },
   requestItem: {
     paddingVertical: 15,
+    paddingHorizontal: 10,
     borderBottomWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -449,8 +502,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   iconButton: {
-    width: 32, // Reduced size
-    height: 32, // Reduced size
+    width: 23, // Adjusted size
+    height: 23, // Adjusted size
+    borderRadius: 16, // Perfect circle
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconButtonSend: {
+    width: 17, // Adjusted size
+    height: 17, // Adjusted size
     borderRadius: 16, // Perfect circle
     alignItems: 'center',
     justifyContent: 'center',
@@ -464,8 +524,8 @@ const styles = StyleSheet.create({
     borderRadius: 20, // Reduced border radius
     position: 'absolute',
     bottom: 20, // Adjusted position
-    left: '35%', // Centered more
-    right: '35%',
+    left: '33%', // Centered more
+    right: '33%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
@@ -476,13 +536,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginLeft: 6,
     fontWeight: 'bold',
-    fontSize: 14, // Reduced font size
+    fontSize: 13, // Reduced font size
   },
   outgoingPanel: {
     position: 'absolute',
     left: 0,
     right: 0,
-    height: Dimensions.get('window').height * 0.5, // Increased to 50%
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 16,
@@ -503,13 +562,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   panelHandle: {
-    width: 40,
+    width: 60, // Increased width
     height: 5,
     backgroundColor: '#ccc',
     borderRadius: 2.5,
     marginBottom: 10,
   },
   closeButton: {
-    // Adjust position if needed
+    // Możesz dodać dodatkowe style, jeśli potrzebne
   },
 });
