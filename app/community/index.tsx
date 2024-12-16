@@ -64,6 +64,10 @@ export default function CommunityScreen() {
   const router = useRouter();
   const theme = useTheme();
 
+  const navigateToProfile = (uid: string) => {
+    router.push(`/profile/${uid}`);
+  };
+
   const fetchFriendships = useCallback(() => {
     const currentUser = auth.currentUser;
     if (!currentUser) {
@@ -447,6 +451,7 @@ export default function CommunityScreen() {
                     keyExtractor={(item) => item.id}
                     renderItem={({ item }) => (
                       <TouchableOpacity
+                        onPress={() => navigateToProfile(item.userAUid === auth.currentUser?.uid ? item.userBUid : item.userAUid)}
                         onLongPress={() => setActiveFriendId(item.id)}
                         style={[
                           styles.friendItem,
@@ -490,7 +495,10 @@ export default function CommunityScreen() {
                     data={searchResults}
                     keyExtractor={(item) => item.uid}
                     renderItem={({ item }) => (
-                      <View style={[styles.searchItem, { borderBottomColor: theme.colors.outline }]}>
+                      <TouchableOpacity
+                        onPress={() => navigateToProfile(item.uid)}
+                        style={[styles.searchItem, { borderBottomColor: theme.colors.outline }]}
+                      >
                         <Text style={{ color: theme.colors.onBackground, fontSize: 15}}>{item.nickname}</Text>
                         <TouchableOpacity
                           onPress={() => handleAddFriend(item.uid)}
@@ -512,7 +520,7 @@ export default function CommunityScreen() {
                             <Ionicons name="add" size={17} color="#fff" />
                           )}
                         </TouchableOpacity>
-                      </View>
+                      </TouchableOpacity>
                     )}
                   />
                 )}
