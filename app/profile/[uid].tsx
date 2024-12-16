@@ -56,7 +56,7 @@ const removeDuplicates = (countries: Country[]): Country[] => {
 
 const generateUniqueId = () => `rank-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-// Nowy komponent RankingItem z własnymi stylami
+// Nowy komponent ProfileRankingItem z własnymi stylami
 const ProfileRankingItem: React.FC<{ slot: RankingSlot }> = ({ slot }) => {
   const theme = useTheme();
 
@@ -124,8 +124,8 @@ export default function ProfileScreen() {
           countriesVisited: visitedCountryCodes,
         });
 
-        // Tworzenie ranking slots
-        const initialSlots: RankingSlot[] = rankingData.slice(0, 5).map((cca2, index) => {
+        // Tworzenie ranking slots (pełny ranking)
+        const initialSlots: RankingSlot[] = rankingData.map((cca2, index) => {
           const country = mappedCountries.find((c: Country) => c.cca2 === cca2) || null;
           return {
             id: generateUniqueId(),
@@ -252,13 +252,19 @@ export default function ProfileScreen() {
     >
       {/* Nagłówek z przyciskiem powrotu i przełącznikiem motywu */}
       <View style={[profileStyles.header, { paddingTop: height * 0.02 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={[profileStyles.headerButton, { marginLeft: -11, marginRight: -1 }]}>
+        <TouchableOpacity 
+          onPress={() => router.back()} 
+          style={[profileStyles.headerButton, { marginLeft: -11, marginRight: -1 }]}
+        >
           <Ionicons name="arrow-back" size={26} color={theme.colors.onBackground} />
         </TouchableOpacity>
         <Text style={[profileStyles.headerTitle, { color: theme.colors.onBackground }]}>
           Profile
         </Text>
-        <TouchableOpacity onPress={toggleTheme} style={[profileStyles.headerButton, { marginRight: -7 }]}>
+        <TouchableOpacity 
+          onPress={toggleTheme} 
+          style={[profileStyles.headerButton, { marginRight: -7 }]}
+        >
           <Ionicons name={isDarkTheme ? "sunny" : "moon"} size={24} color={theme.colors.onBackground} />
         </TouchableOpacity>
       </View>
@@ -304,7 +310,7 @@ export default function ProfileScreen() {
                 style={[
                   profileStyles.visitedItemContainer,
                   {
-                    backgroundColor: isDarkTheme ? '#262626' : '#f0f0f0',
+                    backgroundColor: isDarkTheme ? theme.colors.surface : '#f0f0f0',
                   }
                 ]}
               >
@@ -468,7 +474,7 @@ const modalStyles = StyleSheet.create({
     bottom: 0,
     height: '90%',
     width: '100%',
-    backgroundColor: '#fff',
+    backgroundColor: '#fff', // Zostanie nadpisane przez dynamiczne tło
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 16,
