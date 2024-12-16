@@ -429,9 +429,15 @@ export default function ProfileScreen() {
 
       {/* Visited Countries Section */}
       <View style={profileStyles.visitedContainer}>
-        <Text style={[profileStyles.sectionTitle, { color: theme.colors.onBackground }]}>
-          Visited Countries ({countriesVisited.length}/218)
-        </Text>
+        {/* Zmodyfikowany tytuł z liczbą odwiedzonych krajów po prawej */}
+        <View style={profileStyles.visitedHeader}>
+          <Text style={[profileStyles.sectionTitle, { color: theme.colors.onBackground }]}>
+            Visited Countries
+          </Text>
+          <Text style={[profileStyles.visitedCount, { color: 'gray' }]}>
+            ({countriesVisited.length}/218)
+          </Text>
+        </View>
         {countriesVisited.length === 0 ? (
           <Text style={{ color: theme.colors.onBackground }}>No visited countries.</Text>
         ) : (
@@ -542,6 +548,17 @@ const profileStyles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 2,
   },
+  visitedHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    // marginBottom: 10, // Dodany margines dolny
+  },
+  visitedCount: {
+    fontSize: 14, // Dopasuj rozmiar czcionki do swoich potrzeb
+    color: 'gray',
+    marginBottom: 10,
+  },
   addFriendButtonText: {
     color: '#fff',
     fontWeight: '600',
@@ -559,6 +576,7 @@ const profileStyles = StyleSheet.create({
     fontSize: 18, // Zmniejszony rozmiar czcionki
     fontWeight: '600',
     marginBottom: 10,
+    marginLeft: 2
   },
   showAllRankingButton: {
     fontSize: 14, // Mniejszy rozmiar czcionki
@@ -589,13 +607,15 @@ const profileStyles = StyleSheet.create({
   visitedList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    marginLeft: -5,
+    marginRight: -5,
   },
   visitedItemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    margin: 6,
+    margin: 5.4,
     borderRadius: 8,
   },
   visitedItemText: {
