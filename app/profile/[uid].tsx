@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { db, auth } from '../config/firebaseConfig';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, writeBatch, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { useTheme } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import countriesData from '../../assets/maps/countries.json';
@@ -44,6 +44,12 @@ interface RankingSlot {
   id: string;
   rank: number;
   country: Country | null;
+}
+
+interface FriendRequest {
+  senderUid: string;
+  receiverUid: string;
+  status: string;
 }
 
 const removeDuplicates = (countries: Country[]): Country[] => {
@@ -92,6 +98,9 @@ export default function ProfileScreen() {
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
   const { width, height } = Dimensions.get('window');
   const [isRankingModalVisible, setIsRankingModalVisible] = useState(false);
+
+  // Nowe stany dla przycisku "Add to Friends"
+  const [friendStatus, setFriendStatus] = useState<'none' | 'sent' | 'friend'>('none');
 
   const mappedCountries: Country[] = useMemo(() => {
     return countriesData.countries.map((country) => ({
@@ -145,6 +154,14 @@ export default function ProfileScreen() {
         // Usuń duplikaty
         const uniqueVisitedCountries = removeDuplicates(visitedCountries);
         setCountriesVisited(uniqueVisitedCountries);
+
+        // Sprawdź status przyjaźni
+        if (auth.currentUser) {
+          const currentUserUid = auth.currentUser.uid;
+          if (currentUserUid !== uid) {
+            checkFriendStatus(currentUserUid, uid as string);
+          }
+        }
       } else {
         console.log('User document does not exist.');
         Alert.alert('Error', 'User does not exist.');
@@ -156,6 +173,65 @@ export default function ProfileScreen() {
       setLoading(false);
     }
   }, [uid, mappedCountries]);
+
+  // Funkcja sprawdzająca status przyjaźni
+  const checkFriendStatus = async (currentUserUid: string, profileUserUid: string) => {
+    try {
+      // Sprawdź, czy są już przyjaciółmi (userAUid == currentUserUid AND userBUid == profileUserUid)
+      const friendshipQuery1 = query(
+        collection(db, 'friendships'),
+        where('userAUid', '==', currentUserUid),
+        where('userBUid', '==', profileUserUid),
+        where('status', '==', 'accepted')
+      );
+      const friendshipSnapshot1 = await getDocs(friendshipQuery1);
+      
+      // Sprawdź, czy są już przyjaciółmi (userAUid == profileUserUid AND userBUid == currentUserUid)
+      const friendshipQuery2 = query(
+        collection(db, 'friendships'),
+        where('userAUid', '==', profileUserUid),
+        where('userBUid', '==', currentUserUid),
+        where('status', '==', 'accepted')
+      );
+      const friendshipSnapshot2 = await getDocs(friendshipQuery2);
+      
+      if (!friendshipSnapshot1.empty || !friendshipSnapshot2.empty) {
+        setFriendStatus('friend');
+        return;
+      }
+      
+      // Sprawdź, czy wysłano zaproszenie (senderUid == currentUserUid AND receiverUid == profileUserUid)
+      const outgoingRequestQuery = query(
+        collection(db, 'friendRequests'),
+        where('senderUid', '==', currentUserUid),
+        where('receiverUid', '==', profileUserUid),
+        where('status', '==', 'pending')
+      );
+      const outgoingSnapshot = await getDocs(outgoingRequestQuery);
+      if (!outgoingSnapshot.empty) {
+        setFriendStatus('sent');
+        return;
+      }
+      
+      // Sprawdź, czy otrzymano zaproszenie (senderUid == profileUserUid AND receiverUid == currentUserUid)
+      const incomingRequestQuery = query(
+        collection(db, 'friendRequests'),
+        where('senderUid', '==', profileUserUid),
+        where('receiverUid', '==', currentUserUid),
+        where('status', '==', 'pending')
+      );
+      const incomingSnapshot = await getDocs(incomingRequestQuery);
+      if (!incomingSnapshot.empty) {
+        setFriendStatus('none'); // Możesz dodać opcję akceptacji zaproszenia
+        return;
+      }
+      
+      setFriendStatus('none');
+    } catch (error) {
+      console.error('Error checking friend status:', error);
+      setFriendStatus('none');
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -174,58 +250,99 @@ export default function ProfileScreen() {
     return () => unsubscribe();
   }, [fetchUserProfile, router]);
 
-  const handleAddToRanking = async (country: Country) => {
+  const handleAddFriend = async () => {
     const currentUser = auth.currentUser;
-    if (!currentUser) {
-      Alert.alert('Error', 'You need to be logged in to add to ranking.');
+    if (!currentUser || !userProfile) {
+      Alert.alert('Error', 'You need to be logged in to add friends.');
       return;
     }
 
-    if (currentUser.uid !== uid) {
-      Alert.alert('Error', 'You can only modify your own ranking.');
+    const senderUid = currentUser.uid;
+    const receiverUid = userProfile.uid;
+
+    if (senderUid === receiverUid) {
+      Alert.alert('Error', 'You cannot add yourself as a friend.');
       return;
     }
+
+    const friendRequestData = {
+      senderUid: senderUid,
+      receiverUid: receiverUid,
+      status: 'pending',
+      createdAt: serverTimestamp(),
+    };
+
+    console.log('Sending friend request with data:', friendRequestData);
 
     try {
-      const userDocRef = doc(db, 'users', currentUser.uid);
-      const userDocSnap = await getDoc(userDocRef);
+      // Sprawdź, czy już są przyjaciółmi
+      const friendshipQuery1 = query(
+        collection(db, 'friendships'),
+        where('userAUid', '==', senderUid),
+        where('userBUid', '==', receiverUid),
+        where('status', '==', 'accepted')
+      );
+      const friendshipSnapshot1 = await getDocs(friendshipQuery1);
 
-      if (userDocSnap.exists()) {
-        const data = userDocSnap.data() as UserProfile;
-        const currentRanking: string[] = data.ranking || [];
+      const friendshipQuery2 = query(
+        collection(db, 'friendships'),
+        where('userAUid', '==', receiverUid),
+        where('userBUid', '==', senderUid),
+        where('status', '==', 'accepted')
+      );
+      const friendshipSnapshot2 = await getDocs(friendshipQuery2);
 
-        if (currentRanking.length >= 5) {
-          Alert.alert('Info', 'You have reached the maximum number of ranked countries.');
-          return;
-        }
-
-        if (currentRanking.includes(country.cca2)) {
-          Alert.alert('Info', 'This country is already in your ranking.');
-          return;
-        }
-
-        // Dodaj kraj do rankingu
-        await updateDoc(userDocRef, {
-          ranking: [...currentRanking, country.cca2],
-        });
-
-        Alert.alert('Success', `${country.name} has been added to your ranking.`);
-        // Aktualizuj lokalny stan
-        setRankingSlots(prev => [
-          ...prev,
-          {
-            id: generateUniqueId(),
-            rank: prev.length + 1,
-            country: country,
-          }
-        ]);
-        setCountriesVisited(prev => prev.filter(c => c.cca2 !== country.cca2));
-      } else {
-        Alert.alert('Error', 'User does not exist.');
+      if (!friendshipSnapshot1.empty || !friendshipSnapshot2.empty) {
+        Alert.alert('Info', 'You are already friends with this user.');
+        setFriendStatus('friend');
+        return;
       }
+
+      // Sprawdź, czy istnieje już wysłane zaproszenie
+      const outgoingRequestQuery = query(
+        collection(db, 'friendRequests'),
+        where('senderUid', '==', senderUid),
+        where('receiverUid', '==', receiverUid),
+        where('status', '==', 'pending')
+      );
+      const outgoingSnapshot = await getDocs(outgoingRequestQuery);
+      if (!outgoingSnapshot.empty) {
+        Alert.alert('Info', 'You have already sent a friend request to this user.');
+        setFriendStatus('sent');
+        return;
+      }
+
+      // Sprawdź, czy profileUser wysłał zaproszenie do currentUser
+      const incomingRequestQuery = query(
+        collection(db, 'friendRequests'),
+        where('senderUid', '==', receiverUid),
+        where('receiverUid', '==', senderUid),
+        where('status', '==', 'pending')
+      );
+      const incomingSnapshot = await getDocs(incomingRequestQuery);
+      if (!incomingSnapshot.empty) {
+        Alert.alert('Info', 'This user has already sent you a friend request.');
+        return;
+      }
+
+      // Dodaj zaproszenie do przyjaciół
+      const batch = writeBatch(db);
+
+      const friendRequestRef = doc(collection(db, 'friendRequests'));
+      batch.set(friendRequestRef, {
+        senderUid: senderUid,
+        receiverUid: receiverUid,
+        status: 'pending',
+        createdAt: serverTimestamp(),
+      });
+
+      await batch.commit();
+
+      Alert.alert('Success', 'Friend request sent!');
+      setFriendStatus('sent');
     } catch (error) {
-      console.error('Error adding to ranking:', error);
-      Alert.alert('Error', 'Failed to add country to ranking.');
+      console.error('Error sending friend request:', error);
+      Alert.alert('Error', 'Failed to send friend request.');
     }
   };
 
@@ -278,6 +395,22 @@ export default function ProfileScreen() {
         <Text style={[profileStyles.userEmail, { color: 'gray' }]}>
           {userProfile.email}
         </Text>
+
+        {/* Przycisk "Add to Friends" */}
+        {auth.currentUser?.uid !== userProfile.uid && (
+          <TouchableOpacity
+            onPress={handleAddFriend}
+            style={[
+              profileStyles.addFriendButton,
+              { backgroundColor: friendStatus === 'sent' ? '#ccc' : theme.colors.primary }
+            ]}
+            disabled={friendStatus === 'sent' || friendStatus === 'friend'}
+          >
+            <Text style={profileStyles.addFriendButtonText}>
+              {friendStatus === 'friend' ? 'Friend' : (friendStatus === 'sent' ? 'Request Sent' : 'Add')}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Ranking Section */}
@@ -397,6 +530,24 @@ const profileStyles = StyleSheet.create({
     color: 'gray',
     marginBottom: 6
   },
+  addFriendButton: {
+    marginTop: 5,
+    paddingVertical: 5.5,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 2, // Dodanie cienia (opcjonalnie)
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  addFriendButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+  },
   rankingContainer: {
     marginBottom: 25,
   },
@@ -412,7 +563,6 @@ const profileStyles = StyleSheet.create({
   },
   showAllRankingButton: {
     fontSize: 14, // Mniejszy rozmiar czcionki
-    // color: 'purple', // Usunięto statyczny kolor
     textDecorationLine: 'none', // Usunięto podkreślenie
     marginBottom: 6,
   },
