@@ -27,6 +27,7 @@ import {
 import { useTheme } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import { AntDesign, Feather, MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router'; // Dodany router
 
 interface FriendRequest {
   id: string;
@@ -55,6 +56,7 @@ export default function FriendRequestsScreen() {
   const [outgoingRequests, setOutgoingRequests] = useState<FriendRequest[]>([]);
   const [friends, setFriends] = useState<string[]>([]);
   const theme = useTheme();
+  const router = useRouter(); // Dodany router
 
   // Animation for outgoing requests panel
   const screenHeight = Dimensions.get('window').height;
@@ -327,7 +329,7 @@ export default function FriendRequestsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>Friend Requests</Text> */}
+      {/* Incoming Friend Requests */}
       {incomingRequests.length === 0 ? (
         <Text style={{ color: theme.colors.onBackground, marginBottom: 20 }}>No incoming friend requests.</Text>
       ) : (
@@ -368,7 +370,7 @@ export default function FriendRequestsScreen() {
             <View style={styles.panelHandle} />
           </View>
           <TouchableOpacity onPress={closePanel} style={styles.closeButton}>
-            {/* <AntDesign name="closecircle" size={15} color="#fff" /> */}
+            {/* Możesz dodać ikonę zamknięcia, jeśli chcesz */}
           </TouchableOpacity>
         </View>
         {outgoingRequests.length === 0 ? (
@@ -393,6 +395,7 @@ const FriendRequestItem: React.FC<FriendRequestItemProps> = ({ request, onAccept
   const [nickname, setNickname] = useState('');
   const theme = useTheme();
   const { senderUid, id } = request;
+  const router = useRouter(); // Dodany router
 
   useEffect(() => {
     const fetchNickname = async () => {
@@ -412,30 +415,36 @@ const FriendRequestItem: React.FC<FriendRequestItemProps> = ({ request, onAccept
     fetchNickname();
   }, [senderUid]);
 
+  const navigateToProfile = () => {
+    router.push(`/profile/${senderUid}`);
+  };
+
   return (
-    <View style={[styles.requestItem, { borderBottomColor: theme.colors.outline }]}>
-      <Text style={{ color: theme.colors.onBackground, fontSize: 14.4 }}>
-        <Text style={{ fontWeight: '500', color: theme.colors.primary }}>{nickname}</Text> wants to be your friend
-      </Text>
-      <View style={styles.requestButtons}>
-        <TouchableOpacity
-          onPress={() => onAccept(id, senderUid)}
-          style={[styles.iconButton, { backgroundColor: theme.colors.primary }]} // Use theme color
-          accessibilityLabel="Accept Friend Request"
-          accessibilityRole="button"
-        >
-          <AntDesign name="check" size={16} color="#fff" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => onReject(id)}
-          style={[styles.iconButton, { backgroundColor: 'rgba(116, 116, 116, 0.3)', marginLeft: 6 }]}
-          accessibilityLabel="Reject Friend Request"
-          accessibilityRole="button"
-        >
-          <AntDesign name="close" size={16} color="#fff" />
-        </TouchableOpacity>
+    <TouchableOpacity onPress={navigateToProfile} activeOpacity={0.7}>
+      <View style={[styles.requestItem, { borderBottomColor: theme.colors.outline }]}>
+        <Text style={{ color: theme.colors.onBackground, fontSize: 14.4 }}>
+          <Text style={{ fontWeight: '500', color: theme.colors.primary }}>{nickname}</Text> wants to be your friend
+        </Text>
+        <View style={styles.requestButtons}>
+          <TouchableOpacity
+            onPress={() => onAccept(id, senderUid)}
+            style={[styles.iconButton, { backgroundColor: theme.colors.primary }]}
+            accessibilityLabel="Accept Friend Request"
+            accessibilityRole="button"
+          >
+            <AntDesign name="check" size={16} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => onReject(id)}
+            style={[styles.iconButton, { backgroundColor: 'rgba(116, 116, 116, 0.3)', marginLeft: 6 }]}
+            accessibilityLabel="Reject Friend Request"
+            accessibilityRole="button"
+          >
+            <AntDesign name="close" size={16} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -443,6 +452,7 @@ const OutgoingRequestItem: React.FC<OutgoingRequestItemProps> = ({ request, onCa
   const [nickname, setNickname] = useState('');
   const theme = useTheme();
   const { receiverUid, id } = request;
+  const router = useRouter(); // Dodany router
 
   useEffect(() => {
     const fetchNickname = async () => {
@@ -462,20 +472,26 @@ const OutgoingRequestItem: React.FC<OutgoingRequestItemProps> = ({ request, onCa
     fetchNickname();
   }, [receiverUid]);
 
+  const navigateToProfile = () => {
+    router.push(`/profile/${receiverUid}`);
+  };
+
   return (
-    <View style={[styles.requestItem, { borderBottomColor: theme.colors.outline }]}>
-      <Text style={{ color: theme.colors.onBackground }}>
-        Friend request sent to <Text style={{ fontWeight: '500', color: '#9f7fc7' }}>{nickname}</Text>
-      </Text>
-      <TouchableOpacity
-        onPress={() => onCancel(id)}
-        style={[styles.iconButtonSend, { backgroundColor: 'rgba(116, 116, 116, 0.3)' }]}
-        accessibilityLabel="Cancel Sent Friend Request"
-        accessibilityRole="button"
-      >
-        <AntDesign name="close" size={11} color="#fff" />
-      </TouchableOpacity>
-    </View>
+    <TouchableOpacity onPress={navigateToProfile} activeOpacity={0.7}>
+      <View style={[styles.requestItem, { borderBottomColor: theme.colors.outline }]}>
+        <Text style={{ color: theme.colors.onBackground }}>
+          Friend request sent to <Text style={{ fontWeight: '500', color: '#9f7fc7' }}>{nickname}</Text>
+        </Text>
+        <TouchableOpacity
+          onPress={() => onCancel(id)}
+          style={[styles.iconButtonSend, { backgroundColor: 'rgba(116, 116, 116, 0.3)' }]}
+          accessibilityLabel="Cancel Sent Friend Request"
+          accessibilityRole="button"
+        >
+          <AntDesign name="close" size={11} color="#fff" />
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
   );
 };
 
