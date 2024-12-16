@@ -1,4 +1,3 @@
-// AccountScreen.tsx
 import React, { useContext, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
@@ -12,6 +11,7 @@ import {
   TouchableWithoutFeedback,
   LayoutAnimation,
   Platform,
+  FlatList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ThemeContext } from '../config/ThemeContext';
@@ -270,77 +270,76 @@ export default function RankingScreen() {
   };
 
   return (
-    <TouchableWithoutFeedback onPress={() => setActiveRankingItemId(null)}>
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        {/* Nagłówek z przyciskiem powrotu i przełącznikiem motywu */}
-        <View style={[styles.header, { paddingTop: height * 0.03 }]}>
-          <TouchableOpacity onPress={handleGoBack} style={[styles.headerButton, { marginLeft: -19 }]}>
-            <Ionicons name="arrow-back" size={26} color={theme.colors.onBackground} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: theme.colors.onBackground }]}>Rank Countries</Text>
-          <TouchableOpacity onPress={toggleTheme} style={[styles.headerButton, { marginRight: -16 }]}>
-            <Ionicons name={isDarkTheme ? "sunny" : "moon"} size={24} color={theme.colors.onBackground} />
-          </TouchableOpacity>
-        </View>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {/* Nagłówek z przyciskiem powrotu i przełącznikiem motywu */}
+      <View style={[styles.header, { paddingTop: height * 0.03 }]}>
+        <TouchableOpacity onPress={handleGoBack} style={[styles.headerButton, { marginLeft: -19 }]}>
+          <Ionicons name="arrow-back" size={26} color={theme.colors.onBackground} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: theme.colors.onBackground }]}>Rank Countries</Text>
+        <TouchableOpacity onPress={toggleTheme} style={[styles.headerButton, { marginRight: -16 }]}>
+          <Ionicons name={isDarkTheme ? "sunny" : "moon"} size={24} color={theme.colors.onBackground} />
+        </TouchableOpacity>
+      </View>
 
-        {/* Visited Countries */}
-        {countriesVisited.length > 0 && (
-          <View style={[styles.visitedContainer, { marginTop: height * 0.03 }]}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.onBackground, marginLeft: 4 }]}>
-              Visited Countries
-            </Text>
-            <ScrollView
-              horizontal={true}
-              contentContainerStyle={styles.visitedScrollContainer}
-              showsHorizontalScrollIndicator={false}
-            >
-              {countriesVisited.map((country) => (
-                <View key={`visited-${country.id}`} style={[
-                  styles.visitedItemContainer,
-                  {
-                    backgroundColor: isDarkTheme ? '#171717' : '#fff',
+      {/* Visited Countries */}
+      {countriesVisited.length > 0 && (
+        <View style={[styles.visitedContainer, { marginTop: height * 0.03 }]}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.onBackground, marginLeft: 4 }]}>
+            Visited Countries
+          </Text>
+          <FlatList
+            data={countriesVisited}
+            keyExtractor={(country) => `visited-${country.id}`}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.visitedScrollContainer}
+            renderItem={({ item }) => (
+              <View key={`visited-${item.id}`} style={[
+                styles.visitedItemContainer,
+                {
+                  backgroundColor: isDarkTheme ? '#171717' : '#fff',
+                }
+              ]}>
+                <CountryFlag isoCode={item.cca2} size={20} style={styles.flag} />
+                <Text style={[
+                  styles.visitedItemText, 
+                  { 
+                    color: isDarkTheme ? '#fff' : theme.colors.onSurface, 
+                    marginLeft: 6 
                   }
                 ]}>
-                  <CountryFlag isoCode={country.cca2} size={20} style={styles.flag} />
-                  <Text style={[
-                    styles.visitedItemText, 
-                    { 
-                      color: isDarkTheme ? '#fff' : theme.colors.onSurface, 
-                      marginLeft: 6 
-                    }
-                  ]}>
-                    {country.name}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => handleAddToRanking(country)}
-                    style={styles.addButtonIcon}
-                  >
-                    <Ionicons name="add-circle" size={23} color="green" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Ranking */}
-        <View style={[styles.rankingContainer, { marginTop: countriesVisited.length > 0 ? height * 0.013 : height * 0.02, flex: 1 }]}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
-            Ranking
-          </Text>
-          <DraggableFlatList
-            data={rankingSlots}
-            keyExtractor={(item) => item.id} // Użyj unikalnego id
-            renderItem={renderRankingItem}
-            onDragEnd={handleDragEnd}
-            activationDistance={20}
-            scrollEnabled={true}
-            showsVerticalScrollIndicator={true} // Zawsze widoczny pasek przewijania
-            contentContainerStyle={{ paddingBottom: 5 }}
+                  {item.name}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => handleAddToRanking(item)}
+                  style={styles.addButtonIcon}
+                >
+                  <Ionicons name="add-circle" size={23} color="green" />
+                </TouchableOpacity>
+              </View>
+            )}
           />
         </View>
+      )}
+
+      {/* Ranking */}
+      <View style={[styles.rankingContainer, { marginTop: countriesVisited.length > 0 ? height * 0.024 : height * 0.02, flex: 1 }]}>
+        <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
+          Ranking
+        </Text>
+        <DraggableFlatList
+          data={rankingSlots}
+          keyExtractor={(item) => item.id}
+          renderItem={renderRankingItem}
+          onDragEnd={handleDragEnd}
+          activationDistance={20}
+          scrollEnabled={true}
+          showsVerticalScrollIndicator={true}
+          contentContainerStyle={{ paddingBottom: 5 }}
+        />
       </View>
-    </TouchableWithoutFeedback>
+    </View>
   );
 }
 
@@ -376,24 +375,25 @@ const styles = StyleSheet.create({
   },
   visitedScrollContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'flex-start',
+    // flexWrap: 'wrap',
+    alignItems: 'center',
     // paddingTop: 5,
-  },
-  visitedItemContainer: {
+    },
+    visitedItemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12, // Zwiększenie poziomego paddingu
     paddingVertical: 8, // Zwiększenie pionowego paddingu
-    margin: 6, // Zmniejszenie marginesu dla lepszego układu
+    marginLeft: 6, 
+    marginRight: 6, 
     borderRadius: 8, // Zwiększenie promienia
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
-  },
-  visitedItemText: {
+    },
+    visitedItemText: {
     fontSize: 14, // Zwiększenie rozmiaru fontu
     fontWeight: '600',
   },
