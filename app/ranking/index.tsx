@@ -285,7 +285,7 @@ export default function RankingScreen() {
       {/* Visited Countries */}
       {countriesVisited.length > 0 && (
         <View style={[styles.visitedContainer, { marginTop: height * 0.03 }]}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.onBackground, marginLeft: 4 }]}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.onBackground, marginLeft: 4, paddingBottom: -1 }]}>
             Visited Countries
           </Text>
           <FlatList
@@ -377,7 +377,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     // flexWrap: 'wrap',
     alignItems: 'center',
-    // paddingTop: 5,
+    paddingTop: 1,
+    paddingBottom: 1,
     },
     visitedItemContainer: {
     flexDirection: 'row',
