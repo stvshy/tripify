@@ -268,12 +268,6 @@ export default function ProfileScreen() {
                   ]}>
                     {country.name}
                   </Text>
-                  <TouchableOpacity
-                    onPress={() => handleAddToRanking(country)}
-                    style={styles.addButtonIcon}
-                  >
-                    <Ionicons name="add-circle" size={23} color="green" />
-                  </TouchableOpacity>
                 </View>
               ))}
             </ScrollView>
