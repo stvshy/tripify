@@ -505,7 +505,7 @@ export default function ProfileScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => handleDeclineRequest(userProfile.uid)}
-                style={[profileStyles.declineButton, { backgroundColor: 'gray' }]}
+                style={[profileStyles.declineButton, { backgroundColor:'rgba(116, 116, 116, 0.3)' }]}
                 accessibilityLabel="Decline Friend Request"
                 accessibilityRole="button"
               >
@@ -574,7 +574,7 @@ export default function ProfileScreen() {
                 style={[
                   profileStyles.visitedItemContainer,
                   {
-                    backgroundColor: isDarkTheme ? theme.colors.surface : '#f0f0f0',
+                    backgroundColor: isDarkTheme ? '#262626' : '#f0f0f0',
                   }
                 ]}
               >
@@ -664,22 +664,30 @@ const profileStyles = StyleSheet.create({
   friendActionButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: '60%', // Dostosuj szerokość według potrzeb
+    width: '48%', // Dostosuj szerokość według potrzeb
     marginTop: 10,
   },
   acceptButton: {
     flex: 1,
-    paddingVertical: 8,
-    borderRadius: 5,
+    // marginTop: 2,
+    paddingVertical: 5.5,
+    borderRadius: 20,
     alignItems: 'center',
-    marginRight: 5,
+    marginRight: 3,
+    elevation: 2, // Dodanie cienia (opcjonalnie)
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
   declineButton: {
     flex: 1,
-    paddingVertical: 8,
-    borderRadius: 5,
+    // marginTop: 2,
+    paddingVertical: 5.5,
+    // paddingHorizontal: 3,
+    borderRadius: 20,
     alignItems: 'center',
-    marginLeft: 5,
+    marginLeft: 3,
   },
   buttonText: {
     color: '#fff',
