@@ -10,7 +10,7 @@ import {
   Alert, 
   Dimensions, 
   Modal, 
-  TouchableWithoutFeedback
+  TouchableWithoutFeedback 
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { db, auth } from '../config/firebaseConfig';
@@ -19,9 +19,8 @@ import { useTheme } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import countriesData from '../../assets/maps/countries.json';
 import CountryFlag from 'react-native-country-flag';
-import RankingItem from '../../components/RankItem';
+import RankingList from '../../components/RankingList'; // Upewnij się, że ścieżka jest poprawna
 import { ThemeContext } from '../config/ThemeContext';
-import RankingScreen from '../../components/RankingScreen'; // Upewnij się, że ścieżka jest poprawna
 
 interface Country {
   id: string;
@@ -253,20 +252,20 @@ export default function ProfileScreen() {
     >
       {/* Nagłówek z przyciskiem powrotu i przełącznikiem motywu */}
       <View style={[profileStyles.header, { paddingTop: height * 0.02 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={profileStyles.headerButton}>
-          <Ionicons name="arrow-back" size={24} color={theme.colors.onBackground} />
+        <TouchableOpacity onPress={() => router.back()} style={[profileStyles.headerButton, { marginLeft: -11, marginRight: -1 }]}>
+          <Ionicons name="arrow-back" size={26} color={theme.colors.onBackground} />
         </TouchableOpacity>
         <Text style={[profileStyles.headerTitle, { color: theme.colors.onBackground }]}>
           Profile
         </Text>
-        <TouchableOpacity onPress={toggleTheme} style={profileStyles.headerButton}>
+        <TouchableOpacity onPress={toggleTheme} style={[profileStyles.headerButton, { marginRight: -7 }]}>
           <Ionicons name={isDarkTheme ? "sunny" : "moon"} size={24} color={theme.colors.onBackground} />
         </TouchableOpacity>
       </View>
 
       {/* User Panel */}
       <View style={profileStyles.userPanel}>
-        <Ionicons name="person-circle" size={80} color={theme.colors.primary} />
+        <Ionicons name="person-circle" size={100} color={theme.colors.primary} />
         <Text style={[profileStyles.userName, { color: theme.colors.onBackground }]}>
           {userProfile.nickname}
         </Text>
@@ -282,16 +281,12 @@ export default function ProfileScreen() {
             Ranking
           </Text>
           <TouchableOpacity onPress={() => setIsRankingModalVisible(true)}>
-            <Text style={profileStyles.showAllRankingButton}>Show All Ranking</Text>
+            <Text style={[profileStyles.showAllRankingButton, { color: theme.colors.primary }]}>
+              Show Full Ranking
+            </Text>
           </TouchableOpacity>
         </View>
-        {rankingSlots.length === 0 ? (
-          <Text style={{ color: theme.colors.onBackground }}>No ranking available.</Text>
-        ) : (
-          rankingSlots.map((slot) => (
-            <ProfileRankingItem key={slot.id} slot={slot} />
-          ))
-        )}
+        <RankingList rankingSlots={rankingSlots.slice(0, 5)} />
       </View>
 
       {/* Visited Countries Section */}
@@ -309,7 +304,7 @@ export default function ProfileScreen() {
                 style={[
                   profileStyles.visitedItemContainer,
                   {
-                    backgroundColor: isDarkTheme ? '#444' : '#f0f0f0',
+                    backgroundColor: isDarkTheme ? '#262626' : '#f0f0f0',
                   }
                 ]}
               >
@@ -339,7 +334,7 @@ export default function ProfileScreen() {
         <TouchableWithoutFeedback onPress={() => setIsRankingModalVisible(false)}>
           <View style={modalStyles.modalOverlay} />
         </TouchableWithoutFeedback>
-        <View style={modalStyles.modalContent}>
+        <View style={[modalStyles.modalContent, { backgroundColor: theme.colors.background }]}>
           <View style={modalStyles.modalHeader}>
             <Text style={[modalStyles.modalTitle, { color: theme.colors.onBackground }]}>
               Full Ranking
@@ -349,13 +344,7 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={modalStyles.modalScrollContent}>
-            {rankingSlots.length === 0 ? (
-              <Text style={{ color: theme.colors.onBackground }}>No ranking available.</Text>
-            ) : (
-              rankingSlots.map((slot) => (
-                <ProfileRankingItem key={slot.id} slot={slot} />
-              ))
-            )}
+            <RankingList rankingSlots={rankingSlots} />
           </ScrollView>
         </View>
       </Modal>
@@ -392,14 +381,15 @@ const profileStyles = StyleSheet.create({
     marginBottom: 25,
   },
   userName: {
-    marginTop: 8,
-    fontSize: 20, // Zmniejszony rozmiar czcionki
-    fontWeight: '600',
+    marginTop: -2,
+    fontSize: 18, // Zmniejszony rozmiar czcionki
+    fontWeight: '500',
   },
   userEmail: {
-    marginTop: 4,
-    fontSize: 14, // Zmniejszony rozmiar czcionki
+    marginTop: 3,
+    fontSize: 12, // Zmniejszony rozmiar czcionki
     color: 'gray',
+    marginBottom: 6
   },
   rankingContainer: {
     marginBottom: 25,
@@ -416,8 +406,9 @@ const profileStyles = StyleSheet.create({
   },
   showAllRankingButton: {
     fontSize: 14, // Mniejszy rozmiar czcionki
-    color: 'purple',
-    textDecorationLine: 'underline',
+    // color: 'purple', // Usunięto statyczny kolor
+    textDecorationLine: 'none', // Usunięto podkreślenie
+    marginBottom: 6,
   },
   rankingItemContainer: {
     flexDirection: 'row',
@@ -491,6 +482,7 @@ const modalStyles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '600',
+    marginBottom: 10,
   },
   modalScrollContent: {
     paddingBottom: 20,

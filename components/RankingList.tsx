@@ -37,12 +37,12 @@ const RankingList: React.FC<RankingListProps> = ({ rankingSlots }) => {
               {slot.rank}.
             </Text>
             {slot.country ? (
-              <>
+                <>
                 <CountryFlag isoCode={slot.country.cca2} size={20} style={styles.flag} />
                 <Text style={[styles.countryName, { color: theme.colors.onSurface }]}>
-                  {slot.country.name}
+                  {'  '}{slot.country.name}
                 </Text>
-              </>
+                </>
             ) : (
               <Text style={[styles.countryName, { color: theme.colors.onSurface }]}>
                 Unknown
@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 12,
-    marginBottom: 10,
+    marginBottom: 8,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#ccc',
