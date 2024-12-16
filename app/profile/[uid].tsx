@@ -144,14 +144,13 @@ export default function ProfileScreen() {
         });
         setRankingSlots(initialSlots);
 
-        // Filtruj visited countries, aby wykluczyć te już w rankingu
+        // Filtruj visited countries bez wykluczania krajów z rankingu
         const visitedCountries: Country[] = mappedCountries.filter(
           (country: Country) =>
-            visitedCountryCodes.includes(country.cca2) &&
-            !rankingData.includes(country.cca2)
+            visitedCountryCodes.includes(country.cca2)
         );
 
-        // Usuń duplikaty
+        // Usuń duplikaty (opcjonalne)
         const uniqueVisitedCountries = removeDuplicates(visitedCountries);
         setCountriesVisited(uniqueVisitedCountries);
 
@@ -431,7 +430,7 @@ export default function ProfileScreen() {
       {/* Visited Countries Section */}
       <View style={profileStyles.visitedContainer}>
         <Text style={[profileStyles.sectionTitle, { color: theme.colors.onBackground }]}>
-          Visited Countries
+          Visited Countries ({countriesVisited.length}/218)
         </Text>
         {countriesVisited.length === 0 ? (
           <Text style={{ color: theme.colors.onBackground }}>No visited countries.</Text>
