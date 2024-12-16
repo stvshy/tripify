@@ -9,8 +9,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import CountryFlag from 'react-native-country-flag';
-import { Country } from '../.expo/types/country'; // Ensure the path is correct
 import { useTheme } from 'react-native-paper';
+
+interface Country {
+  cca2: string;
+  name: string;
+}
 
 interface RankingItemProps {
   slot: {

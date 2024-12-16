@@ -194,7 +194,7 @@ export default function RankingScreen() {
             backgroundColor: isActive || activeRankingItemId === item.id
               ? isDarkTheme ? '#333333' : '#e3e3e3'
               : theme.colors.surface,
-            paddingVertical: height * 0.014,
+            paddingVertical: height * 0.011,
             paddingHorizontal: width * 0.04,
             marginBottom: 7, // Zmniejszenie marginesu dolnego
             borderRadius: 15, // Zwiększone zaokrąglenie
@@ -289,7 +289,11 @@ export default function RankingScreen() {
             <Text style={[styles.sectionTitle, { color: theme.colors.onBackground, marginLeft: 4 }]}>
               Visited Countries
             </Text>
-            <ScrollView contentContainerStyle={styles.visitedScrollContainer}>
+            <ScrollView
+              horizontal={true}
+              contentContainerStyle={styles.visitedScrollContainer}
+              showsHorizontalScrollIndicator={false}
+            >
               {countriesVisited.map((country) => (
                 <View key={`visited-${country.id}`} style={[
                   styles.visitedItemContainer,
@@ -320,7 +324,7 @@ export default function RankingScreen() {
         )}
 
         {/* Ranking */}
-        <View style={[styles.rankingContainer, { marginTop: countriesVisited.length > 0 ? height * 0.02 : height * 0.02 }]}>
+        <View style={[styles.rankingContainer, { marginTop: countriesVisited.length > 0 ? height * 0.013 : height * 0.02, flex: 1 }]}>
           <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
             Ranking
           </Text>
@@ -332,6 +336,7 @@ export default function RankingScreen() {
             activationDistance={20}
             scrollEnabled={true}
             showsVerticalScrollIndicator={true} // Zawsze widoczny pasek przewijania
+            contentContainerStyle={{ paddingBottom: 5 }}
           />
         </View>
       </View>
@@ -359,12 +364,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   sectionTitle: {
-    fontSize: 20, // Zwiększenie rozmiaru fontu
-    marginBottom: 12, // Zwiększenie marginesu
+    fontSize: 17.2, // Zwiększenie rozmiaru fontu
+    marginBottom: 13, // Zwiększenie marginesu
     fontWeight: '600',
+    marginLeft: 1
   },
   visitedContainer: {
-    marginBottom: 5, // Zachowany margines dolny
+    // marginBottom: 5, // Zachowany margines dolny
     marginLeft: -4,
     marginRight: -4,
   },
@@ -372,6 +378,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'flex-start',
+    // paddingTop: 5,
   },
   visitedItemContainer: {
     flexDirection: 'row',
@@ -395,7 +402,7 @@ const styles = StyleSheet.create({
     marginRight: -3
   },
   rankingContainer: {
-    marginBottom: 20, // Zachowany margines dolny
+    marginBottom: -13, // Zachowany margines dolny
     flex: 1, // Pozwól na rozciąganie
   },
   rankingSlot: {
