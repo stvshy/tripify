@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { db, auth } from '../config/firebaseConfig';
-import { doc, getDoc, updateDoc, writeBatch, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, writeBatch, collection, query, where, getDocs, serverTimestamp, arrayUnion } from 'firebase/firestore';
 import { useTheme } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import countriesData from '../../assets/maps/countries.json';
@@ -100,7 +100,7 @@ export default function ProfileScreen() {
   const [isRankingModalVisible, setIsRankingModalVisible] = useState(false);
 
   // Nowe stany dla przycisku "Add to Friends"
-  const [friendStatus, setFriendStatus] = useState<'none' | 'sent' | 'friend'>('none');
+  const [friendStatus, setFriendStatus] = useState<'none' | 'sent' | 'received' | 'friend'>('none');
 
   const mappedCountries: Country[] = useMemo(() => {
     return countriesData.countries.map((country) => ({
@@ -221,7 +221,7 @@ export default function ProfileScreen() {
       );
       const incomingSnapshot = await getDocs(incomingRequestQuery);
       if (!incomingSnapshot.empty) {
-        setFriendStatus('none'); // Możesz dodać opcję akceptacji zaproszenia
+        setFriendStatus('received'); // Zmieniono z 'none' na 'received'
         return;
       }
       
@@ -321,6 +321,7 @@ export default function ProfileScreen() {
       const incomingSnapshot = await getDocs(incomingRequestQuery);
       if (!incomingSnapshot.empty) {
         Alert.alert('Info', 'This user has already sent you a friend request.');
+        setFriendStatus('received'); // Możemy automatycznie przyjąć lub pozostawić 'received'
         return;
       }
 
@@ -344,6 +345,101 @@ export default function ProfileScreen() {
       Alert.alert('Error', 'Failed to send friend request.');
     }
   };
+
+  const handleAcceptRequest = async (senderUid: string) => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        Alert.alert('Error', 'You need to be logged in to accept friend requests.');
+        return;
+      }
+  
+      const receiverUid = currentUser.uid;
+  
+      const batch = writeBatch(db);
+  
+      // Znajdź odpowiedni dokument zaproszenia
+      const friendRequestsQuery = query(
+        collection(db, 'friendRequests'),
+        where('senderUid', '==', senderUid),
+        where('receiverUid', '==', receiverUid),
+        where('status', '==', 'pending')
+      );
+  
+      const snapshot = await getDocs(friendRequestsQuery);
+      if (snapshot.empty) {
+        Alert.alert('Error', 'No pending friend request found.');
+        return;
+      }
+  
+      const friendRequestDoc = snapshot.docs[0];
+      const friendRequestRef = doc(db, 'friendRequests', friendRequestDoc.id);
+  
+      // Aktualizuj status zaproszenia na 'accepted'
+      batch.update(friendRequestRef, { status: 'accepted' });
+  
+      // Dodaj dokument do kolekcji friendships
+      const friendshipRef = doc(collection(db, 'friendships'));
+      batch.set(friendshipRef, {
+        userAUid: senderUid,
+        userBUid: receiverUid,
+        createdAt: serverTimestamp(),
+        status: 'accepted',
+      });
+  
+      // Aktualizuj własną listę znajomych
+      const userDocRef = doc(db, 'users', receiverUid);
+      batch.update(userDocRef, {
+        friends: arrayUnion(senderUid),
+      });
+  
+      await batch.commit();
+  
+      Alert.alert('Success', 'Friend request accepted!');
+      setFriendStatus('friend');
+    } catch (error) {
+      console.error('Error accepting friend request:', error);
+      Alert.alert('Error', 'Failed to accept the friend request.');
+    }
+  };
+  
+  const handleDeclineRequest = async (senderUid: string) => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        Alert.alert('Error', 'You need to be logged in to decline friend requests.');
+        return;
+      }
+  
+      const receiverUid = currentUser.uid;
+  
+      // Znajdź odpowiedni dokument zaproszenia
+      const friendRequestsQuery = query(
+        collection(db, 'friendRequests'),
+        where('senderUid', '==', senderUid),
+        where('receiverUid', '==', receiverUid),
+        where('status', '==', 'pending')
+      );
+  
+      const snapshot = await getDocs(friendRequestsQuery);
+      if (snapshot.empty) {
+        Alert.alert('Error', 'No pending friend request found.');
+        return;
+      }
+  
+      const friendRequestDoc = snapshot.docs[0];
+      const friendRequestRef = doc(db, 'friendRequests', friendRequestDoc.id);
+  
+      // Aktualizuj status zaproszenia na 'rejected'
+      await updateDoc(friendRequestRef, { status: 'rejected' });
+  
+      Alert.alert('Success', 'Friend request declined!');
+      setFriendStatus('none');
+    } catch (error) {
+      console.error('Error declining friend request:', error);
+      Alert.alert('Error', 'Failed to decline the friend request.');
+    }
+  };  
 
   if (loading) {
     return (
@@ -395,20 +491,43 @@ export default function ProfileScreen() {
           {userProfile.email}
         </Text>
 
-        {/* Przycisk "Add to Friends" */}
+        {/* Przycisk "Add to Friends" lub "Accept"/"Decline" w zależności od statusu */}
         {auth.currentUser?.uid !== userProfile.uid && (
-          <TouchableOpacity
-            onPress={handleAddFriend}
-            style={[
-              profileStyles.addFriendButton,
-              { backgroundColor: friendStatus === 'sent' ? '#ccc' : theme.colors.primary }
-            ]}
-            disabled={friendStatus === 'sent' || friendStatus === 'friend'}
-          >
-            <Text style={profileStyles.addFriendButtonText}>
-              {friendStatus === 'friend' ? 'Friend' : (friendStatus === 'sent' ? 'Request Sent' : 'Add')}
-            </Text>
-          </TouchableOpacity>
+          friendStatus === 'received' ? (
+            <View style={profileStyles.friendActionButtons}>
+              <TouchableOpacity
+                onPress={() => handleAcceptRequest(userProfile.uid)}
+                style={[profileStyles.acceptButton, { backgroundColor: theme.colors.primary }]}
+                accessibilityLabel="Accept Friend Request"
+                accessibilityRole="button"
+              >
+                <Text style={profileStyles.buttonText}>Accept</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => handleDeclineRequest(userProfile.uid)}
+                style={[profileStyles.declineButton, { backgroundColor: 'gray' }]}
+                accessibilityLabel="Decline Friend Request"
+                accessibilityRole="button"
+              >
+                <Text style={profileStyles.buttonText}>Decline</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              onPress={handleAddFriend}
+              style={[
+                profileStyles.addFriendButton,
+                { backgroundColor: friendStatus === 'sent' ? '#ccc' : theme.colors.primary }
+              ]}
+              disabled={friendStatus === 'sent' || friendStatus === 'friend'}
+              accessibilityLabel={friendStatus === 'friend' ? "Already Friends" : "Add Friend"}
+              accessibilityRole="button"
+            >
+              <Text style={profileStyles.addFriendButtonText}>
+                {friendStatus === 'friend' ? 'Friend' : (friendStatus === 'sent' ? 'Request Sent' : 'Add')}
+              </Text>
+            </TouchableOpacity>
+          )
         )}
       </View>
 
@@ -448,7 +567,7 @@ export default function ProfileScreen() {
                 style={[
                   profileStyles.visitedItemContainer,
                   {
-                    backgroundColor: isDarkTheme ? '#262626' : '#f0f0f0',
+                    backgroundColor: isDarkTheme ? theme.colors.surface : '#f0f0f0',
                   }
                 ]}
               >
@@ -535,6 +654,30 @@ const profileStyles = StyleSheet.create({
     color: 'gray',
     marginBottom: 6
   },
+  friendActionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '60%', // Dostosuj szerokość według potrzeb
+    marginTop: 10,
+  },
+  acceptButton: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 5,
+    alignItems: 'center',
+    marginRight: 5,
+  },
+  declineButton: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 5,
+    alignItems: 'center',
+    marginLeft: 5,
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
   addFriendButton: {
     marginTop: 5,
     paddingVertical: 5.5,
@@ -547,17 +690,6 @@ const profileStyles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
-  },
-  visitedHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    // marginBottom: 10, // Dodany margines dolny
-  },
-  visitedCount: {
-    fontSize: 14, // Dopasuj rozmiar czcionki do swoich potrzeb
-    color: 'gray',
-    marginBottom: 10,
   },
   addFriendButtonText: {
     color: '#fff',
@@ -603,6 +735,17 @@ const profileStyles = StyleSheet.create({
   },
   visitedContainer: {
     marginBottom: 20,
+  },
+  visitedHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    // marginBottom: 10, // Opcjonalny margines dolny
+  },
+  visitedCount: {
+    fontSize: 14, // Dopasuj rozmiar czcionki do swoich potrzeb
+    color: 'gray',
+    marginBottom: 10,
   },
   visitedList: {
     flexDirection: 'row',
