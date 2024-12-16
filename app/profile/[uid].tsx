@@ -442,7 +442,7 @@ export default function ProfileScreen() {
                 style={[
                   profileStyles.visitedItemContainer,
                   {
-                    backgroundColor: isDarkTheme ? theme.colors.surface : '#f0f0f0',
+                    backgroundColor: isDarkTheme ? '#262626' : '#f0f0f0',
                   }
                 ]}
               >
