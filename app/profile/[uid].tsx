@@ -514,18 +514,25 @@ export default function ProfileScreen() {
             </View>
           ) : (
             <TouchableOpacity
-              onPress={handleAddFriend}
-              style={[
-                profileStyles.addFriendButton,
-                { backgroundColor: friendStatus === 'sent' ? '#ccc' : theme.colors.primary }
-              ]}
-              disabled={friendStatus === 'sent' || friendStatus === 'friend'}
-              accessibilityLabel={friendStatus === 'friend' ? "Already Friends" : "Add Friend"}
-              accessibilityRole="button"
+                onPress={handleAddFriend}
+                style={[
+                    profileStyles.addFriendButton,
+                    { 
+                        backgroundColor: 
+                            friendStatus === 'friend' 
+                                ? (isDarkTheme ? 'rgba(148, 112, 148, 0.50)' : '#D8BFD8') 
+                                : friendStatus === 'sent' 
+                                    ? '#ccc' 
+                                    : theme.colors.primary 
+                    }
+                ]}
+                disabled={friendStatus === 'sent' || friendStatus === 'friend'}
+                accessibilityLabel={friendStatus === 'friend' ? "Already Friends" : "Add Friend"}
+                accessibilityRole="button"
             >
-              <Text style={profileStyles.addFriendButtonText}>
-                {friendStatus === 'friend' ? 'Friend' : (friendStatus === 'sent' ? 'Request Sent' : 'Add')}
-              </Text>
+                <Text style={profileStyles.addFriendButtonText}>
+                    {friendStatus === 'friend' ? 'Friend' : (friendStatus === 'sent' ? 'Request Sent' : 'Add')}
+                </Text>
             </TouchableOpacity>
           )
         )}
@@ -752,6 +759,7 @@ const profileStyles = StyleSheet.create({
     flexWrap: 'wrap',
     marginLeft: -5,
     marginRight: -5,
+    marginTop: -5
   },
   visitedItemContainer: {
     flexDirection: 'row',
