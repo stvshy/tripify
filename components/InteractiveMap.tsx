@@ -175,6 +175,14 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     const startX = useSharedValue(0);
     const startY = useSharedValue(0);
     const AnimatedSvg = Animated.createAnimatedComponent(Svg);
+// Współczynnik – im wyższy, tym mapa będzie renderowana w większej rozdzielczości.
+const RESOLUTION_FACTOR = 6;
+
+// Szerokość bazowa to szerokość ekranu; wysokość obliczamy zachowując oryginalny stosunek (tutaj z viewBox: 1700 x 857)
+const baseWidth = screenWidth;
+const baseHeight = baseWidth * (857 / 1700); // lub inny stosunek, który stosujesz
+const highResWidth = baseWidth * RESOLUTION_FACTOR;
+const highResHeight = baseHeight * RESOLUTION_FACTOR;
 
     const SCALE_THRESHOLD = 0.01;
     const TRANSLATE_THRESHOLD = 0.5;
@@ -367,6 +375,10 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     }, [scale, translateX, translateY, onCountryPress]);
     
     console.log('Scale Value:', scale.value);
+    
+    
+    
+    console.log('Scale Value:', scale.value);
 
 
     return (
@@ -384,28 +396,38 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
             <GestureDetector gesture={Gesture.Simultaneous(pinchGesture, panGesture)}>
               <Animated.View style={[styles.container, animatedStyle]}>
                 <View ref={mapViewRef} style={styles.mapContainer}>
-                  <AnimatedSvg
-                    width="100%"
-                    height="100%"
-                    viewBox="232 0 1700 857"
-                    preserveAspectRatio="xMidYMid meet"
-                    style={styles.mapContainer}
-                  >
-                    {data.countries.map((country: Country, index: number) => {
-                      const countryCode = country.id;
-                      if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
-                      return (
-                        <Path
-                          key={`${countryCode}-${index}`}
-                          d={country.path}
-                          fill={getCountryFill(countryCode)}
-                          stroke={isCountryHighlighted(countryCode) ? theme.colors.primary : theme.colors.outline}
-                          strokeWidth={isCountryHighlighted(countryCode) ? 2 : 0.2}
-                          onPress={(event) => handlePathPress(event, countryCode)}
-                        />
-                      );
-                    })}
-                  </AnimatedSvg>
+<Animated.View
+  style={{
+    // Zmniejszamy wysokorozdzielcze SVG do rozmiaru kontenera
+    transform: [{ scale: 1 / RESOLUTION_FACTOR }]
+  }}
+  pointerEvents="auto"
+>
+  <AnimatedSvg
+    width={highResWidth}
+    height={highResHeight}
+    viewBox="232 0 1700 857"
+    preserveAspectRatio="xMidYMid meet"
+    style={styles.mapContainer}
+    pointerEvents="box-none" 
+  >
+    {data.countries.map((country: Country, index: number) => {
+      const countryCode = country.id;
+      if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
+      return (
+        <Path
+          key={`${countryCode}-${index}`}
+          d={country.path}
+          fill={getCountryFill(countryCode)}
+          stroke={isCountryHighlighted(countryCode) ? theme.colors.primary : theme.colors.outline}
+          strokeWidth={isCountryHighlighted(countryCode) ? 2 : 0.2}
+          onPress={(event) => handlePathPress(event, countryCode)}
+        />
+      );
+    })}
+  </AnimatedSvg>
+</Animated.View>
+
 
                   {/* Renderowanie Tooltipa wewnątrz kontenera mapy */}
                   {isTooltipVisible && tooltip && scale.value > 0 && (

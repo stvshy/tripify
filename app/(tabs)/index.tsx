@@ -1,19 +1,18 @@
-// screens/IndexScreen.tsx
-import React, { useState, useEffect, useCallback, useContext, useRef } from 'react';
+import React, { useState, useCallback, useContext, useRef } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import InteractiveMap, { InteractiveMapRef } from '../../components/InteractiveMap';
 import { useFocusEffect } from '@react-navigation/native';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebaseConfig';
 import { ThemeContext } from '../config/ThemeContext';
-import { useTheme } from 'react-native-paper'; // Importowanie useTheme
-import filteredCountriesData from '../../components/filteredCountries.json'; // Zmień ścieżkę na właściwą
+import { useTheme } from 'react-native-paper';
+import filteredCountriesData from '../../components/filteredCountries.json';
 
 const totalCountries = filteredCountriesData.countries.length;
 
 export default function IndexScreen() {
   const { isDarkTheme } = useContext(ThemeContext);
-  const theme = useTheme(); // Używanie hooka useTheme
+  const theme = useTheme();
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const mapRef = useRef<InteractiveMapRef>(null);
@@ -51,10 +50,7 @@ export default function IndexScreen() {
   );
 
   const handleCountryPress = (countryCode: string) => {
-    // Obsługa kliknięcia na kraj, np. nawigacja do szczegółów
     console.log(`Country pressed: ${countryCode}`);
-    // Możesz dodać nawigację do innego ekranu z detalami kraju
-    // router.push(`/countryDetails/${countryCode}`);
   };
 
   if (loading) {
@@ -70,9 +66,9 @@ export default function IndexScreen() {
       <InteractiveMap
         ref={mapRef}
         selectedCountries={selectedCountries}
-        totalCountries={totalCountries} // Przekazanie nowego prop
+        totalCountries={totalCountries}
         onCountryPress={handleCountryPress}
-        style={styles.map} // Przekazanie stylu do InteractiveMap
+        style={styles.map}
       />
     </View>
   );
@@ -81,8 +77,6 @@ export default function IndexScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    width: '100%', // Zapewnia pełną szerokość
-    height: '100%', // Zapewnia pełną wysokość
   },
   loadingContainer: {
     flex: 1,
@@ -91,7 +85,7 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
-    width: '100%', // Zapewnia, że mapa zajmuje pełną szerokość kontenera
-    height: '100%', // Zapewnia, że mapa zajmuje pełną wysokość kontenera
+    width: '100%',
+    height: '100%',
   },
 });
