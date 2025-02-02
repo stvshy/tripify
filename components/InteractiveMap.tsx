@@ -442,10 +442,14 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                           ]}
                         />
                       )}
-                      <View style={styles.tooltipContent}>
-                        <CountryFlag isoCode={tooltip.country.cca2} size={25} />
+                        <View style={styles.tooltipContent}>
+                        <CountryFlag
+                          isoCode={tooltip.country.cca2}
+                          size={22}
+                          style={{ borderRadius: 5, overflow: 'hidden' }}
+                        />
                         <Text style={styles.tooltipText}>{tooltip.country.name}</Text>
-                      </View>
+                        </View>
                     </Animated.View>
                   )}
                 </View>
