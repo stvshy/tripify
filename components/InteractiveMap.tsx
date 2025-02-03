@@ -409,7 +409,7 @@ const highResHeight = baseHeight * RESOLUTION_FACTOR;
     viewBox="232 0 1700 857"
     preserveAspectRatio="xMidYMid meet"
     style={styles.mapContainer}
-    pointerEvents="box-none" 
+    // pointerEvents="box-none" 
   >
     {data.countries.map((country: Country, index: number) => {
       const countryCode = country.id;
