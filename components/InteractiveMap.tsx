@@ -467,8 +467,8 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     // Właściwość "from" przyjmuje prostokąt: new Rect(x, y, width, height)
     // Tutaj ustawiamy x jako tooltip.x - połowa szerokości popovera (150px) oraz y odpowiednio do pozycji.
     from={new Rect(
-      tooltip.x - 75,
-      tooltip.y - (tooltip.position === 'top' ? 153 : 20),
+      tooltip.x ,
+      tooltip.y ,
       150,
       1 // wysokość nie ma aż tak dużego znaczenia – popover obliczy swoje wymiary na podstawie zawartości.
     )}
