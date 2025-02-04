@@ -464,6 +464,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     from={new Rect(tooltip.x, tooltip.y, 1, 1)}
     onRequestClose={() => setTooltip(null)}
     popoverStyle={styles.popoverContainer}
+    backgroundStyle={{ backgroundColor: 'transparent' }}
   >
     <View style={styles.popoverContent}>
       <CountryFlag
