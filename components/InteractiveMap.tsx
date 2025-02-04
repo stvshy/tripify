@@ -1,4 +1,3 @@
-// InteractiveMap.tsx
 import React, {
   useContext,
   forwardRef,
@@ -42,6 +41,8 @@ import logoTextImage from '../assets/images/logo-tripify-tekst.png';
 import logoTextImageDesaturated from '../assets/images/logo-tripify-tekst2.png';
 import CountryFlag from 'react-native-country-flag';
 import Popover, { Rect } from 'react-native-popover-view';
+// Dodajemy hook do nawigacji
+import { useRouter } from 'expo-router';
 
 export interface Country {
   id: string;
@@ -88,7 +89,7 @@ uniqueCountries.push(...Object.values(countryMap));
 const data: CountriesData = { countries: uniqueCountries };
 
 /**
- * Poniższe funkcje służą do obliczania centroidu kraju na podstawie jego ścieżki SVG.
+ * Funkcje służące do obliczania centroidu kraju na podstawie jego ścieżki SVG.
  */
 function extractPoints(d: string): { x: number; y: number }[] {
   const points: { x: number; y: number }[] = [];
@@ -135,7 +136,7 @@ function computeCentroid(points: { x: number; y: number }[]): { x: number; y: nu
   return { x: cx, y: cy };
 }
 
-// Tworzymy mapę centroidów dla każdego kraju
+// Mapa centroidów dla każdego kraju
 const countryCentroids: { [key: string]: { x: number; y: number } } = {};
 data.countries.forEach((country) => {
   const pts = extractPoints(country.path);
@@ -166,6 +167,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
   ({ selectedCountries, totalCountries, onCountryPress, style }, ref) => {
     const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
     const theme = useTheme();
+    const router = useRouter(); // Hook do nawigacji
     const mapViewRef = useRef<View>(null);
     const baseMapRef = useRef<View>(null);
     const [isSharing, setIsSharing] = useState(false);
@@ -358,7 +360,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
           country,
           position: localY > 100 ? 'top' : 'bottom',
         });
-        // Przekazujemy kod kraju do rodzica – tutaj logika wyboru leży w App.tsx.
+        // Przekazujemy kod kraju do rodzica – logika wyboru jest obsługiwana w App.tsx.
         onCountryPress(countryCode);
       },
       [containerOffset, onCountryPress]
@@ -449,7 +451,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                     })}
                   </AnimatedSvg>
                 </Animated.View>
-                {/* Tooltip wyświetlany na mapie */}
+                {/* Tooltip z informacjami o kraju oraz przyciskiem View */}
                 {tooltip && (
                   <Popover
                     isVisible={tooltip !== null}
@@ -465,6 +467,18 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                         style={{ borderRadius: 5, overflow: 'hidden' }}
                       />
                       <Text style={styles.popoverText}>{tooltip.country.name}</Text>
+                      {/* Okrągły przycisk "View" */}
+                      <TouchableOpacity
+                        style={styles.viewButton}
+                        onPress={() => {
+                          // Przechodzimy do profilu kraju, np. /country/[cid]
+                          router.push(`/country/${tooltip.country.id}`);
+                          // Opcjonalnie zamykamy popover
+                          setTooltip(null);
+                        }}
+                      >
+                        <Text style={styles.viewButtonText}>View</Text>
+                      </TouchableOpacity>
                     </View>
                   </Popover>
                 )}
@@ -636,10 +650,26 @@ const styles = StyleSheet.create({
   popoverContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10
   },
   popoverText: {
     color: '#fff',
-    marginLeft: 10,
+    fontSize: 16,
+  },
+  // Styl dla przycisku "View"
+  viewButton: {
+    width: 40,
+    height: 20,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    // marginLeft: 10,
+  },
+  viewButtonText: {
+    color: '#000',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   progressTextLeft: {
     position: 'absolute',
