@@ -146,18 +146,49 @@ const CountryProfile = () => {
             />
           ))}
         </ScrollView>
-        {/* Dot slider indicator */}
-        <View style={styles.dotContainer}>
-          {sliderUrls.map((_, index: number) => (
-            <View
-              key={index}
-              style={[
-                styles.dot,
-                currentSlide === index ? styles.dotActive : styles.dotInactive,
-              ]}
-            />
-          ))}
-        </View>
+        <View style={styles.dotWrapper}>
+  <View style={styles.dotContainer}>
+    {sliderUrls.map((_, index: number) => {
+      const totalDots = Math.min(sliderUrls.length, 5);
+      let startIndex = Math.max(0, Math.min(currentSlide - Math.floor(totalDots / 2), sliderUrls.length - totalDots));
+      let endIndex = startIndex + totalDots;
+
+      // Jeśli mamy więcej niż 5 zdjęć, przesuwamy zakres kropek
+      if (sliderUrls.length > totalDots) {
+        if (currentSlide < Math.floor(totalDots / 2)) {
+          startIndex = 0;
+          endIndex = totalDots;
+        } else if (currentSlide > sliderUrls.length - Math.ceil(totalDots / 2)) {
+          startIndex = sliderUrls.length - totalDots;
+          endIndex = sliderUrls.length;
+        }
+      }
+
+      // Tylko wybrane kropki będą widoczne
+      if (index >= startIndex && index < endIndex) {
+        const isActive = index === currentSlide;
+        const distanceFromCenter = Math.abs(index - currentSlide);
+
+        return (
+          <View
+            key={index}
+            style={[
+              styles.dot,
+              isActive ? styles.dotActive : styles.dotInactive,
+              {
+                transform: [{ scale: 1.2 - distanceFromCenter * 0.2 }],
+                opacity: 1 - distanceFromCenter * 0.3,
+              }
+            ]}
+          />
+        );
+      }
+      return null;
+    })}
+  </View>
+</View>
+
+
         {/* Overlay with country name */}
         <View style={styles.overlay}>
           <Text style={styles.countryName}>{country.name}</Text>
@@ -291,23 +322,43 @@ const styles = StyleSheet.create({
   sliderImage: { height: 290 },
   overlay: {
     position: 'absolute',
-    bottom: 5,
-    left: 5,
+    bottom: 4,
+    left: 4,
     // backgroundColor: 'rgba(0,0,0,0.6)',
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 20,
   },
   countryName: { color: '#fff', fontSize: 30, fontWeight: 'bold' },
-  dotContainer: {
+  dotWrapper: {
     position: 'absolute',
-    bottom: 15,
-    right: 15,
-    flexDirection: 'row',
+    bottom: 19,
+    right: 19,
+    backgroundColor: 'rgba(0, 0, 0, 0.33)',
+    borderRadius: 20,
+    paddingVertical: 3,
+    paddingHorizontal: 5,
   },
-  dot: { width: 7, height: 7, borderRadius: 4, marginHorizontal: 2.5 },
-  dotActive: { backgroundColor: '#fff' },
-  dotInactive: { backgroundColor: 'rgba(255,255,255,0.5)' },
+  dotContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dot: {
+    width: 4,
+    height: 4,
+    borderRadius: 4,
+    marginHorizontal: 3,
+  },
+  dotActive: {
+    backgroundColor: '#fff',
+    width: 6,
+    height: 6,
+  },
+  dotInactive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+  },
+  
+  
   // Section Box – każda sekcja opakowana okrągłym obrysem
   sectionBox: {
     borderWidth: 1,
@@ -318,7 +369,7 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     backgroundColor: '#fafafa',
   },
-  sectionTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 10, color: '#333' },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: '#333' },
   description: { fontSize: 16, marginBottom: 10, color: '#555' },
   // Info cards – mini okienka z pojedynczą informacją
   infoCardsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
