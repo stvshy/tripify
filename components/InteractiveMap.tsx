@@ -662,7 +662,7 @@ const styles = StyleSheet.create({
   },
   popoverContainer: {
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    padding: 10,
+    padding: 8,
     borderRadius: 8,
   },
   popoverArrow: {
