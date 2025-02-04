@@ -7,55 +7,73 @@ import {
   ScrollView,
   Image,
   Dimensions,
-  ActivityIndicator
+  ActivityIndicator,
+  NativeSyntheticEvent,
+  NativeScrollEvent
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { getStorage, ref, getDownloadURL } from 'firebase/storage';
 import CountryFlag from 'react-native-country-flag';
+import { FontAwesome5 } from '@expo/vector-icons';
 
-// Define the interface for country profile data
+// Interfejs danych kraju – dla średnich temperatur zakładamy, że mamy day i night
+interface MonthlyTemperatures {
+  day: number;
+  night: number;
+}
+
 interface CountryProfileData {
   name: string;
-  images: string[]; // Storage paths, e.g. "poland12.jpg"
+  images: string[]; // Storage paths, np. "poland12.jpg"
   description: string;
   capital: string;
   population: string;
   area: string;
   continent: string;
-  flag: string; // Storage path, e.g. "poland-flag.png" – ale flagę pobierzemy z biblioteki
+  flag: string; // Storage path, ale flagę wyświetlimy z biblioteki
   knownFor: string;
-  outlets: string[]; // Storage paths for outlet images
+  outlets: string[]; // Storage paths
   currency: string;
-  transportApps: string[]; // Storage paths for transport app icons
+  transportApps: string[]; // Storage paths
   currentWeather: string;
   rainySeason: string;
   bestTimeToVisit: string;
-  monthlyTemperatures: Record<string, number>;
+  monthlyTemperatures: Record<string, MonthlyTemperatures>; // np. "January": { day: -2, night: -5 }
   visaRequired: string;
   travelTips: string;
 }
 
-// Import country data from a local JSON file – adjust path as needed
+// Import danych kraju – upewnij się, że ścieżka jest poprawna
 import rawCountryData from './countryData.json';
 const countryData: Record<string, CountryProfileData> = rawCountryData;
 
-// Inicjalizacja Firebase Storage (konfiguracja w firebase-config.ts)
+// Inicjalizacja Firebase Storage
 const storage = getStorage();
-// Pobiera pełny URL na podstawie ścieżki w Storage
 const getFirebaseUrl = async (path: string): Promise<string> => {
   const storageRef = ref(storage, path);
   return await getDownloadURL(storageRef);
+};
+
+// Przykładowy widget pogody – możesz rozszerzyć lub zastąpić gotową biblioteką
+const WeatherWidget = ({ currentWeather }: { currentWeather: string }) => {
+  return (
+    <View style={weatherStyles.container}>
+      <FontAwesome5 name="sun" size={24} color="#FFA500" />
+      <Text style={weatherStyles.text}>{currentWeather}</Text>
+    </View>
+  );
 };
 
 const CountryProfile = () => {
   const { cid } = useLocalSearchParams();
   const country = countryData[cid as string];
 
-  // Stany na przechowywanie pobranych URL-i dla zdjęć (slider, outletów, aplikacji transportowych)
+  // Stany dla pobranych URL-i
   const [sliderUrls, setSliderUrls] = useState<string[]>([]);
   const [outletUrls, setOutletUrls] = useState<string[]>([]);
   const [transportUrls, setTransportUrls] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [currentSlide, setCurrentSlide] = useState<number>(0);
 
   useEffect(() => {
     if (!country) return;
@@ -83,6 +101,15 @@ const CountryProfile = () => {
     loadImages();
   }, [country]);
 
+  const screenWidth = Dimensions.get('window').width;
+
+  // Obsługa scrolla w sliderze – obliczamy indeks aktualnego zdjęcia
+  const onSliderScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offsetX = e.nativeEvent.contentOffset.x;
+    const index = Math.round(offsetX / screenWidth);
+    setCurrentSlide(index);
+  };
+
   if (!country) {
     return (
       <View style={styles.centered}>
@@ -90,8 +117,6 @@ const CountryProfile = () => {
       </View>
     );
   }
-
-  const screenWidth = Dimensions.get('window').width;
 
   if (loading) {
     return (
@@ -103,12 +128,14 @@ const CountryProfile = () => {
 
   return (
     <ScrollView style={styles.container}>
-      {/* Image slider (increased height to 300) */}
+      {/* Slider Section */}
       <View style={styles.sliderContainer}>
         <ScrollView
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
+          onScroll={onSliderScroll}
+          scrollEventThrottle={16}
         >
           {sliderUrls.map((url: string, index: number) => (
             <Image
@@ -119,6 +146,18 @@ const CountryProfile = () => {
             />
           ))}
         </ScrollView>
+        {/* Dot slider indicator */}
+        <View style={styles.dotContainer}>
+          {sliderUrls.map((_, index: number) => (
+            <View
+              key={index}
+              style={[
+                styles.dot,
+                currentSlide === index ? styles.dotActive : styles.dotInactive,
+              ]}
+            />
+          ))}
+        </View>
         {/* Overlay with country name */}
         <View style={styles.overlay}>
           <Text style={styles.countryName}>{country.name}</Text>
@@ -129,34 +168,35 @@ const CountryProfile = () => {
       <View style={styles.sectionBox}>
         <Text style={styles.sectionTitle}>General Info</Text>
         <Text style={styles.description}>{country.description}</Text>
-        <Text style={styles.infoText}>
-          <Text style={styles.label}>Capital: </Text>
-          {country.capital}
-        </Text>
-        <Text style={styles.infoText}>
-          <Text style={styles.label}>Population: </Text>
-          {country.population}
-        </Text>
-        <Text style={styles.infoText}>
-          <Text style={styles.label}>Area: </Text>
-          {country.area} km²
-        </Text>
-        <Text style={styles.infoText}>
-          <Text style={styles.label}>Continent: </Text>
-          {country.continent}
-        </Text>
+        <View style={styles.infoCardsContainer}>
+          <View style={styles.infoCard}>
+            <Text style={styles.infoCardLabel}>Capital</Text>
+            <Text style={styles.infoCardValue}>{country.capital}</Text>
+          </View>
+          <View style={styles.infoCard}>
+            <Text style={styles.infoCardLabel}>Population</Text>
+            <Text style={styles.infoCardValue}>{country.population}</Text>
+          </View>
+          <View style={styles.infoCard}>
+            <Text style={styles.infoCardLabel}>Area</Text>
+            <Text style={styles.infoCardValue}>{country.area} km²</Text>
+          </View>
+          <View style={styles.infoCard}>
+            <Text style={styles.infoCardLabel}>Continent</Text>
+            <Text style={styles.infoCardValue}>{country.continent}</Text>
+          </View>
+        </View>
         <View style={styles.flagContainer}>
-          {/* Używamy komponentu CountryFlag z biblioteki */}
           <CountryFlag
             isoCode={cid as string}
             size={60}
             style={styles.flag}
           />
         </View>
-        <Text style={styles.infoText}>
-          <Text style={styles.label}>Known for: </Text>
-          {country.knownFor}
-        </Text>
+        <View style={styles.infoCard}>
+          <Text style={styles.infoCardLabel}>Known For</Text>
+          <Text style={styles.infoCardValue}>{country.knownFor}</Text>
+        </View>
       </View>
 
       {/* Electrical Outlets Section */}
@@ -195,93 +235,80 @@ const CountryProfile = () => {
             />
           ))}
         </ScrollView>
-        <Text style={styles.infoText}>
-          <Text style={styles.label}>Currency: </Text>
-          {country.currency}
-        </Text>
+        <View style={styles.infoCard}>
+          <Text style={styles.infoCardLabel}>Currency</Text>
+          <Text style={styles.infoCardValue}>{country.currency}</Text>
+        </View>
       </View>
 
       {/* Weather Section */}
       <View style={styles.sectionBox}>
         <Text style={styles.sectionTitle}>Weather</Text>
-        <Text style={styles.infoText}>
-          <Text style={styles.label}>Current weather: </Text>
-          {country.currentWeather}
-        </Text>
-        <Text style={styles.infoText}>
-          <Text style={styles.label}>Rainy season: </Text>
-          {country.rainySeason}
-        </Text>
-        <Text style={styles.infoText}>
-          <Text style={styles.label}>Best time to visit: </Text>
-          {country.bestTimeToVisit}
-        </Text>
+        <WeatherWidget currentWeather={country.currentWeather} />
+        <View style={styles.infoCard}>
+          <Text style={styles.infoCardLabel}>Rainy Season</Text>
+          <Text style={styles.infoCardValue}>{country.rainySeason}</Text>
+        </View>
+        <View style={styles.infoCard}>
+          <Text style={styles.infoCardLabel}>Best Time to Visit</Text>
+          <Text style={styles.infoCardValue}>{country.bestTimeToVisit}</Text>
+        </View>
       </View>
 
       {/* Monthly Temperatures Section */}
       <View style={styles.sectionBox}>
-        <Text style={styles.sectionTitle}>Average Monthly Temperatures (°C)</Text>
-        <View style={styles.monthlyContainer}>
-          {Object.entries(country.monthlyTemperatures).map(
-            ([month, temp]) => (
-              <Text key={month} style={styles.infoText}>
-                {month}: {temp}°C
-              </Text>
-            )
-          )}
-        </View>
+  <Text style={styles.sectionTitle}>Average Monthly Temperatures (°C)</Text>
+  {Object.entries(country.monthlyTemperatures).map(([month, temps]) => (
+    <View key={month} style={styles.monthlyRow}>
+      <Text style={styles.monthText}>{month}</Text>
+      <Text style={styles.tempText}>🌞 {temps.day}°C</Text>
+      <Text style={styles.tempText}>🌙 {temps.night}°C</Text>
+    </View>
+  ))}
       </View>
 
       {/* Visa & Travel Tips Section */}
       <View style={styles.sectionBox}>
-        <Text style={styles.infoText}>
-          <Text style={styles.label}>Visa Requirements: </Text>
-          {country.visaRequired}
-        </Text>
-        <Text style={styles.sectionTitle}>Travel Tips</Text>
-        <Text style={styles.infoText}>{country.travelTips}</Text>
+        <View style={styles.infoCard}>
+          <Text style={styles.infoCardLabel}>Visa Requirements</Text>
+          <Text style={styles.infoCardValue}>{country.visaRequired}</Text>
+        </View>
+        <View style={styles.infoCard}>
+          <Text style={styles.infoCardLabel}>Travel Tips</Text>
+          <Text style={styles.infoCardValue}>{country.travelTips}</Text>
+        </View>
       </View>
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  errorText: {
-    fontSize: 18,
-    color: 'red'
-  },
-  // Slider container with increased height
-  sliderContainer: {
-    position: 'relative',
-    height: 290,
-  },
-  sliderImage: {
-    height: 290,
-  },
+  container: { flex: 1, backgroundColor: '#fff' },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  errorText: { fontSize: 18, color: 'red' },
+  // Slider
+  sliderContainer: { position: 'relative', height: 290 },
+  sliderImage: { height: 290 },
   overlay: {
     position: 'absolute',
-    bottom: 4,
-    left: 4,
+    bottom: 5,
+    left: 5,
     // backgroundColor: 'rgba(0,0,0,0.6)',
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 20,
   },
-  countryName: {
-    color: '#fff',
-    fontSize:30,
-    fontWeight: 'bold',
+  countryName: { color: '#fff', fontSize: 30, fontWeight: 'bold' },
+  dotContainer: {
+    position: 'absolute',
+    bottom: 15,
+    right: 15,
+    flexDirection: 'row',
   },
-  // Sekcja opakowana zaokrąglonym obrysem
+  dot: { width: 7, height: 7, borderRadius: 4, marginHorizontal: 2.5 },
+  dotActive: { backgroundColor: '#fff' },
+  dotInactive: { backgroundColor: 'rgba(255,255,255,0.5)' },
+  // Section Box – każda sekcja opakowana okrągłym obrysem
   sectionBox: {
     borderWidth: 1,
     borderColor: '#ddd',
@@ -291,59 +318,40 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     backgroundColor: '#fafafa',
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#333',
-  },
-  description: {
-    fontSize: 16,
-    marginBottom: 10,
-    color: '#555',
-  },
-  infoText: {
-    fontSize: 16,
-    marginVertical: 4,
-    color: '#444',
-  },
-  label: {
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  flagContainer: {
-    marginVertical: 10,
-    alignItems: 'center',
-  },
-  // Styl dla flagi – CountryFlag zwraca komponent Image,
-  // tutaj dodajemy obrys i zaokrąglenie
-  flag: {
-    borderWidth: 2,
+  sectionTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 10, color: '#333' },
+  description: { fontSize: 16, marginBottom: 10, color: '#555' },
+  // Info cards – mini okienka z pojedynczą informacją
+  infoCardsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  infoCard: {
+    borderWidth: 1,
     borderColor: '#ccc',
-    borderRadius: 30,
-    overflow: 'hidden',
-  },
-  outletsContainer: {
-    marginVertical: 10,
-  },
-  outletImage: {
-    width: 60,
-    height: 60,
     borderRadius: 10,
-    marginRight: 10,
+    padding: 8,
+    marginVertical: 5,
+    marginRight: 5,
+    flexBasis: '48%',
+    backgroundColor: '#fff',
   },
-  transportContainer: {
-    marginVertical: 10,
-  },
-  transportImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 10,
-    marginRight: 10,
-  },
-  monthlyContainer: {
-    marginVertical: 10,
-  },
+  infoCardLabel: { fontSize: 14, fontWeight: 'bold', color: '#333' },
+  infoCardValue: { fontSize: 14, color: '#555', marginTop: 3 },
+  flagContainer: { marginVertical: 10, alignItems: 'center' },
+  flag: { borderWidth: 2, borderColor: '#ccc', borderRadius: 30, overflow: 'hidden' },
+  outletsContainer: { marginVertical: 10 },
+  outletImage: { width: 60, height: 60, borderRadius: 10, marginRight: 10 },
+  transportContainer: { marginVertical: 10 },
+  transportImage: { width: 60, height: 60, borderRadius: 10, marginRight: 10 },
+  monthlyRow: { flexDirection: 'row', justifyContent: 'space-between',  alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd', },
+  monthText: { fontSize: 16, fontWeight: 'bold', color: '#333' ,   flex: 1, },
+  tempText: { fontSize: 16, color: '#555',     flex: 1,
+    textAlign: 'right', },
+});
+
+const weatherStyles = StyleSheet.create({
+  container: { flexDirection: 'row', alignItems: 'center', marginVertical: 8 },
+  text: { marginLeft: 8, fontSize: 16, color: '#555' },
 });
 
 export default CountryProfile;
