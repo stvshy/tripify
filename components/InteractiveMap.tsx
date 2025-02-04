@@ -344,29 +344,25 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         const country = data.countries.find(c => c.id === countryCode);
         if (!country) return;
     
-        // Globalne współrzędne kliknięcia
+        // Pobieramy globalne współrzędne kliknięcia
         const { pageX, pageY } = event.nativeEvent;
     
-        // Obliczamy lokalne współrzędne kliknięcia względem kontenera mapy
+        // Obliczamy współrzędne kliknięcia względem kontenera fullViewContainer
         const localX = pageX - containerOffset.x;
         const localY = pageY - containerOffset.y;
     
-        // Odwracamy transformacje mapy (przy translacji i skali)
-        const adjustedX = (localX - translateX.value) / scale.value;
-        const adjustedY = (localY - translateY.value) / scale.value;
-    
-        // Współrzędne, które później wykorzystamy jako punkt zakotwiczenia popovera.
         setTooltip({
-          x: adjustedX * scale.value,
-          y: adjustedY * scale.value,
+          x: localX,
+          y: localY,
           country,
           position: localY > 100 ? 'top' : 'bottom',
         });
         setIsTooltipVisible(true);
         onCountryPress(countryCode);
       },
-      [containerOffset, onCountryPress, scale.value, translateX.value, translateY.value]
+      [containerOffset, onCountryPress]
     );
+    
     
     
 
@@ -464,16 +460,10 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                   {isTooltipVisible && tooltip && (
   <Popover
     isVisible={isTooltipVisible}
-    // Właściwość "from" przyjmuje prostokąt: new Rect(x, y, width, height)
-    // Tutaj ustawiamy x jako tooltip.x - połowa szerokości popovera (150px) oraz y odpowiednio do pozycji.
-    from={new Rect(
-      tooltip.x ,
-      tooltip.y ,
-      150,
-      1 // wysokość nie ma aż tak dużego znaczenia – popover obliczy swoje wymiary na podstawie zawartości.
-    )}
+    // Używamy lokalnych współrzędnych kliknięcia jako punktu zakotwiczenia
+    from={new Rect(tooltip.x, tooltip.y, 1, 1)}
     onRequestClose={() => setTooltip(null)}
-    popoverStyle={styles.popoverContainer} // stylizacja popovera (możesz dowolnie modyfikować)
+    popoverStyle={styles.popoverContainer}
   >
     <View style={styles.popoverContent}>
       <CountryFlag
@@ -485,6 +475,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     </View>
   </Popover>
 )}
+
 
                 </View>
               </Animated.View>
