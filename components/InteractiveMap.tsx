@@ -13,6 +13,7 @@ import {
   PixelRatio,
   Image,
   TouchableWithoutFeedback,
+  LayoutChangeEvent,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { ThemeContext } from '../app/config/ThemeContext';
@@ -33,6 +34,7 @@ import * as Progress from 'react-native-progress';
 import logoTextImage from '../assets/images/logo-tripify-tekst.png';
 import logoTextImageDesaturated from '../assets/images/logo-tripify-tekst2.png';
 import CountryFlag from 'react-native-country-flag';
+
 export interface Country {
   id: string;
   name: string;
@@ -44,6 +46,7 @@ export interface Country {
 export interface CountriesData {
   countries: Country[];
 }
+
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
 const BUTTON_SIZE = Math.min(windowWidth, windowHeight) * 0.08;
@@ -63,7 +66,7 @@ rawCountriesData.countries.forEach((rawCountry: { id: string; name: string; clas
 
   const countryWithCca2: Country = {
     ...rawCountry,
-    cca2
+    cca2,
   };
 
   if (!countryMap[rawCountry.id]) {
@@ -75,6 +78,66 @@ rawCountriesData.countries.forEach((rawCountry: { id: string; name: string; clas
 
 uniqueCountries.push(...Object.values(countryMap));
 const data: CountriesData = { countries: uniqueCountries };
+
+/**
+ * Poniższe funkcje służą do obliczania centroidu kraju na podstawie jego ścieżki SVG.
+ */
+function extractPoints(d: string): { x: number; y: number }[] {
+  const points: { x: number; y: number }[] = [];
+  // Dopasowujemy komendy M oraz L (zakładamy, że ścieżka jest oparta na absolutnych wartościach)
+  const re = /[ML]([^MLZ]+)/gi;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(d)) !== null) {
+    const coords = match[1].trim().split(/[\s,]+/);
+    for (let i = 0; i < coords.length; i += 2) {
+      const x = parseFloat(coords[i]);
+      const y = parseFloat(coords[i + 1]);
+      if (!isNaN(x) && !isNaN(y)) {
+        points.push({ x, y });
+      }
+    }
+  }
+  return points;
+}
+
+function computeArea(points: { x: number; y: number }[]): number {
+  let area = 0;
+  const n = points.length;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    area += points[i].x * points[j].y - points[j].x * points[i].y;
+  }
+  return Math.abs(area / 2);
+}
+
+function computeCentroid(points: { x: number; y: number }[]): { x: number; y: number } {
+  let area = 0;
+  let cx = 0;
+  let cy = 0;
+  const n = points.length;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    const cross = points[i].x * points[j].y - points[j].x * points[i].y;
+    area += cross;
+    cx += (points[i].x + points[j].x) * cross;
+    cy += (points[i].y + points[j].y) * cross;
+  }
+  area = area / 2;
+  cx = cx / (6 * area);
+  cy = cy / (6 * area);
+  return { x: cx, y: cy };
+}
+
+// Tworzymy mapę centroidów dla każdego kraju – obliczamy raz na podstawie danych z "data"
+const countryCentroids: { [key: string]: { x: number; y: number } } = {};
+data.countries.forEach((country) => {
+  const pts = extractPoints(country.path);
+  if (pts.length >= 3) {
+    countryCentroids[country.id] = computeCentroid(pts);
+  }
+});
+
+// Reszta kodu komponentu InteractiveMap
 
 export interface InteractiveMapRef {
   capture: () => Promise<string | null>;
@@ -115,7 +178,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     const baseTranslateX = useSharedValue<number>(0);
     const baseTranslateY = useSharedValue<number>(0);
     const [isTooltipVisible, setIsTooltipVisible] = useState(true);
-
+    const [containerOffset, setContainerOffset] = useState({ x: 0, y: 0 });
     const animatedToggleStyle = useAnimatedStyle(() => ({
       transform: [{ scale: scaleValue.value }],
     }));
@@ -136,32 +199,28 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         return null;
       },
     }));
+
     const applyTransparency = (hexColor: string, transparency: number) => {
-      // Usuń '#' z początku, jeśli istnieje
       const hex = hexColor.replace('#', '');
-    
-      // Konwertuj HEX na RGB
       const r = parseInt(hex.slice(0, 2), 16);
       const g = parseInt(hex.slice(2, 4), 16);
       const b = parseInt(hex.slice(4, 6), 16);
-    
-      // Zwróć kolor w formacie RGBA
       return `rgba(${r}, ${g}, ${b}, ${transparency})`;
     };
 
     const getCountryFill = (countryCode: string) => {
       const isVisited = selectedCountries.includes(countryCode);
       const isHighlighted = tooltip && tooltip.country.id === countryCode;
-  
       if (isHighlighted) {
         return applyTransparency(theme.colors.primary, 0.75);
       }
       return isVisited ? 'rgba(0,174,245,255)' : '#b2b7bf';
     };
+
     const isCountryHighlighted = (countryCode: string) => {
       return tooltip && tooltip.country.id === countryCode;
     };
-    
+
     const visitedCountries = selectedCountries.length;
     const percentageVisited = totalCountries > 0 ? visitedCountries / totalCountries : 0;
 
@@ -175,18 +234,16 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     const startX = useSharedValue(0);
     const startY = useSharedValue(0);
     const AnimatedSvg = Animated.createAnimatedComponent(Svg);
-// Współczynnik – im wyższy, tym mapa będzie renderowana w większej rozdzielczości.
-const RESOLUTION_FACTOR = 6;
-
-// Szerokość bazowa to szerokość ekranu; wysokość obliczamy zachowując oryginalny stosunek (tutaj z viewBox: 1700 x 857)
-const baseWidth = screenWidth;
-const baseHeight = baseWidth * (857 / 1700); // lub inny stosunek, który stosujesz
-const highResWidth = baseWidth * RESOLUTION_FACTOR;
-const highResHeight = baseHeight * RESOLUTION_FACTOR;
+    // Współczynnik – im wyższy, tym mapa będzie renderowana w większej rozdzielczości.
+    const RESOLUTION_FACTOR = 6;
+    const baseWidth = screenWidth;
+    const baseHeight = baseWidth * (857 / 1700);
+    const highResWidth = baseWidth * RESOLUTION_FACTOR;
+    const highResHeight = baseHeight * RESOLUTION_FACTOR;
 
     const SCALE_THRESHOLD = 0.01;
     const TRANSLATE_THRESHOLD = 0.5;
-    
+
     const pinchGesture = Gesture.Pinch()
       .onBegin((event) => {
         runOnJS(setIsTooltipVisible)(false); // Ukrycie tooltipa
@@ -200,11 +257,9 @@ const highResHeight = baseHeight * RESOLUTION_FACTOR;
       .onUpdate((event) => {
         const scaleFactor = event.scale;
         const newScale = clamp(baseScale.value * scaleFactor, 1, 6);
-        
         if (Math.abs(newScale - scale.value) > SCALE_THRESHOLD) {
           scale.value = newScale;
         }
-    
         const newTranslateX = clamp(
           baseTranslateX.value - (initialFocalX.value - windowWidth / 2) * (scaleFactor - 1),
           -windowWidth * (newScale - 1) / 2,
@@ -215,7 +270,6 @@ const highResHeight = baseHeight * RESOLUTION_FACTOR;
           -windowHeight * (newScale - 1) / 4,
           windowHeight * (newScale - 1) / 4
         );
-    
         if (Math.abs(newTranslateX - translateX.value) > TRANSLATE_THRESHOLD) {
           translateX.value = newTranslateX;
         }
@@ -223,9 +277,7 @@ const highResHeight = baseHeight * RESOLUTION_FACTOR;
           translateY.value = newTranslateY;
         }
       })
-      .onEnd(() => {
-      });
-    
+      .onEnd(() => {});
 
     const panGesture = Gesture.Pan()
       .maxPointers(1)
@@ -236,7 +288,6 @@ const highResHeight = baseHeight * RESOLUTION_FACTOR;
       .onUpdate((event) => {
         const maxTranslateX = (windowWidth * (scale.value - 1)) / 2;
         const maxTranslateY = (windowHeight * (scale.value - 1)) / 4;
-
         translateX.value = clamp(startX.value + event.translationX, -maxTranslateX, maxTranslateX);
         translateY.value = clamp(startY.value + event.translationY, -maxTranslateY, maxTranslateY);
       });
@@ -252,10 +303,7 @@ const highResHeight = baseHeight * RESOLUTION_FACTOR;
     const topTextAnimatedStyle = useAnimatedStyle(() => {
       const translateY = -100 * (scale.value - 1);
       const opacity = Math.max(1 - Math.pow(scale.value - 1, 1.5), 0);
-      return {
-        transform: [{ translateY }],
-        opacity,
-      };
+      return { transform: [{ translateY }], opacity };
     });
 
     const getTranslateY = (maxTranslateY: number, maxScale: number, scaleValue: number) => {
@@ -270,32 +318,60 @@ const highResHeight = baseHeight * RESOLUTION_FACTOR;
       const translateY = getTranslateY(maxTranslateY, maxScale, scale.value);
       const opacityProgress = Math.min((scale.value - 1) / (maxScale - 1), 1);
       const opacity = Math.max(1 - Math.pow(opacityProgress, 1.2), 0);
-      return {
-        transform: [{ translateY }],
-        opacity,
-      };
+      return { transform: [{ translateY }], opacity };
     });
 
     const buttonContainerAnimatedStyle = useAnimatedStyle(() => {
       const maxTranslateY = screenHeight * 0.05;
       const maxScale = 1.6;
       const translateY = getTranslateY(maxTranslateY, maxScale, scale.value);
-      return {
-        transform: [{ translateY }],
-      };
+      return { transform: [{ translateY }] };
     });
 
-    // Definicja animowanego stylu dla Tooltipa
+    // Animowany styl dla tooltipa
     const tooltipAnimatedStyle = useAnimatedStyle(() => {
       try {
-        return {
-          transform: [{ scale: withTiming(1 / scale.value, { duration: 100 }) }],
-        };
+        return { transform: [{ scale: withTiming(1 / scale.value, { duration: 100 }) }] };
       } catch (error) {
         console.error("Tooltip animation error:", error);
         return {};
       }
     });
+
+    const handlePathPress = useCallback((event: GestureResponderEvent, countryCode: string) => {
+      const country = data.countries.find(c => c.id === countryCode);
+      if (!country) return;
+    
+      // Pobieramy współrzędne dotknięcia w układzie elementu, który został dotknięty.
+      // Jeśli masz pewność, że event.nativeEvent.pageX/Y są dostępne,
+      // możesz je wykorzystać, odejmując offset kontenera.
+      const { pageX, pageY } = event.nativeEvent;
+    
+      // Załóżmy, że masz zapisany offset kontenera (setContainerOffset) – np.:
+      const xInContainer = pageX - containerOffset.x;
+      const yInContainer = pageY - containerOffset.y;
+    
+      // Aby uwzględnić przeskalowanie mapy (scale.value) oraz przesunięcie (translateX/Y)
+      // „odwracamy” transformacje, czyli:
+      const unscaledX = (xInContainer - translateX.value) / scale.value;
+      const unscaledY = (yInContainer - translateY.value) / scale.value;
+    
+      // Jeśli wewnętrzny widok mapy jest dodatkowo przeskalowany (1/RESOLUTION_FACTOR),
+      // przeliczamy z powrotem na układ SVG:
+      const svgX = unscaledX * RESOLUTION_FACTOR;
+      const svgY = unscaledY * RESOLUTION_FACTOR;
+    
+      // Możesz – w zależności od efektu – umieścić tooltip dokładnie tam,
+      // lub np. dodać korektę, żeby był „przykryty” środkiem (np. jeśli tooltip ma stałe wymiary):
+      setTooltip({
+        x: xInContainer,
+        y: yInContainer,
+        country,
+        position: yInContainer > 100 ? 'top' : 'bottom',
+      });
+      runOnJS(setIsTooltipVisible)(true);
+      onCountryPress(countryCode);
+    }, [containerOffset, scale, translateX, translateY, onCountryPress]);
     
 
     const resetMap = useCallback(() => {
@@ -308,14 +384,12 @@ const highResHeight = baseHeight * RESOLUTION_FACTOR;
     const shareMap = async () => {
       try {
         setIsSharing(true);
-
         const isAvailable = await Sharing.isAvailableAsync();
         if (!isAvailable) {
           Alert.alert('Błąd', 'Udostępnianie nie jest dostępne na tym urządzeniu');
           setIsSharing(false);
           return;
         }
-
         const uri = await captureRef(baseMapRef, {
           format: 'png',
           quality: 1,
@@ -323,7 +397,6 @@ const highResHeight = baseHeight * RESOLUTION_FACTOR;
           width: screenWidth * pixelRatio * 6,
           height: (screenWidth * pixelRatio * 6) * (16 / 9),
         });
-
         if (uri) {
           await Sharing.shareAsync(uri).catch((error) => {
             console.log('Udostępnianie anulowane przez użytkownika:', error);
@@ -341,50 +414,17 @@ const highResHeight = baseHeight * RESOLUTION_FACTOR;
       }
     };
 
-    console.log('Visited Countries:', visitedCountries);
-    console.log('Total Countries:', totalCountries);
-    console.log('Percentage Visited:', percentageVisited);
-
-    const handlePathPress = useCallback((event: GestureResponderEvent, countryCode: string) => {
-      const { locationX, locationY } = event.nativeEvent;
-    
-      const adjustedX = (locationX - translateX.value) / scale.value;
-      const adjustedY = (locationY - translateY.value) / scale.value;
-    
-      const country = data.countries.find((c) => c.id === countryCode);
-    
-      if (country) {
-        let position: 'top' | 'bottom' = 'top';
-    
-        // Ustaw 'bottom' tylko dla przybliżenia powyżej 70% (wartość skali > 1.7)
-        if (scale.value > 1.70) {
-          position = 'bottom';
-        }
-    
-        setTooltip({
-          x: adjustedX,
-          y: adjustedY,
-          country,
-          position,
-        });
-    
-        runOnJS(setIsTooltipVisible)(true); // Pokaż tooltip
-      }
-    
-      onCountryPress(countryCode);
-    }, [scale, translateX, translateY, onCountryPress]);
-    
-    console.log('Scale Value:', scale.value);
-    
-    
-    
-    console.log('Scale Value:', scale.value);
-
-
     return (
-      <GestureHandlerRootView style={[styles.container, style]}>
+      <GestureHandlerRootView>
         <TouchableWithoutFeedback onPress={() => setTooltip(null)}>
-          <View ref={fullViewRef} style={[styles.fullViewContainer, { backgroundColor: theme.colors.background }]}>
+          <View
+            ref={fullViewRef}
+            style={[styles.fullViewContainer, { backgroundColor: theme.colors.background }]}
+            onLayout={(e: LayoutChangeEvent) => {
+              const { x, y } = e.nativeEvent.layout;
+              setContainerOffset({ x, y });
+            }}
+          >
             {/* Górna sekcja */}
             <Animated.View style={[styles.topSection, topTextAnimatedStyle]}>
               <Image
@@ -396,82 +436,61 @@ const highResHeight = baseHeight * RESOLUTION_FACTOR;
             <GestureDetector gesture={Gesture.Simultaneous(pinchGesture, panGesture)}>
               <Animated.View style={[styles.container, animatedStyle]}>
                 <View ref={mapViewRef} style={styles.mapContainer}>
-<Animated.View
-  style={{
-    // Zmniejszamy wysokorozdzielcze SVG do rozmiaru kontenera
-    transform: [{ scale: 1 / RESOLUTION_FACTOR }]
-  }}
-  pointerEvents="auto"
->
-  <AnimatedSvg
-    width={highResWidth}
-    height={highResHeight}
-    viewBox="232 0 1700 857"
-    preserveAspectRatio="xMidYMid meet"
-    style={styles.mapContainer}
-    // pointerEvents="box-none" 
-  >
-    {data.countries.map((country: Country, index: number) => {
-      const countryCode = country.id;
-      if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
-      return (
-        <Path
-          key={`${countryCode}-${index}`}
-          d={country.path}
-          fill={getCountryFill(countryCode)}
-          stroke={isCountryHighlighted(countryCode) ? theme.colors.primary : theme.colors.outline}
-          strokeWidth={isCountryHighlighted(countryCode) ? 2 : 0.2}
-          onPress={(event) => handlePathPress(event, countryCode)}
-        />
-      );
-    })}
-  </AnimatedSvg>
-</Animated.View>
+                  <Animated.View
+                    style={{ transform: [{ scale: 1 / RESOLUTION_FACTOR }] }}
+                    pointerEvents="auto"
+                  >
+                    <AnimatedSvg
+                      width={highResWidth}
+                      height={highResHeight}
+                      viewBox="232 0 1700 857"
+                      preserveAspectRatio="xMidYMid meet"
+                      style={styles.mapContainer}
+                    >
+                      {data.countries.map((country: Country, index: number) => {
+                        const countryCode = country.id;
+                        if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
+                        return (
+                          <Path
+                            key={`${countryCode}-${index}`}
+                            d={country.path}
+                            fill={getCountryFill(countryCode)}
+                            stroke={isCountryHighlighted(countryCode) ? theme.colors.primary : theme.colors.outline}
+                            strokeWidth={isCountryHighlighted(countryCode) ? 2 : 0.2}
+                            onPress={(event) => handlePathPress(event, countryCode)}
+                          />
+                        );
+                      })}
+                    </AnimatedSvg>
+                  </Animated.View>
 
-
-                  {/* Renderowanie Tooltipa wewnątrz kontenera mapy */}
-                  {isTooltipVisible && tooltip && scale.value > 0 && (
+                  {/* Tooltip wyświetlany na środku kraju */}
+                  {isTooltipVisible && tooltip && (
                     <Animated.View
                       style={[
                         styles.tooltip,
                         tooltipAnimatedStyle,
                         {
                           position: 'absolute',
-                          
-                          left: tooltip.x * scale.value + translateX.value - 75,
-                          top: tooltip.y * scale.value + translateY.value - 
-                            (tooltip.position === 'top' ? 
-                              (24 + (20 * (1.46 / scale.value))) : 
-                              (10 + (10 * (0.3 / scale.value)))) + (scale.value > 1.5 ? 5 : 0)  - (scale.value > 2.2 ? 1.8 : 0) - (scale.value > 2.7 ? 2.6 : 0) - (scale.value > 3.15 ? 1.2 : 0) - (scale.value > 3.33 ? 1 : 0) - (scale.value > 3.5 ? 1.8 : 0) - (scale.value > 4.0 ? 0.3 : 0) - (scale.value > 4.2 ? 2 : 0) -  (scale.value > 5.0 ? 0.1 : 0),
-                          width: 150,
-                          transform: [{ scale: 1 / scale.value }],
+                          left: tooltip.x - 75, // 75 – połowa szerokości tooltipa (przy stałej szerokości 150px)
+                          top: tooltip.y - (tooltip.position === 'top' ? 153 : 20),
                         },
                       ]}
                     >
                       {tooltip.position === 'top' && (
-                        <View
-                          style={[
-                            styles.arrowBottom,
-                            { left: 75 - 5 },
-                          ]}
-                        />
+                        <View style={[styles.arrowBottom, { left: 75 - 5 }]} />
                       )}
                       {tooltip.position === 'bottom' && (
-                        <View
-                          style={[
-                            styles.arrowTop,
-                            { left: 75 - 5 },
-                          ]}
-                        />
+                        <View style={[styles.arrowTop, { left: 75 - 5 }]} />
                       )}
-                        <View style={styles.tooltipContent}>
+                      <View style={styles.tooltipContent}>
                         <CountryFlag
                           isoCode={tooltip.country.cca2}
                           size={22}
                           style={{ borderRadius: 5, overflow: 'hidden' }}
                         />
                         <Text style={styles.tooltipText}>{tooltip.country.name}</Text>
-                        </View>
+                      </View>
                     </Animated.View>
                   )}
                 </View>
@@ -516,13 +535,8 @@ const highResHeight = baseHeight * RESOLUTION_FACTOR;
             >
               {/* Górna sekcja z napisem */}
               <View style={styles.topSectionPhoto}>
-                <Image
-                  source={logoImage}
-                  style={styles.logoImage}
-                  resizeMode="contain"
-                />
+                <Image source={logoImage} style={styles.logoImage} resizeMode="contain" />
               </View>
-
               {/* Mapa */}
               <View style={styles.mapContainerPhoto}>
                 <Svg
@@ -546,7 +560,6 @@ const highResHeight = baseHeight * RESOLUTION_FACTOR;
                   })}
                 </Svg>
               </View>
-
               {/* Dolna sekcja z napisem */}
               <View style={styles.bottomSectionPhoto}>
                 <View style={styles.progressBarWrapper}>
@@ -581,14 +594,8 @@ const highResHeight = baseHeight * RESOLUTION_FACTOR;
                 onPress={resetMap}
                 activeOpacity={0.7}
               >
-                <Feather
-                  name="code"
-                  size={ICON_SIZE}
-                  style={styles.resetIcon}
-                  color={theme.colors.onPrimary}
-                />
+                <Feather name="code" size={ICON_SIZE} style={styles.resetIcon} color={theme.colors.onPrimary} />
               </TouchableOpacity>
-
               {/* Przycisk Udostępniania */}
               <TouchableOpacity
                 style={[styles.shareButton, { backgroundColor: theme.colors.primary }]}
@@ -602,7 +609,6 @@ const highResHeight = baseHeight * RESOLUTION_FACTOR;
                   <Feather name="share-2" size={ICON_SIZE} color={theme.colors.onPrimary} />
                 )}
               </TouchableOpacity>
-
               {/* Przycisk Przełączania Motywu */}
               <Animated.View style={[styles.toggleButtonContainer, animatedToggleStyle]}>
                 <TouchableOpacity
@@ -788,9 +794,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 3,
   },
-  toggleButtonContainer: {
-    // Możesz dodać dodatkowe style, jeśli potrzebujesz
-  },
+  toggleButtonContainer: {},
   tooltipText: {
     color: '#fff',
     marginLeft: 10,
