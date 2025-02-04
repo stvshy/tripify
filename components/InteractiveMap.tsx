@@ -341,23 +341,27 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
 
     const handlePathPress = useCallback(
       (event: GestureResponderEvent, countryCode: string) => {
+        // Zatrzymaj propagację, aby kliknięcie nie dotarło do innych komponentów
+        event.stopPropagation && event.stopPropagation();
+    
         const country = data.countries.find(c => c.id === countryCode);
         if (!country) return;
     
-        // Pobieramy globalne współrzędne kliknięcia
         const { pageX, pageY } = event.nativeEvent;
-    
-        // Obliczamy współrzędne kliknięcia względem kontenera fullViewContainer
         const localX = pageX - containerOffset.x;
         const localY = pageY - containerOffset.y;
     
+        // Bezpośrednio ustaw nowy tooltip – niezależnie czy poprzedni był widoczny
         setTooltip({
           x: localX,
           y: localY,
           country,
           position: localY > 100 ? 'top' : 'bottom',
         });
-        setIsTooltipVisible(true);
+        // Upewnij się, że stan widoczności tooltipa jest true
+        // setIsTooltipVisible(true);
+    
+        // Wywołanie callbacka przekazanego z rodzica
         onCountryPress(countryCode);
       },
       [containerOffset, onCountryPress]
@@ -408,7 +412,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
 
     return (
       <GestureHandlerRootView>
-        <TouchableWithoutFeedback onPress={() => setTooltip(null)}>
+        {/* <TouchableWithoutFeedback onPress={() => setTooltip(null)}> */}
           <View
             ref={fullViewRef}
             style={[styles.fullViewContainer, { backgroundColor: theme.colors.background }]}
@@ -457,10 +461,9 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                   </Animated.View>
 
                   {/* Tooltip wyświetlany na środku kraju */}
-                  {isTooltipVisible && tooltip && (
+                  {tooltip && (
   <Popover
-    isVisible={isTooltipVisible}
-    // Używamy lokalnych współrzędnych kliknięcia jako punktu zakotwiczenia
+    isVisible={tooltip !== null}
     from={new Rect(tooltip.x, tooltip.y, 1, 1)}
     onRequestClose={() => setTooltip(null)}
     popoverStyle={styles.popoverContainer}
@@ -476,6 +479,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     </View>
   </Popover>
 )}
+
 
 
                 </View>
@@ -610,7 +614,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
               </Animated.View>
             </Animated.View>
           </View>
-        </TouchableWithoutFeedback>
+        {/* </TouchableWithoutFeedback> */}
       </GestureHandlerRootView>
     );
   }
