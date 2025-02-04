@@ -34,6 +34,7 @@ import * as Progress from 'react-native-progress';
 import logoTextImage from '../assets/images/logo-tripify-tekst.png';
 import logoTextImageDesaturated from '../assets/images/logo-tripify-tekst2.png';
 import CountryFlag from 'react-native-country-flag';
+import Popover, { Rect } from 'react-native-popover-view';
 
 export interface Country {
   id: string;
@@ -338,40 +339,35 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       }
     });
 
-    const handlePathPress = useCallback((event: GestureResponderEvent, countryCode: string) => {
-      const country = data.countries.find(c => c.id === countryCode);
-      if (!country) return;
+    const handlePathPress = useCallback(
+      (event: GestureResponderEvent, countryCode: string) => {
+        const country = data.countries.find(c => c.id === countryCode);
+        if (!country) return;
     
-      // Pobieramy współrzędne dotknięcia w układzie elementu, który został dotknięty.
-      // Jeśli masz pewność, że event.nativeEvent.pageX/Y są dostępne,
-      // możesz je wykorzystać, odejmując offset kontenera.
-      const { pageX, pageY } = event.nativeEvent;
+        // Globalne współrzędne kliknięcia
+        const { pageX, pageY } = event.nativeEvent;
     
-      // Załóżmy, że masz zapisany offset kontenera (setContainerOffset) – np.:
-      const xInContainer = pageX - containerOffset.x;
-      const yInContainer = pageY - containerOffset.y;
+        // Obliczamy lokalne współrzędne kliknięcia względem kontenera mapy
+        const localX = pageX - containerOffset.x;
+        const localY = pageY - containerOffset.y;
     
-      // Aby uwzględnić przeskalowanie mapy (scale.value) oraz przesunięcie (translateX/Y)
-      // „odwracamy” transformacje, czyli:
-      const unscaledX = (xInContainer - translateX.value) / scale.value;
-      const unscaledY = (yInContainer - translateY.value) / scale.value;
+        // Odwracamy transformacje mapy (przy translacji i skali)
+        const adjustedX = (localX - translateX.value) / scale.value;
+        const adjustedY = (localY - translateY.value) / scale.value;
     
-      // Jeśli wewnętrzny widok mapy jest dodatkowo przeskalowany (1/RESOLUTION_FACTOR),
-      // przeliczamy z powrotem na układ SVG:
-      const svgX = unscaledX * RESOLUTION_FACTOR;
-      const svgY = unscaledY * RESOLUTION_FACTOR;
+        // Współrzędne, które później wykorzystamy jako punkt zakotwiczenia popovera.
+        setTooltip({
+          x: adjustedX * scale.value,
+          y: adjustedY * scale.value,
+          country,
+          position: localY > 100 ? 'top' : 'bottom',
+        });
+        setIsTooltipVisible(true);
+        onCountryPress(countryCode);
+      },
+      [containerOffset, onCountryPress, scale.value, translateX.value, translateY.value]
+    );
     
-      // Możesz – w zależności od efektu – umieścić tooltip dokładnie tam,
-      // lub np. dodać korektę, żeby był „przykryty” środkiem (np. jeśli tooltip ma stałe wymiary):
-      setTooltip({
-        x: xInContainer,
-        y: yInContainer,
-        country,
-        position: yInContainer > 100 ? 'top' : 'bottom',
-      });
-      runOnJS(setIsTooltipVisible)(true);
-      onCountryPress(countryCode);
-    }, [containerOffset, scale, translateX, translateY, onCountryPress]);
     
 
     const resetMap = useCallback(() => {
@@ -466,33 +462,30 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
 
                   {/* Tooltip wyświetlany na środku kraju */}
                   {isTooltipVisible && tooltip && (
-                    <Animated.View
-                      style={[
-                        styles.tooltip,
-                        tooltipAnimatedStyle,
-                        {
-                          position: 'absolute',
-                          left: tooltip.x - 75, // 75 – połowa szerokości tooltipa (przy stałej szerokości 150px)
-                          top: tooltip.y - (tooltip.position === 'top' ? 153 : 20),
-                        },
-                      ]}
-                    >
-                      {tooltip.position === 'top' && (
-                        <View style={[styles.arrowBottom, { left: 75 - 5 }]} />
-                      )}
-                      {tooltip.position === 'bottom' && (
-                        <View style={[styles.arrowTop, { left: 75 - 5 }]} />
-                      )}
-                      <View style={styles.tooltipContent}>
-                        <CountryFlag
-                          isoCode={tooltip.country.cca2}
-                          size={22}
-                          style={{ borderRadius: 5, overflow: 'hidden' }}
-                        />
-                        <Text style={styles.tooltipText}>{tooltip.country.name}</Text>
-                      </View>
-                    </Animated.View>
-                  )}
+  <Popover
+    isVisible={isTooltipVisible}
+    // Właściwość "from" przyjmuje prostokąt: new Rect(x, y, width, height)
+    // Tutaj ustawiamy x jako tooltip.x - połowa szerokości popovera (150px) oraz y odpowiednio do pozycji.
+    from={new Rect(
+      tooltip.x - 75,
+      tooltip.y - (tooltip.position === 'top' ? 153 : 20),
+      150,
+      1 // wysokość nie ma aż tak dużego znaczenia – popover obliczy swoje wymiary na podstawie zawartości.
+    )}
+    onRequestClose={() => setTooltip(null)}
+    popoverStyle={styles.popoverContainer} // stylizacja popovera (możesz dowolnie modyfikować)
+  >
+    <View style={styles.popoverContent}>
+      <CountryFlag
+        isoCode={tooltip.country.cca2}
+        size={22}
+        style={{ borderRadius: 5, overflow: 'hidden' }}
+      />
+      <Text style={styles.popoverText}>{tooltip.country.name}</Text>
+    </View>
+  </Popover>
+)}
+
                 </View>
               </Animated.View>
             </GestureDetector>
@@ -674,6 +667,23 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 3,
+  },
+  popoverContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    padding: 10,
+    borderRadius: 8,
+  },
+  popoverArrow: {
+    // Możesz ustawić kolor strzałki lub inne właściwości
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+  },
+  popoverContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  popoverText: {
+    color: '#fff',
+    marginLeft: 10,
   },
   progressTextLeft: {
     position: 'absolute',
