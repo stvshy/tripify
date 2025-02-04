@@ -1,0 +1,67 @@
+{
+    "PL": {
+      "name": "Poland",
+      "images": [
+        "poland12.jpg",
+        "poland13.jpg",
+        "poland14.jpg",
+        "poland15.jpg",
+        "poland17.jpg",
+        "poland19.jpg",
+        "poland20.jpg",
+        "poland21.jpg",
+        "poland25.jpg",
+        "poland26.jpg",
+        "poland28.jpeg",
+        "poland3.jpg",
+        "poland30.jpg",
+        "poland31.jpg",
+        "poland33.jpg",
+        "poland34.png",
+        "poland35.jpg",
+        "poland36.jpg",
+        "poland37.jpg",
+        "poland38.jpg",
+        "poland4.jpg",
+        "poland40.jpg",
+        "poland7.jpg",
+        "poland8.jpg",
+        "poland9.jpg"
+      ],
+      "description": "Poland is a country with a rich history, culture and beautiful landscapes.",
+      "capital": "Warsaw",
+      "population": "38 million",
+      "area": "312679",
+      "continent": "Europe",
+      "flag": "poland-flag.png",
+      "knownFor": "Beautiful cities, history, cuisine",
+      "outlets": [
+        "type-c.png"
+      ],
+      "currency": "PLN",
+      "transportApps": [
+        "uber-logo.jpeg",
+        "bolt-logo.png"
+      ],
+      "currentWeather": "Sunny, 18°C",
+      "rainySeason": "June - August",
+      "bestTimeToVisit": "May and September",
+      "monthlyTemperatures": {
+        "January": -2,
+        "February": 0,
+        "March": 4,
+        "April": 10,
+        "May": 15,
+        "June": 18,
+        "July": 20,
+        "August": 20,
+        "September": 16,
+        "October": 10,
+        "November": 5,
+        "December": 0
+      },
+      "visaRequired": "Not required for EU tourists",
+      "travelTips": "Before travelling, be sure to familiarize yourself with local customs and public transport."
+    }
+  }
+  

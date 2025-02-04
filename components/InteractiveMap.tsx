@@ -469,7 +469,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                       <Text style={styles.popoverText}>{tooltip.country.name}</Text>
                       {/* Okrągły przycisk "View" */}
                       <TouchableOpacity
-                        style={styles.viewButton}
+                        style={[styles.viewButton]}
                         onPress={() => {
                           // Przechodzimy do profilu kraju, np. /country/[cid]
                           router.push(`/country/${tooltip.country.id}`);
@@ -477,7 +477,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                           setTooltip(null);
                         }}
                       >
-                        <Text style={styles.viewButtonText}>View</Text>
+                        <Text style={[styles.viewButtonText]}>View</Text>
                       </TouchableOpacity>
                     </View>
                   </Popover>
@@ -658,8 +658,8 @@ const styles = StyleSheet.create({
   },
   // Styl dla przycisku "View"
   viewButton: {
-    width: 40,
-    height: 20,
+    width: 42,
+    height: 22,
     borderRadius: 20,
     backgroundColor: '#fff',
     justifyContent: 'center',
@@ -669,7 +669,7 @@ const styles = StyleSheet.create({
   viewButtonText: {
     color: '#000',
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: '600', // Less bold but bolder than normal
   },
   progressTextLeft: {
     position: 'absolute',
