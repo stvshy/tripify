@@ -7,8 +7,7 @@ interface OpenMeteoResponse {
     temperature: number;
     time: string; // API zwraca czas zaokrąglony do godziny, np. "2023-02-05T23:00"
   };
-  timezone: string; // np. "Europe/Warsaw"
-  // Jeśli API zwróci dodatkowo utc_offset_seconds, można je użyć – w tym przykładzie korzystamy z timeZone
+  timezone: string; // Przykładowo: "Europe/Warsaw"
 }
 
 interface OpenMeteoWidgetManualProps {
@@ -54,13 +53,13 @@ const OpenMeteoWidgetManual: React.FC<OpenMeteoWidgetManualProps> = ({ latitude,
     );
   }
 
-  // Używamy opcji timeZone z metody toLocaleTimeString, aby uzyskać dokładny czas w strefie lokalnej
-  const formattedLocalTime = new Date().toLocaleTimeString("pl-PL", {
+  const formattedLocalTime = new Date().toLocaleTimeString("en-US", {
     timeZone: data.timezone,
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit'
+    hour12: false  // dla 24-godzinnego formatu
   });
+  
 
   return (
     <View style={styles.container}>
