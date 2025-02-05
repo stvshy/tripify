@@ -8,14 +8,14 @@ import {
   Image,
   Dimensions,
   ActivityIndicator,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-  TouchableOpacity
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { getStorage, ref, getDownloadURL } from 'firebase/storage';
 import CountryFlag from 'react-native-country-flag';
-import { FontAwesome5, MaterialIcons } from '@expo/vector-icons';
+import { FontAwesome5 } from '@expo/vector-icons';
+
+// Importujemy TapGestureHandler z react-native-gesture-handler
+import { TapGestureHandler, State as GestureState } from 'react-native-gesture-handler';
 
 // Interfejsy danych
 interface MonthlyTemperatures {
@@ -72,6 +72,7 @@ interface CountryProfileData {
   legalDrugs: string;
   vaccinationRequirements: string;
   dangerRating: number;
+  languages: string[]; // nowe pole!
 }
 
 // Import danych kraju – upewnij się, że ścieżka jest poprawna
@@ -95,29 +96,6 @@ const WeatherWidget = ({ currentWeather }: { currentWeather: string }) => {
   );
 };
 
-// Komponent DangerRating – wyświetla 5 ikon ostrzegawczych opakowanych w jeden okrągły kontener
-const DangerRating = ({ rating }: { rating: number }) => {
-  const maxRating = 5;
-  const icons = [];
-  for (let i = 0; i < maxRating; i++) {
-    icons.push(
-      <MaterialIcons
-        key={i}
-        name="warning"
-        size={20}
-        color="#FF4500"
-        style={{ opacity: i < rating ? 1 : 0.3, marginRight: 2 }}
-      />
-    );
-  }
-  return (
-    <View style={styles.dangerWrapper}>
-      {icons}
-    </View>
-  );
-};
-
-
 const CountryProfile = () => {
   const { cid } = useLocalSearchParams();
   const country = countryData[cid as string];
@@ -127,12 +105,16 @@ const CountryProfile = () => {
   const [outletUrls, setOutletUrls] = useState<string[]>([]);
   const [transportUrls, setTransportUrls] = useState<string[]>([]);
   const [drivingSideUrl, setDrivingSideUrl] = useState<string>('');
-  const [knownForIcons, setKnownForIcons] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [currentSlide, setCurrentSlide] = useState<number>(0);
 
   // Referencja do ScrollView slidera
   const sliderRef = useRef<ScrollView>(null);
+
+  const screenWidth = Dimensions.get('window').width;
+
+  // Obliczamy rozmiar obrazka dla Electrical Outlets w karcie (jeśli potrzebujemy wielu obrazków, można rozbudować układ)
+  const outletCardImageSize = 50;
 
   useEffect(() => {
     if (!country) return;
@@ -148,14 +130,11 @@ const CountryProfile = () => {
           // Dla transport apps – pobieramy logo z każdego obiektu
           Promise.all(country.transportApps.map(app => getFirebaseUrl(app.logo))),
           getFirebaseUrl(country.drivingSide.image),
-          // Dla knownFor – pobieramy ikonki dla każdego elementu
-          // Promise.all(country.knownFor.map(item => getFirebaseUrl(item.icon)))
         ]);
         setSliderUrls(slider);
         setOutletUrls(outlets);
         setTransportUrls(transport);
         setDrivingSideUrl(drivingUrl);
-        // setKnownForIcons(knownForUrls);
       } catch (error) {
         console.error("Error fetching images from Firebase Storage:", error);
       } finally {
@@ -166,10 +145,8 @@ const CountryProfile = () => {
     loadImages();
   }, [country]);
 
-  const screenWidth = Dimensions.get('window').width;
-
   // Obsługa scrolla slidera – ustalamy aktualny indeks zdjęcia
-  const onSliderScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+  const onSliderScroll = (e: any) => {
     const offsetX = e.nativeEvent.contentOffset.x;
     const index = Math.round(offsetX / screenWidth);
     setCurrentSlide(index);
@@ -189,6 +166,18 @@ const CountryProfile = () => {
       const newSlide = currentSlide + 1;
       setCurrentSlide(newSlide);
       sliderRef.current?.scrollTo({ x: newSlide * screenWidth, animated: true });
+    }
+  };
+
+  // Obsługa gestu tapnięcia – rozpoznajemy pozycję tapnięcia w obrębie slidera
+  const handleTap = (event: any) => {
+    if (event.nativeEvent.state === GestureState.END) {
+      const { x } = event.nativeEvent;
+      if (x < screenWidth * 0.2) {
+        handleLeftTap();
+      } else if (x > screenWidth * 0.8) {
+        handleRightTap();
+      }
     }
   };
 
@@ -212,26 +201,26 @@ const CountryProfile = () => {
     <ScrollView style={styles.container}>
       {/* Slider Section */}
       <View style={styles.sliderContainer}>
-        <TouchableOpacity style={styles.leftTapArea} onPress={handleLeftTap} />
-        <TouchableOpacity style={styles.rightTapArea} onPress={handleRightTap} />
-        <ScrollView
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onScroll={onSliderScroll}
-          scrollEventThrottle={16}
-          ref={sliderRef}
-        >
-          {sliderUrls.map((url: string, index: number) => (
-            <Image
-              key={index}
-              source={{ uri: url }}
-              style={[styles.sliderImage, { width: screenWidth }]}
-              resizeMode="cover"
-            />
-          ))}
-        </ScrollView>
-        {/* Slider overlay – owal w lewym dolnym rogu z flagą, nazwą i dot-indicator */}
+        <TapGestureHandler onHandlerStateChange={handleTap}>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={onSliderScroll}
+            scrollEventThrottle={16}
+            ref={sliderRef}
+          >
+            {sliderUrls.map((url: string, index: number) => (
+              <Image
+                key={index}
+                source={{ uri: url }}
+                style={[styles.sliderImage, { width: screenWidth }]}
+                resizeMode="cover"
+              />
+            ))}
+          </ScrollView>
+        </TapGestureHandler>
+        {/* Slider overlay – z flagą, nazwą kraju i dot-indicator */}
         <View style={styles.sliderOverlay}>
           <View style={styles.countryBadge}>
             <CountryFlag isoCode={cid as string} size={40} style={styles.flag} />
@@ -241,7 +230,10 @@ const CountryProfile = () => {
             <View style={styles.dotContainer}>
               {sliderUrls.map((_, index: number) => {
                 const totalDots = Math.min(sliderUrls.length, 5);
-                let startIndex = Math.max(0, Math.min(currentSlide - Math.floor(totalDots / 2), sliderUrls.length - totalDots));
+                let startIndex = Math.max(
+                  0,
+                  Math.min(currentSlide - Math.floor(totalDots / 2), sliderUrls.length - totalDots)
+                );
                 let endIndex = startIndex + totalDots;
                 if (sliderUrls.length > totalDots) {
                   if (currentSlide < Math.floor(totalDots / 2)) {
@@ -264,7 +256,7 @@ const CountryProfile = () => {
                         {
                           transform: [{ scale: 1.2 - distanceFromCenter * 0.2 }],
                           opacity: 1 - distanceFromCenter * 0.3,
-                        }
+                        },
                       ]}
                     />
                   );
@@ -298,7 +290,6 @@ const CountryProfile = () => {
             <Text style={styles.infoCardValue}>{country.population}</Text>
           </View>
         </View>
-        {/* Usunięto flagę z tej sekcji */}
         <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
           <Text style={styles.infoCardLabel}>✨ Known For</Text>
           <View style={styles.knownForGrid}>
@@ -310,7 +301,6 @@ const CountryProfile = () => {
             ))}
           </View>
         </View>
-
       </View>
 
       {/* Main Cities Section */}
@@ -325,81 +315,78 @@ const CountryProfile = () => {
         </View>
       </View>
 
-      {/* Electrical Outlets Section – grid */}
+      {/* Additional Info Section */}
       <View style={styles.sectionBox}>
-        <Text style={styles.sectionTitle}>Electrical Outlets</Text>
-        <View style={styles.outletsGrid}>
-          {outletUrls.map((url: string, index: number) => (
+        <Text style={styles.sectionTitle}>Additional Info</Text>
+        {/* Wiersz Currency & Dialing Code */}
+        <View style={styles.row}>
+          <View style={styles.halfInfoCard}>
+            <Text style={styles.infoCardLabel}>💵 Currency</Text>
+            <Text style={styles.infoCardValue}>{country.currency}</Text>
+          </View>
+          <View style={styles.halfInfoCard}>
+            <Text style={styles.infoCardLabel}>📞 Dialing Code</Text>
+            <Text style={styles.infoCardValue}>{country.dialingCode}</Text>
+          </View>
+        </View>
+        {/* Wiersz Drinking Age & Smoking Age */}
+        <View style={styles.row}>
+          <View style={styles.halfInfoCard}>
+            <Text style={styles.infoCardLabel}>🍺 Drinking Age</Text>
+            <Text style={styles.infoCardValue}>{country.legalAlcoholAge} years</Text>
+          </View>
+          <View style={styles.halfInfoCard}>
+            <Text style={styles.infoCardLabel}>💨 Smoking Age</Text>
+            <Text style={styles.infoCardValue}>{country.legalCigarettesAge} years</Text>
+          </View>
+        </View>
+        {/* Wiersz Driving Side & Electrical Outlets */}
+        <View style={styles.row}>
+        <View style={styles.halfInfoCard}>
+          <Text style={styles.infoCardLabel}>🚗 Driving Side</Text>
+          <View style={styles.drivingSideContainer}>
             <Image
-              key={index}
-              source={{ uri: url }}
-              style={styles.outletImage}
-              resizeMode="cover"
+              source={{ uri: drivingSideUrl }}
+              style={styles.drivingSideImage}
+              resizeMode="contain"
             />
-          ))}
+            <Text style={styles.drivingSideText}>{country.drivingSide.side}</Text>
+          </View>
+        </View>
+
+
+        <View style={styles.halfInfoCard}>
+          <Text style={styles.infoCardLabel}>🔌 Electrical Outlets</Text>
+          <View style={styles.outletCard}>
+            {outletUrls.map((url, index) => (
+              <View key={index} style={styles.outletItem}>
+                <Image
+                  source={{ uri: url }}
+                  style={[styles.outletCardImage, { width: outletCardImageSize, height: outletCardImageSize }]}
+                  resizeMode="cover"
+                />
+                <Text style={styles.outletCaption}>C</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        </View>
+        {/* Nowa sekcja Languages (zastępuje poprzedni Danger Rating) */}
+        <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
+          <Text style={styles.infoCardLabel}>🌐 Languages</Text>
+          <Text style={styles.infoCardValue}>{country.languages.join(', ')}</Text>
+        </View>
+        {/* Dodatkowe info (Network Operators, Other Legal Drugs) */}
+        <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
+          <Text style={styles.infoCardLabel}>📡 Network Operators</Text>
+          <Text style={styles.infoCardValue}>{country.networkOperators.join(', ')}</Text>
+        </View>
+        <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
+          <Text style={styles.infoCardLabel}>💊 Other Legal Drugs</Text>
+          <Text style={styles.infoCardValue}>{country.legalDrugs}</Text>
         </View>
       </View>
-
-{/* Additional Info Section */}
-<View style={styles.sectionBox}>
-  <Text style={styles.sectionTitle}>Additional Info</Text>
-
-  {/* Currency + Dialing Code */}
-  <View style={styles.row}>
-    <View style={styles.halfInfoCard}>
-      <Text style={styles.infoCardLabel}>💵 Currency</Text>
-      <Text style={styles.infoCardValue}>{country.currency}</Text>
-    </View>
-    <View style={styles.halfInfoCard}>
-      <Text style={styles.infoCardLabel}>📞 Dialing Code</Text>
-      <Text style={styles.infoCardValue}>{country.dialingCode}</Text>
-    </View>
-  </View>
-
-  {/* Legal Alcohol Age + Legal Cigarettes Age */}
-  <View style={styles.row}>
-    <View style={styles.halfInfoCard}>
-      <Text style={styles.infoCardLabel}>🍺 Drinking Age</Text>
-      <Text style={styles.infoCardValue}>{country.legalAlcoholAge} years</Text>
-    </View>
-    <View style={styles.halfInfoCard}>
-      <Text style={styles.infoCardLabel}>💨 Smoking Age</Text>
-      <Text style={styles.infoCardValue}>{country.legalCigarettesAge} years</Text>
-    </View>
-  </View>
-
-  {/* Driving Side + Danger Rating */}
-  <View style={styles.row}>
-    <View style={styles.halfInfoCard}>
-      <Text style={styles.infoCardLabel}>🚗 Driving Side</Text>
-      <View style={styles.drivingSideContainer}>
-        <Image
-          source={{ uri: drivingSideUrl }}
-          style={styles.drivingSideImage}
-          resizeMode="contain"
-        />
-        <Text style={styles.drivingSideText}>{country.drivingSide.side}</Text>
-      </View>
-    </View>
-    <View style={styles.halfInfoCard}>
-      <Text style={styles.infoCardLabel}>💀 Danger Rating</Text>
-      <DangerRating rating={country.dangerRating} />
-    </View>
-  </View>
-
-  {/* Network Operators */}
-  <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
-    <Text style={styles.infoCardLabel}>📡 Network Operators</Text>
-    <Text style={styles.infoCardValue}>{country.networkOperators.join(', ')}</Text>
-  </View>
-
-  {/* Other Legal Drugs */}
-  <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
-    <Text style={styles.infoCardLabel}>💊 Other Legal Drugs</Text>
-    <Text style={styles.infoCardValue}>{country.legalDrugs}</Text>
-  </View>
-</View>
-
 
       {/* Transport Apps Section – grid */}
       <View style={styles.sectionBox}>
@@ -468,59 +455,12 @@ const CountryProfile = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor:'#fafafa' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   errorText: { fontSize: 17.5, color: 'red' },
   // Slider
   sliderContainer: { position: 'relative', height: 290 },
   sliderImage: { height: 290 },
-  leftTapArea: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '20%',
-    height: '100%',
-    zIndex: 2,
-  },
-  rightTapArea: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: '20%',
-    height: '100%',
-    zIndex: 2,
-  },
-  drivingSideContainer: {
-    flexDirection: 'row', // Ustawia elementy jeden pod drugim
-    alignItems: 'flex-start', // Wyśrodkowanie w poziomie
-    marginTop: 8
-    },
-    
-    drivingSideImage: {
-      width: 30,
-      height: 30,
-      resizeMode: 'contain',
-      marginRight: 5, // Odstęp między obrazkiem a tekstem
-    },
-    
-    drivingSideText: {
-      fontSize: 14,
-      // fontWeight: '400',
-      color: '#333',
-      alignSelf: 'flex-end', // Tekst wyrównany do dolnej krawędzi obrazka
-      marginLeft: 2
-    },
-    dangerWrapper: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-    // borderWidth: 1,
-    borderRadius: 16,
-    padding: 8,
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(133, 88, 98, 0.09)',
-    marginTop: 6,
-  },
-  
   sliderOverlay: {
     position: 'absolute',
     bottom: 8,
@@ -545,6 +485,21 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#fff',
   },
+  outletItem: {
+    alignItems: 'center',      // Wyśrodkowanie zawartości (obrazek i napis)
+    marginRight: 5,
+    marginBottom: 5,
+  },
+  outletCaption: {
+    fontSize: 12,
+    color: '#333',
+    marginTop: 3,
+    textAlign: 'center',
+  },
+  outletCardImage: {
+    borderRadius: 7,
+  },
+  
   countryName: { color: '#fff', fontSize: 17, fontWeight: 'bold' },
   dotWrapper: {
     backgroundColor: 'rgba(0, 0, 0, 0.38)',
@@ -558,16 +513,14 @@ const styles = StyleSheet.create({
   dotInactive: { backgroundColor: 'rgba(255, 255, 255, 0.6)' },
   // Section Box
   sectionBox: {
-    borderWidth: 1,
+    borderBottomWidth: 1,
     borderColor: '#ddd',
-    // borderRadius: 15,
     padding: 12,
-    // marginHorizontal: 8,
-    // marginVertical: 5,
     backgroundColor: '#fafafa',
+    marginVertical: 5,
   },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: '#333' },
-  description: { fontSize: 16, marginBottom: 10, color: '#555', },
+  description: { fontSize: 16, marginBottom: 10, color: '#555' },
   // Info cards – mini okienka
   infoCardsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginHorizontal: -3 },
   infoCard: {
@@ -576,13 +529,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 10,
     marginVertical: 3.5,
-    // marginRight: 3,
-    flexBasis: '49%',
     backgroundColor: '#fff',
+    flexBasis: '49%',  
   },
   infoCardLabel: { fontSize: 15, fontWeight: 'bold', color: '#333' },
   infoCardValue: { fontSize: 14, color: '#555', marginTop: 8 },
-  // Usunięto flagContainer z General Info
   // Known For – grid mini okienek
   knownForGrid: {
     flexDirection: 'row',
@@ -598,22 +549,21 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 8,
     margin: 3,
-    marginTop: 10
+    marginTop: 10,
   },
   knownForIcon: {
-    fontSize: 17,  // Rozmiar emoji
+    fontSize: 17,
     marginRight: 5,
   },
   knownForText: {
     fontSize: 13,
     color: '#333',
   },
-  
   // Main Cities – grid mini okienek
   citiesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: -3 
+    marginHorizontal: -3,
   },
   cityCard: {
     backgroundColor: '#def',
@@ -621,24 +571,9 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 8,
     margin: 3,
-    marginLeft: 0,
   },
   cityText: { fontSize: 13, color: '#333' },
-  // Outlets – grid
-  outletsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-    borderRadius: 30,
-    marginHorizontal: -3
-  },
-  outletImage: { width: 60, height: 60, borderRadius: 7, margin: 5 },
-  // Transport Apps – grid
-  appsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-  },
+  // Dla dodatkowych wierszy w Additional Info
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -654,7 +589,13 @@ const styles = StyleSheet.create({
     padding: 10,
     backgroundColor: '#fff',
   },
-  
+  // Transport Apps – grid
+  appsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    marginLeft: -6,
+  },
   appCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -664,8 +605,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingRight: 10,
     margin: 3.2,
-    marginRight: 6.4,
-    marginLeft: 0,
     borderWidth: 1,
     borderColor: '#ccc',
   },
@@ -681,30 +620,31 @@ const styles = StyleSheet.create({
   },
   monthText: { fontSize: 16, fontWeight: 'bold', color: '#333', flex: 1 },
   tempText: { fontSize: 16, color: '#555', flex: 1, textAlign: 'right' },
-  // Additional Info – wiersz dla driving side
-  infoCardRow: {
+  // Additional Info – Driving Side & Electrical Outlets
+  drivingSideContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    marginTop: 8,
+  },
+  drivingSideImage: {
+    width: 48,
+    height: 48,
+    resizeMode: 'contain',
+    marginBottom: 5,
+    alignSelf: 'flex-start',
+  },
+  drivingSideText: {
+    fontSize: 14,
+    color: '#333',
+    textAlign: 'center',         // Tekst również wyrównany do lewej
+    // alignSelf: 'center',
+  },
+  outletCard: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 10,
-    padding: 8,
-    marginVertical: 5,
-    backgroundColor: '#fff',
+    marginTop: 5,
   },
-  dangerIconWrapper: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#FF4500',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 2,
-  },
-  
-  drivingImage: { width: 30, height: 30, marginHorizontal: 10 },
-  dangerContainer: { flexDirection: 'row', alignItems: 'flex-start' }
 });
 
 const weatherStyles = StyleSheet.create({

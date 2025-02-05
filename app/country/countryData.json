@@ -46,7 +46,7 @@
     { "name": "Bolt", "logo": "bolt-logo.png" },
     { "name": "FREENOW", "logo": "freenow-logo.png" }
     ],
-    "currentWeather": "Sunny, 18°C",
+  "currentWeather": "Sunny, 18°C",
     "rainySeason": "June - August",
     "bestTimeToVisit": "May and September",
     "monthlyTemperatures": {
@@ -77,6 +77,7 @@
     "legalCigarettesAge": 18,
     "legalDrugs": "Cannabis is decriminalized for personal use",
     "vaccinationRequirements": "No mandatory vaccinations",
-    "dangerRating": 1
+    "dangerRating": 1,
+    "languages": ["Polish"]
   }
 }
