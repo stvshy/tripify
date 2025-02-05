@@ -290,7 +290,7 @@ const CountryProfile = () => {
             <Text style={styles.infoCardValue}>{country.continent}</Text>
           </View>
           <View style={styles.infoCard}>
-            <Text style={styles.infoCardLabel}>📏 Area</Text>
+            <Text style={styles.infoCardLabel}>💠 Area</Text>
             <Text style={styles.infoCardValue}>{country.area} km²</Text>
           </View>
           <View style={styles.infoCard}>
@@ -382,7 +382,7 @@ const CountryProfile = () => {
       </View>
     </View>
     <View style={styles.halfInfoCard}>
-      <Text style={styles.infoCardLabel}>⚠ Danger Rating</Text>
+      <Text style={styles.infoCardLabel}>💀 Danger Rating</Text>
       <DangerRating rating={country.dangerRating} />
     </View>
   </View>
@@ -422,11 +422,11 @@ const CountryProfile = () => {
       <View style={styles.sectionBox}>
         <Text style={styles.sectionTitle}>Weather</Text>
         <WeatherWidget currentWeather={country.currentWeather} />
-        <View style={styles.infoCard}>
+        <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
           <Text style={styles.infoCardLabel}>☔ Rainy Season</Text>
           <Text style={styles.infoCardValue}>{country.rainySeason}</Text>
         </View>
-        <View style={styles.infoCard}>
+        <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
           <Text style={styles.infoCardLabel}>📅 Best Time</Text>
           <Text style={styles.infoCardValue}>{country.bestTimeToVisit}</Text>
         </View>
@@ -448,15 +448,15 @@ const CountryProfile = () => {
 
       {/* Visa & Travel Tips Section */}
       <View style={styles.sectionBox}>
-        <View style={styles.infoCard}>
+        <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
           <Text style={styles.infoCardLabel}>🛂 Visa Requirements</Text>
           <Text style={styles.infoCardValue}>{country.visaRequired}</Text>
         </View>
-        <View style={styles.infoCard}>
+        <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
           <Text style={styles.infoCardLabel}>💡 Travel Tips</Text>
           <Text style={styles.infoCardValue}>{country.travelTips}</Text>
         </View>
-        <View style={styles.infoCard}>
+        <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
           <Text style={styles.infoCardLabel}>🙏 Religions</Text>
           <Text style={styles.infoCardValue}>
             {country.religions.map(r => `${r.name} (${r.percentage}%)`).join(', ')}
@@ -514,7 +514,7 @@ const styles = StyleSheet.create({
       flexDirection: 'row',
       alignItems: 'flex-start',
     // borderWidth: 1,
-    borderRadius: 18,
+    borderRadius: 16,
     padding: 8,
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(133, 88, 98, 0.09)',
@@ -613,6 +613,7 @@ const styles = StyleSheet.create({
   citiesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    marginHorizontal: -3 
   },
   cityCard: {
     backgroundColor: '#def',
@@ -628,7 +629,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'flex-start',
-    borderRadius: 30
+    borderRadius: 30,
+    marginHorizontal: -3
   },
   outletImage: { width: 60, height: 60, borderRadius: 7, margin: 5 },
   // Transport Apps – grid
