@@ -13,6 +13,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { getStorage, ref, getDownloadURL } from 'firebase/storage';
 import CountryFlag from 'react-native-country-flag';
 import { FontAwesome5 } from '@expo/vector-icons';
+import OpenMeteoWidgetManual from './openMeteo'; // Upewnij się, że ścieżka jest poprawna
 
 // Importujemy TapGestureHandler z react-native-gesture-handler
 import { TapGestureHandler, State as GestureState } from 'react-native-gesture-handler';
@@ -48,6 +49,8 @@ interface CountryProfileData {
   images: string[];
   description: string;
   capital: string;
+  capitalLatitude: number;      // Dodane
+  capitalLongitude: number;     // Dodane
   population: string;
   area: string;
   continent: string;
@@ -421,7 +424,10 @@ const CountryProfile = () => {
       {/* Weather Section */}
       <View style={styles.sectionBox}>
         <Text style={styles.sectionTitle}>Weather</Text>
-        <WeatherWidget currentWeather={country.currentWeather} />
+        <OpenMeteoWidgetManual
+          latitude={country.capitalLatitude}
+          longitude={country.capitalLongitude}
+        />
         <View style={styles.row}>
           <View style={styles.halfInfoCard}>
             <Text style={styles.infoCardLabel}>📅 Best Time</Text>
@@ -432,7 +438,6 @@ const CountryProfile = () => {
             <Text style={styles.infoCardValue}>{country.rainySeason}</Text>
           </View>
         </View>
-
       </View>
 
       {/* Monthly Temperatures Section */}
