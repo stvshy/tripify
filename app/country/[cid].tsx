@@ -25,7 +25,12 @@ interface MonthlyTemperatures {
 
 interface TransportApp {
   name: string;
-  logo: string; // Storage path for logo image
+  logo: string;
+}
+
+interface KnownForItem {
+  icon: string;
+  text: string;
 }
 
 interface Religion {
@@ -34,23 +39,23 @@ interface Religion {
 }
 
 interface DrivingSide {
-  side: string; // np. "Right" lub "Left"
-  image: string; // Storage path for driving side image
+  side: string; // "Right" lub "Left"
+  image: string;
 }
 
 interface CountryProfileData {
   name: string;
-  images: string[]; // Storage paths for slider images
+  images: string[];
   description: string;
   capital: string;
   population: string;
   area: string;
   continent: string;
-  flag: string; // Storage path (dla CountryFlag używamy biblioteki)
-  knownFor: string;
-  outlets: string[]; // Storage paths for electrical outlets images
-  currency: string; // np. "USD ($) - PLN"
-  transportApps: TransportApp[]; // Array of taxi app info objects
+  flag: string;
+  knownFor: KnownForItem[];
+  outlets: string[];
+  currency: string;
+  transportApps: TransportApp[];
   currentWeather: string;
   rainySeason: string;
   bestTimeToVisit: string;
@@ -80,7 +85,7 @@ const getFirebaseUrl = async (path: string): Promise<string> => {
   return await getDownloadURL(storageRef);
 };
 
-// Przykładowy widget pogody
+// Widget pogody
 const WeatherWidget = ({ currentWeather }: { currentWeather: string }) => {
   return (
     <View style={weatherStyles.container}>
@@ -90,7 +95,7 @@ const WeatherWidget = ({ currentWeather }: { currentWeather: string }) => {
   );
 };
 
-// Komponent DangerRating – wyświetla ikony ostrzeżenia
+// Komponent DangerRating – wyświetla 5 ikon ostrzegawczych opakowanych w jeden okrągły kontener
 const DangerRating = ({ rating }: { rating: number }) => {
   const maxRating = 5;
   const icons = [];
@@ -105,8 +110,13 @@ const DangerRating = ({ rating }: { rating: number }) => {
       />
     );
   }
-  return <View style={styles.dangerContainer}>{icons}</View>;
+  return (
+    <View style={styles.dangerWrapper}>
+      {icons}
+    </View>
+  );
 };
+
 
 const CountryProfile = () => {
   const { cid } = useLocalSearchParams();
@@ -117,6 +127,7 @@ const CountryProfile = () => {
   const [outletUrls, setOutletUrls] = useState<string[]>([]);
   const [transportUrls, setTransportUrls] = useState<string[]>([]);
   const [drivingSideUrl, setDrivingSideUrl] = useState<string>('');
+  const [knownForIcons, setKnownForIcons] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [currentSlide, setCurrentSlide] = useState<number>(0);
 
@@ -136,12 +147,15 @@ const CountryProfile = () => {
           fetchUrls(country.outlets),
           // Dla transport apps – pobieramy logo z każdego obiektu
           Promise.all(country.transportApps.map(app => getFirebaseUrl(app.logo))),
-          getFirebaseUrl(country.drivingSide.image)
+          getFirebaseUrl(country.drivingSide.image),
+          // Dla knownFor – pobieramy ikonki dla każdego elementu
+          // Promise.all(country.knownFor.map(item => getFirebaseUrl(item.icon)))
         ]);
         setSliderUrls(slider);
         setOutletUrls(outlets);
         setTransportUrls(transport);
         setDrivingSideUrl(drivingUrl);
+        // setKnownForIcons(knownForUrls);
       } catch (error) {
         console.error("Error fetching images from Firebase Storage:", error);
       } finally {
@@ -217,7 +231,7 @@ const CountryProfile = () => {
             />
           ))}
         </ScrollView>
-        {/* Slider overlay – owalu po lewej stronie z flagą, nazwą i dot-indicator */}
+        {/* Slider overlay – owal w lewym dolnym rogu z flagą, nazwą i dot-indicator */}
         <View style={styles.sliderOverlay}>
           <View style={styles.countryBadge}>
             <CountryFlag isoCode={cid as string} size={40} style={styles.flag} />
@@ -284,16 +298,34 @@ const CountryProfile = () => {
             <Text style={styles.infoCardValue}>{country.continent}</Text>
           </View>
         </View>
-        <View style={styles.flagContainer}>
-          <CountryFlag isoCode={cid as string} size={60} style={styles.flag} />
-        </View>
+        {/* Usunięto flagę z tej sekcji */}
         <View style={styles.infoCard}>
           <Text style={styles.infoCardLabel}>✨ Known For</Text>
-          <Text style={styles.infoCardValue}>{country.knownFor}</Text>
+          <View style={styles.knownForGrid}>
+            {country.knownFor.map((item, index) => (
+              <View key={index} style={styles.knownForCard}>
+                <Text style={styles.knownForIcon}>{item.icon}</Text>
+                <Text style={styles.knownForText}>{item.text}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+      </View>
+
+      {/* Main Cities Section */}
+      <View style={styles.sectionBox}>
+        <Text style={styles.sectionTitle}>Main Cities</Text>
+        <View style={styles.citiesGrid}>
+          {country.mainCities.map((city, index) => (
+            <View key={index} style={styles.cityCard}>
+              <Text style={styles.cityText}>{city}</Text>
+            </View>
+          ))}
         </View>
       </View>
 
-      {/* Electrical Outlets Section – jako grid */}
+      {/* Electrical Outlets Section – grid */}
       <View style={styles.sectionBox}>
         <Text style={styles.sectionTitle}>Electrical Outlets</Text>
         <View style={styles.outletsGrid}>
@@ -308,57 +340,68 @@ const CountryProfile = () => {
         </View>
       </View>
 
-      {/* Additional Info Section */}
-      <View style={styles.sectionBox}>
-        <Text style={styles.sectionTitle}>Additional Info</Text>
-        <View style={styles.infoCard}>
-          <Text style={styles.infoCardLabel}>💵 Currency</Text>
-          <Text style={styles.infoCardValue}>{country.currency}</Text>
-        </View>
-        <View style={styles.infoCard}>
-          <Text style={styles.infoCardLabel}>📞 Dialing Code</Text>
-          <Text style={styles.infoCardValue}>{country.dialingCode}</Text>
-        </View>
-        <View style={styles.infoCard}>
-          <Text style={styles.infoCardLabel}>🏙️ Main Cities</Text>
-          <Text style={styles.infoCardValue}>{country.mainCities.join(', ')}</Text>
-        </View>
-        <View style={styles.infoCard}>
-          <Text style={styles.infoCardLabel}>📡 Network Operators</Text>
-          <Text style={styles.infoCardValue}>{country.networkOperators.join(', ')}</Text>
-        </View>
-        <View style={styles.infoCardRow}>
-          <Text style={styles.infoCardLabel}>🚗 Driving Side</Text>
-          <Image
-            source={{ uri: drivingSideUrl }}
-            style={styles.drivingImage}
-            resizeMode="contain"
-          />
-          <Text style={styles.infoCardValue}>{country.drivingSide.side}</Text>
-        </View>
-        <View style={styles.infoCard}>
-          <Text style={styles.infoCardLabel}>🍺 Legal Alcohol Age</Text>
-          <Text style={styles.infoCardValue}>{country.legalAlcoholAge} years</Text>
-        </View>
-        <View style={styles.infoCard}>
-          <Text style={styles.infoCardLabel}>🚬 Legal Cigarettes Age</Text>
-          <Text style={styles.infoCardValue}>{country.legalCigarettesAge} years</Text>
-        </View>
-        <View style={styles.infoCard}>
-          <Text style={styles.infoCardLabel}>💊 Legal Drugs</Text>
-          <Text style={styles.infoCardValue}>{country.legalDrugs}</Text>
-        </View>
-        <View style={styles.infoCard}>
-          <Text style={styles.infoCardLabel}>💉 Vaccination Req.</Text>
-          <Text style={styles.infoCardValue}>{country.vaccinationRequirements}</Text>
-        </View>
-        <View style={styles.infoCard}>
-          <Text style={styles.infoCardLabel}>⚠ Danger Rating</Text>
-          <DangerRating rating={country.dangerRating} />
-        </View>
-      </View>
+{/* Additional Info Section */}
+<View style={styles.sectionBox}>
+  <Text style={styles.sectionTitle}>Additional Info</Text>
 
-      {/* Transport Apps Section – teraz w gridzie */}
+  {/* Currency + Dialing Code */}
+  <View style={styles.row}>
+    <View style={styles.halfInfoCard}>
+      <Text style={styles.infoCardLabel}>💵 Currency</Text>
+      <Text style={styles.infoCardValue}>{country.currency}</Text>
+    </View>
+    <View style={styles.halfInfoCard}>
+      <Text style={styles.infoCardLabel}>📞 Dialing Code</Text>
+      <Text style={styles.infoCardValue}>{country.dialingCode}</Text>
+    </View>
+  </View>
+
+  {/* Legal Alcohol Age + Legal Cigarettes Age */}
+  <View style={styles.row}>
+    <View style={styles.halfInfoCard}>
+      <Text style={styles.infoCardLabel}>🍺 Legal Alcohol Age</Text>
+      <Text style={styles.infoCardValue}>{country.legalAlcoholAge} years</Text>
+    </View>
+    <View style={styles.halfInfoCard}>
+      <Text style={styles.infoCardLabel}>🚬 Legal Cigarettes Age</Text>
+      <Text style={styles.infoCardValue}>{country.legalCigarettesAge} years</Text>
+    </View>
+  </View>
+
+  {/* Driving Side + Danger Rating */}
+  <View style={styles.row}>
+    <View style={styles.halfInfoCard}>
+      <Text style={styles.infoCardLabel}>🚗 Driving Side</Text>
+      <View style={styles.drivingSideContainer}>
+        <Image
+          source={{ uri: drivingSideUrl }}
+          style={styles.drivingSideImage}
+          resizeMode="contain"
+        />
+        <Text style={styles.drivingSideText}>{country.drivingSide.side}</Text>
+      </View>
+    </View>
+    <View style={styles.halfInfoCard}>
+      <Text style={styles.infoCardLabel}>⚠ Danger Rating</Text>
+      <DangerRating rating={country.dangerRating} />
+    </View>
+  </View>
+
+  {/* Network Operators */}
+  <View style={styles.infoCard}>
+    <Text style={styles.infoCardLabel}>📡 Network Operators</Text>
+    <Text style={styles.infoCardValue}>{country.networkOperators.join(', ')}</Text>
+  </View>
+
+  {/* Other Legal Drugs */}
+  <View style={styles.infoCard}>
+    <Text style={styles.infoCardLabel}>💊 Other Legal Drugs</Text>
+    <Text style={styles.infoCardValue}>{country.legalDrugs}</Text>
+  </View>
+</View>
+
+
+      {/* Transport Apps Section – grid */}
       <View style={styles.sectionBox}>
         <Text style={styles.sectionTitle}>Transport Apps</Text>
         <View style={styles.appsGrid}>
@@ -447,6 +490,37 @@ const styles = StyleSheet.create({
     height: '100%',
     zIndex: 2,
   },
+  drivingSideContainer: {
+    flexDirection: 'row', // Ustawia elementy jeden pod drugim
+    alignItems: 'flex-start', // Wyśrodkowanie w poziomie
+    marginTop: 8
+    },
+    
+    drivingSideImage: {
+      width: 30,
+      height: 30,
+      resizeMode: 'contain',
+      marginRight: 5, // Odstęp między obrazkiem a tekstem
+    },
+    
+    drivingSideText: {
+      fontSize: 14,
+      // fontWeight: '400',
+      color: '#333',
+      alignSelf: 'flex-end', // Tekst wyrównany do dolnej krawędzi obrazka
+      marginLeft: 2
+    },
+    dangerWrapper: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+    // borderWidth: 1,
+    borderRadius: 18,
+    padding: 8,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(133, 88, 98, 0.09)',
+    marginTop: 6,
+  },
+  
   sliderOverlay: {
     position: 'absolute',
     bottom: 8,
@@ -486,53 +560,108 @@ const styles = StyleSheet.create({
   sectionBox: {
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 15,
+    // borderRadius: 15,
     padding: 15,
-    marginHorizontal: 15,
-    marginVertical: 10,
+    // marginHorizontal: 8,
+    // marginVertical: 5,
     backgroundColor: '#fafafa',
   },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: '#333' },
   description: { fontSize: 16, marginBottom: 10, color: '#555' },
-  // Info cards
+  // Info cards – mini okienka
   infoCardsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   infoCard: {
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 10,
-    padding: 8,
-    marginVertical: 5,
-    marginRight: 5,
-    flexBasis: '48%',
+    padding: 10,
+    marginVertical: 4.5,
+    // marginRight: 3,
+    flexBasis: '48.5%',
     backgroundColor: '#fff',
   },
-  infoCardLabel: { fontSize: 14, fontWeight: 'bold', color: '#333' },
-  infoCardValue: { fontSize: 14, color: '#555', marginTop: 3 },
-  flagContainer: { marginVertical: 10, alignItems: 'center' },
-  // Outlets – grid zamiast horizontal scroll
-  outletsGrid: {
+  infoCardLabel: { fontSize: 15, fontWeight: 'bold', color: '#333' },
+  infoCardValue: { fontSize: 14, color: '#555', marginTop: 8 },
+  // Usunięto flagContainer z General Info
+  // Known For – grid mini okienek
+  knownForGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'flex-start',
   },
-  outletImage: { width: 60, height: 60, borderRadius: 10, margin: 5 },
+  knownForCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#eef',
+    borderRadius: 14,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    margin: 3,
+  },
+  knownForIcon: {
+    fontSize: 17,  // Rozmiar emoji
+    marginRight: 5,
+  },
+  knownForText: {
+    fontSize: 13,
+    color: '#333',
+  },
+  
+  // Main Cities – grid mini okienek
+  citiesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  cityCard: {
+    backgroundColor: '#def',
+    borderRadius: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    margin: 3,
+  },
+  cityText: { fontSize: 13, color: '#333' },
+  // Outlets – grid
+  outletsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    borderRadius: 30
+  },
+  outletImage: { width: 60, height: 60, borderRadius: 7, margin: 5 },
   // Transport Apps – grid
   appsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'flex-start',
   },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: 5,
+  },
+  halfInfoCard: {
+    flex: 1,
+    marginHorizontal: 5,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 10,
+    padding: 8,
+    backgroundColor: '#fff',
+  },
+  
   appCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
     borderRadius: 20,
-    padding: 5,
-    margin: 5,
+    paddingLeft: 6,
+    paddingVertical: 6,
+    paddingRight: 10,
+    margin: 3.2,
     borderWidth: 1,
     borderColor: '#ccc',
   },
-  appLogo: { width: 40, height: 40, borderRadius: 20, marginRight: 5 },
+  appLogo: { width: 40, height: 40, borderRadius: 15, marginRight: 7 },
   appName: { fontSize: 14, color: '#333' },
   monthlyRow: {
     flexDirection: 'row',
@@ -544,7 +673,7 @@ const styles = StyleSheet.create({
   },
   monthText: { fontSize: 16, fontWeight: 'bold', color: '#333', flex: 1 },
   tempText: { fontSize: 16, color: '#555', flex: 1, textAlign: 'right' },
-  // Additional Info rows
+  // Additional Info – wiersz dla driving side
   infoCardRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -555,8 +684,19 @@ const styles = StyleSheet.create({
     marginVertical: 5,
     backgroundColor: '#fff',
   },
+  dangerIconWrapper: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FF4500',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 2,
+  },
+  
   drivingImage: { width: 30, height: 30, marginHorizontal: 10 },
-  dangerContainer: { flexDirection: 'row', alignItems: 'center' }
+  dangerContainer: { flexDirection: 'row', alignItems: 'flex-start' }
 });
 
 const weatherStyles = StyleSheet.create({
