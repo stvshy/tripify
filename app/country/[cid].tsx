@@ -387,12 +387,12 @@ const CountryProfile = () => {
         </View>
         {/* Nowa sekcja Languages (zastępuje poprzedni Danger Rating) */}
         <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
-          <Text style={styles.infoCardLabel}>🌐 Languages</Text>
+          <Text style={styles.infoCardLabel}>🌐 Official Languages</Text>
           <Text style={styles.infoCardValue}>{country.languages.join(', ')}</Text>
         </View>
         {/* Dodatkowe info (Network Operators, Other Legal Drugs) */}
         <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
-          <Text style={styles.infoCardLabel}>📡 Network Operators</Text>
+          <Text style={styles.infoCardLabel}>📡 Mobile Operators</Text>
           <Text style={styles.infoCardValue}>{country.networkOperators.join(', ')}</Text>
         </View>
         <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
@@ -422,14 +422,17 @@ const CountryProfile = () => {
       <View style={styles.sectionBox}>
         <Text style={styles.sectionTitle}>Weather</Text>
         <WeatherWidget currentWeather={country.currentWeather} />
-        <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
-          <Text style={styles.infoCardLabel}>☔ Rainy Season</Text>
-          <Text style={styles.infoCardValue}>{country.rainySeason}</Text>
+        <View style={styles.row}>
+          <View style={styles.halfInfoCard}>
+            <Text style={styles.infoCardLabel}>📅 Best Time</Text>
+            <Text style={styles.infoCardValue}>{country.bestTimeToVisit}</Text>
+          </View>
+          <View style={styles.halfInfoCard}>
+            <Text style={styles.infoCardLabel}>☔ Rainy Season</Text>
+            <Text style={styles.infoCardValue}>{country.rainySeason}</Text>
+          </View>
         </View>
-        <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
-          <Text style={styles.infoCardLabel}>📅 Best Time</Text>
-          <Text style={styles.infoCardValue}>{country.bestTimeToVisit}</Text>
-        </View>
+
       </View>
 
       {/* Monthly Temperatures Section */}
