@@ -145,6 +145,16 @@ const CountryProfile = () => {
     loadImages();
   }, [country]);
 
+  const getOutletCaption = (filename: string): string => {
+    // Zakładamy, że nazwa pliku ma format "type-c.png" lub podobny.
+    const match = filename.match(/type-([A-Za-z]+)\./);
+    if (match && match[1]) {
+      return match[1].toUpperCase();
+    }
+    return "";
+  };
+
+
   // Obsługa scrolla slidera – ustalamy aktualny indeks zdjęcia
   const onSliderScroll = (e: any) => {
     const offsetX = e.nativeEvent.contentOffset.x;
@@ -342,34 +352,37 @@ const CountryProfile = () => {
         </View>
         {/* Wiersz Driving Side & Electrical Outlets */}
         <View style={styles.row}>
-        <View style={styles.halfInfoCard}>
-          <Text style={styles.infoCardLabel}>🚗 Driving Side</Text>
-          <View style={styles.drivingSideContainer}>
-            <Image
-              source={{ uri: drivingSideUrl }}
-              style={styles.drivingSideImage}
-              resizeMode="contain"
-            />
-            <Text style={styles.drivingSideText}>{country.drivingSide.side}</Text>
-          </View>
-        </View>
-
-
-        <View style={styles.halfInfoCard}>
-          <Text style={styles.infoCardLabel}>🔌 Electrical Outlets</Text>
-          <View style={styles.outletCard}>
-            {outletUrls.map((url, index) => (
-              <View key={index} style={styles.outletItem}>
+          <View style={styles.halfInfoCard}>
+            <Text style={styles.infoCardLabel}>🚗 Driving Side</Text>
+            <View style={{ alignSelf: 'flex-start' }}> 
+              {/* Ten widok ustawia kontener do lewej strony karty */}
+              <View style={styles.drivingSideContainer}>
                 <Image
-                  source={{ uri: url }}
-                  style={[styles.outletCardImage, { width: outletCardImageSize, height: outletCardImageSize }]}
-                  resizeMode="cover"
+                  source={{ uri: drivingSideUrl }}
+                  style={styles.drivingSideImage}
+                  resizeMode="contain"
                 />
-                <Text style={styles.outletCaption}>C</Text>
+                <Text style={styles.drivingSideText}>{country.drivingSide.side}</Text>
               </View>
-            ))}
+            </View>
           </View>
-        </View>
+
+
+          <View style={styles.halfInfoCard}>
+            <Text style={styles.infoCardLabel}>🔌 Electrical Outlets</Text>
+            <View style={styles.outletCard}>
+              {country.outlets.map((filename, index) => (
+                <View key={index} style={styles.outletItem}>
+                  <Image
+                    source={{ uri: outletUrls[index] }}
+                    style={[styles.outletCardImage, { width: outletCardImageSize, height: outletCardImageSize }]}
+                    resizeMode="cover"
+                  />
+                  <Text style={styles.outletCaption}>{getOutletCaption(filename)}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
 
         </View>
         {/* Nowa sekcja Languages (zastępuje poprzedni Danger Rating) */}
@@ -623,7 +636,7 @@ const styles = StyleSheet.create({
   // Additional Info – Driving Side & Electrical Outlets
   drivingSideContainer: {
     flexDirection: 'column',
-    alignItems: 'flex-start',
+    alignItems: 'center',  // Ustawienie na 'center' wyśrodkowuje obrazek i tekst względem siebie
     marginTop: 8,
   },
   drivingSideImage: {
@@ -631,7 +644,7 @@ const styles = StyleSheet.create({
     height: 48,
     resizeMode: 'contain',
     marginBottom: 5,
-    alignSelf: 'flex-start',
+    // alignSelf: 'flex-start',
   },
   drivingSideText: {
     fontSize: 14,
