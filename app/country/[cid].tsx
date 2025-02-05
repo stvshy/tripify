@@ -286,20 +286,20 @@ const CountryProfile = () => {
             <Text style={styles.infoCardValue}>{country.capital}</Text>
           </View>
           <View style={styles.infoCard}>
-            <Text style={styles.infoCardLabel}>👥 Population</Text>
-            <Text style={styles.infoCardValue}>{country.population}</Text>
+            <Text style={styles.infoCardLabel}>🌍 Continent</Text>
+            <Text style={styles.infoCardValue}>{country.continent}</Text>
           </View>
           <View style={styles.infoCard}>
             <Text style={styles.infoCardLabel}>📏 Area</Text>
             <Text style={styles.infoCardValue}>{country.area} km²</Text>
           </View>
           <View style={styles.infoCard}>
-            <Text style={styles.infoCardLabel}>🌍 Continent</Text>
-            <Text style={styles.infoCardValue}>{country.continent}</Text>
+            <Text style={styles.infoCardLabel}>👥 Population</Text>
+            <Text style={styles.infoCardValue}>{country.population}</Text>
           </View>
         </View>
         {/* Usunięto flagę z tej sekcji */}
-        <View style={styles.infoCard}>
+        <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
           <Text style={styles.infoCardLabel}>✨ Known For</Text>
           <View style={styles.knownForGrid}>
             {country.knownFor.map((item, index) => (
@@ -359,11 +359,11 @@ const CountryProfile = () => {
   {/* Legal Alcohol Age + Legal Cigarettes Age */}
   <View style={styles.row}>
     <View style={styles.halfInfoCard}>
-      <Text style={styles.infoCardLabel}>🍺 Legal Alcohol Age</Text>
+      <Text style={styles.infoCardLabel}>🍺 Drinking Age</Text>
       <Text style={styles.infoCardValue}>{country.legalAlcoholAge} years</Text>
     </View>
     <View style={styles.halfInfoCard}>
-      <Text style={styles.infoCardLabel}>🚬 Legal Cigarettes Age</Text>
+      <Text style={styles.infoCardLabel}>💨 Smoking Age</Text>
       <Text style={styles.infoCardValue}>{country.legalCigarettesAge} years</Text>
     </View>
   </View>
@@ -388,13 +388,13 @@ const CountryProfile = () => {
   </View>
 
   {/* Network Operators */}
-  <View style={styles.infoCard}>
+  <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
     <Text style={styles.infoCardLabel}>📡 Network Operators</Text>
     <Text style={styles.infoCardValue}>{country.networkOperators.join(', ')}</Text>
   </View>
 
   {/* Other Legal Drugs */}
-  <View style={styles.infoCard}>
+  <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
     <Text style={styles.infoCardLabel}>💊 Other Legal Drugs</Text>
     <Text style={styles.infoCardValue}>{country.legalDrugs}</Text>
   </View>
@@ -561,23 +561,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
     // borderRadius: 15,
-    padding: 15,
+    padding: 12,
     // marginHorizontal: 8,
     // marginVertical: 5,
     backgroundColor: '#fafafa',
   },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: '#333' },
-  description: { fontSize: 16, marginBottom: 10, color: '#555' },
+  description: { fontSize: 16, marginBottom: 10, color: '#555', },
   // Info cards – mini okienka
-  infoCardsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  infoCardsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginHorizontal: -3 },
   infoCard: {
     borderWidth: 1,
     borderColor: '#ccc',
-    borderRadius: 10,
+    borderRadius: 16,
     padding: 10,
-    marginVertical: 4.5,
+    marginVertical: 3.5,
     // marginRight: 3,
-    flexBasis: '48.5%',
+    flexBasis: '49%',
     backgroundColor: '#fff',
   },
   infoCardLabel: { fontSize: 15, fontWeight: 'bold', color: '#333' },
@@ -588,6 +588,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'flex-start',
+    marginHorizontal: -1,
   },
   knownForCard: {
     flexDirection: 'row',
@@ -597,6 +598,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 8,
     margin: 3,
+    marginTop: 10
   },
   knownForIcon: {
     fontSize: 17,  // Rozmiar emoji
@@ -618,6 +620,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 8,
     margin: 3,
+    marginLeft: 0,
   },
   cityText: { fontSize: 13, color: '#333' },
   // Outlets – grid
@@ -637,15 +640,16 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginVertical: 5,
+    marginVertical: 3.5,
+    marginHorizontal: -7,
   },
   halfInfoCard: {
     flex: 1,
-    marginHorizontal: 5,
+    marginHorizontal: 3.5,
     borderWidth: 1,
     borderColor: '#ccc',
-    borderRadius: 10,
-    padding: 8,
+    borderRadius: 16,
+    padding: 10,
     backgroundColor: '#fff',
   },
   
@@ -658,6 +662,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingRight: 10,
     margin: 3.2,
+    marginRight: 6.4,
+    marginLeft: 0,
     borderWidth: 1,
     borderColor: '#ccc',
   },
