@@ -38,10 +38,11 @@
       "outlets": [
         "type-c.png"
       ],
-      "currency": "PLN",
+      "currency": "PLN (zł)", 
       "transportApps": [
-        "uber-logo.jpeg",
-        "bolt-logo.png"
+        { "name": "FREENOW", "logo": "freenow-logo.png" },
+        { "name": "Uber", "logo": "uber-logo.jpeg" },
+        { "name": "Bolt", "logo": "bolt-logo.png" }
       ],
       "currentWeather": "Sunny, 18°C",
       "rainySeason": "June - August",
@@ -61,7 +62,20 @@
         "December": { "day": 3, "night": -2 }
       },
       "visaRequired": "Not required for EU tourists",
-      "travelTips": "Before travelling, be sure to familiarize yourself with local customs and public transport."
+      "travelTips": "Before travelling, be sure to familiarize yourself with local customs and public transport.",
+      "religions": [
+        { "name": "Catholicism", "percentage": 87 },
+        { "name": "Other", "percentage": 13 }
+      ],
+      "dialingCode": "+48",
+      "mainCities": ["Warsaw", "Kraków", "Wrocław", "Łódź"],
+      "networkOperators": ["Orange", "T-Mobile", "Plus"],
+      "drivingSide": { "side": "Right", "image": "driving-right.png" },
+      "legalAlcoholAge": 18,
+      "legalCigarettesAge": 18,
+      "legalDrugs": "Cannabis is decriminalized for personal use",
+      "vaccinationRequirements": "No mandatory vaccinations",
+      "dangerRating": 1
     }
   }
   

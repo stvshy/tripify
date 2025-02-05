@@ -1,5 +1,5 @@
 // app/country/[cid].tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,38 +9,64 @@ import {
   Dimensions,
   ActivityIndicator,
   NativeSyntheticEvent,
-  NativeScrollEvent
+  NativeScrollEvent,
+  TouchableOpacity
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { getStorage, ref, getDownloadURL } from 'firebase/storage';
 import CountryFlag from 'react-native-country-flag';
-import { FontAwesome5 } from '@expo/vector-icons';
+import { FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 
-// Interfejs danych kraju – dla średnich temperatur zakładamy, że mamy day i night
+// Interfejsy danych
 interface MonthlyTemperatures {
   day: number;
   night: number;
 }
 
+interface TransportApp {
+  name: string;
+  logo: string; // Storage path for logo image
+}
+
+interface Religion {
+  name: string;
+  percentage: number;
+}
+
+interface DrivingSide {
+  side: string; // np. "Right" lub "Left"
+  image: string; // Storage path for driving side image
+}
+
 interface CountryProfileData {
   name: string;
-  images: string[]; // Storage paths, np. "poland12.jpg"
+  images: string[]; // Storage paths for slider images
   description: string;
   capital: string;
   population: string;
   area: string;
   continent: string;
-  flag: string; // Storage path, ale flagę wyświetlimy z biblioteki
+  flag: string; // Storage path (dla CountryFlag używamy biblioteki)
   knownFor: string;
-  outlets: string[]; // Storage paths
-  currency: string;
-  transportApps: string[]; // Storage paths
+  outlets: string[]; // Storage paths for electrical outlets images
+  currency: string; // np. "USD ($) - PLN"
+  transportApps: TransportApp[]; // Array of taxi app info objects
   currentWeather: string;
   rainySeason: string;
   bestTimeToVisit: string;
-  monthlyTemperatures: Record<string, MonthlyTemperatures>; // np. "January": { day: -2, night: -5 }
+  monthlyTemperatures: Record<string, MonthlyTemperatures>;
   visaRequired: string;
   travelTips: string;
+  religions: Religion[];
+  dialingCode: string;
+  mainCities: string[];
+  networkOperators: string[];
+  drivingSide: DrivingSide;
+  legalAlcoholAge: number;
+  legalCigarettesAge: number;
+  legalDrugs: string;
+  vaccinationRequirements: string;
+  dangerRating: number;
 }
 
 // Import danych kraju – upewnij się, że ścieżka jest poprawna
@@ -54,7 +80,7 @@ const getFirebaseUrl = async (path: string): Promise<string> => {
   return await getDownloadURL(storageRef);
 };
 
-// Przykładowy widget pogody – możesz rozszerzyć lub zastąpić gotową biblioteką
+// Przykładowy widget pogody
 const WeatherWidget = ({ currentWeather }: { currentWeather: string }) => {
   return (
     <View style={weatherStyles.container}>
@@ -62,6 +88,24 @@ const WeatherWidget = ({ currentWeather }: { currentWeather: string }) => {
       <Text style={weatherStyles.text}>{currentWeather}</Text>
     </View>
   );
+};
+
+// Komponent DangerRating – wyświetla ikony ostrzeżenia
+const DangerRating = ({ rating }: { rating: number }) => {
+  const maxRating = 5;
+  const icons = [];
+  for (let i = 0; i < maxRating; i++) {
+    icons.push(
+      <MaterialIcons
+        key={i}
+        name="warning"
+        size={20}
+        color="#FF4500"
+        style={{ opacity: i < rating ? 1 : 0.3, marginRight: 2 }}
+      />
+    );
+  }
+  return <View style={styles.dangerContainer}>{icons}</View>;
 };
 
 const CountryProfile = () => {
@@ -72,8 +116,12 @@ const CountryProfile = () => {
   const [sliderUrls, setSliderUrls] = useState<string[]>([]);
   const [outletUrls, setOutletUrls] = useState<string[]>([]);
   const [transportUrls, setTransportUrls] = useState<string[]>([]);
+  const [drivingSideUrl, setDrivingSideUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [currentSlide, setCurrentSlide] = useState<number>(0);
+
+  // Referencja do ScrollView slidera
+  const sliderRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     if (!country) return;
@@ -83,14 +131,17 @@ const CountryProfile = () => {
 
     const loadImages = async () => {
       try {
-        const [slider, outlets, transport] = await Promise.all([
+        const [slider, outlets, transport, drivingUrl] = await Promise.all([
           fetchUrls(country.images),
           fetchUrls(country.outlets),
-          fetchUrls(country.transportApps)
+          // Dla transport apps – pobieramy logo z każdego obiektu
+          Promise.all(country.transportApps.map(app => getFirebaseUrl(app.logo))),
+          getFirebaseUrl(country.drivingSide.image)
         ]);
         setSliderUrls(slider);
         setOutletUrls(outlets);
         setTransportUrls(transport);
+        setDrivingSideUrl(drivingUrl);
       } catch (error) {
         console.error("Error fetching images from Firebase Storage:", error);
       } finally {
@@ -103,11 +154,28 @@ const CountryProfile = () => {
 
   const screenWidth = Dimensions.get('window').width;
 
-  // Obsługa scrolla w sliderze – obliczamy indeks aktualnego zdjęcia
+  // Obsługa scrolla slidera – ustalamy aktualny indeks zdjęcia
   const onSliderScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = e.nativeEvent.contentOffset.x;
     const index = Math.round(offsetX / screenWidth);
     setCurrentSlide(index);
+  };
+
+  // Tapnięcia po lewej/prawej stronie slidera
+  const handleLeftTap = () => {
+    if (currentSlide > 0) {
+      const newSlide = currentSlide - 1;
+      setCurrentSlide(newSlide);
+      sliderRef.current?.scrollTo({ x: newSlide * screenWidth, animated: true });
+    }
+  };
+
+  const handleRightTap = () => {
+    if (currentSlide < sliderUrls.length - 1) {
+      const newSlide = currentSlide + 1;
+      setCurrentSlide(newSlide);
+      sliderRef.current?.scrollTo({ x: newSlide * screenWidth, animated: true });
+    }
   };
 
   if (!country) {
@@ -130,12 +198,15 @@ const CountryProfile = () => {
     <ScrollView style={styles.container}>
       {/* Slider Section */}
       <View style={styles.sliderContainer}>
+        <TouchableOpacity style={styles.leftTapArea} onPress={handleLeftTap} />
+        <TouchableOpacity style={styles.rightTapArea} onPress={handleRightTap} />
         <ScrollView
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           onScroll={onSliderScroll}
           scrollEventThrottle={16}
+          ref={sliderRef}
         >
           {sliderUrls.map((url: string, index: number) => (
             <Image
@@ -146,6 +217,7 @@ const CountryProfile = () => {
             />
           ))}
         </ScrollView>
+        {/* Slider overlay – owalu po lewej stronie z flagą, nazwą i dot-indicator */}
         <View style={styles.sliderOverlay}>
           <View style={styles.countryBadge}>
             <CountryFlag isoCode={cid as string} size={40} style={styles.flag} />
@@ -157,7 +229,6 @@ const CountryProfile = () => {
                 const totalDots = Math.min(sliderUrls.length, 5);
                 let startIndex = Math.max(0, Math.min(currentSlide - Math.floor(totalDots / 2), sliderUrls.length - totalDots));
                 let endIndex = startIndex + totalDots;
-
                 if (sliderUrls.length > totalDots) {
                   if (currentSlide < Math.floor(totalDots / 2)) {
                     startIndex = 0;
@@ -167,11 +238,9 @@ const CountryProfile = () => {
                     endIndex = sliderUrls.length;
                   }
                 }
-
                 if (index >= startIndex && index < endIndex) {
                   const isActive = index === currentSlide;
                   const distanceFromCenter = Math.abs(index - currentSlide);
-
                   return (
                     <View
                       key={index}
@@ -193,52 +262,41 @@ const CountryProfile = () => {
         </View>
       </View>
 
-
-
-
       {/* General Info Section */}
       <View style={styles.sectionBox}>
         <Text style={styles.sectionTitle}>General Info</Text>
         <Text style={styles.description}>{country.description}</Text>
         <View style={styles.infoCardsContainer}>
           <View style={styles.infoCard}>
-            <Text style={styles.infoCardLabel}>Capital</Text>
+            <Text style={styles.infoCardLabel}>🏙️ Capital</Text>
             <Text style={styles.infoCardValue}>{country.capital}</Text>
           </View>
           <View style={styles.infoCard}>
-            <Text style={styles.infoCardLabel}>Population</Text>
+            <Text style={styles.infoCardLabel}>👥 Population</Text>
             <Text style={styles.infoCardValue}>{country.population}</Text>
           </View>
           <View style={styles.infoCard}>
-            <Text style={styles.infoCardLabel}>Area</Text>
+            <Text style={styles.infoCardLabel}>📏 Area</Text>
             <Text style={styles.infoCardValue}>{country.area} km²</Text>
           </View>
           <View style={styles.infoCard}>
-            <Text style={styles.infoCardLabel}>Continent</Text>
+            <Text style={styles.infoCardLabel}>🌍 Continent</Text>
             <Text style={styles.infoCardValue}>{country.continent}</Text>
           </View>
         </View>
         <View style={styles.flagContainer}>
-          <CountryFlag
-            isoCode={cid as string}
-            size={60}
-            style={styles.flag}
-          />
+          <CountryFlag isoCode={cid as string} size={60} style={styles.flag} />
         </View>
         <View style={styles.infoCard}>
-          <Text style={styles.infoCardLabel}>Known For</Text>
+          <Text style={styles.infoCardLabel}>✨ Known For</Text>
           <Text style={styles.infoCardValue}>{country.knownFor}</Text>
         </View>
       </View>
 
-      {/* Electrical Outlets Section */}
+      {/* Electrical Outlets Section – jako grid */}
       <View style={styles.sectionBox}>
         <Text style={styles.sectionTitle}>Electrical Outlets</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.outletsContainer}
-        >
+        <View style={styles.outletsGrid}>
           {outletUrls.map((url: string, index: number) => (
             <Image
               key={index}
@@ -247,29 +305,73 @@ const CountryProfile = () => {
               resizeMode="cover"
             />
           ))}
-        </ScrollView>
+        </View>
       </View>
 
-      {/* Transport Apps Section */}
+      {/* Additional Info Section */}
+      <View style={styles.sectionBox}>
+        <Text style={styles.sectionTitle}>Additional Info</Text>
+        <View style={styles.infoCard}>
+          <Text style={styles.infoCardLabel}>💵 Currency</Text>
+          <Text style={styles.infoCardValue}>{country.currency}</Text>
+        </View>
+        <View style={styles.infoCard}>
+          <Text style={styles.infoCardLabel}>📞 Dialing Code</Text>
+          <Text style={styles.infoCardValue}>{country.dialingCode}</Text>
+        </View>
+        <View style={styles.infoCard}>
+          <Text style={styles.infoCardLabel}>🏙️ Main Cities</Text>
+          <Text style={styles.infoCardValue}>{country.mainCities.join(', ')}</Text>
+        </View>
+        <View style={styles.infoCard}>
+          <Text style={styles.infoCardLabel}>📡 Network Operators</Text>
+          <Text style={styles.infoCardValue}>{country.networkOperators.join(', ')}</Text>
+        </View>
+        <View style={styles.infoCardRow}>
+          <Text style={styles.infoCardLabel}>🚗 Driving Side</Text>
+          <Image
+            source={{ uri: drivingSideUrl }}
+            style={styles.drivingImage}
+            resizeMode="contain"
+          />
+          <Text style={styles.infoCardValue}>{country.drivingSide.side}</Text>
+        </View>
+        <View style={styles.infoCard}>
+          <Text style={styles.infoCardLabel}>🍺 Legal Alcohol Age</Text>
+          <Text style={styles.infoCardValue}>{country.legalAlcoholAge} years</Text>
+        </View>
+        <View style={styles.infoCard}>
+          <Text style={styles.infoCardLabel}>🚬 Legal Cigarettes Age</Text>
+          <Text style={styles.infoCardValue}>{country.legalCigarettesAge} years</Text>
+        </View>
+        <View style={styles.infoCard}>
+          <Text style={styles.infoCardLabel}>💊 Legal Drugs</Text>
+          <Text style={styles.infoCardValue}>{country.legalDrugs}</Text>
+        </View>
+        <View style={styles.infoCard}>
+          <Text style={styles.infoCardLabel}>💉 Vaccination Req.</Text>
+          <Text style={styles.infoCardValue}>{country.vaccinationRequirements}</Text>
+        </View>
+        <View style={styles.infoCard}>
+          <Text style={styles.infoCardLabel}>⚠ Danger Rating</Text>
+          <DangerRating rating={country.dangerRating} />
+        </View>
+      </View>
+
+      {/* Transport Apps Section – teraz w gridzie */}
       <View style={styles.sectionBox}>
         <Text style={styles.sectionTitle}>Transport Apps</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.transportContainer}
-        >
-          {transportUrls.map((url: string, index: number) => (
-            <Image
-              key={index}
-              source={{ uri: url }}
-              style={styles.transportImage}
-              resizeMode="cover"
-            />
+        <View style={styles.appsGrid}>
+          {country.transportApps.map((app, index: number) => (
+            <View key={index} style={styles.appCard}>
+              <Image
+                source={{ uri: transportUrls[index] }}
+                style={styles.appLogo}
+                resizeMode="cover"
+              />
+              <Text style={styles.appName}>{app.name}</Text>
+            </View>
           ))}
-        </ScrollView>
-        <View style={styles.infoCard}>
-          <Text style={styles.infoCardLabel}>Currency</Text>
-          <Text style={styles.infoCardValue}>{country.currency}</Text>
         </View>
       </View>
 
@@ -278,36 +380,44 @@ const CountryProfile = () => {
         <Text style={styles.sectionTitle}>Weather</Text>
         <WeatherWidget currentWeather={country.currentWeather} />
         <View style={styles.infoCard}>
-          <Text style={styles.infoCardLabel}>Rainy Season</Text>
+          <Text style={styles.infoCardLabel}>☔ Rainy Season</Text>
           <Text style={styles.infoCardValue}>{country.rainySeason}</Text>
         </View>
         <View style={styles.infoCard}>
-          <Text style={styles.infoCardLabel}>Best Time to Visit</Text>
+          <Text style={styles.infoCardLabel}>📅 Best Time</Text>
           <Text style={styles.infoCardValue}>{country.bestTimeToVisit}</Text>
         </View>
       </View>
 
       {/* Monthly Temperatures Section */}
       <View style={styles.sectionBox}>
-  <Text style={styles.sectionTitle}>Average Monthly Temperatures (°C)</Text>
-  {Object.entries(country.monthlyTemperatures).map(([month, temps]) => (
-    <View key={month} style={styles.monthlyRow}>
-      <Text style={styles.monthText}>{month}</Text>
-      <Text style={styles.tempText}>🌞 {temps.day}°C</Text>
-      <Text style={styles.tempText}>🌙 {temps.night}°C</Text>
-    </View>
-  ))}
+        <Text style={styles.sectionTitle}>Average Monthly Temperatures (°C)</Text>
+        {Object.entries(country.monthlyTemperatures).map(
+          ([month, temps]) => (
+            <View key={month} style={styles.monthlyRow}>
+              <Text style={styles.monthText}>{month}</Text>
+              <Text style={styles.tempText}>🌞 {temps.day}°C</Text>
+              <Text style={styles.tempText}>🌙 {temps.night}°C</Text>
+            </View>
+          )
+        )}
       </View>
 
       {/* Visa & Travel Tips Section */}
       <View style={styles.sectionBox}>
         <View style={styles.infoCard}>
-          <Text style={styles.infoCardLabel}>Visa Requirements</Text>
+          <Text style={styles.infoCardLabel}>🛂 Visa Requirements</Text>
           <Text style={styles.infoCardValue}>{country.visaRequired}</Text>
         </View>
         <View style={styles.infoCard}>
-          <Text style={styles.infoCardLabel}>Travel Tips</Text>
+          <Text style={styles.infoCardLabel}>💡 Travel Tips</Text>
           <Text style={styles.infoCardValue}>{country.travelTips}</Text>
+        </View>
+        <View style={styles.infoCard}>
+          <Text style={styles.infoCardLabel}>🙏 Religions</Text>
+          <Text style={styles.infoCardValue}>
+            {country.religions.map(r => `${r.name} (${r.percentage}%)`).join(', ')}
+          </Text>
         </View>
       </View>
     </ScrollView>
@@ -321,14 +431,21 @@ const styles = StyleSheet.create({
   // Slider
   sliderContainer: { position: 'relative', height: 290 },
   sliderImage: { height: 290 },
-  overlay: {
+  leftTapArea: {
     position: 'absolute',
-    bottom: 4,
-    left: 4,
-    // backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
+    top: 0,
+    left: 0,
+    width: '20%',
+    height: '100%',
+    zIndex: 2,
+  },
+  rightTapArea: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: '20%',
+    height: '100%',
+    zIndex: 2,
   },
   sliderOverlay: {
     position: 'absolute',
@@ -354,39 +471,18 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#fff',
   },
-  countryName: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: 'bold',
-  },
+  countryName: { color: '#fff', fontSize: 17, fontWeight: 'bold' },
   dotWrapper: {
     backgroundColor: 'rgba(0, 0, 0, 0.38)',
     borderRadius: 20,
     paddingVertical: 2.6,
     paddingHorizontal: 4.5,
   },
-  dotContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 4,
-    marginHorizontal: 3,
-  },
-  dotActive: {
-    backgroundColor: '#fff',
-    width: 5,
-    height: 5,
-  },
-  dotInactive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
-  },
-  
-  
-  
-  // Section Box – każda sekcja opakowana okrągłym obrysem
+  dotContainer: { flexDirection: 'row', alignItems: 'center' },
+  dot: { width: 4, height: 4, borderRadius: 4, marginHorizontal: 2.5 },
+  dotActive: { backgroundColor: '#fff', width: 5, height: 5 },
+  dotInactive: { backgroundColor: 'rgba(255, 255, 255, 0.6)' },
+  // Section Box
   sectionBox: {
     borderWidth: 1,
     borderColor: '#ddd',
@@ -398,7 +494,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: '#333' },
   description: { fontSize: 16, marginBottom: 10, color: '#555' },
-  // Info cards – mini okienka z pojedynczą informacją
+  // Info cards
   infoCardsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   infoCard: {
     borderWidth: 1,
@@ -413,18 +509,54 @@ const styles = StyleSheet.create({
   infoCardLabel: { fontSize: 14, fontWeight: 'bold', color: '#333' },
   infoCardValue: { fontSize: 14, color: '#555', marginTop: 3 },
   flagContainer: { marginVertical: 10, alignItems: 'center' },
-  // flag: { borderWidth: 2, borderColor: '#ccc', borderRadius: 30, overflow: 'hidden' },
-  outletsContainer: { marginVertical: 3 },
-  outletImage: { width: 60, height: 60, borderRadius: 10, marginRight: 10 },
-  transportContainer: { marginVertical: 10 },
-  transportImage: { width: 60, height: 60, borderRadius: 10, marginRight: 10 },
-  monthlyRow: { flexDirection: 'row', justifyContent: 'space-between',  alignItems: 'center',
+  // Outlets – grid zamiast horizontal scroll
+  outletsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+  },
+  outletImage: { width: 60, height: 60, borderRadius: 10, margin: 5 },
+  // Transport Apps – grid
+  appsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+  },
+  appCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 5,
+    margin: 5,
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  appLogo: { width: 40, height: 40, borderRadius: 20, marginRight: 5 },
+  appName: { fontSize: 14, color: '#333' },
+  monthlyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#ddd', },
-  monthText: { fontSize: 16, fontWeight: 'bold', color: '#333' ,   flex: 1, },
-  tempText: { fontSize: 16, color: '#555',     flex: 1,
-    textAlign: 'right', },
+    borderBottomColor: '#ddd',
+  },
+  monthText: { fontSize: 16, fontWeight: 'bold', color: '#333', flex: 1 },
+  tempText: { fontSize: 16, color: '#555', flex: 1, textAlign: 'right' },
+  // Additional Info rows
+  infoCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 10,
+    padding: 8,
+    marginVertical: 5,
+    backgroundColor: '#fff',
+  },
+  drivingImage: { width: 30, height: 30, marginHorizontal: 10 },
+  dangerContainer: { flexDirection: 'row', alignItems: 'center' }
 });
 
 const weatherStyles = StyleSheet.create({
