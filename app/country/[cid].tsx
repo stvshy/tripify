@@ -146,54 +146,55 @@ const CountryProfile = () => {
             />
           ))}
         </ScrollView>
-        <View style={styles.dotWrapper}>
-  <View style={styles.dotContainer}>
-    {sliderUrls.map((_, index: number) => {
-      const totalDots = Math.min(sliderUrls.length, 5);
-      let startIndex = Math.max(0, Math.min(currentSlide - Math.floor(totalDots / 2), sliderUrls.length - totalDots));
-      let endIndex = startIndex + totalDots;
+        <View style={styles.sliderOverlay}>
+          <View style={styles.countryBadge}>
+            <CountryFlag isoCode={cid as string} size={40} style={styles.flag} />
+            <Text style={styles.countryName}>{country.name}</Text>
+          </View>
+          <View style={styles.dotWrapper}>
+            <View style={styles.dotContainer}>
+              {sliderUrls.map((_, index: number) => {
+                const totalDots = Math.min(sliderUrls.length, 5);
+                let startIndex = Math.max(0, Math.min(currentSlide - Math.floor(totalDots / 2), sliderUrls.length - totalDots));
+                let endIndex = startIndex + totalDots;
 
-      // Jeśli mamy więcej niż 5 zdjęć, przesuwamy zakres kropek
-      if (sliderUrls.length > totalDots) {
-        if (currentSlide < Math.floor(totalDots / 2)) {
-          startIndex = 0;
-          endIndex = totalDots;
-        } else if (currentSlide > sliderUrls.length - Math.ceil(totalDots / 2)) {
-          startIndex = sliderUrls.length - totalDots;
-          endIndex = sliderUrls.length;
-        }
-      }
+                if (sliderUrls.length > totalDots) {
+                  if (currentSlide < Math.floor(totalDots / 2)) {
+                    startIndex = 0;
+                    endIndex = totalDots;
+                  } else if (currentSlide > sliderUrls.length - Math.ceil(totalDots / 2)) {
+                    startIndex = sliderUrls.length - totalDots;
+                    endIndex = sliderUrls.length;
+                  }
+                }
 
-      // Tylko wybrane kropki będą widoczne
-      if (index >= startIndex && index < endIndex) {
-        const isActive = index === currentSlide;
-        const distanceFromCenter = Math.abs(index - currentSlide);
+                if (index >= startIndex && index < endIndex) {
+                  const isActive = index === currentSlide;
+                  const distanceFromCenter = Math.abs(index - currentSlide);
 
-        return (
-          <View
-            key={index}
-            style={[
-              styles.dot,
-              isActive ? styles.dotActive : styles.dotInactive,
-              {
-                transform: [{ scale: 1.2 - distanceFromCenter * 0.2 }],
-                opacity: 1 - distanceFromCenter * 0.3,
-              }
-            ]}
-          />
-        );
-      }
-      return null;
-    })}
-  </View>
-</View>
-
-
-        {/* Overlay with country name */}
-        <View style={styles.overlay}>
-          <Text style={styles.countryName}>{country.name}</Text>
+                  return (
+                    <View
+                      key={index}
+                      style={[
+                        styles.dot,
+                        isActive ? styles.dotActive : styles.dotInactive,
+                        {
+                          transform: [{ scale: 1.2 - distanceFromCenter * 0.2 }],
+                          opacity: 1 - distanceFromCenter * 0.3,
+                        }
+                      ]}
+                    />
+                  );
+                }
+                return null;
+              })}
+            </View>
+          </View>
         </View>
       </View>
+
+
+
 
       {/* General Info Section */}
       <View style={styles.sectionBox}>
@@ -316,7 +317,7 @@ const CountryProfile = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  errorText: { fontSize: 18, color: 'red' },
+  errorText: { fontSize: 17.5, color: 'red' },
   // Slider
   sliderContainer: { position: 'relative', height: 290 },
   sliderImage: { height: 290 },
@@ -329,15 +330,40 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
   },
-  countryName: { color: '#fff', fontSize: 30, fontWeight: 'bold' },
-  dotWrapper: {
+  sliderOverlay: {
     position: 'absolute',
-    bottom: 19,
-    right: 19,
-    backgroundColor: 'rgba(0, 0, 0, 0.33)',
+    bottom: 8,
+    left: 10,
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  countryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingVertical: 6,
+    paddingHorizontal: 15,
     borderRadius: 20,
-    paddingVertical: 3,
-    paddingHorizontal: 5,
+    marginBottom: 3.5,
+  },
+  flag: {
+    width: 21,
+    height: 21,
+    borderRadius: 20,
+    marginRight: 10,
+    borderWidth: 1.5,
+    borderColor: '#fff',
+  },
+  countryName: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: 'bold',
+  },
+  dotWrapper: {
+    backgroundColor: 'rgba(0, 0, 0, 0.38)',
+    borderRadius: 20,
+    paddingVertical: 2.6,
+    paddingHorizontal: 4.5,
   },
   dotContainer: {
     flexDirection: 'row',
@@ -351,12 +377,13 @@ const styles = StyleSheet.create({
   },
   dotActive: {
     backgroundColor: '#fff',
-    width: 6,
-    height: 6,
+    width: 5,
+    height: 5,
   },
   dotInactive: {
     backgroundColor: 'rgba(255, 255, 255, 0.6)',
   },
+  
   
   
   // Section Box – każda sekcja opakowana okrągłym obrysem
@@ -386,8 +413,8 @@ const styles = StyleSheet.create({
   infoCardLabel: { fontSize: 14, fontWeight: 'bold', color: '#333' },
   infoCardValue: { fontSize: 14, color: '#555', marginTop: 3 },
   flagContainer: { marginVertical: 10, alignItems: 'center' },
-  flag: { borderWidth: 2, borderColor: '#ccc', borderRadius: 30, overflow: 'hidden' },
-  outletsContainer: { marginVertical: 10 },
+  // flag: { borderWidth: 2, borderColor: '#ccc', borderRadius: 30, overflow: 'hidden' },
+  outletsContainer: { marginVertical: 3 },
   outletImage: { width: 60, height: 60, borderRadius: 10, marginRight: 10 },
   transportContainer: { marginVertical: 10 },
   transportImage: { width: 60, height: 60, borderRadius: 10, marginRight: 10 },
