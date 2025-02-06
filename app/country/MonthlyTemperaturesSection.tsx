@@ -43,10 +43,12 @@ const styles = StyleSheet.create({
   roundedContainer: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 12,
+    padding: 13,
     borderWidth: 1,
     borderColor: '#ccc',
     marginBottom: 10,
+    paddingVertical: -1,
+    marginHorizontal: -3,
   },
   monthlyRow: {
     flexDirection: 'row',
@@ -57,7 +59,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#ddd',
   },
   monthText: { fontSize: 15, fontWeight: '500', color: '#333', flex: 1 },
-  tempText: { fontSize: 16, color: '#555', flex: 1, textAlign: 'right' },
+  tempText: { fontSize: 15, color: '#555', flex: 1, textAlign: 'right' },
   errorText: { color: 'red', fontSize: 16 },
   skeletonContainer: { padding: 12 },
   skeletonLine: {

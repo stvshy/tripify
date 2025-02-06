@@ -55,36 +55,35 @@ const CountryExtraInfo: React.FC<Props> = ({
             <Text style={styles.infoCardValue}>{country.legalCigarettesAge} years</Text>
           </View>
         </View>
-        <View style={styles.row}>
-          <View style={styles.halfInfoCard}>
-            <Text style={styles.infoCardLabel}>🚗 Driving Side</Text>
-            <View style={{ alignSelf: 'flex-start' }}>
-              <View style={styles.drivingSideContainer}>
-                <Image
-                  source={{ uri: drivingSideUrl }}
-                  style={styles.drivingSideImage}
-                  resizeMode="contain"
-                />
-                <Text style={styles.drivingSideText}>{country.drivingSide.side}</Text>
-              </View>
-            </View>
-          </View>
-          <View style={styles.halfInfoCard}>
-            <Text style={styles.infoCardLabel}>🔌 Electrical Outlets</Text>
-            <View style={styles.outletCard}>
-              {country.outlets.map((filename, index) => (
-                <View key={index} style={styles.outletItem}>
-                  <Image
-                    source={{ uri: outletUrls[index] }}
-                    style={[styles.outletCardImage, { width: outletCardImageSize, height: outletCardImageSize }]}
-                    resizeMode="cover"
-                  />
-                  <Text style={styles.outletCaption}>{getOutletCaption(filename)}</Text>
-                </View>
-              ))}
+        <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
+          <Text style={styles.infoCardLabel}>🚗 Driving Side</Text>
+          <View style={{ alignSelf: 'flex-start' }}>
+            <View style={styles.drivingSideContainer}>
+              <Image
+                source={{ uri: drivingSideUrl }}
+                style={styles.drivingSideImage}
+                resizeMode="contain"
+              />
+              <Text style={styles.drivingSideText}>{country.drivingSide.side}</Text>
             </View>
           </View>
         </View>
+        <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
+          <Text style={styles.infoCardLabel}>🔌 Electrical Outlets</Text>
+          <View style={styles.outletCard}>
+            {country.outlets.map((filename, index) => (
+              <View key={index} style={styles.outletItem}>
+                <Image
+                  source={{ uri: outletUrls[index] }}
+                  style={[styles.outletCardImage, { width: outletCardImageSize, height: outletCardImageSize }]}
+                  resizeMode="cover"
+                />
+                <Text style={styles.outletCaption}>{getOutletCaption(filename)}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+        {/* Languages, Mobile Operators oraz Religions */}
         <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
           <Text style={styles.infoCardLabel}>🌐 Official Languages</Text>
           <Text style={styles.infoCardValue}>{country.languages.join(', ')}</Text>
@@ -92,6 +91,12 @@ const CountryExtraInfo: React.FC<Props> = ({
         <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
           <Text style={styles.infoCardLabel}>📡 Mobile Operators</Text>
           <Text style={styles.infoCardValue}>{country.networkOperators.join(', ')}</Text>
+        </View>
+        <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
+          <Text style={styles.infoCardLabel}>🙏 Religions</Text>
+          <Text style={styles.infoCardValue}>
+            {country.religions.map(r => `${r.name} (${r.percentage}%)`).join(', ')}
+          </Text>
         </View>
         <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
           <Text style={styles.infoCardLabel}>💊 Other Legal Drugs</Text>
@@ -166,6 +171,7 @@ const CountryExtraInfo: React.FC<Props> = ({
 
       {/* Visa & Travel Tips Section */}
       <View style={styles.sectionBox}>
+        <Text style={styles.sectionTitle}>Travel Info</Text>
         <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
           <Text style={styles.infoCardLabel}>🛂 Visa Requirements</Text>
           <Text style={styles.infoCardValue}>{country.visaRequired}</Text>
@@ -174,42 +180,126 @@ const CountryExtraInfo: React.FC<Props> = ({
           <Text style={styles.infoCardLabel}>💡 Travel Tips</Text>
           <Text style={styles.infoCardValue}>{country.travelTips}</Text>
         </View>
-        <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
-          <Text style={styles.infoCardLabel}>🙏 Religions</Text>
-          <Text style={styles.infoCardValue}>
-            {country.religions.map(r => `${r.name} (${r.percentage}%)`).join(', ')}
-          </Text>
-        </View>
       </View>
     </>
   );
 };
 
 const styles = StyleSheet.create({
-  sectionBox: { borderBottomWidth: 1, borderColor: '#ddd', padding: 12, backgroundColor: '#fafafa', marginVertical: 5 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: '#333' },
-  row: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 3.5, marginHorizontal: -7 },
-  halfInfoCard: { flex: 1, marginHorizontal: 3.5, borderWidth: 1, borderColor: '#ccc', borderRadius: 16, padding: 10, backgroundColor: '#fff' },
-  infoCard: { borderWidth: 1, borderColor: '#ccc', borderRadius: 16, padding: 10, marginVertical: 3.5, backgroundColor: '#fff' },
-  infoCardLabel: { fontSize: 15, fontWeight: 'bold', color: '#333' },
-  infoCardValue: { fontSize: 14, color: '#555', marginTop: 8 },
-  drivingSideContainer: { flexDirection: 'column', alignItems: 'center', marginTop: 8 },
-  drivingSideImage: { width: 48, height: 48, resizeMode: 'contain', marginBottom: 5 },
-  drivingSideText: { fontSize: 14, color: '#333', textAlign: 'center' },
-  outletCard: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginTop: 5 },
-  outletItem: { alignItems: 'center', marginRight: 5, marginBottom: 5 },
-  outletCaption: { fontSize: 12, color: '#333', marginTop: 3, textAlign: 'center' },
-  outletCardImage: { borderRadius: 7 },
-  appsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-start', marginLeft: -6 },
-  appCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 20, paddingLeft: 6, paddingVertical: 6, paddingRight: 10, margin: 3.2, borderWidth: 1, borderColor: '#ccc' },
-  appLogo: { width: 40, height: 40, borderRadius: 15, marginRight: 7 },
-  appName: { fontSize: 14, color: '#333' },
-  roundedContainer: { backgroundColor: '#fff', borderRadius: 16, padding: 12, borderWidth: 1, borderColor: '#ccc', marginBottom: 10 },
-  monthlyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#ddd' },
-  monthText: { fontSize: 15, fontWeight: '500', color: '#333', flex: 1 },
-  tempText: { fontSize: 16, color: '#555', flex: 1, textAlign: 'right' },
-  centered: { justifyContent: 'center', alignItems: 'center', padding: 10 },
-  errorText: { color: 'red', fontSize: 16 },
+  sectionBox: {
+    borderBottomWidth: 1,
+    borderColor: '#ddd',
+    padding: 12,
+    backgroundColor: 'rgb(255, 254, 255)',
+    marginVertical: 5,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#333',
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: 3.5,
+    marginHorizontal: -7,
+  },
+  halfInfoCard: {
+    flex: 1,
+    marginHorizontal: 3.5,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 16,
+    padding: 10,
+    backgroundColor: '#fff',
+  },
+  infoCard: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 16,
+    padding: 10,
+    marginVertical: 3.5,
+    backgroundColor: '#fff',
+  },
+  infoCardLabel: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  infoCardValue: {
+    fontSize: 14,
+    color: '#555',
+    marginTop: 8,
+  },
+  drivingSideContainer: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  drivingSideImage: {
+    width: 48,
+    height: 48,
+    resizeMode: 'contain',
+    marginBottom: 5,
+  },
+  drivingSideText: {
+    fontSize: 14,
+    color: '#333',
+    textAlign: 'center',
+  },
+  outletCard: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    marginTop: 5,
+  },
+  outletItem: {
+    alignItems: 'center',
+    marginRight: 5,
+    marginBottom: 5,
+  },
+  outletCaption: {
+    fontSize: 12,
+    color: '#333',
+    marginTop: 3,
+    textAlign: 'center',
+  },
+  outletCardImage: {
+    borderRadius: 7,
+  },
+  appsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    marginLeft: -6,
+  },
+  appCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    paddingLeft: 6,
+    paddingVertical: 6,
+    paddingRight: 10,
+    margin: 3.2,
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  appLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 15,
+    marginRight: 7,
+  },
+  appName: {
+    fontSize: 14,
+    color: '#333',
+  },
+  errorText: {
+    color: 'red',
+    fontSize: 16,
+  },
 });
 
 export default CountryExtraInfo;

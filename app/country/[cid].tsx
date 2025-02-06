@@ -108,7 +108,6 @@ const CitiesList = ({ cities }: { cities: string[] }) => {
   );
 };
 
-
 const CountryProfile = () => {
   const { cid } = useLocalSearchParams();
   const country = countryData[cid as string];
@@ -317,10 +316,18 @@ const CountryProfile = () => {
         </View>
       </View>
 
-      {/* Main Cities Section – użycie FlatList */}
+      {/* Main Cities Section */}
+      {/* Pamiętaj, aby komentarz w JSX pisać wewnątrz klamerek */}
+      {/** Fragment w CountryProfile.tsx – Main Cities Section */}
       <View style={styles.sectionBox}>
         <Text style={styles.sectionTitle}>Main Cities</Text>
-        <CitiesList cities={country.mainCities} />
+        <View style={styles.citiesGrid}>
+          {country.mainCities.map((city, index) => (
+            <View key={index} style={styles.cityCard}>
+              <Text style={styles.cityText}>{city}</Text>
+            </View>
+          ))}
+        </View>
       </View>
 
       {/* Lazy-loaded Extra Info */}
@@ -338,7 +345,7 @@ const CountryProfile = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fafafa' },
+  container: { flex: 1, backgroundColor: 'rgb(255, 254, 255)' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   errorText: { fontSize: 17.5, color: 'red' },
   sliderContainer: { position: 'relative', height: 290 },
@@ -346,7 +353,7 @@ const styles = StyleSheet.create({
   sliderOverlay: { position: 'absolute', bottom: 8, left: 10, flexDirection: 'column', alignItems: 'center' },
   countryBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)', paddingVertical: 6, paddingHorizontal: 15, borderRadius: 20, marginBottom: 3.5 },
   flag: { width: 21, height: 21, borderRadius: 20, marginRight: 10, borderWidth: 1.5, borderColor: '#fff' },
-  sectionBox: { borderBottomWidth: 1, borderColor: '#ddd', padding: 12, backgroundColor: '#fafafa', marginVertical: 5 },
+  sectionBox: { borderBottomWidth: 1, borderColor: '#ddd', padding: 12, backgroundColor: 'rgb(255, 254, 255)', marginVertical: 5 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: '#333' },
   description: { fontSize: 16, marginBottom: 10, color: '#555' },
   infoCardsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginHorizontal: -3 },
@@ -357,8 +364,19 @@ const styles = StyleSheet.create({
   knownForCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#eef', borderRadius: 14, paddingVertical: 4, paddingHorizontal: 8, margin: 3, marginTop: 10 },
   knownForIcon: { fontSize: 17, marginRight: 5 },
   knownForText: { fontSize: 13, color: '#333' },
-  citiesGrid: { paddingVertical: 10 },
-  cityCard: { backgroundColor: '#def', borderRadius: 12, paddingVertical: 4, paddingHorizontal: 8, margin: 3 },
+  citiesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -3,
+  },
+  cityCard: {
+    backgroundColor: '#def',
+    borderRadius: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    margin: 3,
+    marginLeft: 0,
+  },
   cityText: { fontSize: 13, color: '#333' },
   dotWrapper: { backgroundColor: 'rgba(0,0,0,0.38)', borderRadius: 20, paddingVertical: 2.6, paddingHorizontal: 4.5 },
   dotContainer: { flexDirection: 'row', alignItems: 'center' },
