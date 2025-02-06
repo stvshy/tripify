@@ -1,5 +1,5 @@
 // app/country/[cid].tsx
-import React, { useEffect, useRef, useState, Suspense, lazy, useCallback } from 'react';
+import React, { useEffect, useRef, useState, Suspense, lazy, useCallback, memo } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Dimensions,
   ActivityIndicator,
   InteractionManager,
+  FlatList,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { getStorage, ref, getDownloadURL } from 'firebase/storage';
@@ -16,10 +17,8 @@ import CountryFlag from 'react-native-country-flag';
 import { TapGestureHandler, State as GestureState } from 'react-native-gesture-handler';
 import { useWeatherData } from './useWeatherData';
 
-// Lazy-load komponentu Extra Info
 const LazyCountryExtraInfo = lazy(() => import('./CountryExtraInfo'));
 
-// Interfejsy danych
 interface MonthlyTemperatures {
   day: number;
   night: number;
@@ -88,12 +87,27 @@ const getFirebaseUrl = async (path: string): Promise<string> => {
   return await getDownloadURL(storageRef);
 };
 
-// Jeśli lista Main Cities nie jest długa, używamy .map() zamiast FlatList
-const CityCard = React.memo(({ city }: { city: string }) => (
+// Memoizowany komponent dla karty miasta
+const CityCard = memo(({ city }: { city: string }) => (
   <View style={styles.cityCard}>
     <Text style={styles.cityText}>{city}</Text>
   </View>
 ));
+
+// Używamy FlatList z numColumns oraz wyłączamy własne przewijanie FlatList
+const CitiesList = ({ cities }: { cities: string[] }) => {
+  return (
+    <FlatList
+      data={cities}
+      keyExtractor={(item, index) => item + index}
+      renderItem={({ item }) => <CityCard city={item} />}
+      numColumns={3}
+      scrollEnabled={false} // wyłączamy przewijanie FlatList, aby nie kolidowało z rodzicem
+      contentContainerStyle={styles.citiesGrid}
+    />
+  );
+};
+
 
 const CountryProfile = () => {
   const { cid } = useLocalSearchParams();
@@ -115,7 +129,7 @@ const CountryProfile = () => {
     country.capitalLongitude
   );
 
-  // UWAGA: Usunięto wywołanie useMonthlyTemperatures – pobieranie tych danych odbywa się w MonthlyTemperaturesSection!
+  // Usunięto zbędne wywołanie useMonthlyTemperatures – pobieranie odbywa się w MonthlyTemperaturesSection
 
   const loadImages = useCallback(() => {
     const fetchUrls = async (paths: string[]): Promise<string[]> =>
@@ -198,7 +212,7 @@ const CountryProfile = () => {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} removeClippedSubviews>
       {/* Slider Section */}
       <View style={styles.sliderContainer}>
         <TapGestureHandler onHandlerStateChange={handleTap}>
@@ -209,6 +223,7 @@ const CountryProfile = () => {
             onScroll={onSliderScroll}
             scrollEventThrottle={16}
             ref={sliderRef}
+            removeClippedSubviews
           >
             {sliderUrls.map((url: string, index: number) => (
               <Image
@@ -302,14 +317,10 @@ const CountryProfile = () => {
         </View>
       </View>
 
-      {/* Main Cities Section */}
+      {/* Main Cities Section – użycie FlatList */}
       <View style={styles.sectionBox}>
         <Text style={styles.sectionTitle}>Main Cities</Text>
-        <View style={styles.citiesGrid}>
-          {country.mainCities.map((city, index) => (
-            <CityCard key={index} city={city} />
-          ))}
-        </View>
+        <CitiesList cities={country.mainCities} />
       </View>
 
       {/* Lazy-loaded Extra Info */}
@@ -346,7 +357,7 @@ const styles = StyleSheet.create({
   knownForCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#eef', borderRadius: 14, paddingVertical: 4, paddingHorizontal: 8, margin: 3, marginTop: 10 },
   knownForIcon: { fontSize: 17, marginRight: 5 },
   knownForText: { fontSize: 13, color: '#333' },
-  citiesGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingVertical: 10 },
+  citiesGrid: { paddingVertical: 10 },
   cityCard: { backgroundColor: '#def', borderRadius: 12, paddingVertical: 4, paddingHorizontal: 8, margin: 3 },
   cityText: { fontSize: 13, color: '#333' },
   dotWrapper: { backgroundColor: 'rgba(0,0,0,0.38)', borderRadius: 20, paddingVertical: 2.6, paddingHorizontal: 4.5 },
