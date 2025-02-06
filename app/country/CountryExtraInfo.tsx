@@ -55,32 +55,34 @@ const CountryExtraInfo: React.FC<Props> = ({
             <Text style={styles.infoCardValue}>{country.legalCigarettesAge} years</Text>
           </View>
         </View>
-        <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
-          <Text style={styles.infoCardLabel}>🚗 Driving Side</Text>
-          <View style={{ alignSelf: 'flex-start' }}>
-            <View style={styles.drivingSideContainer}>
-              <Image
-                source={{ uri: drivingSideUrl }}
-                style={styles.drivingSideImage}
-                resizeMode="contain"
-              />
-              <Text style={styles.drivingSideText}>{country.drivingSide.side}</Text>
+        <View style={styles.row}>
+          <View style={styles.halfInfoCard}>
+            <Text style={styles.infoCardLabel}>🚗 Driving Side</Text>
+            <View style={{ alignSelf: 'flex-start' }}>
+              <View style={styles.drivingSideContainer}>
+                <Image
+                  source={{ uri: drivingSideUrl }}
+                  style={styles.drivingSideImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.drivingSideText}>{country.drivingSide.side}</Text>
+              </View>
             </View>
           </View>
-        </View>
-        <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
-          <Text style={styles.infoCardLabel}>🔌 Electrical Outlets</Text>
-          <View style={styles.outletCard}>
-            {country.outlets.map((filename, index) => (
-              <View key={index} style={styles.outletItem}>
-                <Image
-                  source={{ uri: outletUrls[index] }}
-                  style={[styles.outletCardImage, { width: outletCardImageSize, height: outletCardImageSize }]}
-                  resizeMode="cover"
-                />
-                <Text style={styles.outletCaption}>{getOutletCaption(filename)}</Text>
-              </View>
-            ))}
+          <View style={styles.halfInfoCard}>
+            <Text style={styles.infoCardLabel}>🔌 Electrical Outlets</Text>
+            <View style={styles.outletCard}>
+              {country.outlets.map((filename, index) => (
+                <View key={index} style={styles.outletItem}>
+                  <Image
+                    source={{ uri: outletUrls[index] }}
+                    style={[styles.outletCardImage, { width: outletCardImageSize, height: outletCardImageSize }]}
+                    resizeMode="cover"
+                  />
+                  <Text style={styles.outletCaption}>{getOutletCaption(filename)}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         </View>
         {/* Languages, Mobile Operators oraz Religions */}
