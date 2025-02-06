@@ -164,7 +164,7 @@ const CountryExtraInfo: React.FC<Props> = ({
 
       {/* Monthly Temperatures Section */}
       <View style={styles.sectionBox}>
-        <Text style={styles.sectionTitle}>Average Monthly Temperatures (°C)</Text>
+        <Text style={styles.sectionTitle}>Average Monthly Temperatures</Text>
         <MonthlyTemperaturesSection
           latitude={country.capitalLatitude}
           longitude={country.capitalLongitude}
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     marginVertical: 5,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16.5,
     fontWeight: 'bold',
     marginBottom: 10,
     color: '#333',
