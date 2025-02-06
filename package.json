@@ -21,6 +21,8 @@
     "@react-native-community/cli-platform-android": "^15.0.0",
     "@react-navigation/native": "^6.1.18",
     "@react-navigation/native-stack": "^6.11.0",
+    "@tanstack/query-core": "^5.66.0",
+    "@tanstack/react-query": "^5.66.0",
     "@turf/turf": "^7.1.0",
     "crypto-js": "^4.2.0",
     "expo": "^51.0.0",
@@ -54,6 +56,7 @@
     "react-native-country-flag": "^2.0.2",
     "react-native-draggable-flatlist": "^4.0.1",
     "react-native-drax": "^0.10.3",
+    "react-native-fast-image": "^8.6.3",
     "react-native-fbsdk-next": "^11.3.0",
     "react-native-gesture-handler": "~2.16.1",
     "react-native-keyboard-aware-scroll-view": "^0.9.5",
@@ -72,7 +75,8 @@
     "react-native-web": "~0.19.10",
     "world-countries": "^5.0.0",
     "xml2js": "^0.6.2",
-    "xmldom": "^0.6.0"
+    "xmldom": "^0.6.0",
+    "expo-image": "~1.13.0"
   },
   "overrides": {
     "@expo/config-plugins": "~8.0.0"

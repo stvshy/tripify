@@ -1,5 +1,5 @@
 // app/country/[cid].tsx
-import React, { useEffect, useRef, useState, Suspense, lazy } from 'react';
+import React, { useEffect, useRef, useState, Suspense, lazy, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,15 +8,16 @@ import {
   Image,
   Dimensions,
   ActivityIndicator,
+  InteractionManager,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { getStorage, ref, getDownloadURL } from 'firebase/storage';
 import CountryFlag from 'react-native-country-flag';
 import { TapGestureHandler, State as GestureState } from 'react-native-gesture-handler';
 import { useWeatherData } from './useWeatherData';
-import { useMonthlyTemperatures } from './useMonthlyTemperatures';
 
-const MonthlyTemperaturesSection = lazy(() => import('./MonthlyTemperaturesSection'));
+// Lazy-load komponentu Extra Info
+const LazyCountryExtraInfo = lazy(() => import('./CountryExtraInfo'));
 
 // Interfejsy danych
 interface MonthlyTemperatures {
@@ -40,11 +41,11 @@ interface Religion {
 }
 
 interface DrivingSide {
-  side: string; // "Right" lub "Left"
+  side: string;
   image: string;
 }
 
-interface CountryProfileData {
+export interface CountryProfileData {
   name: string;
   images: string[];
   description: string;
@@ -62,7 +63,7 @@ interface CountryProfileData {
   currentWeather: string;
   rainySeason: string;
   bestTimeToVisit: string;
-  monthlyTemperatures: Record<string, MonthlyTemperatures>; // dane lokalne (np. z pliku JSON)
+  monthlyTemperatures: Record<string, MonthlyTemperatures>;
   visaRequired: string;
   travelTips: string;
   religions: Religion[];
@@ -78,22 +79,26 @@ interface CountryProfileData {
   languages: string[];
 }
 
-// Import lokalnych danych kraju
 import rawCountryData from './countryData.json';
 const countryData: Record<string, CountryProfileData> = rawCountryData;
 
-// Inicjalizacja Firebase Storage
 const storage = getStorage();
 const getFirebaseUrl = async (path: string): Promise<string> => {
   const storageRef = ref(storage, path);
   return await getDownloadURL(storageRef);
 };
 
+// Jeśli lista Main Cities nie jest długa, używamy .map() zamiast FlatList
+const CityCard = React.memo(({ city }: { city: string }) => (
+  <View style={styles.cityCard}>
+    <Text style={styles.cityText}>{city}</Text>
+  </View>
+));
+
 const CountryProfile = () => {
   const { cid } = useLocalSearchParams();
   const country = countryData[cid as string];
 
-  // Stany dla pobranych URL-i
   const [sliderUrls, setSliderUrls] = useState<string[]>([]);
   const [outletUrls, setOutletUrls] = useState<string[]>([]);
   const [transportUrls, setTransportUrls] = useState<string[]>([]);
@@ -101,7 +106,6 @@ const CountryProfile = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [currentSlide, setCurrentSlide] = useState<number>(0);
 
-  // Referencja do ScrollView slidera
   const sliderRef = useRef<ScrollView>(null);
   const screenWidth = Dimensions.get('window').width;
   const outletCardImageSize = 50;
@@ -110,55 +114,46 @@ const CountryProfile = () => {
     country.capitalLatitude,
     country.capitalLongitude
   );
-  const { data: monthlyTemperatures, loading: monthlyLoading, error: monthlyError } = useMonthlyTemperatures(
-    country.capitalLatitude,
-    country.capitalLongitude
-  );
 
-  useEffect(() => {
-    if (!country) return;
-    const fetchUrls = async (paths: string[]): Promise<string[]> => {
-      return await Promise.all(paths.map((path) => getFirebaseUrl(path)));
-    };
+  // UWAGA: Usunięto wywołanie useMonthlyTemperatures – pobieranie tych danych odbywa się w MonthlyTemperaturesSection!
 
-    const loadImages = async () => {
-      try {
-        const [slider, outlets, transport, drivingUrl] = await Promise.all([
-          fetchUrls(country.images),
-          fetchUrls(country.outlets),
-          Promise.all(country.transportApps.map(app => getFirebaseUrl(app.logo))),
-          getFirebaseUrl(country.drivingSide.image),
-        ]);
+  const loadImages = useCallback(() => {
+    const fetchUrls = async (paths: string[]): Promise<string[]> =>
+      Promise.all(paths.map((path) => getFirebaseUrl(path)));
+
+    Promise.all([
+      fetchUrls(country.images),
+      fetchUrls(country.outlets),
+      Promise.all(country.transportApps.map(app => getFirebaseUrl(app.logo))),
+      getFirebaseUrl(country.drivingSide.image),
+    ])
+      .then(([slider, outlets, transport, drivingUrl]) => {
         setSliderUrls(slider);
         setOutletUrls(outlets);
         setTransportUrls(transport);
         setDrivingSideUrl(drivingUrl);
-      } catch (error) {
+      })
+      .catch((error) => {
         console.error("Error fetching images from Firebase Storage:", error);
-      } finally {
+      })
+      .finally(() => {
         setLoading(false);
-      }
-    };
-
-    loadImages();
+      });
   }, [country]);
 
-  const getOutletCaption = (filename: string): string => {
-    const match = filename.match(/type-([A-Za-z]+)\./);
-    if (match && match[1]) {
-      return match[1].toUpperCase();
-    }
-    return "";
-  };
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
+      loadImages();
+    });
+    return () => task.cancel();
+  }, [country, loadImages]);
 
-  // Obsługa scrolla slidera – ustalamy aktualny indeks zdjęcia
   const onSliderScroll = (e: any) => {
     const offsetX = e.nativeEvent.contentOffset.x;
     const index = Math.round(offsetX / screenWidth);
     setCurrentSlide(index);
   };
 
-  // Tapnięcia po lewej/prawej stronie slidera
   const handleLeftTap = () => {
     if (currentSlide > 0) {
       const newSlide = currentSlide - 1;
@@ -225,7 +220,6 @@ const CountryProfile = () => {
             ))}
           </ScrollView>
         </TapGestureHandler>
-        {/* Slider overlay – z flagą, nazwą kraju i dot-indicator */}
         <View style={styles.sliderOverlay}>
           <View style={styles.countryBadge}>
             <CountryFlag isoCode={cid as string} size={40} style={styles.flag} />
@@ -313,230 +307,54 @@ const CountryProfile = () => {
         <Text style={styles.sectionTitle}>Main Cities</Text>
         <View style={styles.citiesGrid}>
           {country.mainCities.map((city, index) => (
-            <View key={index} style={styles.cityCard}>
-              <Text style={styles.cityText}>{city}</Text>
-            </View>
+            <CityCard key={index} city={city} />
           ))}
         </View>
       </View>
 
-      {/* Additional Info Section */}
-      <View style={styles.sectionBox}>
-        <Text style={styles.sectionTitle}>Additional Info</Text>
-        <View style={styles.row}>
-          <View style={styles.halfInfoCard}>
-            <Text style={styles.infoCardLabel}>💵 Currency</Text>
-            <Text style={styles.infoCardValue}>{country.currency}</Text>
-          </View>
-          <View style={styles.halfInfoCard}>
-            <Text style={styles.infoCardLabel}>📞 Dialing Code</Text>
-            <Text style={styles.infoCardValue}>{country.dialingCode}</Text>
-          </View>
-        </View>
-        <View style={styles.row}>
-          <View style={styles.halfInfoCard}>
-            <Text style={styles.infoCardLabel}>🍺 Drinking Age</Text>
-            <Text style={styles.infoCardValue}>{country.legalAlcoholAge} years</Text>
-          </View>
-          <View style={styles.halfInfoCard}>
-            <Text style={styles.infoCardLabel}>💨 Smoking Age</Text>
-            <Text style={styles.infoCardValue}>{country.legalCigarettesAge} years</Text>
-          </View>
-        </View>
-        <View style={styles.row}>
-          <View style={styles.halfInfoCard}>
-            <Text style={styles.infoCardLabel}>🚗 Driving Side</Text>
-            <View style={{ alignSelf: 'flex-start' }}>
-              <View style={styles.drivingSideContainer}>
-                <Image
-                  source={{ uri: drivingSideUrl }}
-                  style={styles.drivingSideImage}
-                  resizeMode="contain"
-                />
-                <Text style={styles.drivingSideText}>{country.drivingSide.side}</Text>
-              </View>
-            </View>
-          </View>
-          <View style={styles.halfInfoCard}>
-            <Text style={styles.infoCardLabel}>🔌 Electrical Outlets</Text>
-            <View style={styles.outletCard}>
-              {country.outlets.map((filename, index) => (
-                <View key={index} style={styles.outletItem}>
-                  <Image
-                    source={{ uri: outletUrls[index] }}
-                    style={[styles.outletCardImage, { width: outletCardImageSize, height: outletCardImageSize }]}
-                    resizeMode="cover"
-                  />
-                  <Text style={styles.outletCaption}>{getOutletCaption(filename)}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        </View>
-        <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
-          <Text style={styles.infoCardLabel}>🌐 Official Languages</Text>
-          <Text style={styles.infoCardValue}>{country.languages.join(', ')}</Text>
-        </View>
-        <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
-          <Text style={styles.infoCardLabel}>📡 Mobile Operators</Text>
-          <Text style={styles.infoCardValue}>{country.networkOperators.join(', ')}</Text>
-        </View>
-        <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
-          <Text style={styles.infoCardLabel}>💊 Other Legal Drugs</Text>
-          <Text style={styles.infoCardValue}>{country.legalDrugs}</Text>
-        </View>
-      </View>
-
-      {/* Transport Apps Section */}
-      <View style={styles.sectionBox}>
-        <Text style={styles.sectionTitle}>Transport Apps</Text>
-        <View style={styles.appsGrid}>
-          {country.transportApps.map((app, index: number) => (
-            <View key={index} style={styles.appCard}>
-              <Image
-                source={{ uri: transportUrls[index] }}
-                style={styles.appLogo}
-                resizeMode="cover"
-              />
-              <Text style={styles.appName}>{app.name}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-
-      {/* Weather Section */}
-      <View style={styles.sectionBox}>
-        <Text style={styles.sectionTitle}>Weather</Text>
-        <View style={styles.row}>
-          <View style={styles.halfInfoCard}>
-            <Text style={styles.infoCardLabel}>🌡 Current Temp.</Text>
-            {weatherLoading ? (
-              <ActivityIndicator size="small" color="#000" />
-            ) : weatherData ? (
-              <Text style={styles.infoCardValue}>
-                {weatherData.temperature}°C  ({country.capital})
-              </Text>
-            ) : (
-              <Text style={styles.errorText}>Error fetching weather data.</Text>
-            )}
-          </View>
-          <View style={styles.halfInfoCard}>
-            <Text style={styles.infoCardLabel}>⏰ Current Time</Text>
-            {weatherLoading ? (
-              <ActivityIndicator size="small" color="#000" />
-            ) : weatherData ? (
-              <Text style={styles.infoCardValue}>{weatherData.time}</Text>
-            ) : (
-              <Text style={styles.errorText}>Error fetching weather data.</Text>
-            )}
-          </View>
-        </View>
-        <View style={styles.row}>
-          <View style={styles.halfInfoCard}>
-            <Text style={styles.infoCardLabel}>📅 Best Time</Text>
-            <Text style={styles.infoCardValue}>{country.bestTimeToVisit}</Text>
-          </View>
-          <View style={styles.halfInfoCard}>
-            <Text style={styles.infoCardLabel}>☔ Rainy Season</Text>
-            <Text style={styles.infoCardValue}>{country.rainySeason}</Text>
-          </View>
-        </View>
-      </View>
-
-         {/* Monthly Temperatures Section */}
-         <View style={styles.sectionBox}>
-        <Text style={styles.sectionTitle}>Average Monthly Temperatures (°C)</Text>
-        <Suspense fallback={<ActivityIndicator size="small" color="#000" />}>
-          <MonthlyTemperaturesSection
-            latitude={country.capitalLatitude}
-            longitude={country.capitalLongitude}
-          />
-        </Suspense>
-      </View>
-
-      {/* Visa & Travel Tips Section */}
-      <View style={styles.sectionBox}>
-        <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
-          <Text style={styles.infoCardLabel}>🛂 Visa Requirements</Text>
-          <Text style={styles.infoCardValue}>{country.visaRequired}</Text>
-        </View>
-        <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
-          <Text style={styles.infoCardLabel}>💡 Travel Tips</Text>
-          <Text style={styles.infoCardValue}>{country.travelTips}</Text>
-        </View>
-        <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
-          <Text style={styles.infoCardLabel}>🙏 Religions</Text>
-          <Text style={styles.infoCardValue}>
-            {country.religions.map(r => `${r.name} (${r.percentage}%)`).join(', ')}
-          </Text>
-        </View>
-      </View>
+      {/* Lazy-loaded Extra Info */}
+      <Suspense fallback={<ActivityIndicator size="large" color="#000" style={{ marginVertical: 20 }} />}>
+        <LazyCountryExtraInfo
+          country={country}
+          outletUrls={outletUrls}
+          transportUrls={transportUrls}
+          drivingSideUrl={drivingSideUrl}
+          outletCardImageSize={outletCardImageSize}
+        />
+      </Suspense>
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor:'#fafafa' },
-  centered: { flex: 1, justifyContent:'center', alignItems:'center' },
+  container: { flex: 1, backgroundColor: '#fafafa' },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   errorText: { fontSize: 17.5, color: 'red' },
-  // Slider
   sliderContainer: { position: 'relative', height: 290 },
   sliderImage: { height: 290 },
   sliderOverlay: { position: 'absolute', bottom: 8, left: 10, flexDirection: 'column', alignItems: 'center' },
-  countryBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor:'rgba(0,0,0,0.6)', paddingVertical: 6, paddingHorizontal: 15, borderRadius: 20, marginBottom: 3.5 },
-  flag: { width: 21, height: 21, borderRadius: 20, marginRight: 10, borderWidth: 1.5, borderColor:'#fff' },
-  outletItem: { alignItems: 'center', marginRight: 5, marginBottom: 5 },
-  outletCaption: { fontSize: 12, color:'#333', marginTop: 3, textAlign: 'center' },
-  outletCardImage: { borderRadius: 7 },
-  countryName: { color:'#fff', fontSize: 17, fontWeight:'bold' },
-  dotWrapper: { backgroundColor:'rgba(0,0,0,0.38)', borderRadius:20, paddingVertical:2.6, paddingHorizontal:4.5 },
-  dotContainer: { flexDirection:'row', alignItems:'center' },
-  dot: { width: 4, height:4, borderRadius:4, marginHorizontal:2.5 },
-  dotActive: { backgroundColor:'#fff', width:5, height:5 },
-  dotInactive: { backgroundColor:'rgba(255,255,255,0.6)' },
-  // Section Box
-  sectionBox: { borderBottomWidth:1, borderColor:'#ddd', padding:12, backgroundColor:'#fafafa', marginVertical:5 },
-  sectionTitle: { fontSize:18, fontWeight:'bold', marginBottom:10, color:'#333' },
-  description: { fontSize:16, marginBottom:10, color:'#555' },
-  // Info cards
-  infoCardsContainer: { flexDirection:'row', flexWrap:'wrap', justifyContent:'space-between', marginHorizontal:-3 },
-  infoCard: { borderWidth:1, borderColor:'#ccc', borderRadius:16, padding:10, marginVertical:3.5, backgroundColor:'#fff', flexBasis:'49%' },
-  infoCardLabel: { fontSize:15, fontWeight:'bold', color:'#333' },
-  infoCardValue: { fontSize:14, color:'#555', marginTop:8 },
-  // Known For grid
-  knownForGrid: { flexDirection:'row', flexWrap:'wrap', justifyContent:'flex-start', marginHorizontal:-1 },
-  knownForCard: { flexDirection:'row', alignItems:'center', backgroundColor:'#eef', borderRadius:14, paddingVertical:4, paddingHorizontal:8, margin:3, marginTop:10 },
-  knownForIcon: { fontSize:17, marginRight:5 },
-  knownForText: { fontSize:13, color:'#333' },
-  // Main Cities grid
-  citiesGrid: { flexDirection:'row', flexWrap:'wrap', marginHorizontal:-3 },
-  cityCard: { backgroundColor:'#def', borderRadius:12, paddingVertical:4, paddingHorizontal:8, margin:3 },
-  cityText: { fontSize:13, color:'#333' },
-  // Additional Info rows
-  row: { flexDirection:'row', justifyContent:'space-between', marginVertical:3.5, marginHorizontal:-7 },
-  halfInfoCard: { flex:1, marginHorizontal:3.5, borderWidth:1, borderColor:'#ccc', borderRadius:16, padding:10, backgroundColor:'#fff' },
-  // Transport Apps grid
-  appsGrid: { flexDirection:'row', flexWrap:'wrap', justifyContent:'flex-start', marginLeft:-6 },
-  appCard: { flexDirection:'row', alignItems:'center', backgroundColor:'#fff', borderRadius:20, paddingLeft:6, paddingVertical:6, paddingRight:10, margin:3.2, borderWidth:1, borderColor:'#ccc' },
-  appLogo: { width:40, height:40, borderRadius:15, marginRight:7 },
-  appName: { fontSize:14, color:'#333' },
-  monthlyRow: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingVertical:8, borderBottomWidth:1, borderBottomColor:'#ddd' },
-  monthText: { fontSize:15, fontWeight:'500', color:'#333', flex:1 },
-  tempText: { fontSize:16, color:'#555', flex:1, textAlign:'right' },
-  // Additional Info – Driving Side & Outlets
-  drivingSideContainer: { flexDirection:'column', alignItems:'center', marginTop:8 },
-  drivingSideImage: { width:48, height:48, resizeMode:'contain', marginBottom:5 },
-  drivingSideText: { fontSize:14, color:'#333', textAlign:'center' },
-  outletCard: { flexDirection:'row', flexWrap:'wrap', alignItems:'center', marginTop:5 },
-  roundedContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    marginBottom: 10,
-    paddingVertical: -1
-  },
+  countryBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)', paddingVertical: 6, paddingHorizontal: 15, borderRadius: 20, marginBottom: 3.5 },
+  flag: { width: 21, height: 21, borderRadius: 20, marginRight: 10, borderWidth: 1.5, borderColor: '#fff' },
+  sectionBox: { borderBottomWidth: 1, borderColor: '#ddd', padding: 12, backgroundColor: '#fafafa', marginVertical: 5 },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: '#333' },
+  description: { fontSize: 16, marginBottom: 10, color: '#555' },
+  infoCardsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginHorizontal: -3 },
+  infoCard: { borderWidth: 1, borderColor: '#ccc', borderRadius: 16, padding: 10, marginVertical: 3.5, backgroundColor: '#fff', flexBasis: '49%' },
+  infoCardLabel: { fontSize: 15, fontWeight: 'bold', color: '#333' },
+  infoCardValue: { fontSize: 14, color: '#555', marginTop: 8 },
+  knownForGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-start', marginHorizontal: -1 },
+  knownForCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#eef', borderRadius: 14, paddingVertical: 4, paddingHorizontal: 8, margin: 3, marginTop: 10 },
+  knownForIcon: { fontSize: 17, marginRight: 5 },
+  knownForText: { fontSize: 13, color: '#333' },
+  citiesGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingVertical: 10 },
+  cityCard: { backgroundColor: '#def', borderRadius: 12, paddingVertical: 4, paddingHorizontal: 8, margin: 3 },
+  cityText: { fontSize: 13, color: '#333' },
+  dotWrapper: { backgroundColor: 'rgba(0,0,0,0.38)', borderRadius: 20, paddingVertical: 2.6, paddingHorizontal: 4.5 },
+  dotContainer: { flexDirection: 'row', alignItems: 'center' },
+  dot: { width: 4, height: 4, borderRadius: 4, marginHorizontal: 2.5 },
+  dotActive: { backgroundColor: '#fff', width: 5, height: 5 },
+  dotInactive: { backgroundColor: 'rgba(255,255,255,0.6)' },
+  countryName: { color: '#fff', fontSize: 17, fontWeight: 'bold' },
 });
 
 export default CountryProfile;

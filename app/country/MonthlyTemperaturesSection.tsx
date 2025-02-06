@@ -1,6 +1,6 @@
 // app/country/MonthlyTemperaturesSection.tsx
 import React from 'react';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useMonthlyTemperatures, MonthlyTemperatures } from './useMonthlyTemperatures';
 
 interface Props {
@@ -12,9 +12,12 @@ const MonthlyTemperaturesSection: React.FC<Props> = ({ latitude, longitude }) =>
   const { data, loading, error } = useMonthlyTemperatures(latitude, longitude);
 
   if (loading) {
+    // Skeleton placeholder zamiast spinnera
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="small" color="#000" />
+      <View style={styles.skeletonContainer}>
+        <View style={styles.skeletonLine} />
+        <View style={styles.skeletonLine} />
+        <View style={styles.skeletonLine} />
       </View>
     );
   }
@@ -55,8 +58,14 @@ const styles = StyleSheet.create({
   },
   monthText: { fontSize: 15, fontWeight: '500', color: '#333', flex: 1 },
   tempText: { fontSize: 16, color: '#555', flex: 1, textAlign: 'right' },
-  centered: { justifyContent: 'center', alignItems: 'center', padding: 10 },
   errorText: { color: 'red', fontSize: 16 },
+  skeletonContainer: { padding: 12 },
+  skeletonLine: {
+    height: 20,
+    backgroundColor: '#eee',
+    marginBottom: 8,
+    borderRadius: 10,
+  },
 });
 
 export default MonthlyTemperaturesSection;
