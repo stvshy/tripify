@@ -401,21 +401,29 @@ const CountryProfile = () => {
 {/* Weather Section */}
 <View style={styles.sectionBox}>
   <Text style={styles.sectionTitle}>Weather</Text>
-  <View style={styles.weatherBox}>
-    {weatherLoading ? (
-      <ActivityIndicator size="small" color="#000" />
-    ) : weatherData ? (
-      <>
-        <Text style={styles.weatherText}>
-          🌡 Current Temperature: {weatherData.temperature}°C
+  <View style={styles.row}>
+    <View style={styles.halfInfoCard}>
+      <Text style={styles.infoCardLabel}>🌡 Current Temp.</Text>
+      {weatherLoading ? (
+        <ActivityIndicator size="small" color="#000" />
+      ) : weatherData ? (
+        <Text style={styles.infoCardValue}>{weatherData.temperature}°C  ({country.capital})</Text>
+      ) : (
+        <Text style={styles.errorText}>Error fetching weather data.</Text>
+      )}
+    </View>
+    <View style={styles.halfInfoCard}>
+      <Text style={styles.infoCardLabel}>⏰ Current Time</Text>
+      {weatherLoading ? (
+        <ActivityIndicator size="small" color="#000" />
+      ) : weatherData ? (
+        <Text style={styles.infoCardValue}>
+          {weatherData.time}
         </Text>
-        <Text style={styles.weatherText}>
-          ⏰ Current Time: {weatherData.time} ({country.capital})
-        </Text>
-      </>
-    ) : (
-      <Text style={styles.errorText}>Error fetching weather data.</Text>
-    )}
+      ) : (
+        <Text style={styles.errorText}>Error fetching weather data.</Text>
+      )}
+    </View>
   </View>
   <View style={styles.row}>
     <View style={styles.halfInfoCard}>
@@ -429,19 +437,23 @@ const CountryProfile = () => {
   </View>
 </View>
 
-      {/* Monthly Temperatures Section */}
-      <View style={styles.sectionBox}>
-        <Text style={styles.sectionTitle}>Average Monthly Temperatures (°C)</Text>
-        {Object.entries(country.monthlyTemperatures).map(
-          ([month, temps]) => (
-            <View key={month} style={styles.monthlyRow}>
-              <Text style={styles.monthText}>{month}</Text>
-              <Text style={styles.tempText}>🌞 {temps.day}°C</Text>
-              <Text style={styles.tempText}>🌙 {temps.night}°C</Text>
-            </View>
-          )
-        )}
-      </View>
+
+{/* Monthly Temperatures Section */}
+<View style={styles.sectionBox}>
+  <Text style={styles.sectionTitle}>Average Monthly Temperatures</Text>
+  <View style={styles.roundedContainer}>
+    {Object.entries(country.monthlyTemperatures).map(
+      ([month, temps]) => (
+        <View key={month} style={styles.monthlyRow}>
+          <Text style={styles.monthText}>{month}</Text>
+          <Text style={styles.tempText}>🌞 {temps.day}°C</Text>
+          <Text style={styles.tempText}>🌙 {temps.night}°C</Text>
+        </View>
+      )
+    )}
+  </View>
+</View>
+
 
       {/* Visa & Travel Tips Section */}
       <View style={styles.sectionBox}>
@@ -510,7 +522,7 @@ const styles = StyleSheet.create({
   appLogo: { width:40, height:40, borderRadius:15, marginRight:7 },
   appName: { fontSize:14, color:'#333' },
   monthlyRow: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingVertical:8, borderBottomWidth:1, borderBottomColor:'#ddd' },
-  monthText: { fontSize:16, fontWeight:'bold', color:'#333', flex:1 },
+  monthText: { fontSize:15, fontWeight:'500', color:'#333', flex:1 },
   tempText: { fontSize:16, color:'#555', flex:1, textAlign:'right' },
   // Additional Info – Driving Side & Outlets
   drivingSideContainer: { flexDirection:'column', alignItems:'center', marginTop:8 },
@@ -518,16 +530,30 @@ const styles = StyleSheet.create({
   drivingSideText: { fontSize:14, color:'#333', textAlign:'center' },
   outletCard: { flexDirection:'row', flexWrap:'wrap', alignItems:'center', marginTop:5 },
   weatherBox: {
-    backgroundColor: '#fafafa', // takie samo tło jak reszta okienek
+    backgroundColor: '#fff', // spójne z innymi okienkami
     borderRadius: 10,
     padding: 12,
     marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#ccc',
   },
   weatherText: {
-    fontSize: 18,
+    fontSize: 14.3, // zakładamy, że wewnątrz info kart czcionka jest mniejsza
     color: '#333',
     marginVertical: 2,
   },
+  roundedContainer: {
+    backgroundColor: '#fff',      // Biały kolor tła
+    borderRadius: 16,             // Zaokrąglone rogi
+    padding: 12,                  // Wewnętrzne odstępy
+    borderWidth: 1,               // Ramka
+    borderColor: '#ccc',          // Kolor ramki
+    marginBottom: 10, 
+    marginHorizontal: -3,            // Opcjonalnie odstęp na dole
+    paddingVertical: -1,
+    marginTop: 5,
+  },
+  
 });
 
 const weatherStyles = StyleSheet.create({
