@@ -1,5 +1,5 @@
 // app/country/[cid].tsx
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, Suspense, lazy } from 'react';
 import {
   View,
   Text,
@@ -12,9 +12,11 @@ import {
 import { useLocalSearchParams } from 'expo-router';
 import { getStorage, ref, getDownloadURL } from 'firebase/storage';
 import CountryFlag from 'react-native-country-flag';
-import { FontAwesome5 } from '@expo/vector-icons';
-import { useWeatherData } from './useWeatherData';
 import { TapGestureHandler, State as GestureState } from 'react-native-gesture-handler';
+import { useWeatherData } from './useWeatherData';
+import { useMonthlyTemperatures } from './useMonthlyTemperatures';
+
+const MonthlyTemperaturesSection = lazy(() => import('./MonthlyTemperaturesSection'));
 
 // Interfejsy danych
 interface MonthlyTemperatures {
@@ -47,8 +49,8 @@ interface CountryProfileData {
   images: string[];
   description: string;
   capital: string;
-  capitalLatitude: number;      // Dodane
-  capitalLongitude: number;     // Dodane
+  capitalLatitude: number;
+  capitalLongitude: number;
   population: string;
   area: string;
   continent: string;
@@ -60,7 +62,7 @@ interface CountryProfileData {
   currentWeather: string;
   rainySeason: string;
   bestTimeToVisit: string;
-  monthlyTemperatures: Record<string, MonthlyTemperatures>;
+  monthlyTemperatures: Record<string, MonthlyTemperatures>; // dane lokalne (np. z pliku JSON)
   visaRequired: string;
   travelTips: string;
   religions: Religion[];
@@ -76,7 +78,7 @@ interface CountryProfileData {
   languages: string[];
 }
 
-// Import danych kraju – upewnij się, że ścieżka jest poprawna
+// Import lokalnych danych kraju
 import rawCountryData from './countryData.json';
 const countryData: Record<string, CountryProfileData> = rawCountryData;
 
@@ -105,6 +107,10 @@ const CountryProfile = () => {
   const outletCardImageSize = 50;
 
   const { data: weatherData, loading: weatherLoading } = useWeatherData(
+    country.capitalLatitude,
+    country.capitalLongitude
+  );
+  const { data: monthlyTemperatures, loading: monthlyLoading, error: monthlyError } = useMonthlyTemperatures(
     country.capitalLatitude,
     country.capitalLongitude
   );
@@ -276,7 +282,6 @@ const CountryProfile = () => {
             <Text style={styles.infoCardLabel}>🏙️ Capital</Text>
             <Text style={styles.infoCardValue}>{country.capital}</Text>
           </View>
-          {/* Zamiast "Continent" wyświetlamy tylko stolicę */}
           <View style={styles.infoCard}>
             <Text style={styles.infoCardLabel}>🌍 Continent</Text>
             <Text style={styles.infoCardValue}>{country.continent}</Text>
@@ -398,62 +403,56 @@ const CountryProfile = () => {
           ))}
         </View>
       </View>
-{/* Weather Section */}
-<View style={styles.sectionBox}>
-  <Text style={styles.sectionTitle}>Weather</Text>
-  <View style={styles.row}>
-    <View style={styles.halfInfoCard}>
-      <Text style={styles.infoCardLabel}>🌡 Current Temp.</Text>
-      {weatherLoading ? (
-        <ActivityIndicator size="small" color="#000" />
-      ) : weatherData ? (
-        <Text style={styles.infoCardValue}>{weatherData.temperature}°C  ({country.capital})</Text>
-      ) : (
-        <Text style={styles.errorText}>Error fetching weather data.</Text>
-      )}
-    </View>
-    <View style={styles.halfInfoCard}>
-      <Text style={styles.infoCardLabel}>⏰ Current Time</Text>
-      {weatherLoading ? (
-        <ActivityIndicator size="small" color="#000" />
-      ) : weatherData ? (
-        <Text style={styles.infoCardValue}>
-          {weatherData.time}
-        </Text>
-      ) : (
-        <Text style={styles.errorText}>Error fetching weather data.</Text>
-      )}
-    </View>
-  </View>
-  <View style={styles.row}>
-    <View style={styles.halfInfoCard}>
-      <Text style={styles.infoCardLabel}>📅 Best Time</Text>
-      <Text style={styles.infoCardValue}>{country.bestTimeToVisit}</Text>
-    </View>
-    <View style={styles.halfInfoCard}>
-      <Text style={styles.infoCardLabel}>☔ Rainy Season</Text>
-      <Text style={styles.infoCardValue}>{country.rainySeason}</Text>
-    </View>
-  </View>
-</View>
 
-
-{/* Monthly Temperatures Section */}
-<View style={styles.sectionBox}>
-  <Text style={styles.sectionTitle}>Average Monthly Temperatures</Text>
-  <View style={styles.roundedContainer}>
-    {Object.entries(country.monthlyTemperatures).map(
-      ([month, temps]) => (
-        <View key={month} style={styles.monthlyRow}>
-          <Text style={styles.monthText}>{month}</Text>
-          <Text style={styles.tempText}>🌞 {temps.day}°C</Text>
-          <Text style={styles.tempText}>🌙 {temps.night}°C</Text>
+      {/* Weather Section */}
+      <View style={styles.sectionBox}>
+        <Text style={styles.sectionTitle}>Weather</Text>
+        <View style={styles.row}>
+          <View style={styles.halfInfoCard}>
+            <Text style={styles.infoCardLabel}>🌡 Current Temp.</Text>
+            {weatherLoading ? (
+              <ActivityIndicator size="small" color="#000" />
+            ) : weatherData ? (
+              <Text style={styles.infoCardValue}>
+                {weatherData.temperature}°C  ({country.capital})
+              </Text>
+            ) : (
+              <Text style={styles.errorText}>Error fetching weather data.</Text>
+            )}
+          </View>
+          <View style={styles.halfInfoCard}>
+            <Text style={styles.infoCardLabel}>⏰ Current Time</Text>
+            {weatherLoading ? (
+              <ActivityIndicator size="small" color="#000" />
+            ) : weatherData ? (
+              <Text style={styles.infoCardValue}>{weatherData.time}</Text>
+            ) : (
+              <Text style={styles.errorText}>Error fetching weather data.</Text>
+            )}
+          </View>
         </View>
-      )
-    )}
-  </View>
-</View>
+        <View style={styles.row}>
+          <View style={styles.halfInfoCard}>
+            <Text style={styles.infoCardLabel}>📅 Best Time</Text>
+            <Text style={styles.infoCardValue}>{country.bestTimeToVisit}</Text>
+          </View>
+          <View style={styles.halfInfoCard}>
+            <Text style={styles.infoCardLabel}>☔ Rainy Season</Text>
+            <Text style={styles.infoCardValue}>{country.rainySeason}</Text>
+          </View>
+        </View>
+      </View>
 
+         {/* Monthly Temperatures Section */}
+         <View style={styles.sectionBox}>
+        <Text style={styles.sectionTitle}>Average Monthly Temperatures (°C)</Text>
+        <Suspense fallback={<ActivityIndicator size="small" color="#000" />}>
+          <MonthlyTemperaturesSection
+            latitude={country.capitalLatitude}
+            longitude={country.capitalLongitude}
+          />
+        </Suspense>
+      </View>
 
       {/* Visa & Travel Tips Section */}
       <View style={styles.sectionBox}>
@@ -529,36 +528,15 @@ const styles = StyleSheet.create({
   drivingSideImage: { width:48, height:48, resizeMode:'contain', marginBottom:5 },
   drivingSideText: { fontSize:14, color:'#333', textAlign:'center' },
   outletCard: { flexDirection:'row', flexWrap:'wrap', alignItems:'center', marginTop:5 },
-  weatherBox: {
-    backgroundColor: '#fff', // spójne z innymi okienkami
-    borderRadius: 10,
+  roundedContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
     padding: 12,
-    marginBottom: 10,
     borderWidth: 1,
     borderColor: '#ccc',
+    marginBottom: 10,
+    paddingVertical: -1
   },
-  weatherText: {
-    fontSize: 14.3, // zakładamy, że wewnątrz info kart czcionka jest mniejsza
-    color: '#333',
-    marginVertical: 2,
-  },
-  roundedContainer: {
-    backgroundColor: '#fff',      // Biały kolor tła
-    borderRadius: 16,             // Zaokrąglone rogi
-    padding: 12,                  // Wewnętrzne odstępy
-    borderWidth: 1,               // Ramka
-    borderColor: '#ccc',          // Kolor ramki
-    marginBottom: 10, 
-    marginHorizontal: -3,            // Opcjonalnie odstęp na dole
-    paddingVertical: -1,
-    marginTop: 5,
-  },
-  
-});
-
-const weatherStyles = StyleSheet.create({
-  container: { flexDirection:'row', alignItems:'center', marginVertical:8 },
-  text: { marginLeft:8, fontSize:16, color:'#555' },
 });
 
 export default CountryProfile;
