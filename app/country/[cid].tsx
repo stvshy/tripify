@@ -13,9 +13,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { getStorage, ref, getDownloadURL } from 'firebase/storage';
 import CountryFlag from 'react-native-country-flag';
 import { FontAwesome5 } from '@expo/vector-icons';
-import OpenMeteoWidgetManual from './openMeteo'; // Upewnij się, że ścieżka jest poprawna
-
-// Importujemy TapGestureHandler z react-native-gesture-handler
+import { useWeatherData } from './useWeatherData';
 import { TapGestureHandler, State as GestureState } from 'react-native-gesture-handler';
 
 // Interfejsy danych
@@ -75,7 +73,7 @@ interface CountryProfileData {
   legalDrugs: string;
   vaccinationRequirements: string;
   dangerRating: number;
-  languages: string[]; // nowe pole!
+  languages: string[];
 }
 
 // Import danych kraju – upewnij się, że ścieżka jest poprawna
@@ -87,16 +85,6 @@ const storage = getStorage();
 const getFirebaseUrl = async (path: string): Promise<string> => {
   const storageRef = ref(storage, path);
   return await getDownloadURL(storageRef);
-};
-
-// Widget pogody
-const WeatherWidget = ({ currentWeather }: { currentWeather: string }) => {
-  return (
-    <View style={weatherStyles.container}>
-      <FontAwesome5 name="sun" size={24} color="#FFA500" />
-      <Text style={weatherStyles.text}>{currentWeather}</Text>
-    </View>
-  );
 };
 
 const CountryProfile = () => {
@@ -113,11 +101,13 @@ const CountryProfile = () => {
 
   // Referencja do ScrollView slidera
   const sliderRef = useRef<ScrollView>(null);
-
   const screenWidth = Dimensions.get('window').width;
-
-  // Obliczamy rozmiar obrazka dla Electrical Outlets w karcie (jeśli potrzebujemy wielu obrazków, można rozbudować układ)
   const outletCardImageSize = 50;
+
+  const { data: weatherData, loading: weatherLoading } = useWeatherData(
+    country.capitalLatitude,
+    country.capitalLongitude
+  );
 
   useEffect(() => {
     if (!country) return;
@@ -130,7 +120,6 @@ const CountryProfile = () => {
         const [slider, outlets, transport, drivingUrl] = await Promise.all([
           fetchUrls(country.images),
           fetchUrls(country.outlets),
-          // Dla transport apps – pobieramy logo z każdego obiektu
           Promise.all(country.transportApps.map(app => getFirebaseUrl(app.logo))),
           getFirebaseUrl(country.drivingSide.image),
         ]);
@@ -149,14 +138,12 @@ const CountryProfile = () => {
   }, [country]);
 
   const getOutletCaption = (filename: string): string => {
-    // Zakładamy, że nazwa pliku ma format "type-c.png" lub podobny.
     const match = filename.match(/type-([A-Za-z]+)\./);
     if (match && match[1]) {
       return match[1].toUpperCase();
     }
     return "";
   };
-
 
   // Obsługa scrolla slidera – ustalamy aktualny indeks zdjęcia
   const onSliderScroll = (e: any) => {
@@ -182,7 +169,6 @@ const CountryProfile = () => {
     }
   };
 
-  // Obsługa gestu tapnięcia – rozpoznajemy pozycję tapnięcia w obrębie slidera
   const handleTap = (event: any) => {
     if (event.nativeEvent.state === GestureState.END) {
       const { x } = event.nativeEvent;
@@ -290,6 +276,7 @@ const CountryProfile = () => {
             <Text style={styles.infoCardLabel}>🏙️ Capital</Text>
             <Text style={styles.infoCardValue}>{country.capital}</Text>
           </View>
+          {/* Zamiast "Continent" wyświetlamy tylko stolicę */}
           <View style={styles.infoCard}>
             <Text style={styles.infoCardLabel}>🌍 Continent</Text>
             <Text style={styles.infoCardValue}>{country.continent}</Text>
@@ -331,7 +318,6 @@ const CountryProfile = () => {
       {/* Additional Info Section */}
       <View style={styles.sectionBox}>
         <Text style={styles.sectionTitle}>Additional Info</Text>
-        {/* Wiersz Currency & Dialing Code */}
         <View style={styles.row}>
           <View style={styles.halfInfoCard}>
             <Text style={styles.infoCardLabel}>💵 Currency</Text>
@@ -342,7 +328,6 @@ const CountryProfile = () => {
             <Text style={styles.infoCardValue}>{country.dialingCode}</Text>
           </View>
         </View>
-        {/* Wiersz Drinking Age & Smoking Age */}
         <View style={styles.row}>
           <View style={styles.halfInfoCard}>
             <Text style={styles.infoCardLabel}>🍺 Drinking Age</Text>
@@ -353,12 +338,10 @@ const CountryProfile = () => {
             <Text style={styles.infoCardValue}>{country.legalCigarettesAge} years</Text>
           </View>
         </View>
-        {/* Wiersz Driving Side & Electrical Outlets */}
         <View style={styles.row}>
           <View style={styles.halfInfoCard}>
             <Text style={styles.infoCardLabel}>🚗 Driving Side</Text>
-            <View style={{ alignSelf: 'flex-start' }}> 
-              {/* Ten widok ustawia kontener do lewej strony karty */}
+            <View style={{ alignSelf: 'flex-start' }}>
               <View style={styles.drivingSideContainer}>
                 <Image
                   source={{ uri: drivingSideUrl }}
@@ -369,8 +352,6 @@ const CountryProfile = () => {
               </View>
             </View>
           </View>
-
-
           <View style={styles.halfInfoCard}>
             <Text style={styles.infoCardLabel}>🔌 Electrical Outlets</Text>
             <View style={styles.outletCard}>
@@ -386,14 +367,11 @@ const CountryProfile = () => {
               ))}
             </View>
           </View>
-
         </View>
-        {/* Nowa sekcja Languages (zastępuje poprzedni Danger Rating) */}
         <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
           <Text style={styles.infoCardLabel}>🌐 Official Languages</Text>
           <Text style={styles.infoCardValue}>{country.languages.join(', ')}</Text>
         </View>
-        {/* Dodatkowe info (Network Operators, Other Legal Drugs) */}
         <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
           <Text style={styles.infoCardLabel}>📡 Mobile Operators</Text>
           <Text style={styles.infoCardValue}>{country.networkOperators.join(', ')}</Text>
@@ -404,7 +382,7 @@ const CountryProfile = () => {
         </View>
       </View>
 
-      {/* Transport Apps Section – grid */}
+      {/* Transport Apps Section */}
       <View style={styles.sectionBox}>
         <Text style={styles.sectionTitle}>Transport Apps</Text>
         <View style={styles.appsGrid}>
@@ -420,25 +398,36 @@ const CountryProfile = () => {
           ))}
         </View>
       </View>
-
-      {/* Weather Section */}
-      <View style={styles.sectionBox}>
-        <Text style={styles.sectionTitle}>Weather</Text>
-        <OpenMeteoWidgetManual
-          latitude={country.capitalLatitude}
-          longitude={country.capitalLongitude}
-        />
-        <View style={styles.row}>
-          <View style={styles.halfInfoCard}>
-            <Text style={styles.infoCardLabel}>📅 Best Time</Text>
-            <Text style={styles.infoCardValue}>{country.bestTimeToVisit}</Text>
-          </View>
-          <View style={styles.halfInfoCard}>
-            <Text style={styles.infoCardLabel}>☔ Rainy Season</Text>
-            <Text style={styles.infoCardValue}>{country.rainySeason}</Text>
-          </View>
-        </View>
-      </View>
+{/* Weather Section */}
+<View style={styles.sectionBox}>
+  <Text style={styles.sectionTitle}>Weather</Text>
+  <View style={styles.weatherBox}>
+    {weatherLoading ? (
+      <ActivityIndicator size="small" color="#000" />
+    ) : weatherData ? (
+      <>
+        <Text style={styles.weatherText}>
+          🌡 Current Temperature: {weatherData.temperature}°C
+        </Text>
+        <Text style={styles.weatherText}>
+          ⏰ Current Time: {weatherData.time} ({country.capital})
+        </Text>
+      </>
+    ) : (
+      <Text style={styles.errorText}>Error fetching weather data.</Text>
+    )}
+  </View>
+  <View style={styles.row}>
+    <View style={styles.halfInfoCard}>
+      <Text style={styles.infoCardLabel}>📅 Best Time</Text>
+      <Text style={styles.infoCardValue}>{country.bestTimeToVisit}</Text>
+    </View>
+    <View style={styles.halfInfoCard}>
+      <Text style={styles.infoCardLabel}>☔ Rainy Season</Text>
+      <Text style={styles.infoCardValue}>{country.rainySeason}</Text>
+    </View>
+  </View>
+</View>
 
       {/* Monthly Temperatures Section */}
       <View style={styles.sectionBox}>
@@ -477,200 +466,73 @@ const CountryProfile = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor:'#fafafa' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  centered: { flex: 1, justifyContent:'center', alignItems:'center' },
   errorText: { fontSize: 17.5, color: 'red' },
   // Slider
   sliderContainer: { position: 'relative', height: 290 },
   sliderImage: { height: 290 },
-  sliderOverlay: {
-    position: 'absolute',
-    bottom: 8,
-    left: 10,
-    flexDirection: 'column',
-    alignItems: 'center',
-  },
-  countryBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    paddingVertical: 6,
-    paddingHorizontal: 15,
-    borderRadius: 20,
-    marginBottom: 3.5,
-  },
-  flag: {
-    width: 21,
-    height: 21,
-    borderRadius: 20,
-    marginRight: 10,
-    borderWidth: 1.5,
-    borderColor: '#fff',
-  },
-  outletItem: {
-    alignItems: 'center',      // Wyśrodkowanie zawartości (obrazek i napis)
-    marginRight: 5,
-    marginBottom: 5,
-  },
-  outletCaption: {
-    fontSize: 12,
-    color: '#333',
-    marginTop: 3,
-    textAlign: 'center',
-  },
-  outletCardImage: {
-    borderRadius: 7,
-  },
-  
-  countryName: { color: '#fff', fontSize: 17, fontWeight: 'bold' },
-  dotWrapper: {
-    backgroundColor: 'rgba(0, 0, 0, 0.38)',
-    borderRadius: 20,
-    paddingVertical: 2.6,
-    paddingHorizontal: 4.5,
-  },
-  dotContainer: { flexDirection: 'row', alignItems: 'center' },
-  dot: { width: 4, height: 4, borderRadius: 4, marginHorizontal: 2.5 },
-  dotActive: { backgroundColor: '#fff', width: 5, height: 5 },
-  dotInactive: { backgroundColor: 'rgba(255, 255, 255, 0.6)' },
+  sliderOverlay: { position: 'absolute', bottom: 8, left: 10, flexDirection: 'column', alignItems: 'center' },
+  countryBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor:'rgba(0,0,0,0.6)', paddingVertical: 6, paddingHorizontal: 15, borderRadius: 20, marginBottom: 3.5 },
+  flag: { width: 21, height: 21, borderRadius: 20, marginRight: 10, borderWidth: 1.5, borderColor:'#fff' },
+  outletItem: { alignItems: 'center', marginRight: 5, marginBottom: 5 },
+  outletCaption: { fontSize: 12, color:'#333', marginTop: 3, textAlign: 'center' },
+  outletCardImage: { borderRadius: 7 },
+  countryName: { color:'#fff', fontSize: 17, fontWeight:'bold' },
+  dotWrapper: { backgroundColor:'rgba(0,0,0,0.38)', borderRadius:20, paddingVertical:2.6, paddingHorizontal:4.5 },
+  dotContainer: { flexDirection:'row', alignItems:'center' },
+  dot: { width: 4, height:4, borderRadius:4, marginHorizontal:2.5 },
+  dotActive: { backgroundColor:'#fff', width:5, height:5 },
+  dotInactive: { backgroundColor:'rgba(255,255,255,0.6)' },
   // Section Box
-  sectionBox: {
-    borderBottomWidth: 1,
-    borderColor: '#ddd',
+  sectionBox: { borderBottomWidth:1, borderColor:'#ddd', padding:12, backgroundColor:'#fafafa', marginVertical:5 },
+  sectionTitle: { fontSize:18, fontWeight:'bold', marginBottom:10, color:'#333' },
+  description: { fontSize:16, marginBottom:10, color:'#555' },
+  // Info cards
+  infoCardsContainer: { flexDirection:'row', flexWrap:'wrap', justifyContent:'space-between', marginHorizontal:-3 },
+  infoCard: { borderWidth:1, borderColor:'#ccc', borderRadius:16, padding:10, marginVertical:3.5, backgroundColor:'#fff', flexBasis:'49%' },
+  infoCardLabel: { fontSize:15, fontWeight:'bold', color:'#333' },
+  infoCardValue: { fontSize:14, color:'#555', marginTop:8 },
+  // Known For grid
+  knownForGrid: { flexDirection:'row', flexWrap:'wrap', justifyContent:'flex-start', marginHorizontal:-1 },
+  knownForCard: { flexDirection:'row', alignItems:'center', backgroundColor:'#eef', borderRadius:14, paddingVertical:4, paddingHorizontal:8, margin:3, marginTop:10 },
+  knownForIcon: { fontSize:17, marginRight:5 },
+  knownForText: { fontSize:13, color:'#333' },
+  // Main Cities grid
+  citiesGrid: { flexDirection:'row', flexWrap:'wrap', marginHorizontal:-3 },
+  cityCard: { backgroundColor:'#def', borderRadius:12, paddingVertical:4, paddingHorizontal:8, margin:3 },
+  cityText: { fontSize:13, color:'#333' },
+  // Additional Info rows
+  row: { flexDirection:'row', justifyContent:'space-between', marginVertical:3.5, marginHorizontal:-7 },
+  halfInfoCard: { flex:1, marginHorizontal:3.5, borderWidth:1, borderColor:'#ccc', borderRadius:16, padding:10, backgroundColor:'#fff' },
+  // Transport Apps grid
+  appsGrid: { flexDirection:'row', flexWrap:'wrap', justifyContent:'flex-start', marginLeft:-6 },
+  appCard: { flexDirection:'row', alignItems:'center', backgroundColor:'#fff', borderRadius:20, paddingLeft:6, paddingVertical:6, paddingRight:10, margin:3.2, borderWidth:1, borderColor:'#ccc' },
+  appLogo: { width:40, height:40, borderRadius:15, marginRight:7 },
+  appName: { fontSize:14, color:'#333' },
+  monthlyRow: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingVertical:8, borderBottomWidth:1, borderBottomColor:'#ddd' },
+  monthText: { fontSize:16, fontWeight:'bold', color:'#333', flex:1 },
+  tempText: { fontSize:16, color:'#555', flex:1, textAlign:'right' },
+  // Additional Info – Driving Side & Outlets
+  drivingSideContainer: { flexDirection:'column', alignItems:'center', marginTop:8 },
+  drivingSideImage: { width:48, height:48, resizeMode:'contain', marginBottom:5 },
+  drivingSideText: { fontSize:14, color:'#333', textAlign:'center' },
+  outletCard: { flexDirection:'row', flexWrap:'wrap', alignItems:'center', marginTop:5 },
+  weatherBox: {
+    backgroundColor: '#fafafa', // takie samo tło jak reszta okienek
+    borderRadius: 10,
     padding: 12,
-    backgroundColor: '#fafafa',
-    marginVertical: 5,
+    marginBottom: 10,
   },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: '#333' },
-  description: { fontSize: 16, marginBottom: 10, color: '#555' },
-  // Info cards – mini okienka
-  infoCardsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginHorizontal: -3 },
-  infoCard: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 16,
-    padding: 10,
-    marginVertical: 3.5,
-    backgroundColor: '#fff',
-    flexBasis: '49%',  
-  },
-  infoCardLabel: { fontSize: 15, fontWeight: 'bold', color: '#333' },
-  infoCardValue: { fontSize: 14, color: '#555', marginTop: 8 },
-  // Known For – grid mini okienek
-  knownForGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-    marginHorizontal: -1,
-  },
-  knownForCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#eef',
-    borderRadius: 14,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    margin: 3,
-    marginTop: 10,
-  },
-  knownForIcon: {
-    fontSize: 17,
-    marginRight: 5,
-  },
-  knownForText: {
-    fontSize: 13,
+  weatherText: {
+    fontSize: 18,
     color: '#333',
-  },
-  // Main Cities – grid mini okienek
-  citiesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -3,
-  },
-  cityCard: {
-    backgroundColor: '#def',
-    borderRadius: 12,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    margin: 3,
-  },
-  cityText: { fontSize: 13, color: '#333' },
-  // Dla dodatkowych wierszy w Additional Info
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: 3.5,
-    marginHorizontal: -7,
-  },
-  halfInfoCard: {
-    flex: 1,
-    marginHorizontal: 3.5,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 16,
-    padding: 10,
-    backgroundColor: '#fff',
-  },
-  // Transport Apps – grid
-  appsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-    marginLeft: -6,
-  },
-  appCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    paddingLeft: 6,
-    paddingVertical: 6,
-    paddingRight: 10,
-    margin: 3.2,
-    borderWidth: 1,
-    borderColor: '#ccc',
-  },
-  appLogo: { width: 40, height: 40, borderRadius: 15, marginRight: 7 },
-  appName: { fontSize: 14, color: '#333' },
-  monthlyRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
-  },
-  monthText: { fontSize: 16, fontWeight: 'bold', color: '#333', flex: 1 },
-  tempText: { fontSize: 16, color: '#555', flex: 1, textAlign: 'right' },
-  // Additional Info – Driving Side & Electrical Outlets
-  drivingSideContainer: {
-    flexDirection: 'column',
-    alignItems: 'center',  // Ustawienie na 'center' wyśrodkowuje obrazek i tekst względem siebie
-    marginTop: 8,
-  },
-  drivingSideImage: {
-    width: 48,
-    height: 48,
-    resizeMode: 'contain',
-    marginBottom: 5,
-    // alignSelf: 'flex-start',
-  },
-  drivingSideText: {
-    fontSize: 14,
-    color: '#333',
-    textAlign: 'center',         // Tekst również wyrównany do lewej
-    // alignSelf: 'center',
-  },
-  outletCard: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    marginTop: 5,
+    marginVertical: 2,
   },
 });
 
 const weatherStyles = StyleSheet.create({
-  container: { flexDirection: 'row', alignItems: 'center', marginVertical: 8 },
-  text: { marginLeft: 8, fontSize: 16, color: '#555' },
+  container: { flexDirection:'row', alignItems:'center', marginVertical:8 },
+  text: { marginLeft:8, fontSize:16, color:'#555' },
 });
 
 export default CountryProfile;
