@@ -19,6 +19,7 @@ import {
   FlatList,
   Alert,
   TouchableOpacity,
+  InteractionManager,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { getStorage, ref, getDownloadURL } from 'firebase/storage';
@@ -171,12 +172,17 @@ const CountryProfile = () => {
 
   const isVisited = localVisited.includes(countryId);
 
-  // Utrzymujemy tablicę o tej samej długości, co country.images (na początku – puste ciągi)
-  const [sliderUrls, setSliderUrls] = useState<string[]>(country ? country.images.map(() => '') : []);
+  // Stan slidera – inicjalnie tworzymy tablicę o długości country.images (puste ciągi)
+  const [sliderUrls, setSliderUrls] = useState<string[]>(
+    country ? country.images.map(() => '') : []
+  );
+  // Pozostałe obrazki
   const [outletUrls, setOutletUrls] = useState<string[]>([]);
   const [transportUrls, setTransportUrls] = useState<string[]>([]);
   const [drivingSideUrl, setDrivingSideUrl] = useState<string>('');
+  // Flaga – do ewentualnego placeholdera (dla pierwszego obrazka)
   const [sliderLoading, setSliderLoading] = useState<boolean>(true);
+  // Numer aktywnego slajdu (indeks wśród już pobranych zdjęć)
   const [currentSlide, setCurrentSlide] = useState<number>(0);
   const sliderRef = useRef<ScrollView>(null);
   // Blokada aktualizacji currentSlide przy animacji tapnięcia
@@ -187,50 +193,79 @@ const CountryProfile = () => {
     country?.capitalLongitude
   );
 
-  // Ładowanie zdjęć slidera oraz pozostałych obrazków
+  // Do slidera uznajemy jedynie obrazy, które zostały pobrane (nie są pustymi ciągami)
+  const loadedImages = sliderUrls.filter((url) => url.trim() !== '');
+
+  // Przy każdej zmianie kraju resetujemy stan slidera
   useEffect(() => {
     if (!country) return;
 
-    // Ładujemy slider jeden po drugim – aby już przy pierwszym obrazie slider stał się aktywny
-    const loadSliderImages = async () => {
-      // Przy każdej zmianie kraju resetujemy sliderUrls
-      const loadedUrls = country.images.map(() => '');
-      for (let i = 0; i < country.images.length; i++) {
-        try {
-          const url = await getFirebaseUrlCached(country.images[i]);
-          if (url && url.trim() !== '') {
-            loadedUrls[i] = url;
-            setSliderUrls([...loadedUrls]); // aktualizujemy stan przy każdym załadowanym obrazie
-            if (i === 0) {
-              setSliderLoading(false);
+    setSliderUrls(country.images.map(() => ''));
+    setCurrentSlide(0);
+    setSliderLoading(true);
+
+    // Ładujemy pierwsze zdjęcie natychmiast – dzięki temu slider oraz przycisk "back" są interaktywne
+    (async () => {
+      try {
+        const url = await getFirebaseUrlCached(country.images[0]);
+        if (url && url.trim() !== '') {
+          setSliderUrls((prev) => {
+            const newArr = [...prev];
+            newArr[0] = url;
+            return newArr;
+          });
+          setSliderLoading(false);
+          Image.prefetch(url);
+        }
+      } catch (error) {
+        console.error('Error loading first slider image:', error);
+      }
+    })();
+
+    // Asynchronicznie ładujemy pozostałe zdjęcia oraz dodatkowe dane
+    setTimeout(() => {
+      (async () => {
+        for (let i = 1; i < country.images.length; i++) {
+          try {
+            const url = await getFirebaseUrlCached(country.images[i]);
+            if (url && url.trim() !== '') {
+              setSliderUrls((prev) => {
+                const newArr = [...prev];
+                newArr[i] = url;
+                return newArr;
+              });
               Image.prefetch(url);
             }
+          } catch (error) {
+            console.error('Error loading slider image:', error);
           }
-        } catch (error) {
-          console.error("Error fetching slider image:", error);
         }
-      }
-    };
+      })();
 
-    loadSliderImages();
-
-    // Ładujemy pozostałe obrazki (outlety, transportApps, drivingSide) równolegle
-    Promise.all([
-      Promise.all(country.outlets.map((path) => getFirebaseUrlCached(path))),
-      Promise.all(country.transportApps.map((app) => getFirebaseUrlCached(app.logo))),
-      getFirebaseUrlCached(country.drivingSide.image),
-    ])
-      .then(([fetchedOutletUrls, fetchedTransportUrls, fetchedDrivingUrl]) => {
-        setOutletUrls(filterNonEmpty(fetchedOutletUrls));
-        setTransportUrls(filterNonEmpty(fetchedTransportUrls));
-        setDrivingSideUrl(
-          fetchedDrivingUrl && fetchedDrivingUrl.trim() !== '' ? fetchedDrivingUrl : ''
-        );
-      })
-      .catch((error) => console.error("Error fetching other images:", error));
+      // Ładujemy pozostałe obrazki równolegle
+      (async () => {
+        try {
+          const [fetchedOutletUrls, fetchedTransportUrls, fetchedDrivingUrl] =
+            await Promise.all([
+              Promise.all(country.outlets.map((path) => getFirebaseUrlCached(path))),
+              Promise.all(country.transportApps.map((app) => getFirebaseUrlCached(app.logo))),
+              getFirebaseUrlCached(country.drivingSide.image),
+            ]);
+          setOutletUrls(filterNonEmpty(fetchedOutletUrls));
+          setTransportUrls(filterNonEmpty(fetchedTransportUrls));
+          setDrivingSideUrl(
+            fetchedDrivingUrl && fetchedDrivingUrl.trim() !== ''
+              ? fetchedDrivingUrl
+              : ''
+          );
+        } catch (error) {
+          console.error('Error fetching other images:', error);
+        }
+      })();
+    }, 0);
   }, [country]);
 
-  // Aktualizacja currentSlide przy przewijaniu (jeśli nie jest blokowane gestem tapnięcia)
+  // Aktualizacja currentSlide przy przewijaniu (o ile gest nie jest blokowany)
   const onSliderScroll = (e: any) => {
     if (isTapRef.current) return;
     const offsetX = e.nativeEvent.contentOffset.x;
@@ -238,7 +273,7 @@ const CountryProfile = () => {
     setCurrentSlide(index);
   };
 
-  // Ustawienie currentSlide przy zakończeniu animacji przewijania
+  // Ustawienie currentSlide po zakończeniu animacji przewijania
   const onMomentumScrollEnd = (e: any) => {
     if (isTapRef.current) return;
     const offsetX = e.nativeEvent.contentOffset.x;
@@ -259,7 +294,7 @@ const CountryProfile = () => {
   };
 
   const handleRightTap = () => {
-    if (currentSlide < country.images.length - 1) {
+    if (currentSlide < loadedImages.length - 1) {
       const newSlide = currentSlide + 1;
       isTapRef.current = true;
       setCurrentSlide(newSlide);
@@ -272,7 +307,7 @@ const CountryProfile = () => {
 
   const toggleCountryVisited = useCallback(async () => {
     if (!auth.currentUser) {
-      Alert.alert("Błąd", "Użytkownik nie jest zalogowany");
+      Alert.alert('Błąd', 'Użytkownik nie jest zalogowany');
       return;
     }
     try {
@@ -293,17 +328,27 @@ const CountryProfile = () => {
       setVisitedCountries(updatedVisited);
     } catch (error) {
       console.error('Błąd podczas zmiany statusu kraju:', error);
-      Alert.alert("Błąd", "Nie udało się zmienić statusu kraju");
+      Alert.alert('Błąd', 'Nie udało się zmienić statusu kraju');
     }
   }, [countryId, isVisited, localVisited, setVisitedCountries]);
 
   if (!country) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.errorText}>
-          Data for country "{countryId}" not found.
-        </Text>
+        <Text style={styles.errorText}>Data for country "{countryId}" not found.</Text>
       </View>
+    );
+  }
+
+  // Obliczamy liczbę pobranych obrazków
+  const loadedCount = loadedImages.length;
+  // Wyświetlamy tyle kropek, ile jest pobranych obrazków (maksymalnie 5; jeśli nic nie pobrano – 1 kropka)
+  const dotsToShow = loadedCount > 0 ? Math.min(loadedCount, 5) : 1;
+  let startDotIndex = 0;
+  if (loadedCount > dotsToShow) {
+    startDotIndex = Math.min(
+      Math.max(currentSlide - Math.floor(dotsToShow / 2), 0),
+      loadedCount - dotsToShow
     );
   }
 
@@ -314,6 +359,7 @@ const CountryProfile = () => {
         <ScrollView
           horizontal
           pagingEnabled
+          directionalLockEnabled={true}  
           showsHorizontalScrollIndicator={false}
           onScroll={onSliderScroll}
           onMomentumScrollEnd={onMomentumScrollEnd}
@@ -321,9 +367,26 @@ const CountryProfile = () => {
           ref={sliderRef}
           removeClippedSubviews
         >
-          {sliderUrls.map((url, index) => (
+          {loadedImages.length > 0 ? (
+            loadedImages.map((url, index) => (
+              <View
+                key={index}
+                style={{
+                  width: screenWidth,
+                  height: 290,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <Image
+                  source={{ uri: url }}
+                  style={[styles.sliderImage, { width: screenWidth }]}
+                  resizeMode="cover"
+                />
+              </View>
+            ))
+          ) : (
             <View
-              key={index}
               style={{
                 width: screenWidth,
                 height: 290,
@@ -331,19 +394,11 @@ const CountryProfile = () => {
                 alignItems: 'center',
               }}
             >
-              {url ? (
-                <Image
-                  source={{ uri: url }}
-                  style={[styles.sliderImage, { width: screenWidth }]}
-                  resizeMode="cover"
-                />
-              ) : (
-                <ActivityIndicator size="large" color="#ccc" />
-              )}
+              <ActivityIndicator size="large" color="#ccc" />
             </View>
-          ))}
+          )}
         </ScrollView>
-        {/* Przycisk "wstecz" – umożliwia opuszczenie widoku nawet gdy obrazy się ładują */}
+        {/* Przycisk "back" – dostępny od razu */}
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <MaterialIcons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
@@ -371,7 +426,7 @@ const CountryProfile = () => {
         >
           <View style={[styles.tapArea, { right: 0, width: screenWidth * 0.2 }]} />
         </TapGestureHandler>
-        {/* Nakładka ze statusem kraju i kropkami */}
+        {/* Nakładka ze statusem kraju oraz dynamicznymi kropkami */}
         <View style={styles.sliderOverlay}>
           <View style={styles.countryBadge}>
             <CountryFlag isoCode={countryId} size={40} style={styles.flag} />
@@ -379,46 +434,23 @@ const CountryProfile = () => {
           </View>
           <View style={styles.dotWrapper}>
             <View style={styles.dotContainer}>
-              {country.images.map((_, index) => {
-                const totalDots = Math.min(country.images.length, 5);
-                let startIndex = Math.max(
-                  0,
-                  Math.min(
-                    currentSlide - Math.floor(totalDots / 2),
-                    country.images.length - totalDots
-                  )
+              {Array.from({ length: dotsToShow }).map((_, dotIndex) => {
+                const globalDotIndex = startDotIndex + dotIndex;
+                const isActive = globalDotIndex === currentSlide;
+                const distanceFromCenter = Math.abs(globalDotIndex - currentSlide);
+                return (
+                  <View
+                    key={globalDotIndex}
+                    style={[
+                      styles.dot,
+                      isActive ? styles.dotActive : styles.dotInactive,
+                      {
+                        transform: [{ scale: 1.2 - distanceFromCenter * 0.2 }],
+                        opacity: 1 - distanceFromCenter * 0.3,
+                      },
+                    ]}
+                  />
                 );
-                let endIndex = startIndex + totalDots;
-                if (country.images.length > totalDots) {
-                  if (currentSlide < Math.floor(totalDots / 2)) {
-                    startIndex = 0;
-                    endIndex = totalDots;
-                  } else if (
-                    currentSlide >
-                    country.images.length - Math.ceil(totalDots / 2)
-                  ) {
-                    startIndex = country.images.length - totalDots;
-                    endIndex = country.images.length;
-                  }
-                }
-                if (index >= startIndex && index < endIndex) {
-                  const isActive = index === currentSlide;
-                  const distanceFromCenter = Math.abs(index - currentSlide);
-                  return (
-                    <View
-                      key={index}
-                      style={[
-                        styles.dot,
-                        isActive ? styles.dotActive : styles.dotInactive,
-                        {
-                          transform: [{ scale: 1.2 - distanceFromCenter * 0.2 }],
-                          opacity: 1 - distanceFromCenter * 0.3,
-                        },
-                      ]}
-                    />
-                  );
-                }
-                return null;
               })}
             </View>
           </View>
@@ -485,10 +517,12 @@ const CountryProfile = () => {
         </View>
       </View>
 
-      {/* Lazy-loaded Extra Info */}
+      {/* Lazy-loaded Extra Info – fallback nie blokuje interakcji */}
       <Suspense
         fallback={
-          <ActivityIndicator size="large" color="#000" style={{ marginVertical: 20 }} />
+          <View style={{ pointerEvents: 'none' }}>
+            <ActivityIndicator size="large" color="#000" style={{ marginVertical: 20 }} />
+          </View>
         }
       >
         <LazyCountryExtraInfo
@@ -510,10 +544,41 @@ const styles = StyleSheet.create({
   sliderContainer: { position: 'relative', height: 290 },
   sliderImage: { height: 290 },
   sliderOverlay: { position: 'absolute', bottom: 8, left: 10, flexDirection: 'column', alignItems: 'center' },
-  countryBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)', paddingVertical: 6, paddingHorizontal: 13, borderRadius: 20, marginBottom: 3.5 },
-  flag: { width: 21, height: 21, borderRadius: 20, marginRight: 8, borderWidth: 1.5, borderColor: '#fff', marginLeft: -3 },
-  sectionBox: { borderBottomWidth: 1, borderColor: '#ddd', padding: 12, backgroundColor: 'rgb(255, 254, 255)', marginVertical: 10, paddingBottom: 4, paddingTop: 1, borderRadius: 15 },
-  sectionTitle: { fontSize: 18, marginBottom: 10, color: '#333', fontFamily: 'PlusJakartaSans-Bold', marginTop: -7 },
+  countryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingVertical: 6,
+    paddingHorizontal: 13,
+    borderRadius: 20,
+    marginBottom: 3.5,
+  },
+  flag: {
+    width: 21,
+    height: 21,
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1.5,
+    borderColor: '#fff',
+    marginLeft: -3,
+  },
+  sectionBox: {
+    borderBottomWidth: 1,
+    borderColor: '#ddd',
+    padding: 12,
+    backgroundColor: 'rgb(255, 254, 255)',
+    marginVertical: 10,
+    paddingBottom: 4,
+    paddingTop: 1,
+    borderRadius: 15,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    marginBottom: 10,
+    color: '#333',
+    fontFamily: 'PlusJakartaSans-Bold',
+    marginTop: -7,
+  },
   description: { fontSize: 16.5, marginBottom: 10, color: '#555', fontFamily: 'Figtree-Regular' },
   infoCardsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginHorizontal: -3 },
   infoCard: { borderWidth: 1, borderColor: '#ccc', borderRadius: 16, padding: 10, marginVertical: 3.5, backgroundColor: '#fff', flexBasis: '49%' },
