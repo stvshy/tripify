@@ -95,9 +95,27 @@ export interface CountryProfileData {
 
 const countryData: Record<string, CountryProfileData> = rawCountryData;
 const storage = getStorage();
+
+// Globalny cache dla URL-i pobieranych z Firebase – utrzymywany w obrębie sesji
+const firebaseUrlCache: { [path: string]: string } = {};
+
 const getFirebaseUrl = async (path: string): Promise<string> => {
   const storageRef = ref(storage, path);
   return await getDownloadURL(storageRef);
+};
+
+const getFirebaseUrlCached = async (path: string): Promise<string> => {
+  if (firebaseUrlCache[path]) {
+    return firebaseUrlCache[path];
+  }
+  try {
+    const url = await getFirebaseUrl(path);
+    firebaseUrlCache[path] = url;
+    return url;
+  } catch (error) {
+    console.error(`Error fetching URL for ${path}:`, error);
+    return '';
+  }
 };
 
 // Pomocnicza funkcja filtrująca puste ciągi znaków
@@ -111,7 +129,7 @@ const CityCard = memo(({ city }: { city: string }) => (
   </View>
 ));
 
-// Używamy FlatList z numColumns oraz wyłączamy przewijanie FlatList
+// Komponent wyświetlający listę miast za pomocą FlatList
 const CitiesList = ({ cities }: { cities: string[] }) => {
   return (
     <FlatList
@@ -133,10 +151,9 @@ const CountryProfile = () => {
   
   const theme = useTheme();
   const { visitedCountries, setVisitedCountries } = useCountries();
-  // Inicjujemy lokalny stan na podstawie danych z kontekstu
   const [localVisited, setLocalVisited] = useState<string[]>(visitedCountries);
 
-  // Przy montażu pobieramy dane użytkownika (odwiedzone kraje) z Firestore
+  // Pobieramy dane użytkownika (odwiedzone kraje) z Firestore przy montażu
   useEffect(() => {
     if (auth.currentUser) {
       const userDocRef = doc(db, 'users', auth.currentUser.uid);
@@ -153,14 +170,12 @@ const CountryProfile = () => {
     }
   }, []);
 
-  // Sprawdzamy, czy dany kraj jest odwiedzony
   const isVisited = localVisited.includes(countryId);
 
   const [sliderUrls, setSliderUrls] = useState<string[]>([]);
   const [outletUrls, setOutletUrls] = useState<string[]>([]);
   const [transportUrls, setTransportUrls] = useState<string[]>([]);
   const [drivingSideUrl, setDrivingSideUrl] = useState<string>('');
-  // Stan ładowania slidera – reszta UI renderowana jest już od razu
   const [sliderLoading, setSliderLoading] = useState<boolean>(true);
   const [currentSlide, setCurrentSlide] = useState<number>(0);
   const sliderRef = useRef<ScrollView>(null);
@@ -172,35 +187,67 @@ const CountryProfile = () => {
     country.capitalLongitude
   );
 
-  const loadImages = useCallback(() => {
-    const fetchUrls = async (paths: string[]): Promise<string[]> =>
-      Promise.all(paths.map((path) => getFirebaseUrl(path)));
-
-    Promise.all([
-      fetchUrls(country.images),
-      fetchUrls(country.outlets),
-      Promise.all(country.transportApps.map(app => getFirebaseUrl(app.logo))),
-      getFirebaseUrl(country.drivingSide.image),
-    ])
-      .then(([slider, outlets, transport, drivingUrl]) => {
-        // Filtrujemy puste URI
-        setSliderUrls(filterNonEmpty(slider));
-        setOutletUrls(filterNonEmpty(outlets));
-        setTransportUrls(filterNonEmpty(transport));
-        setDrivingSideUrl(drivingUrl && drivingUrl.trim() !== '' ? drivingUrl : '');
-      })
-      .catch((error) => {
-        console.error("Error fetching images from Firebase Storage:", error);
-      })
-      .finally(() => {
-        setSliderLoading(false);
-      });
-  }, [country]);
-
-  // Ładujemy zdjęcia od razu przy montażu
+  // Funkcja ładująca obrazy – grupujemy pobieranie dla slidera, outletów, transportu oraz driving side
   useEffect(() => {
-    loadImages();
-  }, [country, loadImages]);
+    // Slider images
+    const loadSliderImages = async () => {
+      try {
+        const urls = await Promise.all(
+          country.images.map((path) => getFirebaseUrlCached(path))
+        );
+        const filtered = filterNonEmpty(urls);
+        setSliderUrls(filtered);
+        // Prefetch obrazów slidera
+        filtered.forEach(url => Image.prefetch(url));
+      } catch (error) {
+        console.error("Error fetching slider images:", error);
+      }
+    };
+
+    // Outlet images
+    const loadOutletImages = async () => {
+      try {
+        const urls = await Promise.all(
+          country.outlets.map((path) => getFirebaseUrlCached(path))
+        );
+        setOutletUrls(filterNonEmpty(urls));
+      } catch (error) {
+        console.error("Error fetching outlet images:", error);
+      }
+    };
+
+    // Transport logos
+    const loadTransportImages = async () => {
+      try {
+        const urls = await Promise.all(
+          country.transportApps.map((app) => getFirebaseUrlCached(app.logo))
+        );
+        setTransportUrls(filterNonEmpty(urls));
+      } catch (error) {
+        console.error("Error fetching transport images:", error);
+      }
+    };
+
+    // Driving side image
+    const loadDrivingSideImage = async () => {
+      try {
+        const url = await getFirebaseUrlCached(country.drivingSide.image);
+        setDrivingSideUrl(url && url.trim() !== '' ? url : '');
+      } catch (error) {
+        console.error("Error fetching driving side image:", error);
+      }
+    };
+
+    // Uruchamiamy wszystkie operacje równolegle
+    Promise.all([
+      loadSliderImages(),
+      loadOutletImages(),
+      loadTransportImages(),
+      loadDrivingSideImage()
+    ])
+      .catch((error) => console.error("Error loading images:", error))
+      .finally(() => setSliderLoading(false));
+  }, [country]);
 
   const onSliderScroll = (e: any) => {
     const offsetX = e.nativeEvent.contentOffset.x;
@@ -245,14 +292,12 @@ const CountryProfile = () => {
       const userDocRef = doc(db, 'users', auth.currentUser.uid);
       let updatedVisited: string[];
       if (isVisited) {
-        // Usuwamy kraj z listy
         await updateDoc(userDocRef, {
           countriesVisited: arrayRemove(countryId),
         });
         updatedVisited = localVisited.filter(code => code !== countryId);
         console.log('Kraj usunięty, nowa lista:', updatedVisited);
       } else {
-        // Dodajemy kraj do listy
         await updateDoc(userDocRef, {
           countriesVisited: arrayUnion(countryId),
         });
@@ -302,7 +347,6 @@ const CountryProfile = () => {
                   />
                 ) : null
               )}
-
             </ScrollView>
           </TapGestureHandler>
         )}
