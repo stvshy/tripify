@@ -16,7 +16,6 @@ import {
   Image,
   Dimensions,
   ActivityIndicator,
-  InteractionManager,
   FlatList,
   Alert,
   TouchableOpacity,
@@ -28,7 +27,7 @@ import { TapGestureHandler, State as GestureState } from 'react-native-gesture-h
 import { useWeatherData } from './useWeatherData';
 import { arrayRemove, arrayUnion, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebaseConfig';
-import { AntDesign } from '@expo/vector-icons';
+import { MaterialIcons } from '@expo/vector-icons';
 import rawCountryData from './countryData.json';
 import { useTheme } from 'react-native-paper';
 import { useCountries } from '../config/CountryContext';
@@ -101,6 +100,10 @@ const getFirebaseUrl = async (path: string): Promise<string> => {
   return await getDownloadURL(storageRef);
 };
 
+// Pomocnicza funkcja filtrująca puste ciągi znaków
+const filterNonEmpty = (urls: string[]): string[] =>
+  urls.filter((url) => typeof url === 'string' && url.trim() !== '');
+
 // Memoizowany komponent dla karty miasta
 const CityCard = memo(({ city }: { city: string }) => (
   <View style={styles.cityCard}>
@@ -157,7 +160,7 @@ const CountryProfile = () => {
   const [outletUrls, setOutletUrls] = useState<string[]>([]);
   const [transportUrls, setTransportUrls] = useState<string[]>([]);
   const [drivingSideUrl, setDrivingSideUrl] = useState<string>('');
-  // Używamy osobnego stanu dla ładowania slidera (reszta UI renderowana jest od razu)
+  // Stan ładowania slidera – reszta UI renderowana jest już od razu
   const [sliderLoading, setSliderLoading] = useState<boolean>(true);
   const [currentSlide, setCurrentSlide] = useState<number>(0);
   const sliderRef = useRef<ScrollView>(null);
@@ -180,10 +183,11 @@ const CountryProfile = () => {
       getFirebaseUrl(country.drivingSide.image),
     ])
       .then(([slider, outlets, transport, drivingUrl]) => {
-        setSliderUrls(slider);
-        setOutletUrls(outlets);
-        setTransportUrls(transport);
-        setDrivingSideUrl(drivingUrl);
+        // Filtrujemy puste URI
+        setSliderUrls(filterNonEmpty(slider));
+        setOutletUrls(filterNonEmpty(outlets));
+        setTransportUrls(filterNonEmpty(transport));
+        setDrivingSideUrl(drivingUrl && drivingUrl.trim() !== '' ? drivingUrl : '');
       })
       .catch((error) => {
         console.error("Error fetching images from Firebase Storage:", error);
@@ -193,11 +197,9 @@ const CountryProfile = () => {
       });
   }, [country]);
 
+  // Ładujemy zdjęcia od razu przy montażu
   useEffect(() => {
-    const task = InteractionManager.runAfterInteractions(() => {
-      loadImages();
-    });
-    return () => task.cancel();
+    loadImages();
   }, [country, loadImages]);
 
   const onSliderScroll = (e: any) => {
@@ -290,14 +292,17 @@ const CountryProfile = () => {
               ref={sliderRef}
               removeClippedSubviews
             >
-              {sliderUrls.map((url: string, index: number) => (
-                <Image
-                  key={index}
-                  source={{ uri: url }}
-                  style={[styles.sliderImage, { width: screenWidth }]}
-                  resizeMode="cover"
-                />
-              ))}
+              {sliderUrls.map((url: string, index: number) =>
+                url && url.trim() !== '' ? (
+                  <Image
+                    key={index}
+                    source={{ uri: url }}
+                    style={[styles.sliderImage, { width: screenWidth }]}
+                    resizeMode="cover"
+                  />
+                ) : null
+              )}
+
             </ScrollView>
           </TapGestureHandler>
         )}
@@ -357,8 +362,8 @@ const CountryProfile = () => {
           ]}
           onPress={toggleCountryVisited}
         >
-          <AntDesign
-            name={isVisited ? "checkcircle" : "checkcircleo"}
+          <MaterialIcons
+            name={isVisited ? "check" : "add"}
             size={24}
             color="#fff"
           />
@@ -366,7 +371,7 @@ const CountryProfile = () => {
       </View>
 
       {/* General Info Section */}
-      <View style={[styles.sectionBox]}>
+      <View style={styles.sectionBox}>
         <Text style={styles.sectionTitle}>General Info</Text>
         <Text style={styles.description}>{country.description}</Text>
         <View style={styles.infoCardsContainer}>
@@ -401,7 +406,7 @@ const CountryProfile = () => {
       </View>
 
       {/* Main Cities Section */}
-      <View style={[styles.sectionBox, { paddingBottom: 20, paddingTop: -30 }]}>
+      <View style={[styles.sectionBox, { paddingBottom: 20 }]}>
         <Text style={styles.sectionTitle}>Main Cities</Text>
         <View style={styles.citiesGrid}>
           {country.mainCities.map((city, index) => (

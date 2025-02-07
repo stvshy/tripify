@@ -1,6 +1,8 @@
 // app/country/CountryExtraInfo.tsx
-import React from 'react';
-import { View, Text, ActivityIndicator, StyleSheet, Image } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+// Importujemy Image z expo-image (dla czytelności nazywamy go ExpoImage)
+import { Image as ExpoImage } from 'expo-image';
 import { useWeatherData } from './useWeatherData';
 import MonthlyTemperaturesSection from './MonthlyTemperaturesSection';
 import { CountryProfileData } from './[cid]';
@@ -25,6 +27,26 @@ const CountryExtraInfo: React.FC<Props> = ({
     country.capitalLongitude
   );
 
+  // Opcjonalnie możesz dodać prefetch obrazów – expo-image potrafi cache'ować obrazy automatycznie.
+  // Jeśli chcesz prefetchować, możesz użyć ExpoImage.prefetch, np.:
+  /*
+  useEffect(() => {
+    if (drivingSideUrl && drivingSideUrl.trim() !== '') {
+      ExpoImage.prefetch(drivingSideUrl);
+    }
+    outletUrls.forEach(url => {
+      if (url && url.trim() !== '') {
+        ExpoImage.prefetch(url);
+      }
+    });
+    transportUrls.forEach(url => {
+      if (url && url.trim() !== '') {
+        ExpoImage.prefetch(url);
+      }
+    });
+  }, [drivingSideUrl, outletUrls, transportUrls]);
+  */
+
   const getOutletCaption = (filename: string): string => {
     const match = filename.match(/type-([A-Za-z]+)\./);
     return match && match[1] ? match[1].toUpperCase() : '';
@@ -33,8 +55,8 @@ const CountryExtraInfo: React.FC<Props> = ({
   return (
     <>
       {/* Additional Info Section */}
-      <View style={[styles.sectionBox, {paddingTop: 0, paddingBottom: 4}]}>
-        <Text style={[styles.sectionTitle, { paddingTop: 0}]}>Additional Info</Text>
+      <View style={[styles.sectionBox, { paddingTop: 0, paddingBottom: 4 }]}>
+        <Text style={[styles.sectionTitle, { paddingTop: 0 }]}>Additional Info</Text>
         <View style={styles.row}>
           <View style={styles.halfInfoCard}>
             <Text style={styles.infoCardLabel}>💵 Currency</Text>
@@ -60,11 +82,13 @@ const CountryExtraInfo: React.FC<Props> = ({
             <Text style={styles.infoCardLabel}>🚗 Driving Side</Text>
             <View style={{ alignSelf: 'flex-start' }}>
               <View style={styles.drivingSideContainer}>
-                <Image
-                  source={{ uri: drivingSideUrl }}
-                  style={styles.drivingSideImage}
-                  resizeMode="contain"
-                />
+                {drivingSideUrl && drivingSideUrl.trim() !== '' && (
+                  <ExpoImage
+                    source={drivingSideUrl}
+                    style={styles.drivingSideImage}
+                    contentFit="contain"
+                  />
+                )}
                 <Text style={styles.drivingSideText}>{country.drivingSide.side}</Text>
               </View>
             </View>
@@ -74,11 +98,13 @@ const CountryExtraInfo: React.FC<Props> = ({
             <View style={styles.outletCard}>
               {country.outlets.map((filename, index) => (
                 <View key={index} style={styles.outletItem}>
-                  <Image
-                    source={{ uri: outletUrls[index] }}
-                    style={[styles.outletCardImage, { width: outletCardImageSize, height: outletCardImageSize }]}
-                    resizeMode="cover"
-                  />
+                  {outletUrls[index] && outletUrls[index].trim() !== '' && (
+                    <ExpoImage
+                      source={outletUrls[index]}
+                      style={[styles.outletCardImage, { width: outletCardImageSize, height: outletCardImageSize }]}
+                      contentFit="cover"
+                    />
+                  )}
                   <Text style={styles.outletCaption}>{getOutletCaption(filename)}</Text>
                 </View>
               ))}
@@ -112,17 +138,18 @@ const CountryExtraInfo: React.FC<Props> = ({
         <View style={styles.appsGrid}>
           {country.transportApps.map((app, index: number) => (
             <View key={index} style={styles.appCard}>
-              <Image
-                source={{ uri: transportUrls[index] }}
-                style={styles.appLogo}
-                resizeMode="cover"
-              />
+              {transportUrls[index] && transportUrls[index].trim() !== '' && (
+                <ExpoImage
+                  source={transportUrls[index]}
+                  style={styles.appLogo}
+                  contentFit="cover"
+                />
+              )}
               <Text style={styles.appName}>{app.name}</Text>
             </View>
           ))}
         </View>
       </View>
-
 
       {/* Weather Section */}
       <View style={styles.sectionBox}>
@@ -164,7 +191,7 @@ const CountryExtraInfo: React.FC<Props> = ({
       </View>
 
       {/* Monthly Temperatures Section */}
-    <View style={[styles.sectionBox, { paddingBottom: 9 }]}>
+      <View style={[styles.sectionBox, { paddingBottom: 9 }]}>
         <Text style={styles.sectionTitle}>Average Monthly Temperatures</Text>
         <MonthlyTemperaturesSection
           latitude={country.capitalLatitude}
@@ -174,7 +201,7 @@ const CountryExtraInfo: React.FC<Props> = ({
 
       {/* Visa & Travel Tips Section */}
       <View style={styles.sectionBox}>
-        <Text style={[styles.sectionTitle, {marginTop: -6}]}>Travel Info</Text>
+        <Text style={[styles.sectionTitle, { marginTop: -6 }]}>Travel Info</Text>
         <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
           <Text style={styles.infoCardLabel}>🛂 Visa Requirements</Text>
           <Text style={styles.infoCardValue}>{country.visaRequired}</Text>
@@ -196,15 +223,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgb(255, 254, 255)',
     marginVertical: 3,
     paddingTop: 7,
-    paddingBottom: 20, 
-    borderRadius: 15
+    paddingBottom: 20,
+    borderRadius: 15,
   },
   sectionTitle: {
     fontSize: 16.5,
-    // fontWeight: 'bold',
     marginBottom: 10,
     color: '#333',
-    fontFamily: 'PlusJakartaSans-Bold', // Używamy wybranej czcionki dla tytułów
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   row: {
     flexDirection: 'row',
@@ -231,15 +257,14 @@ const styles = StyleSheet.create({
   },
   infoCardLabel: {
     fontSize: 15,
-    // fontWeight: 'bold',
     color: '#333',
-    fontFamily: 'Inter-SemiBold', // Czcionka dla etykiet
+    fontFamily: 'Inter-SemiBold',
   },
   infoCardValue: {
     fontSize: 14.5,
     color: '#555',
     marginTop: 13,
-    fontFamily: 'Figtree-Regular', // Czcionka dla wartości/treści
+    fontFamily: 'Figtree-Regular',
   },
   drivingSideContainer: {
     flexDirection: 'column',
@@ -249,7 +274,6 @@ const styles = StyleSheet.create({
   drivingSideImage: {
     width: 48,
     height: 48,
-    resizeMode: 'contain',
     marginBottom: 5,
   },
   drivingSideText: {
