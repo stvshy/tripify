@@ -1,5 +1,13 @@
 // app/country/[cid].tsx
-import React, { useEffect, useRef, useState, Suspense, lazy, useCallback, memo } from 'react';
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  Suspense,
+  lazy,
+  useCallback,
+  memo,
+} from 'react';
 import {
   View,
   Text,
@@ -10,12 +18,20 @@ import {
   ActivityIndicator,
   InteractionManager,
   FlatList,
+  Alert,
+  TouchableOpacity,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { getStorage, ref, getDownloadURL } from 'firebase/storage';
 import CountryFlag from 'react-native-country-flag';
 import { TapGestureHandler, State as GestureState } from 'react-native-gesture-handler';
 import { useWeatherData } from './useWeatherData';
+import { arrayRemove, arrayUnion, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../config/firebaseConfig';
+import { AntDesign } from '@expo/vector-icons';
+import rawCountryData from './countryData.json';
+import { useTheme } from 'react-native-paper';
+import { useCountries } from '../config/CountryContext';
 
 const LazyCountryExtraInfo = lazy(() => import('./CountryExtraInfo'));
 
@@ -78,9 +94,7 @@ export interface CountryProfileData {
   languages: string[];
 }
 
-import rawCountryData from './countryData.json';
 const countryData: Record<string, CountryProfileData> = rawCountryData;
-
 const storage = getStorage();
 const getFirebaseUrl = async (path: string): Promise<string> => {
   const storageRef = ref(storage, path);
@@ -94,7 +108,7 @@ const CityCard = memo(({ city }: { city: string }) => (
   </View>
 ));
 
-// Używamy FlatList z numColumns oraz wyłączamy własne przewijanie FlatList
+// Używamy FlatList z numColumns oraz wyłączamy przewijanie FlatList
 const CitiesList = ({ cities }: { cities: string[] }) => {
   return (
     <FlatList
@@ -102,23 +116,50 @@ const CitiesList = ({ cities }: { cities: string[] }) => {
       keyExtractor={(item, index) => item + index}
       renderItem={({ item }) => <CityCard city={item} />}
       numColumns={3}
-      scrollEnabled={false} // wyłączamy przewijanie FlatList, aby nie kolidowało z rodzicem
+      scrollEnabled={false}
       contentContainerStyle={styles.citiesGrid}
     />
   );
 };
 
 const CountryProfile = () => {
+  // Pobieramy parametr i upewniamy się, że mamy string
   const { cid } = useLocalSearchParams();
-  const country = countryData[cid as string];
+  const countryId = Array.isArray(cid) ? cid[0] : cid;
+  const country = countryData[countryId];
+  
+  const theme = useTheme();
+  const { visitedCountries, setVisitedCountries } = useCountries();
+  // Inicjujemy lokalny stan na podstawie danych z kontekstu
+  const [localVisited, setLocalVisited] = useState<string[]>(visitedCountries);
+
+  // Przy montażu pobieramy dane użytkownika (odwiedzone kraje) z Firestore
+  useEffect(() => {
+    if (auth.currentUser) {
+      const userDocRef = doc(db, 'users', auth.currentUser.uid);
+      getDoc(userDocRef)
+        .then((docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            const countries = data.countriesVisited || [];
+            setLocalVisited(countries);
+            setVisitedCountries(countries);
+          }
+        })
+        .catch(console.error);
+    }
+  }, []);
+
+  // Sprawdzamy, czy dany kraj jest odwiedzony
+  const isVisited = localVisited.includes(countryId);
 
   const [sliderUrls, setSliderUrls] = useState<string[]>([]);
   const [outletUrls, setOutletUrls] = useState<string[]>([]);
   const [transportUrls, setTransportUrls] = useState<string[]>([]);
   const [drivingSideUrl, setDrivingSideUrl] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(true);
+  // Używamy osobnego stanu dla ładowania slidera (reszta UI renderowana jest od razu)
+  const [sliderLoading, setSliderLoading] = useState<boolean>(true);
   const [currentSlide, setCurrentSlide] = useState<number>(0);
-
   const sliderRef = useRef<ScrollView>(null);
   const screenWidth = Dimensions.get('window').width;
   const outletCardImageSize = 50;
@@ -127,8 +168,6 @@ const CountryProfile = () => {
     country.capitalLatitude,
     country.capitalLongitude
   );
-
-  // Usunięto zbędne wywołanie useMonthlyTemperatures – pobieranie odbywa się w MonthlyTemperaturesSection
 
   const loadImages = useCallback(() => {
     const fetchUrls = async (paths: string[]): Promise<string[]> =>
@@ -150,7 +189,7 @@ const CountryProfile = () => {
         console.error("Error fetching images from Firebase Storage:", error);
       })
       .finally(() => {
-        setLoading(false);
+        setSliderLoading(false);
       });
   }, [country]);
 
@@ -194,18 +233,42 @@ const CountryProfile = () => {
     }
   };
 
+  const toggleCountryVisited = useCallback(async () => {
+    console.log('Przycisk kliknięty. isVisited:', isVisited, 'countryId:', countryId);
+    if (!auth.currentUser) {
+      Alert.alert("Błąd", "Użytkownik nie jest zalogowany");
+      return;
+    }
+    try {
+      const userDocRef = doc(db, 'users', auth.currentUser.uid);
+      let updatedVisited: string[];
+      if (isVisited) {
+        // Usuwamy kraj z listy
+        await updateDoc(userDocRef, {
+          countriesVisited: arrayRemove(countryId),
+        });
+        updatedVisited = localVisited.filter(code => code !== countryId);
+        console.log('Kraj usunięty, nowa lista:', updatedVisited);
+      } else {
+        // Dodajemy kraj do listy
+        await updateDoc(userDocRef, {
+          countriesVisited: arrayUnion(countryId),
+        });
+        updatedVisited = [...localVisited, countryId];
+        console.log('Kraj dodany, nowa lista:', updatedVisited);
+      }
+      setLocalVisited(updatedVisited);
+      setVisitedCountries(updatedVisited);
+    } catch (error) {
+      console.error('Błąd podczas zmiany statusu kraju:', error);
+      Alert.alert("Błąd", "Nie udało się zmienić statusu kraju");
+    }
+  }, [countryId, isVisited, localVisited, setVisitedCountries]);
+
   if (!country) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.errorText}>Data for country "{cid}" not found.</Text>
-      </View>
-    );
-  }
-
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#000" />
+        <Text style={styles.errorText}>Data for country "{countryId}" not found.</Text>
       </View>
     );
   }
@@ -214,29 +277,33 @@ const CountryProfile = () => {
     <ScrollView style={styles.container} removeClippedSubviews>
       {/* Slider Section */}
       <View style={styles.sliderContainer}>
-        <TapGestureHandler onHandlerStateChange={handleTap}>
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onScroll={onSliderScroll}
-            scrollEventThrottle={16}
-            ref={sliderRef}
-            removeClippedSubviews
-          >
-            {sliderUrls.map((url: string, index: number) => (
-              <Image
-                key={index}
-                source={{ uri: url }}
-                style={[styles.sliderImage, { width: screenWidth }]}
-                resizeMode="cover"
-              />
-            ))}
-          </ScrollView>
-        </TapGestureHandler>
+        {sliderLoading ? (
+          <ActivityIndicator size="large" color="#000" style={{ height: 290, justifyContent: 'center' }} />
+        ) : (
+          <TapGestureHandler onHandlerStateChange={handleTap}>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onScroll={onSliderScroll}
+              scrollEventThrottle={16}
+              ref={sliderRef}
+              removeClippedSubviews
+            >
+              {sliderUrls.map((url: string, index: number) => (
+                <Image
+                  key={index}
+                  source={{ uri: url }}
+                  style={[styles.sliderImage, { width: screenWidth }]}
+                  resizeMode="cover"
+                />
+              ))}
+            </ScrollView>
+          </TapGestureHandler>
+        )}
         <View style={styles.sliderOverlay}>
           <View style={styles.countryBadge}>
-            <CountryFlag isoCode={cid as string} size={40} style={styles.flag} />
+            <CountryFlag isoCode={countryId} size={40} style={styles.flag} />
             <Text style={styles.countryName}>{country.name}</Text>
           </View>
           <View style={styles.dotWrapper}>
@@ -281,8 +348,25 @@ const CountryProfile = () => {
         </View>
       </View>
 
+      {/* Przycisk do dodawania/odznaczania kraju */}
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={[
+            styles.addButton,
+            { backgroundColor: isVisited ? '#32CD32' : theme.colors.primary },
+          ]}
+          onPress={toggleCountryVisited}
+        >
+          <AntDesign
+            name={isVisited ? "checkcircle" : "checkcircleo"}
+            size={24}
+            color="#fff"
+          />
+        </TouchableOpacity>
+      </View>
+
       {/* General Info Section */}
-      <View style={styles.sectionBox}>
+      <View style={[styles.sectionBox]}>
         <Text style={styles.sectionTitle}>General Info</Text>
         <Text style={styles.description}>{country.description}</Text>
         <View style={styles.infoCardsContainer}>
@@ -317,9 +401,7 @@ const CountryProfile = () => {
       </View>
 
       {/* Main Cities Section */}
-      {/* Pamiętaj, aby komentarz w JSX pisać wewnątrz klamerek */}
-      {/** Fragment w CountryProfile.tsx – Main Cities Section */}
-      <View style={styles.sectionBox}>
+      <View style={[styles.sectionBox, { paddingBottom: 20, paddingTop: -30 }]}>
         <Text style={styles.sectionTitle}>Main Cities</Text>
         <View style={styles.citiesGrid}>
           {country.mainCities.map((city, index) => (
@@ -353,37 +435,39 @@ const styles = StyleSheet.create({
   sliderOverlay: { position: 'absolute', bottom: 8, left: 10, flexDirection: 'column', alignItems: 'center' },
   countryBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)', paddingVertical: 6, paddingHorizontal: 13, borderRadius: 20, marginBottom: 3.5 },
   flag: { width: 21, height: 21, borderRadius: 20, marginRight: 8, borderWidth: 1.5, borderColor: '#fff', marginLeft: -3 },
-  sectionBox: { borderBottomWidth: 1, borderColor: '#ddd', padding: 12, backgroundColor: 'rgb(255, 254, 255)', marginVertical: 5 },
-  sectionTitle: { fontSize: 18, marginBottom: 10, color: '#333', fontFamily: 'PlusJakartaSans-Bold' },
+  sectionBox: { borderBottomWidth: 1, borderColor: '#ddd', padding: 12, backgroundColor: 'rgb(255, 254, 255)', marginVertical: 10, paddingBottom: 4, paddingTop: 1, borderRadius: 15 },
+  sectionTitle: { fontSize: 18, marginBottom: 10, color: '#333', fontFamily: 'PlusJakartaSans-Bold', marginTop: -7 },
   description: { fontSize: 16.5, marginBottom: 10, color: '#555', fontFamily: 'Figtree-Regular' },
   infoCardsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginHorizontal: -3 },
   infoCard: { borderWidth: 1, borderColor: '#ccc', borderRadius: 16, padding: 10, marginVertical: 3.5, backgroundColor: '#fff', flexBasis: '49%' },
-  infoCardLabel: { fontSize: 14.5,  color: '#333',  fontFamily: 'Inter-SemiBold' },
+  infoCardLabel: { fontSize: 14.5, color: '#333', fontFamily: 'Inter-SemiBold' },
   infoCardValue: { fontSize: 14.5, color: '#555', marginTop: 8, fontFamily: 'Figtree-Regular' },
   knownForGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-start', marginHorizontal: -1 },
   knownForCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#eef', borderRadius: 15, paddingVertical: 4, paddingHorizontal: 9, margin: 3, marginTop: 10 },
   knownForIcon: { fontSize: 16.5, marginRight: 5 },
   knownForText: { fontSize: 13.5, color: '#333', fontFamily: 'Figtree-Medium' },
-  citiesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -3,
-  },
-  cityCard: {
-    backgroundColor: '#def',
-    borderRadius: 12,
-    paddingVertical: 5,
-    paddingHorizontal: 8.5,
-    margin: 3,
-    marginLeft: 0,
-  },
+  citiesGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -3 },
+  cityCard: { backgroundColor: '#def', borderRadius: 12, paddingVertical: 5, paddingHorizontal: 8.5, margin: 3, marginLeft: 0 },
   cityText: { fontSize: 13.5, color: '#333', fontFamily: 'Figtree-Medium' },
   dotWrapper: { backgroundColor: 'rgba(0,0,0,0.38)', borderRadius: 20, paddingVertical: 2.6, paddingHorizontal: 4.5 },
   dotContainer: { flexDirection: 'row', alignItems: 'center' },
   dot: { width: 4, height: 4, borderRadius: 4, marginHorizontal: 2.5 },
   dotActive: { backgroundColor: '#fff', width: 5, height: 5 },
   dotInactive: { backgroundColor: 'rgba(255,255,255,0.6)' },
-  countryName: { color: '#fff', fontSize: 17, fontFamily: 'DMSans-Bold',},
+  countryName: { color: '#fff', fontSize: 17, fontFamily: 'DMSans-Bold' },
+  buttonContainer: { alignItems: 'flex-end', marginRight: 20, marginVertical: 10 },
+  addButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+  },
 });
 
 export default CountryProfile;

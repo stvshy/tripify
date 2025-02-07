@@ -33,8 +33,8 @@ const CountryExtraInfo: React.FC<Props> = ({
   return (
     <>
       {/* Additional Info Section */}
-      <View style={styles.sectionBox}>
-        <Text style={styles.sectionTitle}>Additional Info</Text>
+      <View style={[styles.sectionBox, {paddingTop: 0, paddingBottom: 4}]}>
+        <Text style={[styles.sectionTitle, { paddingTop: 0}]}>Additional Info</Text>
         <View style={styles.row}>
           <View style={styles.halfInfoCard}>
             <Text style={styles.infoCardLabel}>💵 Currency</Text>
@@ -164,7 +164,7 @@ const CountryExtraInfo: React.FC<Props> = ({
       </View>
 
       {/* Monthly Temperatures Section */}
-      <View style={styles.sectionBox}>
+    <View style={[styles.sectionBox, { paddingBottom: 9 }]}>
         <Text style={styles.sectionTitle}>Average Monthly Temperatures</Text>
         <MonthlyTemperaturesSection
           latitude={country.capitalLatitude}
@@ -174,7 +174,7 @@ const CountryExtraInfo: React.FC<Props> = ({
 
       {/* Visa & Travel Tips Section */}
       <View style={styles.sectionBox}>
-        <Text style={styles.sectionTitle}>Travel Info</Text>
+        <Text style={[styles.sectionTitle, {marginTop: -6}]}>Travel Info</Text>
         <View style={[styles.infoCard, { marginHorizontal: -3 }]}>
           <Text style={styles.infoCardLabel}>🛂 Visa Requirements</Text>
           <Text style={styles.infoCardValue}>{country.visaRequired}</Text>
@@ -194,7 +194,10 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
     padding: 12,
     backgroundColor: 'rgb(255, 254, 255)',
-    marginVertical: 5,
+    marginVertical: 3,
+    paddingTop: 7,
+    paddingBottom: 20, 
+    borderRadius: 15
   },
   sectionTitle: {
     fontSize: 16.5,
