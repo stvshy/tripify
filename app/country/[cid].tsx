@@ -148,7 +148,7 @@ const CountryProfile = () => {
   const { cid } = useLocalSearchParams();
   const countryId = Array.isArray(cid) ? cid[0] : cid;
   const country = countryData[countryId];
-  
+
   const theme = useTheme();
   const { visitedCountries, setVisitedCountries } = useCountries();
   const [localVisited, setLocalVisited] = useState<string[]>(visitedCountries);
@@ -176,6 +176,7 @@ const CountryProfile = () => {
   const [outletUrls, setOutletUrls] = useState<string[]>([]);
   const [transportUrls, setTransportUrls] = useState<string[]>([]);
   const [drivingSideUrl, setDrivingSideUrl] = useState<string>('');
+  // sliderLoading dotyczy tylko zdjęć slidera
   const [sliderLoading, setSliderLoading] = useState<boolean>(true);
   const [currentSlide, setCurrentSlide] = useState<number>(0);
   const sliderRef = useRef<ScrollView>(null);
@@ -187,9 +188,9 @@ const CountryProfile = () => {
     country.capitalLongitude
   );
 
-  // Funkcja ładująca obrazy – grupujemy pobieranie dla slidera, outletów, transportu oraz driving side
+  // Ładujemy zdjęcia slidera oraz pozostałe zdjęcia osobno
   useEffect(() => {
-    // Slider images
+    // Ładowanie zdjęć slidera
     const loadSliderImages = async () => {
       try {
         const urls = await Promise.all(
@@ -197,59 +198,41 @@ const CountryProfile = () => {
         );
         const filtered = filterNonEmpty(urls);
         setSliderUrls(filtered);
-        // Prefetch obrazów slidera
+        // Prefetch slider images
         filtered.forEach(url => Image.prefetch(url));
       } catch (error) {
         console.error("Error fetching slider images:", error);
+      } finally {
+        setSliderLoading(false);
       }
     };
 
-    // Outlet images
-    const loadOutletImages = async () => {
+    // Ładowanie pozostałych zdjęć (outlety, transport, driving side)
+    const loadOtherImages = async () => {
       try {
-        const urls = await Promise.all(
+        const outletUrls = await Promise.all(
           country.outlets.map((path) => getFirebaseUrlCached(path))
         );
-        setOutletUrls(filterNonEmpty(urls));
-      } catch (error) {
-        console.error("Error fetching outlet images:", error);
-      }
-    };
+        setOutletUrls(filterNonEmpty(outletUrls));
 
-    // Transport logos
-    const loadTransportImages = async () => {
-      try {
-        const urls = await Promise.all(
-          country.transportApps.map((app) => getFirebaseUrlCached(app.logo))
+        const transportUrls = await Promise.all(
+          country.transportApps.map(app => getFirebaseUrlCached(app.logo))
         );
-        setTransportUrls(filterNonEmpty(urls));
+        setTransportUrls(filterNonEmpty(transportUrls));
+
+        const drivingUrl = await getFirebaseUrlCached(country.drivingSide.image);
+        setDrivingSideUrl(drivingUrl && drivingUrl.trim() !== '' ? drivingUrl : '');
       } catch (error) {
-        console.error("Error fetching transport images:", error);
+        console.error("Error fetching other images:", error);
       }
     };
 
-    // Driving side image
-    const loadDrivingSideImage = async () => {
-      try {
-        const url = await getFirebaseUrlCached(country.drivingSide.image);
-        setDrivingSideUrl(url && url.trim() !== '' ? url : '');
-      } catch (error) {
-        console.error("Error fetching driving side image:", error);
-      }
-    };
-
-    // Uruchamiamy wszystkie operacje równolegle
-    Promise.all([
-      loadSliderImages(),
-      loadOutletImages(),
-      loadTransportImages(),
-      loadDrivingSideImage()
-    ])
-      .catch((error) => console.error("Error loading images:", error))
-      .finally(() => setSliderLoading(false));
+    loadSliderImages();
+    loadOtherImages();
   }, [country]);
 
-  const onSliderScroll = (e: any) => {
+  // Uaktualniamy aktualny slajd przy zakończeniu ruchu (momentum)
+  const onMomentumScrollEnd = (e: any) => {
     const offsetX = e.nativeEvent.contentOffset.x;
     const index = Math.round(offsetX / screenWidth);
     setCurrentSlide(index);
@@ -332,7 +315,7 @@ const CountryProfile = () => {
               horizontal
               pagingEnabled
               showsHorizontalScrollIndicator={false}
-              onScroll={onSliderScroll}
+              onMomentumScrollEnd={onMomentumScrollEnd}
               scrollEventThrottle={16}
               ref={sliderRef}
               removeClippedSubviews
