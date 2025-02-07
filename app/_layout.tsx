@@ -23,8 +23,21 @@ const queryClient = new QueryClient();
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-    ...FontAwesome.font,
+
+// PlusJakartaSans
+'PlusJakartaSans-Bold': require('../assets/fonts/PlusJakartaSans-Bold.ttf'),
+
+'DMSans-Bold': require('../assets/fonts/DMSans-Bold.ttf'),
+'DMSans-SemiBold': require('../assets/fonts/DMSans-SemiBold.ttf'),
+
+'Inter-Bold': require('../assets/fonts/Inter-Bold.ttf'),
+'Inter-SemiBold': require('../assets/fonts/Inter-SemiBold.ttf'),
+'Inter-Regular': require('../assets/fonts/Inter-Regular.ttf'),
+'Inter-Medium': require('../assets/fonts/Inter-Medium.ttf'),
+
+'Figtree-Regular': require('../assets/fonts/Figtree-Regular.ttf'),
+'Figtree-Medium': require('../assets/fonts/Figtree-Medium.ttf'),
+
   });
   const [appIsReady, setAppIsReady] = useState(false);
   const [initialRouteName, setInitialRouteName] = useState<string | null>(null);

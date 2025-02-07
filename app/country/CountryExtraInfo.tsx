@@ -123,6 +123,7 @@ const CountryExtraInfo: React.FC<Props> = ({
         </View>
       </View>
 
+
       {/* Weather Section */}
       <View style={styles.sectionBox}>
         <Text style={styles.sectionTitle}>Weather</Text>
@@ -197,9 +198,10 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16.5,
-    fontWeight: 'bold',
+    // fontWeight: 'bold',
     marginBottom: 10,
     color: '#333',
+    fontFamily: 'PlusJakartaSans-Bold', // Używamy wybranej czcionki dla tytułów
   },
   row: {
     flexDirection: 'row',
@@ -226,13 +228,15 @@ const styles = StyleSheet.create({
   },
   infoCardLabel: {
     fontSize: 15,
-    fontWeight: 'bold',
+    // fontWeight: 'bold',
     color: '#333',
+    fontFamily: 'Inter-SemiBold', // Czcionka dla etykiet
   },
   infoCardValue: {
-    fontSize: 14,
+    fontSize: 14.5,
     color: '#555',
-    marginTop: 8,
+    marginTop: 13,
+    fontFamily: 'Figtree-Regular', // Czcionka dla wartości/treści
   },
   drivingSideContainer: {
     flexDirection: 'column',
@@ -246,15 +250,17 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   drivingSideText: {
-    fontSize: 14,
+    fontSize: 14.5,
     color: '#333',
     textAlign: 'center',
+    fontFamily: 'Figtree-Regular',
+    marginTop: 4,
   },
   outletCard: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    marginTop: 5,
+    marginTop: 8,
   },
   outletItem: {
     alignItems: 'center',
@@ -262,10 +268,11 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   outletCaption: {
-    fontSize: 12,
+    fontSize: 12.5,
     color: '#333',
-    marginTop: 3,
+    marginTop: 4,
     textAlign: 'center',
+    fontFamily: 'Figtree-Regular',
   },
   outletCardImage: {
     borderRadius: 7,
@@ -281,8 +288,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#fff',
     borderRadius: 20,
-    paddingLeft: 6,
-    paddingVertical: 6,
+    paddingLeft: 5,
+    paddingVertical: 5,
     paddingRight: 10,
     margin: 3.2,
     borderWidth: 1,
@@ -295,12 +302,14 @@ const styles = StyleSheet.create({
     marginRight: 7,
   },
   appName: {
-    fontSize: 14,
+    fontSize: 14.5,
     color: '#333',
+    fontFamily: 'Figtree-Medium',
   },
   errorText: {
     color: 'red',
     fontSize: 16,
+    fontFamily: 'Figtree-Regular',
   },
 });
 
