@@ -130,18 +130,16 @@ const CityCard = memo(({ city }: { city: string }) => (
 ));
 
 // Komponent wyświetlający listę miast za pomocą FlatList
-const CitiesList = ({ cities }: { cities: string[] }) => {
-  return (
-    <FlatList
-      data={cities}
-      keyExtractor={(item, index) => item + index}
-      renderItem={({ item }) => <CityCard city={item} />}
-      numColumns={3}
-      scrollEnabled={false}
-      contentContainerStyle={styles.citiesGrid}
-    />
-  );
-};
+const CitiesList = ({ cities }: { cities: string[] }) => (
+  <FlatList
+    data={cities}
+    keyExtractor={(item, index) => item + index}
+    renderItem={({ item }) => <CityCard city={item} />}
+    numColumns={3}
+    scrollEnabled={false}
+    contentContainerStyle={styles.citiesGrid}
+  />
+);
 
 const CountryProfile = () => {
   // Pobieramy parametr i upewniamy się, że mamy string
@@ -153,7 +151,7 @@ const CountryProfile = () => {
   const { visitedCountries, setVisitedCountries } = useCountries();
   const [localVisited, setLocalVisited] = useState<string[]>(visitedCountries);
 
-  // Pobieramy dane użytkownika (odwiedzone kraje) z Firestore przy montażu
+  // Pobieramy dane użytkownika z Firestore
   useEffect(() => {
     if (auth.currentUser) {
       const userDocRef = doc(db, 'users', auth.currentUser.uid);
@@ -176,38 +174,44 @@ const CountryProfile = () => {
   const [outletUrls, setOutletUrls] = useState<string[]>([]);
   const [transportUrls, setTransportUrls] = useState<string[]>([]);
   const [drivingSideUrl, setDrivingSideUrl] = useState<string>('');
-  // sliderLoading dotyczy tylko zdjęć slidera
+  // Używamy sliderLoading tylko do zdjęć slidera – gdy choć jeden obraz jest dostępny, ustawiamy sliderLoading na false
   const [sliderLoading, setSliderLoading] = useState<boolean>(true);
   const [currentSlide, setCurrentSlide] = useState<number>(0);
   const sliderRef = useRef<ScrollView>(null);
   const screenWidth = Dimensions.get('window').width;
   const outletCardImageSize = 50;
 
+  // Ref blokujący aktualizację stanu slajdu podczas tapnięcia
+  const isTapRef = useRef<boolean>(false);
+
   const { data: weatherData, loading: weatherLoading } = useWeatherData(
     country.capitalLatitude,
     country.capitalLongitude
   );
 
-  // Ładujemy zdjęcia slidera oraz pozostałe zdjęcia osobno
+  // Ładujemy zdjęcia slidera i pozostałe zdjęcia osobno
   useEffect(() => {
-    // Ładowanie zdjęć slidera
+    // Ładowanie zdjęć slidera – inkrementalnie
     const loadSliderImages = async () => {
-      try {
-        const urls = await Promise.all(
-          country.images.map((path) => getFirebaseUrlCached(path))
-        );
-        const filtered = filterNonEmpty(urls);
-        setSliderUrls(filtered);
-        // Prefetch slider images
-        filtered.forEach(url => Image.prefetch(url));
-      } catch (error) {
-        console.error("Error fetching slider images:", error);
-      } finally {
-        setSliderLoading(false);
+      let loadedUrls: string[] = [];
+      for (let i = 0; i < country.images.length; i++) {
+        try {
+          const url = await getFirebaseUrlCached(country.images[i]);
+          if (url && url.trim() !== '') {
+            loadedUrls.push(url);
+            setSliderUrls([...loadedUrls]); // aktualizacja stanu po każdym załadowaniu
+            Image.prefetch(url);
+            if (loadedUrls.length === 1) {
+              setSliderLoading(false);
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching slider image:", error);
+        }
       }
     };
 
-    // Ładowanie pozostałych zdjęć (outlety, transport, driving side)
+    // Ładowanie pozostałych zdjęć
     const loadOtherImages = async () => {
       try {
         const outletUrls = await Promise.all(
@@ -231,8 +235,17 @@ const CountryProfile = () => {
     loadOtherImages();
   }, [country]);
 
-  // Uaktualniamy aktualny slajd przy zakończeniu ruchu (momentum)
+  // Aktualizacja stanu slajdu przy przewijaniu – jeśli nie jesteśmy w trakcie gestu tapnięcia
+  const onSliderScroll = (e: any) => {
+    if (isTapRef.current) return;
+    const offsetX = e.nativeEvent.contentOffset.x;
+    const index = Math.round(offsetX / screenWidth);
+    setCurrentSlide(index);
+  };
+
+  // Aktualizacja przy zakończeniu animacji przewijania
   const onMomentumScrollEnd = (e: any) => {
+    if (isTapRef.current) return;
     const offsetX = e.nativeEvent.contentOffset.x;
     const index = Math.round(offsetX / screenWidth);
     setCurrentSlide(index);
@@ -241,16 +254,20 @@ const CountryProfile = () => {
   const handleLeftTap = () => {
     if (currentSlide > 0) {
       const newSlide = currentSlide - 1;
+      isTapRef.current = true;
       setCurrentSlide(newSlide);
       sliderRef.current?.scrollTo({ x: newSlide * screenWidth, animated: true });
+      setTimeout(() => { isTapRef.current = false; }, 200);
     }
   };
 
   const handleRightTap = () => {
     if (currentSlide < sliderUrls.length - 1) {
       const newSlide = currentSlide + 1;
+      isTapRef.current = true;
       setCurrentSlide(newSlide);
       sliderRef.current?.scrollTo({ x: newSlide * screenWidth, animated: true });
+      setTimeout(() => { isTapRef.current = false; }, 200);
     }
   };
 
@@ -266,7 +283,6 @@ const CountryProfile = () => {
   };
 
   const toggleCountryVisited = useCallback(async () => {
-    console.log('Przycisk kliknięty. isVisited:', isVisited, 'countryId:', countryId);
     if (!auth.currentUser) {
       Alert.alert("Błąd", "Użytkownik nie jest zalogowany");
       return;
@@ -279,13 +295,11 @@ const CountryProfile = () => {
           countriesVisited: arrayRemove(countryId),
         });
         updatedVisited = localVisited.filter(code => code !== countryId);
-        console.log('Kraj usunięty, nowa lista:', updatedVisited);
       } else {
         await updateDoc(userDocRef, {
           countriesVisited: arrayUnion(countryId),
         });
         updatedVisited = [...localVisited, countryId];
-        console.log('Kraj dodany, nowa lista:', updatedVisited);
       }
       setLocalVisited(updatedVisited);
       setVisitedCountries(updatedVisited);
@@ -307,20 +321,19 @@ const CountryProfile = () => {
     <ScrollView style={styles.container} removeClippedSubviews>
       {/* Slider Section */}
       <View style={styles.sliderContainer}>
-        {sliderLoading ? (
-          <ActivityIndicator size="large" color="#000" style={{ height: 290, justifyContent: 'center' }} />
-        ) : (
-          <TapGestureHandler onHandlerStateChange={handleTap}>
-            <ScrollView
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              onMomentumScrollEnd={onMomentumScrollEnd}
-              scrollEventThrottle={16}
-              ref={sliderRef}
-              removeClippedSubviews
-            >
-              {sliderUrls.map((url: string, index: number) =>
+        <TapGestureHandler onHandlerStateChange={handleTap}>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={onSliderScroll}
+            onMomentumScrollEnd={onMomentumScrollEnd}
+            scrollEventThrottle={16}
+            ref={sliderRef}
+            removeClippedSubviews
+          >
+            {sliderUrls.length > 0 ? (
+              sliderUrls.map((url: string, index: number) =>
                 url && url.trim() !== '' ? (
                   <Image
                     key={index}
@@ -329,10 +342,14 @@ const CountryProfile = () => {
                     resizeMode="cover"
                   />
                 ) : null
-              )}
-            </ScrollView>
-          </TapGestureHandler>
-        )}
+              )
+            ) : (
+              <View style={[styles.sliderImage, { width: screenWidth, justifyContent: 'center', alignItems: 'center' }]}>
+                <Text>Ładowanie...</Text>
+              </View>
+            )}
+          </ScrollView>
+        </TapGestureHandler>
         <View style={styles.sliderOverlay}>
           <View style={styles.countryBadge}>
             <CountryFlag isoCode={countryId} size={40} style={styles.flag} />
