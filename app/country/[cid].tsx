@@ -147,6 +147,7 @@ const CountryProfile = () => {
   const router = useRouter();
   const screenWidth = Dimensions.get('window').width;
   const outletCardImageSize = 50;
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
     if (auth.currentUser) {
@@ -159,8 +160,14 @@ const CountryProfile = () => {
             setLocalVisited(countries);
             setVisitedCountries(countries);
           }
+          setIsInitialized(true);
         })
-        .catch(console.error);
+        .catch((error) => {
+          console.error('Error fetching user data:', error);
+          setIsInitialized(true); // Still mark as initialized even on error
+        });
+    } else {
+      setIsInitialized(true);
     }
   }, []);
 
@@ -191,70 +198,59 @@ const CountryProfile = () => {
 
   useEffect(() => {
     if (!country) return;
-    // Reset stanu przy zmianie kraju
-    setSliderUrls(Array(totalSlides).fill(''));
-    setCurrentSlide(0);
-    setSliderLoading(true);
-
-    // Ładujemy pierwszy obrazek natychmiast – dzięki temu interfejs (m.in. przycisk back) działa
-    (async () => {
+    
+    // Load first image immediately for quick display
+    const loadFirstImage = async () => {
       try {
         const url = await getFirebaseUrlCached(country.images[0]);
         if (url && url.trim() !== '') {
-          setSliderUrls((prev) => {
-            const newArr = [...prev];
-            newArr[0] = url;
-            return newArr;
-          });
-          setSliderLoading(false);
+          setSliderUrls([url]);
           Image.prefetch(url);
         }
       } catch (error) {
-        console.error('Error loading first slider image:', error);
+        console.error('Error loading first image:', error);
       }
-    })();
-
-    // Asynchronicznie ładujemy pozostałe zdjęcia oraz dodatkowe obrazki
-    setTimeout(() => {
-      (async () => {
-        for (let i = 1; i < country.images.length; i++) {
-          try {
-            const url = await getFirebaseUrlCached(country.images[i]);
-            if (url && url.trim() !== '') {
-              setSliderUrls((prev) => {
-                const newArr = [...prev];
-                newArr[i] = url;
-                return newArr;
-              });
-              Image.prefetch(url);
-            }
-          } catch (error) {
-            console.error('Error loading slider image:', error);
-          }
-        }
-      })();
-
-      (async () => {
+    };
+    
+    // Load remaining images in the background
+    const loadRemainingImages = async () => {
+      for (let i = 1; i < country.images.length; i++) {
         try {
-          const [fetchedOutletUrls, fetchedTransportUrls, fetchedDrivingUrl] =
-            await Promise.all([
-              Promise.all(country.outlets.map((path) => getFirebaseUrlCached(path))),
-              Promise.all(country.transportApps.map((app) => getFirebaseUrlCached(app.logo))),
-              getFirebaseUrlCached(country.drivingSide.image),
-            ]);
-          setOutletUrls(filterNonEmpty(fetchedOutletUrls));
-          setTransportUrls(filterNonEmpty(fetchedTransportUrls));
-          setDrivingSideUrl(
-            fetchedDrivingUrl && fetchedDrivingUrl.trim() !== ''
-              ? fetchedDrivingUrl
-              : ''
-          );
+          const url = await getFirebaseUrlCached(country.images[i]);
+          if (url && url.trim() !== '') {
+            setSliderUrls(prev => [...prev, url]);
+            Image.prefetch(url);
+          }
         } catch (error) {
-          console.error('Error fetching other images:', error);
+          console.error('Error loading image:', error);
         }
-      })();
+      }
+    };
+
+    // Load auxiliary images separately
+    const loadAuxiliaryImages = async () => {
+      try {
+        const [fetchedOutletUrls, fetchedTransportUrls, fetchedDrivingUrl] = await Promise.all([
+          Promise.all(country.outlets.map(path => getFirebaseUrlCached(path))),
+          Promise.all(country.transportApps.map(app => getFirebaseUrlCached(app.logo))),
+          getFirebaseUrlCached(country.drivingSide.image)
+        ]);
+        
+        setOutletUrls(filterNonEmpty(fetchedOutletUrls));
+        setTransportUrls(filterNonEmpty(fetchedTransportUrls));
+        setDrivingSideUrl(fetchedDrivingUrl?.trim() || '');
+      } catch (error) {
+        console.error('Error loading auxiliary images:', error);
+      }
+    };
+
+    loadFirstImage();
+    setTimeout(() => {
+      loadRemainingImages();
+      loadAuxiliaryImages();
     }, 0);
   }, [country]);
+  
 
   // Do obliczania kropek wykorzystujemy liczbę pobranych obrazów – jeśli pobrany jest tylko pierwszy,
   // to wyświetlamy jedną kropkę
@@ -314,34 +310,31 @@ const CountryProfile = () => {
   // Zmiana statusu kraju (odwiedzony/nieodwiedzony) – zmiana stanu wykonujemy optymistycznie,
   // aby użytkownik nie musiał czekać na odpowiedź z serwera
   const toggleCountryVisited = useCallback(() => {
+    if (!isInitialized) return;
     if (!auth.currentUser) {
-      Alert.alert('Błąd', 'Użytkownik nie jest zalogowany');
+      Alert.alert('Error', 'User is not logged in');
       return;
     }
+
     const newVisited = isVisited
-      ? localVisited.filter((code) => code !== countryId)
+      ? localVisited.filter(code => code !== countryId)
       : [...localVisited, countryId];
+
+    // Optimistic update
     setLocalVisited(newVisited);
     setVisitedCountries(newVisited);
-    updateDoc(doc(db, 'users', auth.currentUser.uid), 
-      isVisited
-        ? { countriesVisited: arrayRemove(countryId) }
-        : { countriesVisited: arrayUnion(countryId) }
-    ).catch((error) => {
-      console.error('Błąd podczas zmiany statusu kraju:', error);
-      Alert.alert('Błąd', 'Nie udało się zmienić statusu kraju');
-    });
-  }, [countryId, isVisited, localVisited, setVisitedCountries]);
 
-  if (!country) {
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.errorText}>
-          Data for country "{countryId}" not found.
-        </Text>
-      </View>
-    );
-  }
+    // Background update to Firebase
+    updateDoc(doc(db, 'users', auth.currentUser.uid), {
+      countriesVisited: isVisited ? arrayRemove(countryId) : arrayUnion(countryId)
+    }).catch(error => {
+      console.error('Error updating country status:', error);
+      // Revert on error
+      setLocalVisited(localVisited);
+      setVisitedCountries(localVisited);
+      Alert.alert('Error', 'Failed to update country status');
+    });
+  }, [countryId, isVisited, localVisited, setVisitedCountries, isInitialized]);
 
   return (
     <ScrollView style={styles.container} removeClippedSubviews>
