@@ -18,6 +18,8 @@ import {
   FlatList,
   Alert,
   TouchableOpacity,
+  Animated,
+  Easing,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { getStorage, ref, getDownloadURL } from 'firebase/storage';
@@ -148,7 +150,10 @@ const CountryProfile = () => {
   const screenWidth = Dimensions.get('window').width;
   const outletCardImageSize = 50;
   const [isInitialized, setIsInitialized] = useState(false);
-
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const toastPosition = useRef(new Animated.Value(120)).current;
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  
   useEffect(() => {
     if (auth.currentUser) {
       const userDocRef = doc(db, 'users', auth.currentUser.uid);
@@ -264,6 +269,45 @@ const CountryProfile = () => {
     );
   }
 
+  const showToast = (message: string) => {
+    // setToastMessage(null);
+    setToastMessage(message);
+    
+    toastOpacity.setValue(0);
+    toastPosition.setValue(100);
+
+    Animated.parallel([
+      Animated.timing(toastOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(toastPosition, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(toastOpacity, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(toastPosition, {
+          toValue: 100,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setToastMessage(null);
+      });
+    }, 3000);
+  };
+
+
   // Przy scrollu aktualizujemy bieżący index – niezależnie czy kolejny obrazek został pobrany czy nie
   const onSliderScroll = (e: any) => {
     if (isTapRef.current) return;
@@ -324,6 +368,8 @@ const CountryProfile = () => {
     setLocalVisited(newVisited);
     setVisitedCountries(newVisited);
 
+  showToast(isVisited ? 'Country removed from visited list' : 'Country added to visited list');
+
     // Background update to Firebase
     updateDoc(doc(db, 'users', auth.currentUser.uid), {
       countriesVisited: isVisited ? arrayRemove(countryId) : arrayUnion(countryId)
@@ -336,7 +382,8 @@ const CountryProfile = () => {
     });
   }, [countryId, isVisited, localVisited, setVisitedCountries, isInitialized]);
 
-  return (
+return (
+  <View style={{ flex: 1 }}>
     <ScrollView style={styles.container} removeClippedSubviews>
       {/* Sekcja slidera */}
       <View style={styles.sliderContainer}>
@@ -431,7 +478,6 @@ const CountryProfile = () => {
           </View>
         </View>
       </View>
-
       {/* Przycisk dodawania/odznaczania kraju */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity
@@ -441,7 +487,6 @@ const CountryProfile = () => {
           <MaterialCommunityIcons name={isVisited ? 'check' : 'map-marker-plus-outline'} size={21} color="#fff" />
         </TouchableOpacity>
       </View>
-
       {/* Sekcja General Info */}
       <View style={styles.sectionBox}>
         <Text style={styles.sectionTitle}>General Info</Text>
@@ -476,7 +521,6 @@ const CountryProfile = () => {
           </View>
         </View>
       </View>
-
       {/* Sekcja Main Cities */}
       <View style={[styles.sectionBox, { paddingBottom: 20 }]}>
         <Text style={styles.sectionTitle}>Main Cities</Text>
@@ -488,7 +532,6 @@ const CountryProfile = () => {
           ))}
         </View>
       </View>
-
       {/* Lazy-loaded Extra Info – fallback nie blokuje interakcji dzięki pointerEvents: 'none' */}
       <Suspense fallback={
         <View style={{ pointerEvents: 'none' }}>
@@ -504,7 +547,29 @@ const CountryProfile = () => {
         />
       </Suspense>
     </ScrollView>
-  );
+    {/* Toast przeniesiony poza ScrollView */}
+    {toastMessage && (
+      <Animated.View
+        style={[
+          styles.toastContainer,
+          {
+            opacity: toastOpacity,
+            transform: [
+              {
+                translateY: toastPosition.interpolate({
+                  inputRange: [0, 100],
+                  outputRange: [0, 100],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <Text style={styles.toastText}>{toastMessage}</Text>
+      </Animated.View>
+    )}
+  </View>
+);
 };
 
 const styles = StyleSheet.create({
@@ -590,6 +655,24 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   tapArea: { position: 'absolute', top: 0, bottom: 0 },
+ 
+  toastContainer: {
+    position: 'absolute',
+    bottom: 20,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.56)',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    elevation: 5,
+    zIndex: 1000,
+  },
+  toastText: {
+    color: 'white',
+    fontSize: 14,
+    textAlign: 'center',
+    fontFamily: 'Figtree-Regular',
+  },
 });
 
 export default CountryProfile;
