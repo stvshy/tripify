@@ -26,7 +26,7 @@ import { TapGestureHandler, State as GestureState } from 'react-native-gesture-h
 import { useWeatherData } from './useWeatherData';
 import { arrayRemove, arrayUnion, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebaseConfig';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import rawCountryData from './countryData.json';
 import { useTheme } from 'react-native-paper';
 import { useCountries } from '../config/CountryContext';
@@ -379,7 +379,7 @@ const CountryProfile = () => {
         </ScrollView>
         {/* Przycisk "back" – dostępny natychmiast */}
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <MaterialIcons name="arrow-back" size={24} color="#fff" />
+          <MaterialIcons name="arrow-back" size={17} color="#fff" />
         </TouchableOpacity>
         {/* Lewy obszar dotykowy */}
         <TapGestureHandler
@@ -435,10 +435,10 @@ const CountryProfile = () => {
       {/* Przycisk dodawania/odznaczania kraju */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: isVisited ? '#32CD32' : theme.colors.primary }]}
+          style={[styles.addButton, { backgroundColor: isVisited ? 'rgb(6, 157, 11)' : '#a678e0' }]}
           onPress={toggleCountryVisited}
         >
-          <MaterialIcons name={isVisited ? 'check' : 'add'} size={24} color="#fff" />
+          <MaterialCommunityIcons name={isVisited ? 'check' : 'map-marker-plus-outline'} size={21} color="#fff" />
         </TouchableOpacity>
       </View>
 
@@ -569,8 +569,8 @@ const styles = StyleSheet.create({
   countryName: { color: '#fff', fontSize: 17, fontFamily: 'DMSans-Bold' },
   buttonContainer: { alignItems: 'flex-end', marginRight: 20, marginVertical: 10 },
   addButton: {
-    width: 50,
-    height: 50,
+    width: 35,
+    height: 35,
     borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
@@ -585,7 +585,7 @@ const styles = StyleSheet.create({
     top: 40,
     left: 10,
     zIndex: 10,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.23)',
     padding: 8,
     borderRadius: 20,
   },
