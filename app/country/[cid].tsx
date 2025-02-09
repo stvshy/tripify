@@ -153,7 +153,9 @@ const CountryProfile = () => {
   const toastOpacity = useRef(new Animated.Value(0)).current;
   const toastPosition = useRef(new Animated.Value(120)).current;
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  
+  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hideAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
+
   useEffect(() => {
     if (auth.currentUser) {
       const userDocRef = doc(db, 'users', auth.currentUser.uid);
@@ -193,7 +195,8 @@ const CountryProfile = () => {
   const [currentSlide, setCurrentSlide] = useState<number>(0);
   const sliderRef = useRef<ScrollView>(null);
   const isTapRef = useRef<boolean>(false);
-
+  const isAnimatingRef = useRef(false);
+  
   // Pobieramy dane pogodowe – dzięki cache’owaniu i abort controllerowi obliczenia nie blokują interfejsu,
   // a ciężka operacja zostanie opóźniona do momentu zakończenia interakcji (InteractionManager)
   const { data: weatherData, loading: weatherLoading } = useWeatherData(
@@ -269,12 +272,34 @@ const CountryProfile = () => {
     );
   }
 
-  const showToast = (message: string) => {
-    // setToastMessage(null);
-    setToastMessage(message);
-    
+  const resetToastState = () => {
+    hideTimeoutRef.current = null;
+    hideAnimationRef.current = null;
+    isAnimatingRef.current = false;
     toastOpacity.setValue(0);
     toastPosition.setValue(100);
+    setToastMessage(null);
+  };
+
+  const showToast = (message: string) => {
+    // Zatrzymaj poprzednie animacje i timeouty
+    if (hideAnimationRef.current) {
+      hideAnimationRef.current.stop();
+      hideAnimationRef.current = null;
+    }
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+
+    // Jeśli aktualnie trwa animacja znikania, przerwij ją i zresetuj stany
+    if (isAnimatingRef.current) {
+      resetToastState();
+    }
+
+    // Pokaż nową wiadomość
+    setToastMessage(message);
+    isAnimatingRef.current = true;
 
     Animated.parallel([
       Animated.timing(toastOpacity, {
@@ -289,8 +314,9 @@ const CountryProfile = () => {
       }),
     ]).start();
 
-    setTimeout(() => {
-      Animated.parallel([
+    // Ustaw timeout do ukrycia toastu
+    hideTimeoutRef.current = setTimeout(() => {
+      hideAnimationRef.current = Animated.parallel([
         Animated.timing(toastOpacity, {
           toValue: 0,
           duration: 300,
@@ -301,12 +327,27 @@ const CountryProfile = () => {
           duration: 300,
           useNativeDriver: true,
         }),
-      ]).start(() => {
-        setToastMessage(null);
+      ]);
+
+      hideAnimationRef.current.start(({ finished }) => {
+        if (finished) {
+          resetToastState();
+        }
       });
     }, 3000);
   };
 
+  // Czyszczenie przy odmontowaniu komponentu
+  useEffect(() => {
+    return () => {
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+      }
+      if (hideAnimationRef.current) {
+        hideAnimationRef.current.stop();
+      }
+    };
+  }, []);
 
   // Przy scrollu aktualizujemy bieżący index – niezależnie czy kolejny obrazek został pobrany czy nie
   const onSliderScroll = (e: any) => {
