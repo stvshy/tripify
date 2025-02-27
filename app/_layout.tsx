@@ -1,46 +1,39 @@
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { DefaultTheme } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useState } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
+import { useContext, useEffect, useState } from 'react';
 import { auth, db } from './config/firebaseConfig';
-import { View, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import LoadingScreen from '@/components/LoadingScreen';
-import { ThemeProvider } from './config/ThemeContext';
-import * as Font from 'expo-font';
+import { ThemeContext, ThemeProvider } from './config/ThemeContext';
 import { DraxProvider } from 'react-native-drax';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { doc, getDoc } from 'firebase/firestore';
+import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as SystemUI from 'expo-system-ui';
 
-// Zapobiegamy automatycznemu ukryciu splash screena
 SplashScreen.preventAutoHideAsync();
 
-// Inicjujemy klienta React Query
 const queryClient = new QueryClient();
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-
-// PlusJakartaSans
-'PlusJakartaSans-Bold': require('../assets/fonts/PlusJakartaSans-Bold.ttf'),
-
-'DMSans-Bold': require('../assets/fonts/DMSans-Bold.ttf'),
-'DMSans-SemiBold': require('../assets/fonts/DMSans-SemiBold.ttf'),
-
-'Inter-Bold': require('../assets/fonts/Inter-Bold.ttf'),
-'Inter-SemiBold': require('../assets/fonts/Inter-SemiBold.ttf'),
-'Inter-Regular': require('../assets/fonts/Inter-Regular.ttf'),
-'Inter-Medium': require('../assets/fonts/Inter-Medium.ttf'),
-
-'Figtree-Regular': require('../assets/fonts/Figtree-Regular.ttf'),
-'Figtree-Medium': require('../assets/fonts/Figtree-Medium.ttf'),
-
+    'PlusJakartaSans-Bold': require('../assets/fonts/PlusJakartaSans-Bold.ttf'),
+    'DMSans-Bold': require('../assets/fonts/DMSans-Bold.ttf'),
+    'DMSans-SemiBold': require('../assets/fonts/DMSans-SemiBold.ttf'),
+    'Inter-Bold': require('../assets/fonts/Inter-Bold.ttf'),
+    'Inter-SemiBold': require('../assets/fonts/Inter-SemiBold.ttf'),
+    'Inter-Regular': require('../assets/fonts/Inter-Regular.ttf'),
+    'Inter-Medium': require('../assets/fonts/Inter-Medium.ttf'),
+    'Figtree-Regular': require('../assets/fonts/Figtree-Regular.ttf'),
+    'Figtree-Medium': require('../assets/fonts/Figtree-Medium.ttf'),
   });
-  const [appIsReady, setAppIsReady] = useState(false);
+
+  // Poprawne typowanie stanu
   const [initialRouteName, setInitialRouteName] = useState<string | null>(null);
+  const [appIsReady, setAppIsReady] = useState(false);
 
   useEffect(() => {
     const prepareApp = async () => {
@@ -88,26 +81,39 @@ export default function RootLayout() {
     prepareApp();
   }, [fontsLoaded]);
 
+
   if (!appIsReady || !initialRouteName) {
     return <LoadingScreen />;
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <DraxProvider>
-        <ThemeProvider>
-          {/* Opakowujemy całą aplikację w QueryClientProvider */}
-          <QueryClientProvider client={queryClient}>
-            <Stack initialRouteName={initialRouteName} screenOptions={{ headerShown: false }}>
-              {/* Twoje Stack Screens */}
-            </Stack>
-          </QueryClientProvider>
-        </ThemeProvider>
-      </DraxProvider>
-    </GestureHandlerRootView>
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <DraxProvider>
+          <ThemeProvider>
+            <ThemedStatusBar />
+            <QueryClientProvider client={queryClient}>
+              <Stack initialRouteName={initialRouteName} screenOptions={{ headerShown: false }}>
+                {/* Twoje Stack Screens */}
+              </Stack>
+            </QueryClientProvider>
+          </ThemeProvider>
+        </DraxProvider>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }
+function ThemedStatusBar() {
+  const { isDarkTheme } = useContext(ThemeContext);
 
+  return (
+    <StatusBar
+      style={isDarkTheme ? 'light' : 'dark'}
+      backgroundColor="transparent"
+      translucent
+    />
+  );
+}
 const styles = StyleSheet.create({
   background: {
     flex: 1,
