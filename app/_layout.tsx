@@ -12,7 +12,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { doc, getDoc } from 'firebase/firestore';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import * as SystemUI from 'expo-system-ui';
+import * as NavigationBar from 'expo-navigation-bar';
+import { useTheme } from 'react-native-paper';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -91,7 +92,7 @@ export default function RootLayout() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <DraxProvider>
           <ThemeProvider>
-            <ThemedStatusBar />
+            <ThemedStatusBarAndNavBar />
             <QueryClientProvider client={queryClient}>
               <Stack initialRouteName={initialRouteName} screenOptions={{ headerShown: false }}>
                 {/* Twoje Stack Screens */}
@@ -103,8 +104,16 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
-function ThemedStatusBar() {
+function ThemedStatusBarAndNavBar() {
   const { isDarkTheme } = useContext(ThemeContext);
+  const theme = useTheme();
+  
+  useEffect(() => {
+    // Ustaw kolor tła dolnej belki nawigacyjnej
+    NavigationBar.setBackgroundColorAsync(theme.colors.surface);
+    // Ustaw styl przycisków dolnej belki (ikony: "light" daje jasne ikony, "dark" – ciemne)
+    NavigationBar.setButtonStyleAsync(isDarkTheme ? 'light' : 'dark');
+  }, [isDarkTheme, theme]);
 
   return (
     <StatusBar
@@ -114,6 +123,7 @@ function ThemedStatusBar() {
     />
   );
 }
+
 const styles = StyleSheet.create({
   background: {
     flex: 1,
