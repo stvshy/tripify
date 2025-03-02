@@ -213,11 +213,11 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
 
     const [preGeneratedImage, setPreGeneratedImage] = useState<string | null>(null);
 
-     useEffect(() => {
+    useEffect(() => {
       const generateImage = async () => {
         try {
           const uri = await captureRef(baseMapRef, {
-            format: 'jpg', // używamy formatu jpg dla najlepszej jakości
+            format: 'jpg',
             quality: 1,
             result: 'tmpfile',
             width: screenWidth * pixelRatio * 6,
@@ -228,9 +228,51 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
           console.error('Błąd przy pre-generowaniu obrazu:', error);
         }
       };
-
+    
       generateImage();
-    }, [baseMapRef]);
+    }, [baseMapRef, isDarkTheme]);
+    
+    // Funkcja udostępniania mapy
+    const shareMap = async () => {
+      if (isSharing) return; // Zapobiegamy wielokrotnym wywołaniom
+      setIsSharing(true);
+      
+      // Opóźnienie, by dać czas na pełne odświeżenie widoku
+      setTimeout(async () => {
+        try {
+          const isAvailable = await Sharing.isAvailableAsync();
+          if (!isAvailable) {
+            Alert.alert('Błąd', 'Udostępnianie nie jest dostępne na tym urządzeniu');
+            setIsSharing(false);
+            return;
+          }
+          let uri = preGeneratedImage;
+          if (!uri) {
+            uri = await captureRef(baseMapRef, {
+              format: 'jpg',
+              quality: 1,
+              result: 'tmpfile',
+              width: screenWidth * pixelRatio * 6,
+              height: (screenWidth * pixelRatio * 6) * (16 / 9),
+            });
+          }
+          if (uri) {
+            await Sharing.shareAsync(uri).catch((error) => {
+              console.log('Udostępnianie anulowane przez użytkownika:', error);
+            });
+          } else {
+            throw new Error('Nie udało się przechwycić widoku. URI jest null.');
+          }
+        } catch (error) {
+          console.error('Błąd podczas udostępniania mapy:', error);
+          if (!String(error).includes('The 2nd argument cannot be cast')) {
+            Alert.alert('Błąd', 'Wystąpił problem podczas udostępniania mapy');
+          }
+        } finally {
+          setIsSharing(false);
+        }
+      }, 200); // opóźnienie 200ms
+    };
 
     const applyTransparency = (hexColor: string, transparency: number) => {
       const hex = hexColor.replace('#', '');
@@ -440,43 +482,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       setTooltip(null);
     }, [scale, translateX, translateY]);
 
-    const shareMap = async () => {
-      try {
-        setIsSharing(true);
-        const isAvailable = await Sharing.isAvailableAsync();
-        if (!isAvailable) {
-          Alert.alert('Błąd', 'Udostępnianie nie jest dostępne na tym urządzeniu');
-          setIsSharing(false);
-          return;
-        }
-        // Używamy pre-generowanego obrazu, jeśli jest dostępny
-        let uri = preGeneratedImage;
-        if (!uri) {
-          uri = await captureRef(baseMapRef, {
-            format: 'jpg', // format jpg dla lepszej jakości
-            quality: 1,
-            result: 'tmpfile',
-            width: screenWidth * pixelRatio * 6,
-            height: (screenWidth * pixelRatio * 6) * (16 / 9),
-          });
-        }
-        if (uri) {
-          await Sharing.shareAsync(uri).catch((error) => {
-            console.log('Udostępnianie anulowane przez użytkownika:', error);
-          });
-        } else {
-          throw new Error('Nie udało się przechwycić widoku. URI jest null.');
-        }
-      } catch (error) {
-        console.error('Błąd podczas udostępniania mapy:', error);
-        if (!String(error).includes('The 2nd argument cannot be cast')) {
-          Alert.alert('Błąd', 'Wystąpił problem podczas udostępniania mapy');
-        }
-      } finally {
-        setIsSharing(false);
-      }
-    };
-    
+  
 
     return (
       <GestureHandlerRootView>
