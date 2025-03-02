@@ -5,6 +5,7 @@ import React, {
   useRef,
   useState,
   useCallback,
+  useMemo,
 } from 'react';
 import {
   StyleSheet,
@@ -34,7 +35,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
-import { useTheme } from 'react-native-paper';
+import { useTheme, MD3Theme } from 'react-native-paper';
 import logoImage from '../assets/images/logo-tripify-tekstowe2.png';
 import * as Progress from 'react-native-progress';
 import logoTextImage from '../assets/images/logo-tripify-tekst.png';
@@ -68,24 +69,31 @@ const initialTranslateY = 0;
 
 // Przetwarzanie danych, aby usunąć duplikaty i upewnić się, że 'cca2' istnieje
 const uniqueCountries: Country[] = [];
-const countryMap: { [key: string]: Country } = {};
 
-rawCountriesData.countries.forEach((rawCountry: { id: string; name: string; class: string | null; path: string }) => {
-  const cca2 = rawCountry.id.length === 2 ? rawCountry.id.toUpperCase() : '';
 
-  const countryWithCca2: Country = {
-    ...rawCountry,
-    cca2,
-  };
+const { countries, countryCentroids } = (() => {
+  const countryMap: { [key: string]: Country } = {};
+  rawCountriesData.countries.forEach((rawCountry: { id: string; name: string; class: string | null; path: string }) => {
+    const cca2 = rawCountry.id.length === 2 ? rawCountry.id.toUpperCase() : '';
+    const countryWithCca2: Country = { ...rawCountry, cca2 };
+    if (!countryMap[rawCountry.id]) {
+      countryMap[rawCountry.id] = countryWithCca2;
+    } else {
+      countryMap[rawCountry.id].path += ' ' + rawCountry.path;
+    }
+  });
+  const uniqueCountries = Object.values(countryMap);
+  const centroids: { [key: string]: { x: number; y: number } } = {};
+  uniqueCountries.forEach((country) => {
+    const pts = extractPoints(country.path);
+    if (pts.length >= 3) {
+      centroids[country.id] = computeCentroid(pts);
+    }
+  });
+  return { countries: uniqueCountries, countryCentroids: centroids };
+})();
 
-  if (!countryMap[rawCountry.id]) {
-    countryMap[rawCountry.id] = countryWithCca2;
-  } else {
-    countryMap[rawCountry.id].path += ' ' + rawCountry.path;
-  }
-});
 
-uniqueCountries.push(...Object.values(countryMap));
 const data: CountriesData = { countries: uniqueCountries };
 
 /**
@@ -136,14 +144,7 @@ function computeCentroid(points: { x: number; y: number }[]): { x: number; y: nu
   return { x: cx, y: cy };
 }
 
-// Mapa centroidów dla każdego kraju
-const countryCentroids: { [key: string]: { x: number; y: number } } = {};
-data.countries.forEach((country) => {
-  const pts = extractPoints(country.path);
-  if (pts.length >= 3) {
-    countryCentroids[country.id] = computeCentroid(pts);
-  }
-});
+
 
 export interface InteractiveMapRef {
   capture: () => Promise<string | null>;
@@ -223,8 +224,8 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       return isVisited ? 'rgba(0,174,245,255)' : '#b2b7bf';
     };
 
-    const isCountryHighlighted = (countryCode: string) => {
-      return tooltip && tooltip.country.id === countryCode;
+    const isCountryHighlighted = (countryCode: string): boolean => {
+      return Boolean(tooltip && tooltip.country.id === countryCode);
     };
 
     const visitedCountries = selectedCountries.length;
@@ -347,7 +348,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     const handlePathPress = useCallback(
       (event: GestureResponderEvent, countryCode: string) => {
         event.stopPropagation && event.stopPropagation();
-        const country = data.countries.find(c => c.id === countryCode);
+        const country = countries.find(c => c.id === countryCode);
         if (!country) return;
     
         const { pageX, pageY } = event.nativeEvent;
@@ -364,6 +365,31 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         onCountryPress(countryCode);
       },
       [containerOffset, onCountryPress]
+    );
+    interface CountryPathProps {
+      country: Country;
+      index: number;
+      getCountryFill: (countryCode: string) => string;
+      isCountryHighlighted: (countryCode: string) => boolean;
+      theme: MD3Theme;
+      handlePathPress: (event: GestureResponderEvent, countryCode: string) => void;
+    }
+    
+    const CountryPath = React.memo(
+      ({ country, index, getCountryFill, isCountryHighlighted, theme, handlePathPress }: CountryPathProps) => {
+        const countryCode = country.id;
+        if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
+        return (
+          <Path
+            key={`${countryCode}-${index}`}
+            d={country.path}
+            fill={getCountryFill(countryCode)}
+            stroke={isCountryHighlighted(countryCode) ? theme.colors.primary : theme.colors.outline}
+            strokeWidth={isCountryHighlighted(countryCode) ? 0.5 : 0.2}
+            onPress={(event) => handlePathPress(event, countryCode)}
+          />
+        );
+      }
     );
     
     const resetMap = useCallback(() => {
@@ -435,20 +461,17 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                     preserveAspectRatio="xMidYMid meet"
                     style={styles.mapContainer}
                   >
-                    {data.countries.map((country: Country, index: number) => {
-                      const countryCode = country.id;
-                      if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
-                      return (
-                        <Path
-                          key={`${countryCode}-${index}`}
-                          d={country.path}
-                          fill={getCountryFill(countryCode)}
-                          stroke={isCountryHighlighted(countryCode) ? theme.colors.primary : theme.colors.outline}
-                          strokeWidth={isCountryHighlighted(countryCode) ? 0.5 : 0.2}
-                          onPress={(event) => handlePathPress(event, countryCode)}
-                        />
-                      );
-                    })}
+                    {countries.map((country: Country, index: number) => (
+  <CountryPath
+    key={`${country.id}-${index}`}
+    country={country}
+    index={index}
+    getCountryFill={getCountryFill}
+    isCountryHighlighted={isCountryHighlighted}
+    theme={theme}
+    handlePathPress={handlePathPress}
+  />
+))}
                   </AnimatedSvg>
                 </Animated.View>
                 {/* Tooltip z informacjami o kraju oraz przyciskiem View */}
