@@ -164,7 +164,7 @@ const TabLayoutContent: React.FC = () => {
         },
         headerStyle: {
           backgroundColor: theme.colors.surface,
-          height: window.height * 0.105,
+          height: window.height * 0.108,
           shadowOpacity: 0,
           elevation: 0,
         },
