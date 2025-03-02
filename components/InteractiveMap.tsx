@@ -6,6 +6,7 @@ import React, {
   useState,
   useCallback,
   useMemo,
+  useEffect,
 } from 'react';
 import {
   StyleSheet,
@@ -206,6 +207,27 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         return null;
       },
     }));
+
+    const [preGeneratedImage, setPreGeneratedImage] = useState<string | null>(null);
+
+     useEffect(() => {
+      const generateImage = async () => {
+        try {
+          const uri = await captureRef(baseMapRef, {
+            format: 'jpg', // używamy formatu jpg dla najlepszej jakości
+            quality: 1,
+            result: 'tmpfile',
+            width: screenWidth * pixelRatio * 6,
+            height: (screenWidth * pixelRatio * 6) * (16 / 9),
+          });
+          setPreGeneratedImage(uri);
+        } catch (error) {
+          console.error('Błąd przy pre-generowaniu obrazu:', error);
+        }
+      };
+
+      generateImage();
+    }, [baseMapRef]);
 
     const applyTransparency = (hexColor: string, transparency: number) => {
       const hex = hexColor.replace('#', '');
@@ -408,13 +430,17 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
           setIsSharing(false);
           return;
         }
-        const uri = await captureRef(baseMapRef, {
-          format: 'png',
-          quality: 1,
-          result: 'tmpfile',
-          width: screenWidth * pixelRatio * 6,
-          height: (screenWidth * pixelRatio * 6) * (16 / 9),
-        });
+        // Używamy pre-generowanego obrazu, jeśli jest dostępny
+        let uri = preGeneratedImage;
+        if (!uri) {
+          uri = await captureRef(baseMapRef, {
+            format: 'jpg', // format jpg dla lepszej jakości
+            quality: 1,
+            result: 'tmpfile',
+            width: screenWidth * pixelRatio * 6,
+            height: (screenWidth * pixelRatio * 6) * (16 / 9),
+          });
+        }
         if (uri) {
           await Sharing.shareAsync(uri).catch((error) => {
             console.log('Udostępnianie anulowane przez użytkownika:', error);
@@ -431,6 +457,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         setIsSharing(false);
       }
     };
+    
 
     return (
       <GestureHandlerRootView>
@@ -748,10 +775,11 @@ const styles = StyleSheet.create({
   },
   baseMapContainer: {
     position: 'absolute',
-    top: -1000,
-    left: -1000,
+    top: 0, // zamiast -1000
+    left: 0, // zamiast -1000
     width: screenWidth,
     height: screenWidth * (16 / 9),
+    opacity: 0, // ukrywamy widok, ale pozostaje on w drzewie renderowania
     pointerEvents: 'none',
   },
   buttonContainer: {
