@@ -155,6 +155,7 @@ const TabLayoutContent: React.FC = () => {
           height: window.height * 0.067,
           borderTopWidth: 0,
           justifyContent: 'center',
+          // marginTop: -1,
         },
         tabBarItemStyle: {
           justifyContent: 'center',
@@ -242,7 +243,7 @@ const TabLayoutContent: React.FC = () => {
                 pressed && styles.pressedHeaderRight,
               ]}
             >
-              <AntDesign name="search1" size={20} color={theme.colors.onSurface} />
+              <AntDesign name="search1" size={20.1} color={theme.colors.onSurface} />
             </Pressable>
           ),
         }}

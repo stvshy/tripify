@@ -92,7 +92,7 @@ export default function RootLayout() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <DraxProvider>
           <ThemeProvider>
-            <ThemedStatusBarAndNavBar />
+            <ThemedStatusBarAndNavBar tooltipVisible={false} />
             <QueryClientProvider client={queryClient}>
               <Stack initialRouteName={initialRouteName} screenOptions={{ headerShown: false }}>
                 {/* Twoje Stack Screens */}
@@ -104,16 +104,16 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
-function ThemedStatusBarAndNavBar() {
+
+function ThemedStatusBarAndNavBar({ tooltipVisible }: { tooltipVisible: boolean }) {
   const { isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme();
-  
+
   useEffect(() => {
-    // Ustaw kolor tła dolnej belki nawigacyjnej
+    // Za każdym razem, gdy zmienia się tooltip, ustawiamy kolory na nasze wartości.
     NavigationBar.setBackgroundColorAsync(theme.colors.surface);
-    // Ustaw styl przycisków dolnej belki (ikony: "light" daje jasne ikony, "dark" – ciemne)
     NavigationBar.setButtonStyleAsync(isDarkTheme ? 'light' : 'dark');
-  }, [isDarkTheme, theme]);
+  }, [isDarkTheme, theme, tooltipVisible]);
 
   return (
     <StatusBar

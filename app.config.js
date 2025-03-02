@@ -28,8 +28,12 @@ export default {
       androidStatusBar: {
         backgroundColor: "transparent",
         translucent: true,
-        // Opcjonalnie, ale może nie zadziałać we wszystkich przypadkach:
         barStyle: "light-content"
+      },
+      androidNavigationBar: {
+        visible: "sticky",
+        backgroundColor: "#F5F5F5",
+        barStyle: "dark-content"
       },
     },
     web: {
@@ -53,7 +57,20 @@ export default {
       ],
       "expo-router",
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      // Dodajemy plugin expo-build-properties
+      [
+        "expo-build-properties",
+        {
+          android: {
+            compileSdkVersion: 34,
+            targetSdkVersion: 34,
+              gradleProperties: {
+                "glideVersion": "4.13.2"
+            },
+          },
+        },
+      ],
     ],
     experiments: {
       typedRoutes: true
