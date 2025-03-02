@@ -178,7 +178,10 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     const scale = useSharedValue(1);
     const translateX = useSharedValue(initialTranslateX);
     const translateY = useSharedValue(initialTranslateY);
-
+    const AnimatedImage = Animated.createAnimatedComponent(Image);
+    const storedButtonTranslateY = useSharedValue(0);
+    const tooltipVisible = useSharedValue(0);
+    
     const activeTouches = useSharedValue<{ id: number; x: number; y: number }[]>([]);
     const initialDistance = useSharedValue<number | null>(null);
     const initialFocalX = useSharedValue<number>(0);
@@ -257,7 +260,17 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       'worklet';
       return Math.min(Math.max(value, min), max);
     };
-
+    useEffect(() => {
+      if (tooltip) {
+        tooltipVisible.value = 1;
+        // Obliczamy bieżący progress dla przycisków
+        const currentProgress = Math.min((scale.value - 1) / (1.16 - 1), 1);
+        storedButtonTranslateY.value = screenHeight * 0.05 * currentProgress;
+      } else {
+        tooltipVisible.value = 0;
+      }
+    }, [tooltip]);
+    
     const fullViewRef = useRef<View>(null);
 
     const startX = useSharedValue(0);
@@ -329,10 +342,12 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     }));
 
     const topTextAnimatedStyle = useAnimatedStyle(() => {
-      const translateY = -100 * (scale.value - 1);
-      const opacity = Math.max(1 - Math.pow(scale.value - 1, 1.5), 0);
+      const translateY = -120 * (scale.value - 1);
+      // Tymczasowo ustawiamy opacity na wartość zależną od scale
+      const opacity = 1 - Math.min(1, (scale.value - 1) * 6.5);
       return { transform: [{ translateY }], opacity };
     });
+    
 
     const getTranslateY = (maxTranslateY: number, maxScale: number, scaleValue: number) => {
       'worklet';
@@ -341,20 +356,24 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     };
 
     const bottomTextAnimatedStyle = useAnimatedStyle(() => {
-      const maxTranslateY = screenHeight * 0.03;
+      const maxTranslateY = screenHeight * 0.14;
       const maxScale = 1.6;
       const translateY = getTranslateY(maxTranslateY, maxScale, scale.value);
       const opacityProgress = Math.min((scale.value - 1) / (maxScale - 1), 1);
-      const opacity = Math.max(1 - Math.pow(opacityProgress, 1.2), 0);
+      const opacity = 1 - Math.min(1, (scale.value - 1) * 5);
       return { transform: [{ translateY }], opacity };
     });
 
     const buttonContainerAnimatedStyle = useAnimatedStyle(() => {
       const maxTranslateY = screenHeight * 0.05;
-      const maxScale = 1.6;
-      const translateY = getTranslateY(maxTranslateY, maxScale, scale.value);
+      const saturationScale = 1.16;
+      const progress = Math.min((scale.value - 1) / (saturationScale - 1), 1);
+      const computedTranslateY = maxTranslateY * progress;
+      const translateY = tooltipVisible.value ? storedButtonTranslateY.value : computedTranslateY;
       return { transform: [{ translateY }] };
     });
+    
+    
 
     const tooltipAnimatedStyle = useAnimatedStyle(() => {
       try {
@@ -471,7 +490,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         >
           {/* Górna sekcja z logo */}
           <Animated.View style={[styles.topSection, topTextAnimatedStyle]}>
-            <Image
+            <AnimatedImage
               source={isDarkTheme ? logoTextImageDesaturated : logoTextImage}
               style={styles.logoTextImage}
               resizeMode="contain"
