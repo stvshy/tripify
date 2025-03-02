@@ -462,16 +462,16 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                     style={styles.mapContainer}
                   >
                     {countries.map((country: Country, index: number) => (
-  <CountryPath
-    key={`${country.id}-${index}`}
-    country={country}
-    index={index}
-    getCountryFill={getCountryFill}
-    isCountryHighlighted={isCountryHighlighted}
-    theme={theme}
-    handlePathPress={handlePathPress}
-  />
-))}
+                      <CountryPath
+                        key={`${country.id}-${index}`}
+                        country={country}
+                        index={index}
+                        getCountryFill={getCountryFill}
+                        isCountryHighlighted={isCountryHighlighted}
+                        theme={theme}
+                        handlePathPress={handlePathPress}
+                      />
+                    ))}
                   </AnimatedSvg>
                 </Animated.View>
                 {/* Tooltip z informacjami o kraju oraz przyciskiem View */}
@@ -554,19 +554,17 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                 viewBox="232 0 1700 857"
                 preserveAspectRatio="xMidYMid meet"
               >
-                {data.countries.map((country: Country, index: number) => {
-                  const countryCode = country.id;
-                  if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
-                  return (
-                    <Path
-                      key={`${countryCode}-${index}`}
-                      d={country.path}
-                      fill={getCountryFill(countryCode)}
-                      stroke={theme.colors.outline}
-                      strokeWidth={1}
-                    />
-                  );
-                })}
+                {countries.map((country: Country, index: number) => (
+                  <CountryPath
+                    key={`${country.id}-${index}`}
+                    country={country}
+                    index={index}
+                    getCountryFill={getCountryFill}
+                    isCountryHighlighted={isCountryHighlighted}
+                    theme={theme}
+                    handlePathPress={handlePathPress}
+                  />
+                ))}
               </Svg>
             </View>
             <View style={styles.bottomSectionPhoto}>
