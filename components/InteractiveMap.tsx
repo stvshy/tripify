@@ -444,7 +444,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                           d={country.path}
                           fill={getCountryFill(countryCode)}
                           stroke={isCountryHighlighted(countryCode) ? theme.colors.primary : theme.colors.outline}
-                          strokeWidth={isCountryHighlighted(countryCode) ? 2 : 0.2}
+                          strokeWidth={isCountryHighlighted(countryCode) ? 0.5 : 0.2}
                           onPress={(event) => handlePathPress(event, countryCode)}
                         />
                       );
@@ -458,6 +458,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                     from={new Rect(tooltip.x, tooltip.y, 1, 1)}
                     onRequestClose={() => setTooltip(null)}
                     popoverStyle={styles.popoverContainer}
+                    arrowSize={{ width: 11.2, height: 11 }}
                     backgroundStyle={{ backgroundColor: 'transparent' }}
                   >
                     <View style={styles.popoverContent}>
