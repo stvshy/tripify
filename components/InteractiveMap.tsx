@@ -30,9 +30,11 @@ import rawCountriesData from '../assets/maps/countries.json';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Sharing from 'expo-sharing';
 import Animated, {
+  Easing,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
@@ -419,36 +421,33 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
 
     const tooltipAnimatedStyle = useAnimatedStyle(() => {
       try {
-        return { transform: [{ scale: withTiming(1 / scale.value, { duration: 100 }) }] };
+        return { transform: [{ scale: withTiming(1 / scale.value, { duration: 100, easing: Easing.out(Easing.ease) }) }] };
       } catch (error) {
         console.error("Tooltip animation error:", error);
         return {};
       }
     });
 
-    // Obsługa kliknięcia w kraj – zatrzymujemy propagację zdarzenia, ustawiamy tooltip
-    // oraz wywołujemy callback przekazany przez rodzica.
     const handlePathPress = useCallback(
       (event: GestureResponderEvent, countryCode: string) => {
         event.stopPropagation && event.stopPropagation();
         const country = countries.find(c => c.id === countryCode);
         if (!country) return;
-    
         const { pageX, pageY } = event.nativeEvent;
         const localX = pageX - containerOffset.x;
         const localY = pageY - containerOffset.y;
-    
         setTooltip({
           x: localX,
           y: localY,
           country,
           position: localY > 100 ? 'top' : 'bottom',
         });
-        // Przekazujemy kod kraju do rodzica – logika wyboru jest obsługiwana w App.tsx.
         onCountryPress(countryCode);
       },
       [containerOffset, onCountryPress]
     );
+
+
     interface CountryPathProps {
       country: Country;
       index: number;
@@ -476,12 +475,11 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     );
     
     const resetMap = useCallback(() => {
-      scale.value = withTiming(1, { duration: 300 });
-      translateX.value = withTiming(0, { duration: 300 });
-      translateY.value = withTiming(0, { duration: 300 });
+      scale.value = withSpring(1, { damping: 18.5, stiffness: 90 });
+      translateX.value = withSpring(0, { damping: 18.5, stiffness: 90 });
+      translateY.value = withSpring(0, { damping: 18.5, stiffness: 90 });
       setTooltip(null);
     }, [scale, translateX, translateY]);
-
   
 
     return (
