@@ -617,9 +617,9 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                       </Text>
                       <AntDesign
                         name="rightcircle"
-                        size={16}
-                        color="rgb(255, 255, 255)"
-                        style={{ marginLeft: -2, marginTop: 2 }}
+                        size={13}
+                        color={"rgb(240, 237, 242)"}
+                        style={{ marginLeft: -2, marginTop: 1.5 }}
                       />
                     </TouchableOpacity>
                   </Popover>
