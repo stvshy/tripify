@@ -7,7 +7,7 @@ import React, {
   useCallback,
   useMemo,
   useEffect,
-} from 'react';
+} from "react";
 import {
   StyleSheet,
   View,
@@ -22,13 +22,17 @@ import {
   PixelRatio,
   Image,
   LayoutChangeEvent,
-} from 'react-native';
-import Svg, { Path } from 'react-native-svg';
-import { ThemeContext } from '../app/config/ThemeContext';
-import { captureRef } from 'react-native-view-shot';
-import rawCountriesData from '../assets/maps/countries.json';
-import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
-import * as Sharing from 'expo-sharing';
+} from "react-native";
+import Svg, { Path } from "react-native-svg";
+import { ThemeContext } from "../app/config/ThemeContext";
+import { captureRef } from "react-native-view-shot";
+import rawCountriesData from "../assets/maps/countries.json";
+import {
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
+} from "react-native-gesture-handler";
+import * as Sharing from "expo-sharing";
 import Animated, {
   Easing,
   runOnJS,
@@ -36,17 +40,19 @@ import Animated, {
   useSharedValue,
   withSpring,
   withTiming,
-} from 'react-native-reanimated';
-import { Feather, MaterialIcons } from '@expo/vector-icons';
-import { useTheme, MD3Theme } from 'react-native-paper';
-import logoImage from '../assets/images/logo-tripify-tekstowe2.png';
-import * as Progress from 'react-native-progress';
-import logoTextImage from '../assets/images/logo-tripify-tekst.png';
-import logoTextImageDesaturated from '../assets/images/logo-tripify-tekst2.png';
-import CountryFlag from 'react-native-country-flag';
-import Popover, { Rect } from 'react-native-popover-view';
+} from "react-native-reanimated";
+import { Feather, MaterialIcons } from "@expo/vector-icons";
+import { useTheme, MD3Theme } from "react-native-paper";
+import logoImage from "../assets/images/logo-tripify-tekstowe2.png";
+import * as Progress from "react-native-progress";
+import logoTextImage from "../assets/images/logo-tripify-tekst.png";
+import logoTextImageDesaturated from "../assets/images/logo-tripify-tekst2.png";
+import CountryFlag from "react-native-country-flag";
+import Popover, { Rect } from "react-native-popover-view";
 // Dodajemy hook do nawigacji
-import { useRouter } from 'expo-router';
+import { useRouter } from "expo-router";
+import { AntDesign } from "@expo/vector-icons";
+import { Entypo } from "@expo/vector-icons";
 
 export interface Country {
   id: string;
@@ -60,8 +66,8 @@ export interface CountriesData {
   countries: Country[];
 }
 
-const windowWidth = Dimensions.get('window').width;
-const windowHeight = Dimensions.get('window').height;
+const windowWidth = Dimensions.get("window").width;
+const windowHeight = Dimensions.get("window").height;
 const BUTTON_SIZE = Math.min(windowWidth, windowHeight) * 0.08;
 const ICON_SIZE = BUTTON_SIZE * 0.5;
 const screenWidth = windowWidth;
@@ -73,18 +79,25 @@ const initialTranslateY = 0;
 // Przetwarzanie danych, aby usunąć duplikaty i upewnić się, że 'cca2' istnieje
 const uniqueCountries: Country[] = [];
 
-
 const { countries, countryCentroids } = (() => {
   const countryMap: { [key: string]: Country } = {};
-  rawCountriesData.countries.forEach((rawCountry: { id: string; name: string; class: string | null; path: string }) => {
-    const cca2 = rawCountry.id.length === 2 ? rawCountry.id.toUpperCase() : '';
-    const countryWithCca2: Country = { ...rawCountry, cca2 };
-    if (!countryMap[rawCountry.id]) {
-      countryMap[rawCountry.id] = countryWithCca2;
-    } else {
-      countryMap[rawCountry.id].path += ' ' + rawCountry.path;
+  rawCountriesData.countries.forEach(
+    (rawCountry: {
+      id: string;
+      name: string;
+      class: string | null;
+      path: string;
+    }) => {
+      const cca2 =
+        rawCountry.id.length === 2 ? rawCountry.id.toUpperCase() : "";
+      const countryWithCca2: Country = { ...rawCountry, cca2 };
+      if (!countryMap[rawCountry.id]) {
+        countryMap[rawCountry.id] = countryWithCca2;
+      } else {
+        countryMap[rawCountry.id].path += " " + rawCountry.path;
+      }
     }
-  });
+  );
   const uniqueCountries = Object.values(countryMap);
   const centroids: { [key: string]: { x: number; y: number } } = {};
   uniqueCountries.forEach((country) => {
@@ -95,7 +108,6 @@ const { countries, countryCentroids } = (() => {
   });
   return { countries: uniqueCountries, countryCentroids: centroids };
 })();
-
 
 const data: CountriesData = { countries: uniqueCountries };
 
@@ -129,7 +141,10 @@ function computeArea(points: { x: number; y: number }[]): number {
   return Math.abs(area / 2);
 }
 
-function computeCentroid(points: { x: number; y: number }[]): { x: number; y: number } {
+function computeCentroid(points: { x: number; y: number }[]): {
+  x: number;
+  y: number;
+} {
   let area = 0;
   let cx = 0;
   let cy = 0;
@@ -147,8 +162,6 @@ function computeCentroid(points: { x: number; y: number }[]): { x: number; y: nu
   return { x: cx, y: cy };
 }
 
-
-
 export interface InteractiveMapRef {
   capture: () => Promise<string | null>;
 }
@@ -157,7 +170,7 @@ interface TooltipPosition {
   x: number;
   y: number;
   country: Country;
-  position: 'top' | 'bottom';
+  position: "top" | "bottom";
 }
 
 interface InteractiveMapProps {
@@ -183,8 +196,10 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     const AnimatedImage = Animated.createAnimatedComponent(Image);
     const storedButtonTranslateY = useSharedValue(0);
     const tooltipVisible = useSharedValue(0);
-    
-    const activeTouches = useSharedValue<{ id: number; x: number; y: number }[]>([]);
+
+    const activeTouches = useSharedValue<
+      { id: number; x: number; y: number }[]
+    >([]);
     const initialDistance = useSharedValue<number | null>(null);
     const initialFocalX = useSharedValue<number>(0);
     const initialFocalY = useSharedValue<number>(0);
@@ -206,69 +221,77 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     useImperativeHandle(ref, () => ({
       capture: async () => {
         if (mapViewRef.current) {
-          const uri = await captureRef(mapViewRef, { format: 'png', quality: 1 });
+          const uri = await captureRef(mapViewRef, {
+            format: "png",
+            quality: 1,
+          });
           return uri;
         }
         return null;
       },
     }));
 
-    const [preGeneratedImage, setPreGeneratedImage] = useState<string | null>(null);
+    const [preGeneratedImage, setPreGeneratedImage] = useState<string | null>(
+      null
+    );
 
     useEffect(() => {
       const generateImage = async () => {
         try {
           const uri = await captureRef(baseMapRef, {
-            format: 'jpg',
+            format: "jpg",
             quality: 1,
-            result: 'tmpfile',
+            result: "tmpfile",
             width: screenWidth * pixelRatio * 6,
-            height: (screenWidth * pixelRatio * 6) * (16 / 9),
+            height: screenWidth * pixelRatio * 6 * (16 / 9),
           });
           setPreGeneratedImage(uri);
         } catch (error) {
-          console.error('Błąd przy pre-generowaniu obrazu:', error);
+          console.error("Błąd przy pre-generowaniu obrazu:", error);
         }
       };
-    
+
       generateImage();
     }, [baseMapRef, isDarkTheme]);
-    
+
     // Funkcja udostępniania mapy
     const shareMap = async () => {
       if (isSharing) return; // Zapobiegamy wielokrotnym wywołaniom
       setIsSharing(true);
-      
+
       // Opóźnienie, by dać czas na pełne odświeżenie widoku
       setTimeout(async () => {
         try {
           const isAvailable = await Sharing.isAvailableAsync();
           if (!isAvailable) {
-            Alert.alert('Błąd', 'Udostępnianie nie jest dostępne na tym urządzeniu');
+            Alert.alert(
+              "Błąd",
+              "Udostępnianie nie jest dostępne na tym urządzeniu"
+            );
             setIsSharing(false);
             return;
           }
           let uri = preGeneratedImage;
           if (!uri) {
             uri = await captureRef(baseMapRef, {
-              format: 'jpg',
+              format: "jpg",
               quality: 1,
-              result: 'tmpfile',
+              result: "tmpfile",
               width: screenWidth * pixelRatio * 6,
-              height: (screenWidth * pixelRatio * 6) * (16 / 9),
+              height: screenWidth * pixelRatio * 6 * (16 / 9),
             });
           }
           if (uri) {
             await Sharing.shareAsync(uri).catch((error) => {
-              console.log('Udostępnianie anulowane przez użytkownika:', error);
+              console.log("Udostępnianie anulowane przez użytkownika:", error);
             });
           } else {
-            throw new Error('Nie udało się przechwycić widoku. URI jest null.');
+            throw new Error("Nie udało się przechwycić widoku. URI jest null.");
           }
         } catch (error) {
-          console.error('Błąd podczas udostępniania mapy:', error);
-          if (!String(error).includes('The 2nd argument cannot be cast')) {
-            Alert.alert('Błąd', 'Wystąpił problem podczas udostępniania mapy');
+          console.error("Błąd podczas udostępniania mapy:", error);
+          if (!String(error).includes("The 2nd argument cannot be cast")) {
+            Alert.alert("Błąd", "Wystąpił problem podczas udostępniania mapy");
           }
         } finally {
           setIsSharing(false);
@@ -277,7 +300,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     };
 
     const applyTransparency = (hexColor: string, transparency: number) => {
-      const hex = hexColor.replace('#', '');
+      const hex = hexColor.replace("#", "");
       const r = parseInt(hex.slice(0, 2), 16);
       const g = parseInt(hex.slice(2, 4), 16);
       const b = parseInt(hex.slice(4, 6), 16);
@@ -290,7 +313,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       if (isHighlighted) {
         return applyTransparency(theme.colors.primary, 0.75);
       }
-      return isVisited ? 'rgba(0,174,245,255)' : '#b2b7bf';
+      return isVisited ? "rgba(0,174,245,255)" : "#b2b7bf";
     };
 
     const isCountryHighlighted = (countryCode: string): boolean => {
@@ -298,10 +321,11 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     };
 
     const visitedCountries = selectedCountries.length;
-    const percentageVisited = totalCountries > 0 ? visitedCountries / totalCountries : 0;
+    const percentageVisited =
+      totalCountries > 0 ? visitedCountries / totalCountries : 0;
 
     const clamp = (value: number, min: number, max: number): number => {
-      'worklet';
+      "worklet";
       return Math.min(Math.max(value, min), max);
     };
     useEffect(() => {
@@ -314,7 +338,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         tooltipVisible.value = 0;
       }
     }, [tooltip]);
-    
+
     const fullViewRef = useRef<View>(null);
 
     const startX = useSharedValue(0);
@@ -346,14 +370,16 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
           scale.value = newScale;
         }
         const newTranslateX = clamp(
-          baseTranslateX.value - (initialFocalX.value - windowWidth / 2) * (scaleFactor - 1),
-          -windowWidth * (newScale - 1) / 2,
-          windowWidth * (newScale - 1) / 2
+          baseTranslateX.value -
+            (initialFocalX.value - windowWidth / 2) * (scaleFactor - 1),
+          (-windowWidth * (newScale - 1)) / 2,
+          (windowWidth * (newScale - 1)) / 2
         );
         const newTranslateY = clamp(
-          baseTranslateY.value - (initialFocalY.value - windowHeight / 2) * (scaleFactor - 1),
-          -windowHeight * (newScale - 1) / 4,
-          windowHeight * (newScale - 1) / 4
+          baseTranslateY.value -
+            (initialFocalY.value - windowHeight / 2) * (scaleFactor - 1),
+          (-windowHeight * (newScale - 1)) / 4,
+          (windowHeight * (newScale - 1)) / 4
         );
         if (Math.abs(newTranslateX - translateX.value) > TRANSLATE_THRESHOLD) {
           translateX.value = newTranslateX;
@@ -373,8 +399,16 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       .onUpdate((event) => {
         const maxTranslateX = (windowWidth * (scale.value - 1)) / 2;
         const maxTranslateY = (windowHeight * (scale.value - 1)) / 4;
-        translateX.value = clamp(startX.value + event.translationX, -maxTranslateX, maxTranslateX);
-        translateY.value = clamp(startY.value + event.translationY, -maxTranslateY, maxTranslateY);
+        translateX.value = clamp(
+          startX.value + event.translationX,
+          -maxTranslateX,
+          maxTranslateX
+        );
+        translateY.value = clamp(
+          startY.value + event.translationY,
+          -maxTranslateY,
+          maxTranslateY
+        );
       });
 
     const animatedStyle = useAnimatedStyle(() => ({
@@ -391,10 +425,13 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       const opacity = 1 - Math.min(1, (scale.value - 1) * 6.5);
       return { transform: [{ translateY }], opacity };
     });
-    
 
-    const getTranslateY = (maxTranslateY: number, maxScale: number, scaleValue: number) => {
-      'worklet';
+    const getTranslateY = (
+      maxTranslateY: number,
+      maxScale: number,
+      scaleValue: number
+    ) => {
+      "worklet";
       const progress = Math.min((scaleValue - 1) / (maxScale - 1), 1);
       return maxTranslateY * progress;
     };
@@ -413,15 +450,24 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       const saturationScale = 1.16;
       const progress = Math.min((scale.value - 1) / (saturationScale - 1), 1);
       const computedTranslateY = maxTranslateY * progress;
-      const translateY = tooltipVisible.value ? storedButtonTranslateY.value : computedTranslateY;
+      const translateY = tooltipVisible.value
+        ? storedButtonTranslateY.value
+        : computedTranslateY;
       return { transform: [{ translateY }] };
     });
-    
-    
 
     const tooltipAnimatedStyle = useAnimatedStyle(() => {
       try {
-        return { transform: [{ scale: withTiming(1 / scale.value, { duration: 100, easing: Easing.out(Easing.ease) }) }] };
+        return {
+          transform: [
+            {
+              scale: withTiming(1 / scale.value, {
+                duration: 100,
+                easing: Easing.out(Easing.ease),
+              }),
+            },
+          ],
+        };
       } catch (error) {
         console.error("Tooltip animation error:", error);
         return {};
@@ -431,7 +477,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     const handlePathPress = useCallback(
       (event: GestureResponderEvent, countryCode: string) => {
         event.stopPropagation && event.stopPropagation();
-        const country = countries.find(c => c.id === countryCode);
+        const country = countries.find((c) => c.id === countryCode);
         if (!country) return;
         const { pageX, pageY } = event.nativeEvent;
         const localX = pageX - containerOffset.x;
@@ -440,13 +486,12 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
           x: localX,
           y: localY,
           country,
-          position: localY > 100 ? 'top' : 'bottom',
+          position: localY > 100 ? "top" : "bottom",
         });
         onCountryPress(countryCode);
       },
       [containerOffset, onCountryPress]
     );
-
 
     interface CountryPathProps {
       country: Country;
@@ -454,39 +499,55 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       getCountryFill: (countryCode: string) => string;
       isCountryHighlighted: (countryCode: string) => boolean;
       theme: MD3Theme;
-      handlePathPress: (event: GestureResponderEvent, countryCode: string) => void;
+      handlePathPress: (
+        event: GestureResponderEvent,
+        countryCode: string
+      ) => void;
     }
-    
+
     const CountryPath = React.memo(
-      ({ country, index, getCountryFill, isCountryHighlighted, theme, handlePathPress }: CountryPathProps) => {
+      ({
+        country,
+        index,
+        getCountryFill,
+        isCountryHighlighted,
+        theme,
+        handlePathPress,
+      }: CountryPathProps) => {
         const countryCode = country.id;
-        if (!countryCode || countryCode.startsWith('UNKNOWN-')) return null;
+        if (!countryCode || countryCode.startsWith("UNKNOWN-")) return null;
         return (
           <Path
             key={`${countryCode}-${index}`}
             d={country.path}
             fill={getCountryFill(countryCode)}
-            stroke={isCountryHighlighted(countryCode) ? theme.colors.primary : theme.colors.outline}
+            stroke={
+              isCountryHighlighted(countryCode)
+                ? theme.colors.primary
+                : theme.colors.outline
+            }
             strokeWidth={isCountryHighlighted(countryCode) ? 0.5 : 0.2}
             onPress={(event) => handlePathPress(event, countryCode)}
           />
         );
       }
     );
-    
+
     const resetMap = useCallback(() => {
       scale.value = withSpring(1, { damping: 18.5, stiffness: 90 });
       translateX.value = withSpring(0, { damping: 18.5, stiffness: 90 });
       translateY.value = withSpring(0, { damping: 18.5, stiffness: 90 });
       setTooltip(null);
     }, [scale, translateX, translateY]);
-  
 
     return (
       <GestureHandlerRootView>
         <View
           ref={fullViewRef}
-          style={[styles.fullViewContainer, { backgroundColor: theme.colors.background }]}
+          style={[
+            styles.fullViewContainer,
+            { backgroundColor: theme.colors.background },
+          ]}
           onLayout={(e: LayoutChangeEvent) => {
             const { x, y } = e.nativeEvent.layout;
             setContainerOffset({ x, y });
@@ -500,10 +561,15 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
               resizeMode="contain"
             />
           </Animated.View>
-          <GestureDetector gesture={Gesture.Simultaneous(pinchGesture, panGesture)}>
+          <GestureDetector
+            gesture={Gesture.Simultaneous(pinchGesture, panGesture)}
+          >
             <Animated.View style={[styles.container, animatedStyle]}>
               <View ref={mapViewRef} style={styles.mapContainer}>
-                <Animated.View style={{ transform: [{ scale: 1 / RESOLUTION_FACTOR }] }} pointerEvents="auto">
+                <Animated.View
+                  style={{ transform: [{ scale: 1 / RESOLUTION_FACTOR }] }}
+                  pointerEvents="auto"
+                >
                   <AnimatedSvg
                     width={highResWidth}
                     height={highResHeight}
@@ -532,35 +598,39 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                     onRequestClose={() => setTooltip(null)}
                     popoverStyle={styles.popoverContainer}
                     arrowSize={{ width: 11.2, height: 11 }}
-                    backgroundStyle={{ backgroundColor: 'transparent' }}
+                    backgroundStyle={{ backgroundColor: "transparent" }}
                   >
-                    <View style={styles.popoverContent}>
+                    <TouchableOpacity
+                      style={styles.popoverContent}
+                      onPress={() => {
+                        router.push(`/country/${tooltip.country.id}`);
+                        setTooltip(null);
+                      }}
+                    >
                       <CountryFlag
                         isoCode={tooltip.country.cca2}
                         size={22}
-                        style={{ borderRadius: 5, overflow: 'hidden' }}
+                        style={{ borderRadius: 5, overflow: "hidden" }}
                       />
-                      <Text style={styles.popoverText}>{tooltip.country.name}</Text>
-                      {/* Okrągły przycisk "View" */}
-                      <TouchableOpacity
-                        style={[styles.viewButton]}
-                        onPress={() => {
-                          // Przechodzimy do profilu kraju, np. /country/[cid]
-                          router.push(`/country/${tooltip.country.id}`);
-                          // Opcjonalnie zamykamy popover
-                          setTooltip(null);
-                        }}
-                      >
-                        <Text style={[styles.viewButtonText]}>View</Text>
-                      </TouchableOpacity>
-                    </View>
+                      <Text style={styles.popoverText}>
+                        {tooltip.country.name}
+                      </Text>
+                      <AntDesign
+                        name="rightcircle"
+                        size={16}
+                        color="rgb(255, 255, 255)"
+                        style={{ marginLeft: -2, marginTop: 2 }}
+                      />
+                    </TouchableOpacity>
                   </Popover>
                 )}
               </View>
             </Animated.View>
           </GestureDetector>
           {/* Dolna sekcja z paskiem postępu */}
-          <Animated.View style={[styles.bottomSection, bottomTextAnimatedStyle]}>
+          <Animated.View
+            style={[styles.bottomSection, bottomTextAnimatedStyle]}
+          >
             <View style={styles.progressBarWrapper}>
               <Progress.Bar
                 progress={percentageVisited}
@@ -572,12 +642,22 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                 borderRadius={10}
               />
               <View style={styles.progressTextLeft}>
-                <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
+                <Text
+                  style={[
+                    styles.progressText,
+                    { color: theme.colors.onSurface },
+                  ]}
+                >
                   {(percentageVisited * 100).toFixed(1)}%
                 </Text>
               </View>
               <View style={styles.progressTextRight}>
-                <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
+                <Text
+                  style={[
+                    styles.progressText,
+                    { color: theme.colors.onSurface },
+                  ]}
+                >
                   {visitedCountries}/{totalCountries}
                 </Text>
               </View>
@@ -590,12 +670,18 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
             style={[
               styles.baseMapContainer,
               {
-                backgroundColor: isDarkTheme ? theme.colors.surface : theme.colors.background,
+                backgroundColor: isDarkTheme
+                  ? theme.colors.surface
+                  : theme.colors.background,
               },
             ]}
           >
             <View style={styles.topSectionPhoto}>
-              <Image source={logoImage} style={styles.logoImage} resizeMode="contain" />
+              <Image
+                source={logoImage}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
             </View>
             <View style={styles.mapContainerPhoto}>
               <Svg
@@ -629,12 +715,22 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                   borderRadius={10}
                 />
                 <View style={styles.progressTextLeft}>
-                  <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
+                  <Text
+                    style={[
+                      styles.progressText,
+                      { color: theme.colors.onSurface },
+                    ]}
+                  >
                     {(percentageVisited * 100).toFixed(1)}%
                   </Text>
                 </View>
                 <View style={styles.progressTextRight}>
-                  <Text style={[styles.progressText, { color: theme.colors.onSurface }]}>
+                  <Text
+                    style={[
+                      styles.progressText,
+                      { color: theme.colors.onSurface },
+                    ]}
+                  >
                     {visitedCountries}/{totalCountries}
                   </Text>
                 </View>
@@ -642,34 +738,59 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
             </View>
           </View>
           {/* Kontener przycisków */}
-          <Animated.View style={[styles.buttonContainer, buttonContainerAnimatedStyle]}>
+          <Animated.View
+            style={[styles.buttonContainer, buttonContainerAnimatedStyle]}
+          >
             <TouchableOpacity
-              style={[styles.resetButton, { backgroundColor: theme.colors.primary }]}
+              style={[
+                styles.resetButton,
+                { backgroundColor: theme.colors.primary },
+              ]}
               onPress={resetMap}
               activeOpacity={0.7}
             >
-              <Feather name="code" size={ICON_SIZE} style={styles.resetIcon} color={theme.colors.onPrimary} />
+              <Feather
+                name="code"
+                size={ICON_SIZE}
+                style={styles.resetIcon}
+                color={theme.colors.onPrimary}
+              />
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.shareButton, { backgroundColor: theme.colors.primary }]}
+              style={[
+                styles.shareButton,
+                { backgroundColor: theme.colors.primary },
+              ]}
               onPress={shareMap}
               activeOpacity={0.7}
               disabled={isSharing}
             >
               {isSharing ? (
-                <ActivityIndicator size="small" color={theme.colors.onPrimary} />
+                <ActivityIndicator
+                  size="small"
+                  color={theme.colors.onPrimary}
+                />
               ) : (
-                <Feather name="share-2" size={ICON_SIZE} color={theme.colors.onPrimary} />
+                <Feather
+                  name="share-2"
+                  size={ICON_SIZE}
+                  color={theme.colors.onPrimary}
+                />
               )}
             </TouchableOpacity>
-            <Animated.View style={[styles.toggleButtonContainer, animatedToggleStyle]}>
+            <Animated.View
+              style={[styles.toggleButtonContainer, animatedToggleStyle]}
+            >
               <TouchableOpacity
                 onPress={handleToggleTheme}
-                style={[styles.toggleButton, { backgroundColor: theme.colors.primary }]}
+                style={[
+                  styles.toggleButton,
+                  { backgroundColor: theme.colors.primary },
+                ]}
                 activeOpacity={0.7}
               >
                 <MaterialIcons
-                  name={isDarkTheme ? 'dark-mode' : 'light-mode'}
+                  name={isDarkTheme ? "dark-mode" : "light-mode"}
                   size={ICON_SIZE}
                   color={theme.colors.onPrimary}
                 />
@@ -688,44 +809,44 @@ const styles = StyleSheet.create({
   },
   fullViewContainer: {
     flex: 1,
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
     padding: 2,
   },
   topSection: {
     top: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   bottomSection: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    bottom: '2.5%',
+    justifyContent: "center",
+    alignItems: "center",
+    bottom: "2.5%",
   },
   logoTextImage: {
-    width: '16%',
+    width: "16%",
     height: undefined,
     aspectRatio: 3,
   },
   progressBarWrapper: {
     width: screenWidth * 0.8,
     height: 20,
-    position: 'relative',
-    justifyContent: 'center',
-    overflow: 'hidden',
+    position: "relative",
+    justifyContent: "center",
+    overflow: "hidden",
     borderRadius: 10,
   },
   popoverContainer: {
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
     padding: 8,
     borderRadius: 8,
   },
   popoverContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
   popoverText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
   },
   // Styl dla przycisku "View"
@@ -733,95 +854,95 @@ const styles = StyleSheet.create({
     width: 42,
     height: 22,
     borderRadius: 20,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
     // marginLeft: 10,
   },
   viewButtonText: {
-    color: '#000',
+    color: "#000",
     fontSize: 12,
-    fontWeight: '600', // Less bold but bolder than normal
+    fontWeight: "600", // Less bold but bolder than normal
   },
   progressTextLeft: {
-    position: 'absolute',
+    position: "absolute",
     left: 10,
     top: 0,
     bottom: 0,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   progressTextRight: {
-    position: 'absolute',
+    position: "absolute",
     right: 10,
     top: 0,
     bottom: 0,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   progressText: {
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   topSectionPhoto: {
-    position: 'absolute',
-    top: '4%',
+    position: "absolute",
+    top: "4%",
     left: 0,
     right: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   logoImage: {
-    width: '20%',
+    width: "20%",
     height: undefined,
     aspectRatio: 2,
   },
   bottomSectionPhoto: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'absolute',
-    bottom: '3%',
+    justifyContent: "center",
+    alignItems: "center",
+    position: "absolute",
+    bottom: "3%",
     left: 0,
     right: 0,
   },
   mapContainerPhoto: {
     flex: 1,
-    marginTop: '10%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '100%',
-    height: '100%',
+    marginTop: "10%",
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
+    height: "100%",
   },
   mapContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '100%',
-    height: '100%',
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
+    height: "100%",
   },
   baseMapContainer: {
-    position: 'absolute',
+    position: "absolute",
     top: 0, // zamiast -1000
     left: 0, // zamiast -1000
     width: screenWidth,
     height: screenWidth * (16 / 9),
     opacity: 0, // ukrywamy widok, ale pozostaje on w drzewie renderowania
-    pointerEvents: 'none',
+    pointerEvents: "none",
   },
   buttonContainer: {
-    position: 'absolute',
-    bottom: '8%',
+    position: "absolute",
+    bottom: "8%",
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
   },
   resetButton: {
     width: BUTTON_SIZE,
     height: BUTTON_SIZE,
     borderRadius: BUTTON_SIZE / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     elevation: 5,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 3,
@@ -830,11 +951,11 @@ const styles = StyleSheet.create({
     width: BUTTON_SIZE,
     height: BUTTON_SIZE,
     borderRadius: BUTTON_SIZE / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginLeft: 10,
     elevation: 5,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 3,
@@ -844,17 +965,17 @@ const styles = StyleSheet.create({
     width: BUTTON_SIZE,
     height: BUTTON_SIZE,
     borderRadius: BUTTON_SIZE / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginLeft: 10,
     elevation: 5,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 3,
   },
   resetIcon: {
-    transform: [{ rotate: '-45deg' }],
+    transform: [{ rotate: "-45deg" }],
     fontSize: ICON_SIZE,
   },
 });
