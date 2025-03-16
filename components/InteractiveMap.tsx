@@ -22,6 +22,7 @@ import {
   PixelRatio,
   Image,
   LayoutChangeEvent,
+  Pressable,
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { ThemeContext } from "../app/config/ThemeContext";
@@ -38,6 +39,7 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withSequence,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
@@ -53,6 +55,7 @@ import Popover, { Rect } from "react-native-popover-view";
 import { useRouter } from "expo-router";
 import { AntDesign } from "@expo/vector-icons";
 import { Entypo } from "@expo/vector-icons";
+import { r } from "@tanstack/query-core/build/legacy/hydration-De1u5VYH";
 
 export interface Country {
   id: string;
@@ -444,6 +447,22 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       const opacity = 1 - Math.min(1, (scale.value - 1) * 5);
       return { transform: [{ translateY }], opacity };
     });
+    const popoverOffset = useSharedValue(0);
+
+    const animatedPopoverStyle = useAnimatedStyle(() => {
+      return {
+        transform: [{ translateY: popoverOffset.value }],
+      };
+    });
+    const handlePopoverPress = () => {
+      if (!tooltip) return; // Zapewnij, że tooltip istnieje
+      popoverOffset.value = withSequence(
+        withTiming(-10, { duration: 100 }),
+        withTiming(0, { duration: 100 })
+      );
+      router.push(`/country/${tooltip.country.id}`);
+      setTooltip(null);
+    };
 
     const buttonContainerAnimatedStyle = useAnimatedStyle(() => {
       const maxTranslateY = screenHeight * 0.05;
@@ -532,13 +551,28 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         );
       }
     );
+    const popoverScale = useSharedValue(1);
 
+    const animatedPopoverContentStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: popoverScale.value }],
+    }));
+
+    const handlePopoverPressIn = () => {
+      popoverScale.value = withTiming(1.023, { duration: 100 });
+    };
+
+    const handlePopoverPressOut = () => {
+      popoverScale.value = withTiming(1, { duration: 100 });
+    };
     const resetMap = useCallback(() => {
       scale.value = withSpring(1, { damping: 18.5, stiffness: 90 });
       translateX.value = withSpring(0, { damping: 18.5, stiffness: 90 });
       translateY.value = withSpring(0, { damping: 18.5, stiffness: 90 });
       setTooltip(null);
     }, [scale, translateX, translateY]);
+    // const AnimatedPopover = Animated.createAnimatedComponent(
+    //   Popover as unknown as React.ComponentType<any>
+    // );
 
     return (
       <GestureHandlerRootView>
@@ -600,28 +634,41 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                     arrowSize={{ width: 11.2, height: 11 }}
                     backgroundStyle={{ backgroundColor: "transparent" }}
                   >
-                    <TouchableOpacity
-                      style={styles.popoverContent}
-                      onPress={() => {
-                        router.push(`/country/${tooltip.country.id}`);
-                        setTooltip(null);
-                      }}
+                    <Animated.View
+                      style={[
+                        styles.popoverContent,
+                        animatedPopoverContentStyle,
+                      ]}
                     >
-                      <CountryFlag
-                        isoCode={tooltip.country.cca2}
-                        size={22}
-                        style={{ borderRadius: 5, overflow: "hidden" }}
-                      />
-                      <Text style={styles.popoverText}>
-                        {tooltip.country.name}
-                      </Text>
-                      <AntDesign
-                        name="rightcircle"
-                        size={13}
-                        color={"rgb(240, 237, 242)"}
-                        style={{ marginLeft: -2, marginTop: 1.5 }}
-                      />
-                    </TouchableOpacity>
+                      <TouchableOpacity
+                        onPressIn={handlePopoverPressIn}
+                        onPressOut={handlePopoverPressOut}
+                        onPress={() => {
+                          router.push(`/country/${tooltip.country.id}`);
+                          setTooltip(null);
+                        }}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 10,
+                        }}
+                      >
+                        <CountryFlag
+                          isoCode={tooltip.country.cca2}
+                          size={22}
+                          style={{ borderRadius: 5, overflow: "hidden" }}
+                        />
+                        <Text style={styles.popoverText}>
+                          {tooltip.country.name}
+                        </Text>
+                        <AntDesign
+                          name="rightcircle"
+                          size={13}
+                          color={"rgb(240, 237, 242)"}
+                          style={{ marginLeft: -2, marginTop: 1.5 }}
+                        />
+                      </TouchableOpacity>
+                    </Animated.View>
                   </Popover>
                 )}
               </View>
