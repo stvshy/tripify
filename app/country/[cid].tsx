@@ -12,7 +12,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Image,
   Dimensions,
   ActivityIndicator,
   FlatList,
@@ -43,6 +42,7 @@ import { useTheme } from "react-native-paper";
 import { useCountries } from "../config/CountryContext";
 import { useFocusEffect } from "expo-router";
 import { InteractionManager, BackHandler } from "react-native";
+import FastImage from "@d11/react-native-fast-image";
 
 const LazyCountryExtraInfo = lazy(() => import("./CountryExtraInfo"));
 
@@ -138,17 +138,6 @@ const CityCard = memo(({ city }: { city: string }) => (
     <Text style={styles.cityText}>{city}</Text>
   </View>
 ));
-
-const CitiesList = ({ cities }: { cities: string[] }) => (
-  <FlatList
-    data={cities}
-    keyExtractor={(item, index) => item + index}
-    renderItem={({ item }) => <CityCard city={item} />}
-    numColumns={3}
-    scrollEnabled={false}
-    contentContainerStyle={styles.citiesGrid}
-  />
-);
 
 const CountryProfile = () => {
   const { cid } = useLocalSearchParams();
@@ -486,10 +475,10 @@ const CountryProfile = () => {
                   }}
                 >
                   {url && url.trim() !== "" ? (
-                    <Image
-                      source={{ uri: url }}
+                    <FastImage
                       style={[styles.sliderImage, { width: screenWidth }]}
-                      resizeMode="cover"
+                      source={{ uri: url }}
+                      resizeMode={FastImage.resizeMode.cover}
                     />
                   ) : (
                     <ActivityIndicator size="large" color="#ccc" />
