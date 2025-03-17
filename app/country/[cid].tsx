@@ -44,7 +44,7 @@ import { useFocusEffect } from "expo-router";
 import { InteractionManager, BackHandler } from "react-native";
 import FastImage from "@d11/react-native-fast-image";
 
-const LazyCountryExtraInfo = lazy(() => import("./CountryExtraInfo"));
+import CountryExtraInfo from "./CountryExtraInfo";
 
 interface MonthlyTemperatures {
   day: number;
@@ -630,7 +630,7 @@ const CountryProfile = () => {
                 </View>
               }
             >
-              <LazyCountryExtraInfo
+              <CountryExtraInfo
                 country={country}
                 outletUrls={outletUrls}
                 transportUrls={transportUrls}
