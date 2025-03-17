@@ -160,7 +160,10 @@ const CountryProfile = () => {
   const extraInfoPositionY = useRef(0);
   const handleScroll = (event: any) => {
     const scrollY = event.nativeEvent.contentOffset.y;
-    if (!showExtraInfo && scrollY + screenHeight > extraInfoPositionY.current) {
+    if (
+      !showExtraInfo &&
+      scrollY + screenHeight > extraInfoPositionY.current - 200
+    ) {
       setShowExtraInfo(true);
     }
   };
