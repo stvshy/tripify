@@ -348,7 +348,9 @@ export default function ChooseVisitedCountriesScreen() {
                     onPress={cancelRemove}
                     style={[
                       styles.modalButtonCancel,
-                      { backgroundColor: "#f5e9fc" },
+                      {
+                        backgroundColor: isDarkTheme ? "#dbc9f2" : "#f5e9fc",
+                      },
                     ]}
                   >
                     <Text
