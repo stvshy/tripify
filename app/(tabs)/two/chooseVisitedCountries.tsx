@@ -96,12 +96,12 @@ const CountryItem = React.memo(function CountryItem({
     Animated.sequence([
       Animated.timing(scaleValue, {
         toValue: 0.8,
-        duration: 80,
+        duration: 160,
         useNativeDriver: true,
       }),
       Animated.timing(scaleValue, {
         toValue: 1,
-        duration: 80,
+        duration: 160,
         useNativeDriver: true,
       }),
     ]).start();
@@ -165,7 +165,7 @@ const CountryItem = React.memo(function CountryItem({
               onPress={handleRemovePress}
               style={styles.deleteButton}
             >
-              <FontAwesome name="trash" size={20} color="#FF3B30" />
+              <FontAwesome name="trash" size={20} color="#c0103d" />
             </TouchableOpacity>
           </Animated.View>
         )}
