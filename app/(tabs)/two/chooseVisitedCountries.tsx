@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
   Alert,
   Animated,
+  Modal,
 } from "react-native";
 import { useTheme } from "react-native-paper";
 import { FontAwesome, MaterialIcons, Ionicons } from "@expo/vector-icons";
@@ -75,12 +76,12 @@ const totalCountries = filteredCountriesData.countries.length;
 // CountryItem component
 const CountryItem = React.memo(function CountryItem({
   item,
-  onRemove,
+  onRequestRemove,
   isDeleteVisible,
   onLongPress,
 }: {
   item: Country;
-  onRemove: (countryCode: string) => void;
+  onRequestRemove: (countryCode: string) => void;
   isDeleteVisible: boolean;
   onLongPress: (countryCode: string) => void;
 }) {
@@ -105,24 +106,8 @@ const CountryItem = React.memo(function CountryItem({
       }),
     ]).start();
 
-    Alert.alert(
-      "Remove Country",
-      `Are you sure you want to remove ${item.name} from your visited countries?`,
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: () => {
-            onRemove(item.cca2);
-          },
-        },
-      ]
-    );
-  }, [scaleValue, onRemove, item.cca2, item.name]);
+    onRequestRemove(item.cca2); // <<< ZMIANA: wywołanie onRequestRemove
+  }, [scaleValue, onRequestRemove, item.cca2]);
 
   const handleNavigateToCountry = useCallback(() => {
     router.push(`/country/${item.id}`);
@@ -203,7 +188,8 @@ export default function ChooseVisitedCountriesScreen() {
   const [selectedCountryCode, setSelectedCountryCode] = useState<string | null>(
     null
   );
-
+  const [removeModalVisible, setRemoveModalVisible] = useState(false);
+  const [countryToRemove, setCountryToRemove] = useState<string | null>(null);
   // ─── 2. FETCH DATA ─────────────────────────────────────────────
   useEffect(() => {
     (async () => {
@@ -220,43 +206,42 @@ export default function ChooseVisitedCountriesScreen() {
   }, [setVisitedCountries]);
 
   // ─── 3. CALLBACKI ────────────────────────────────────────────
-  const handleGoBack = useCallback(() => router.back(), [router]);
-  const handleToggleTheme = useCallback(() => {
-    // animacja przed przełączeniem
-    scaleValue.value = 0.9;
-    setTimeout(() => {
-      scaleValue.value = 1;
-      toggleTheme();
-    }, 100);
-  }, [scaleValue, toggleTheme]);
-
   const handleLongPress = useCallback((code: string) => {
     setSelectedCountryCode(code);
   }, []);
 
-  const handleRemoveCountry = useCallback(
-    async (code: string) => {
-      Alert.alert("Remove Country", "Are you sure?", [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: async () => {
-            const updated = visitedCountriesData.filter((c) => c !== code);
-            setVisitedCountriesData(updated);
-            setVisitedCountries(updated);
-            setSelectedCountryCode(null);
-            const user = auth.currentUser;
-            if (user)
-              await updateDoc(doc(db, "users", user.uid), {
-                countriesVisited: updated,
-              });
-          },
-        },
-      ]);
-    },
-    [visitedCountriesData, setVisitedCountries]
-  );
+  const requestRemoveCountry = useCallback((code: string) => {
+    setCountryToRemove(code);
+    setRemoveModalVisible(true);
+  }, []);
+
+  // <<< ZMIANA: usunięcie kraju po potwierdzeniu
+  const confirmRemoveCountry = useCallback(async () => {
+    if (!countryToRemove) return;
+    const updated = visitedCountriesData.filter((c) => c !== countryToRemove);
+    setVisitedCountriesData(updated);
+    setVisitedCountries(updated);
+    setSelectedCountryCode(null); // Deselect after removal
+    setRemoveModalVisible(false); // Close modal
+    const user = auth.currentUser;
+    if (user) {
+      try {
+        await updateDoc(doc(db, "users", user.uid), {
+          countriesVisited: updated,
+        });
+      } catch (error) {
+        console.error("Error updating visited countries:", error);
+        Alert.alert("Error", "Could not update your visited countries list.");
+        // Optionally revert state if update fails
+      }
+    }
+    setCountryToRemove(null); // Clear state after operation
+  }, [countryToRemove, visitedCountriesData, setVisitedCountries]);
+
+  const cancelRemove = useCallback(() => {
+    setRemoveModalVisible(false);
+    setCountryToRemove(null); // Clear state on cancel
+  }, []);
 
   // ─── 4. PRZYGOTOWANIE DANYCH DO LISTY ────────────────────────
   const processedCountries = useMemo(() => {
@@ -278,12 +263,12 @@ export default function ChooseVisitedCountriesScreen() {
     ({ item }: { item: Country }) => (
       <CountryItem
         item={item}
-        onRemove={handleRemoveCountry}
+        onRequestRemove={requestRemoveCountry}
         isDeleteVisible={selectedCountryCode === item.cca2}
         onLongPress={handleLongPress}
       />
     ),
-    [handleRemoveCountry, selectedCountryCode, handleLongPress]
+    [requestRemoveCountry, selectedCountryCode, handleLongPress]
   );
 
   const renderSectionHeader = useCallback(
@@ -315,17 +300,6 @@ export default function ChooseVisitedCountriesScreen() {
           activeOpacity={1}
           onPress={() => setSelectedCountryCode(null)}
         >
-          <View style={styles.instructionContainer}>
-            <Text
-              style={[
-                styles.instructionText,
-                { color: theme.colors.onSurfaceVariant },
-              ]}
-            >
-              Long-press to remove a country
-            </Text>
-          </View>
-
           <SectionList
             sections={processedCountries}
             keyExtractor={(item) => item.cca3}
@@ -345,6 +319,67 @@ export default function ChooseVisitedCountriesScreen() {
               </View>
             )}
           />
+          <Modal
+            visible={removeModalVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={cancelRemove}
+          >
+            <View style={styles.modalOverlay}>
+              <View
+                style={[
+                  styles.modalContent,
+                  { backgroundColor: theme.colors.surface },
+                ]}
+              >
+                <Text
+                  style={[styles.modalTitle, { color: theme.colors.primary }]}
+                >
+                  Remove country
+                </Text>
+                <Text
+                  style={[styles.modalText, { color: theme.colors.onSurface }]}
+                >
+                  Are you sure you want to remove this country from your visited
+                  list?
+                </Text>
+                <View style={{ flexDirection: "row", marginTop: 10 }}>
+                  <TouchableOpacity
+                    onPress={cancelRemove}
+                    style={[
+                      styles.modalButtonCancel,
+                      { backgroundColor: "#f5e9fc" },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.modalButtonText,
+                        { color: theme.colors.primary },
+                      ]}
+                    >
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={confirmRemoveCountry}
+                    style={[
+                      styles.modalButton,
+                      { backgroundColor: theme.colors.primary, marginLeft: 10 },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.modalButtonText,
+                        { color: theme.colors.onPrimary },
+                      ]}
+                    >
+                      Remove
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
         </TouchableOpacity>
       </SafeAreaView>
     </>
@@ -355,7 +390,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 0,
-    paddingTop: Platform.OS === "ios" ? 0 : 30,
+    // paddingTop: Platform.OS === "ios" ? 0 : 30,
   },
   containerTouchable: {
     flex: 1,
@@ -365,16 +400,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 15,
-  },
-  backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    flex: 1,
-    textAlign: "center",
   },
   toggleButton: {
     width: height * 0.0615,
@@ -383,24 +408,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  instructionContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 10,
-  },
-  instructionText: {
-    fontSize: 14,
-    fontStyle: "italic",
-  },
   countryItemContainer: {
     width: "100%",
     backgroundColor: "transparent",
   },
   sectionHeader: {
-    paddingVertical: 4,
+    // paddingVertical: 4,
     paddingHorizontal: 8,
     width: "100%",
     marginLeft: 7,
     marginTop: 7,
+    paddingTop: 4,
+    paddingBottom: 0,
   },
   headerLeftContainer: {},
   sectionHeaderText: {
@@ -446,5 +465,48 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    width: width * 0.8,
+    padding: 20,
+    borderRadius: 20,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  modalText: {
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  modalButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+  },
+  modalButtonCancel: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    borderWidth: 0.19,
+    borderColor: "#9d23ea",
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: "bold",
   },
 });
