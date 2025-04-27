@@ -266,7 +266,10 @@ export default function ChooseCountriesScreen({
 
     fetchSelectedCountries();
   }, [setVisitedCountries]);
-
+  useEffect(() => {
+    // synchronizacja lokalnego selectedCountries z kontekstem
+    setSelectedCountries(visitedCountries);
+  }, [visitedCountries]);
   const handleClosePopup = useCallback(async () => {
     setIsPopupVisible(false);
     try {
