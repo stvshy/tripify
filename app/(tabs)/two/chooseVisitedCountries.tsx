@@ -219,23 +219,41 @@ export default function ChooseVisitedCountriesScreen() {
   const confirmRemoveCountry = useCallback(async () => {
     if (!countryToRemove) return;
     const updated = visitedCountriesData.filter((c) => c !== countryToRemove);
+
+    // 1) lokalnie od razu zaktualizuj stan
     setVisitedCountriesData(updated);
     setVisitedCountries(updated);
-    setSelectedCountryCode(null); // Deselect after removal
-    setRemoveModalVisible(false); // Close modal
+    setSelectedCountryCode(null);
+    setRemoveModalVisible(false);
+
     const user = auth.currentUser;
     if (user) {
       try {
-        await updateDoc(doc(db, "users", user.uid), {
+        const userRef = doc(db, "users", user.uid);
+
+        // pobierz aktualny ranking
+        const snap = await getDoc(userRef);
+        const currentRanking: string[] = snap.exists()
+          ? snap.data()?.ranking || []
+          : [];
+
+        // usuń z rankingu usunięty kraj
+        const newRanking = currentRanking.filter(
+          (code) => code !== countryToRemove
+        );
+
+        // update obu pól jednym call’em
+        await updateDoc(userRef, {
           countriesVisited: updated,
+          ranking: newRanking,
         });
       } catch (error) {
-        console.error("Error updating visited countries:", error);
-        Alert.alert("Error", "Could not update your visited countries list.");
-        // Optionally revert state if update fails
+        console.error("Error updating visited & ranking:", error);
+        Alert.alert("Error", "Nie udało się zaktualizować listy krajów.");
       }
     }
-    setCountryToRemove(null); // Clear state after operation
+
+    setCountryToRemove(null);
   }, [countryToRemove, visitedCountriesData, setVisitedCountries]);
 
   const cancelRemove = useCallback(() => {
