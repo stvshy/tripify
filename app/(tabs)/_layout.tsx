@@ -301,11 +301,7 @@ const TabLayoutContent: React.FC = () => {
           ),
           headerRight: () => (
             <Pressable
-              onPress={() =>
-                router.push(
-                  "/chooseCountries/chooseVisitedCountries" as Href<"/chooseCountries/chooseVisitedCountries">
-                )
-              }
+              onPress={() => router.push("/two/chooseVisitedCountries")}
               style={({ pressed }) => [
                 styles.visitedCountriesContainer,
                 {

@@ -19,14 +19,15 @@ import {
   Animated,
 } from "react-native";
 import { useTheme } from "react-native-paper";
-import { FontAwesome, MaterialIcons } from "@expo/vector-icons";
+import { FontAwesome, MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { router } from "expo-router";
-import { auth, db } from "../config/firebaseConfig";
+import { router, Stack, useRouter } from "expo-router";
+import { auth, db } from "../../config/firebaseConfig";
 import CountryFlag from "react-native-country-flag";
-import { ThemeContext } from "../config/ThemeContext";
-import filteredCountriesData from "../../components/filteredCountries.json";
-import { useCountries } from "../config/CountryContext";
+import { ThemeContext } from "../../config/ThemeContext";
+import filteredCountriesData from "../../../components/filteredCountries.json";
+import { useCountries } from "../../config/CountryContext";
+import { SharedValue, useSharedValue } from "react-native-reanimated";
 
 const { width, height } = Dimensions.get("window");
 
@@ -70,7 +71,7 @@ const getContinent = (region: string, subregion: string): Continent => {
       return "Africa";
   }
 };
-
+const totalCountries = filteredCountriesData.countries.length;
 // CountryItem component
 const CountryItem = React.memo(function CountryItem({
   item,
@@ -189,132 +190,90 @@ const CountryItem = React.memo(function CountryItem({
 });
 
 export default function ChooseVisitedCountriesScreen() {
+  // ─── 1. HOOKS I STANY ───────────────────────────────────────────
+  const router = useRouter();
+  const { toggleTheme, isDarkTheme } = useContext(ThemeContext);
+  const theme = useTheme();
+  const scaleValue = useSharedValue(1) as SharedValue<number>;
+  const { setVisitedCountries } = useCountries();
+
   const [visitedCountriesData, setVisitedCountriesData] = useState<string[]>(
     []
   );
   const [selectedCountryCode, setSelectedCountryCode] = useState<string | null>(
     null
   );
-  const { toggleTheme, isDarkTheme } = useContext(ThemeContext);
-  const theme = useTheme();
-  const scaleValue = useRef(new Animated.Value(1)).current;
-  const { visitedCountries, setVisitedCountries } = useCountries();
-  const sectionListRef = useRef(null);
 
+  // ─── 2. FETCH DATA ─────────────────────────────────────────────
   useEffect(() => {
-    // Fetch saved countriesVisited from Firestore
-    const fetchVisitedCountries = async () => {
+    (async () => {
       const user = auth.currentUser;
-      if (user) {
-        try {
-          const userDocRef = doc(db, "users", user.uid);
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            const countriesVisited: string[] = userData?.countriesVisited || [];
-            setVisitedCountriesData(countriesVisited);
-            setVisitedCountries(countriesVisited); // Synchronize with context
-          }
-        } catch (error) {
-          console.error("Error fetching visited countries:", error);
-        }
+      if (!user) return;
+      const docRef = doc(db, "users", user.uid);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        const arr = snap.data().countriesVisited || [];
+        setVisitedCountriesData(arr);
+        setVisitedCountries(arr);
       }
-    };
-
-    fetchVisitedCountries();
+    })();
   }, [setVisitedCountries]);
 
+  // ─── 3. CALLBACKI ────────────────────────────────────────────
+  const handleGoBack = useCallback(() => router.back(), [router]);
   const handleToggleTheme = useCallback(() => {
-    Animated.sequence([
-      Animated.timing(scaleValue, {
-        toValue: 0.9,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleValue, {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
+    // animacja przed przełączeniem
+    scaleValue.value = 0.9;
+    setTimeout(() => {
+      scaleValue.value = 1;
       toggleTheme();
-    });
+    }, 100);
   }, [scaleValue, toggleTheme]);
 
-  const handleLongPress = useCallback((countryCode: string) => {
-    setSelectedCountryCode(countryCode);
+  const handleLongPress = useCallback((code: string) => {
+    setSelectedCountryCode(code);
   }, []);
 
-  // Handle touch on main container to clear selection
-  const handleContainerPress = useCallback(() => {
-    if (selectedCountryCode) {
-      setSelectedCountryCode(null);
-    }
-  }, [selectedCountryCode]);
-
   const handleRemoveCountry = useCallback(
-    async (countryCode: string) => {
-      const updatedCountries = visitedCountriesData.filter(
-        (c) => c !== countryCode
-      );
-      setVisitedCountriesData(updatedCountries);
-      setVisitedCountries(updatedCountries); // Update context
-      setSelectedCountryCode(null); // Clear selection after removal
-
-      // Update Firestore
-      const user = auth.currentUser;
-      if (user) {
-        try {
-          const userDocRef = doc(db, "users", user.uid);
-          await updateDoc(userDocRef, {
-            countriesVisited: updatedCountries,
-          });
-          console.log("Visited countries updated:", updatedCountries);
-        } catch (error) {
-          console.error("Error updating visited countries:", error);
-          Alert.alert(
-            "Error",
-            "Failed to update visited countries. Please try again."
-          );
-        }
-      }
+    async (code: string) => {
+      Alert.alert("Remove Country", "Are you sure?", [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            const updated = visitedCountriesData.filter((c) => c !== code);
+            setVisitedCountriesData(updated);
+            setVisitedCountries(updated);
+            setSelectedCountryCode(null);
+            const user = auth.currentUser;
+            if (user)
+              await updateDoc(doc(db, "users", user.uid), {
+                countriesVisited: updated,
+              });
+          },
+        },
+      ]);
     },
     [visitedCountriesData, setVisitedCountries]
   );
 
-  // Processing country data
+  // ─── 4. PRZYGOTOWANIE DANYCH DO LISTY ────────────────────────
   const processedCountries = useMemo(() => {
-    // Filter to only include visited countries
-    const visitedCountriesObjects = filteredCountriesData.countries.filter(
-      (country: Country) => visitedCountriesData.includes(country.cca2)
+    const objs = filteredCountriesData.countries.filter((c: Country) =>
+      visitedCountriesData.includes(c.cca2)
     );
-
-    // Group by continent
-    const grouped = visitedCountriesObjects.reduce(
-      (acc: { [key in Continent]?: Country[] }, country: Country) => {
-        const continent = getContinent(country.region, country.subregion);
-        if (!acc[continent]) {
-          acc[continent] = [];
-        }
-        acc[continent]!.push(country);
-        return acc;
-      },
-      {} as { [key in Continent]?: Country[] }
-    );
-
-    // Create sections array
-    const sections: { title: string; data: Country[] }[] = Object.keys(grouped)
-      .map((continent) => ({
-        title: continent,
-        data: grouped[continent as Continent]!.sort((a: Country, b: Country) =>
-          a.name.localeCompare(b.name)
-        ),
-      }))
+    const grouped: Record<string, Country[]> = {};
+    objs.forEach((c) => {
+      const continent = getContinent(c.region, c.subregion);
+      (grouped[continent] ||= []).push(c);
+    });
+    return Object.entries(grouped)
+      .map(([title, data]) => ({ title, data }))
       .sort((a, b) => a.title.localeCompare(b.title));
-
-    return sections;
   }, [visitedCountriesData]);
 
+  // ─── 5. RENDERY ───────────────────────────────────────────────
   const renderCountryItem = useCallback(
     ({ item }: { item: Country }) => (
       <CountryItem
@@ -328,7 +287,7 @@ export default function ChooseVisitedCountriesScreen() {
   );
 
   const renderSectionHeader = useCallback(
-    ({ section }: { section: { title: string } }) => (
+    ({ section: { title } }: { section: { title: string } }) => (
       <View
         style={[
           styles.sectionHeader,
@@ -338,77 +297,41 @@ export default function ChooseVisitedCountriesScreen() {
         <Text
           style={[styles.sectionHeaderText, { color: theme.colors.primary }]}
         >
-          {section.title}
+          {title}
         </Text>
       </View>
     ),
     [theme.colors.surface, theme.colors.primary]
   );
 
+  // ─── 6. JSX ───────────────────────────────────────────────────
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-    >
-      <TouchableOpacity
-        activeOpacity={1}
-        style={styles.containerTouchable}
-        onPress={handleContainerPress}
+    <>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
       >
-        <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: theme.colors.onSurface }]}>
-            Visited Countries
-          </Text>
-          {/* Round Button to Toggle Theme */}
-          <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
-            <TouchableOpacity
-              onPress={handleToggleTheme}
+        <TouchableOpacity
+          style={styles.containerTouchable}
+          activeOpacity={1}
+          onPress={() => setSelectedCountryCode(null)}
+        >
+          <View style={styles.instructionContainer}>
+            <Text
               style={[
-                styles.toggleButton,
-                { backgroundColor: theme.colors.primary },
+                styles.instructionText,
+                { color: theme.colors.onSurfaceVariant },
               ]}
             >
-              {isDarkTheme ? (
-                <MaterialIcons
-                  name="dark-mode"
-                  size={24}
-                  color={theme.colors.onPrimary}
-                />
-              ) : (
-                <MaterialIcons
-                  name="light-mode"
-                  size={24}
-                  color={theme.colors.onPrimary}
-                />
-              )}
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
+              Long-press to remove a country
+            </Text>
+          </View>
 
-        <View style={styles.instructionContainer}>
-          <Text
-            style={[
-              styles.instructionText,
-              { color: theme.colors.onSurfaceVariant },
-            ]}
-          >
-            Long press on a country to remove it from your visited countries
-            list
-          </Text>
-        </View>
-
-        {/* Country List */}
-        <View style={{ flex: 1 }}>
           <SectionList
-            ref={sectionListRef}
             sections={processedCountries}
             keyExtractor={(item) => item.cca3}
             renderItem={renderCountryItem}
             renderSectionHeader={renderSectionHeader}
-            stickySectionHeadersEnabled={false}
-            contentContainerStyle={{
-              flexGrow: 1,
-              paddingBottom: 20,
-            }}
+            contentContainerStyle={{ paddingBottom: 20 }}
             ListEmptyComponent={() => (
               <View style={styles.emptyContainer}>
                 <Text
@@ -417,14 +340,14 @@ export default function ChooseVisitedCountriesScreen() {
                     { color: theme.colors.onSurfaceVariant },
                   ]}
                 >
-                  You haven't visited any countries yet.
+                  You haven’t visited any countries yet.
                 </Text>
               </View>
             )}
           />
-        </View>
-      </TouchableOpacity>
-    </SafeAreaView>
+        </TouchableOpacity>
+      </SafeAreaView>
+    </>
   );
 }
 
@@ -441,12 +364,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 15,
   },
+  backButton: {
+    padding: 8,
+  },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "bold",
+    flex: 1,
+    textAlign: "center",
   },
   toggleButton: {
     width: height * 0.0615,
@@ -474,6 +402,7 @@ const styles = StyleSheet.create({
     marginLeft: 7,
     marginTop: 7,
   },
+  headerLeftContainer: {},
   sectionHeaderText: {
     fontSize: 16,
     fontWeight: "600",
