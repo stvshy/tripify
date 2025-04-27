@@ -8,7 +8,8 @@ import {
   SafeAreaView,
   Pressable,
 } from "react-native";
-import { Tabs, useRouter, Href } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
+
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import {
   getFirestore,
@@ -31,7 +32,8 @@ import { TouchableOpacity } from "react-native-gesture-handler";
 import { CountriesProvider, useCountries } from "../config/CountryContext";
 import { FontAwesome } from "@expo/vector-icons";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-
+import { useSegments } from "expo-router";
+import filteredCountriesData from "../../components/filteredCountries.json";
 const db = getFirestore();
 
 // Custom TabBarButton component
@@ -65,6 +67,41 @@ export default function TabLayout() {
     <CountriesProvider>
       <TabLayoutContent />
     </CountriesProvider>
+  );
+}
+function VisitedToggle() {
+  const segments = useSegments();
+  const router = useRouter();
+  const theme = useTheme();
+  const { visitedCountriesCount } = useCountries();
+  const totalCountriesCount = filteredCountriesData.countries.length;
+
+  const last = segments[segments.length - 1];
+  const inVisited = last === "chooseVisitedCountries";
+  const iconName = inVisited ? "eye-off-outline" : "eye-check-outline";
+
+  const onPress = () =>
+    inVisited ? router.back() : router.push("/two/chooseVisitedCountries");
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={{ flexDirection: "row", alignItems: "center", marginRight: 16 }}
+    >
+      <MaterialCommunityIcons
+        name={iconName}
+        size={20}
+        color={theme.colors.primary}
+      />
+      <Text
+        style={{
+          marginLeft: 5,
+          color: theme.colors.onSurface,
+        }}
+      >
+        {visitedCountriesCount}/{totalCountriesCount}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -252,7 +289,6 @@ const TabLayoutContent: React.FC = () => {
           ),
         }}
       />
-
       {/* Index Tab (Main) */}
       <Tabs.Screen
         name="index"
@@ -283,7 +319,6 @@ const TabLayoutContent: React.FC = () => {
           ),
         }}
       />
-
       {/* Two Tab (ChooseCountries) */}
       <Tabs.Screen
         name="two"
@@ -295,37 +330,11 @@ const TabLayoutContent: React.FC = () => {
             </CustomTabBarButton>
           ),
           tabBarIcon: ({ color }) => (
-            <View style={[styles.tabIconContainer, { marginTop: 1 }]}>
+            <View style={styles.tabIconContainer}>
               <FontAwesome6 name="list-check" size={22} color={color} />
             </View>
           ),
-          headerRight: () => (
-            <Pressable
-              onPress={() => router.push("/two/chooseVisitedCountries")}
-              style={({ pressed }) => [
-                styles.visitedCountriesContainer,
-                {
-                  flexDirection: "row",
-                  alignItems: "center",
-                  opacity: pressed ? 0.6 : 1,
-                },
-              ]}
-            >
-              <MaterialCommunityIcons
-                name="eye-check-outline"
-                size={19}
-                color={theme.colors.primary}
-              />
-              <Text
-                style={[
-                  styles.visitedCountriesText,
-                  { color: theme.colors.onSurface, marginLeft: 5 },
-                ]}
-              >
-                {visitedCountriesCount}/218
-              </Text>
-            </Pressable>
-          ),
+          headerRight: () => <VisitedToggle />,
         }}
       />
     </Tabs>
