@@ -1,40 +1,47 @@
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { DefaultTheme } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack, useRouter } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useState } from 'react';
-import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { auth, db } from './config/firebaseConfig';
-import { View, StyleSheet, ImageBackground, Image, ActivityIndicator, AppRegistry } from 'react-native';
-import { doc, getDoc } from 'firebase/firestore';
-import LoadingScreen from '@/components/LoadingScreen';
-import { ThemeProvider } from './config/ThemeContext';
-import * as Font from 'expo-font';
-import { DraxProvider } from 'react-native-drax';
-
+import "expo-dev-client";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { useFonts } from "expo-font";
+import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { useContext, useEffect, useState } from "react";
+import { auth, db } from "./config/firebaseConfig";
+import { StyleSheet } from "react-native";
+import LoadingScreen from "@/components/LoadingScreen";
+import { ThemeContext, ThemeProvider } from "./config/ThemeContext";
+import { DraxProvider } from "react-native-drax";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { doc, getDoc } from "firebase/firestore";
+import { StatusBar } from "expo-status-bar";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import * as NavigationBar from "expo-navigation-bar";
+import { useTheme } from "react-native-paper";
 
 SplashScreen.preventAutoHideAsync();
 
+const queryClient = new QueryClient();
+
 export default function RootLayout() {
-  const [fontsLoaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-    ...FontAwesome.font,
+  const [fontsLoaded] = useFonts({
+    "PlusJakartaSans-Bold": require("../assets/fonts/PlusJakartaSans-Bold.ttf"),
+    "DMSans-Bold": require("../assets/fonts/DMSans-Bold.ttf"),
+    "DMSans-SemiBold": require("../assets/fonts/DMSans-SemiBold.ttf"),
+    "Inter-Bold": require("../assets/fonts/Inter-Bold.ttf"),
+    "Inter-SemiBold": require("../assets/fonts/Inter-SemiBold.ttf"),
+    "Inter-Regular": require("../assets/fonts/Inter-Regular.ttf"),
+    "Inter-Medium": require("../assets/fonts/Inter-Medium.ttf"),
+    "Figtree-Regular": require("../assets/fonts/Figtree-Regular.ttf"),
+    "Figtree-Medium": require("../assets/fonts/Figtree-Medium.ttf"),
   });
 
-  const [appIsReady, setAppIsReady] = useState(false);
+  // Poprawne typowanie stanu
   const [initialRouteName, setInitialRouteName] = useState<string | null>(null);
-
+  const [appIsReady, setAppIsReady] = useState(false);
 
   useEffect(() => {
     const prepareApp = async () => {
-      // Wait for fonts to load
       if (!fontsLoaded) return;
 
       let currentUser = auth.currentUser;
-
-      // Wait for auth state to be determined
       if (currentUser === null) {
         currentUser = await new Promise((resolve) => {
           const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -45,9 +52,8 @@ export default function RootLayout() {
       }
 
       if (currentUser) {
-        const userDocRef = doc(db, 'users', currentUser.uid);
+        const userDocRef = doc(db, "users", currentUser.uid);
         const userDoc = await getDoc(userDocRef);
-
         if (userDoc.exists()) {
           const userData = userDoc.data();
           const isVerified = currentUser.emailVerified;
@@ -55,19 +61,19 @@ export default function RootLayout() {
           const firstLoginComplete = userData?.firstLoginComplete;
 
           if (!isVerified) {
-            setInitialRouteName('welcome');
+            setInitialRouteName("welcome");
           } else if (!nickname) {
-            setInitialRouteName('setNickname');
+            setInitialRouteName("setNickname");
           } else if (!firstLoginComplete) {
-            setInitialRouteName('chooseCountries');
+            setInitialRouteName("chooseCountries");
           } else {
-            setInitialRouteName('(tabs)');
+            setInitialRouteName("(tabs)");
           }
         } else {
-          setInitialRouteName('welcome');
+          setInitialRouteName("welcome");
         }
       } else {
-        setInitialRouteName('welcome');
+        setInitialRouteName("welcome");
       }
 
       setAppIsReady(true);
@@ -77,34 +83,63 @@ export default function RootLayout() {
     prepareApp();
   }, [fontsLoaded]);
 
+  if (!appIsReady || !initialRouteName) {
+    return <LoadingScreen />;
+  }
 
-if (!appIsReady || !initialRouteName) {
-  return <LoadingScreen />;
+  return (
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <DraxProvider>
+          <ThemeProvider>
+            <ThemedStatusBarAndNavBar tooltipVisible={false} />
+            <QueryClientProvider client={queryClient}>
+              <Stack
+                initialRouteName={initialRouteName}
+                screenOptions={{ headerShown: false }}
+              >
+                {/* Twoje Stack Screens */}
+              </Stack>
+            </QueryClientProvider>
+          </ThemeProvider>
+        </DraxProvider>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
+  );
 }
 
-return (
-<GestureHandlerRootView style={{ flex: 1 }}>
-  <DraxProvider> 
-    <ThemeProvider>
-      <Stack initialRouteName={initialRouteName} screenOptions={{ headerShown: false }}>
-        {/* Twoje Stack Screens */}
-      </Stack>
-    </ThemeProvider>
-  </DraxProvider> 
-</GestureHandlerRootView>
+function ThemedStatusBarAndNavBar({
+  tooltipVisible,
+}: {
+  tooltipVisible: boolean;
+}) {
+  const { isDarkTheme } = useContext(ThemeContext);
+  const theme = useTheme();
 
-);
+  useEffect(() => {
+    // Za każdym razem, gdy zmienia się tooltip, ustawiamy kolory na nasze wartości.
+    NavigationBar.setBackgroundColorAsync(theme.colors.surface);
+    NavigationBar.setButtonStyleAsync(isDarkTheme ? "light" : "dark");
+  }, [isDarkTheme, theme, tooltipVisible]);
+
+  return (
+    <StatusBar
+      style={isDarkTheme ? "light" : "dark"}
+      backgroundColor="transparent"
+      translucent
+    />
+  );
 }
 
 const styles = StyleSheet.create({
   background: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   centerContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     flex: 1,
   },
   logo: {

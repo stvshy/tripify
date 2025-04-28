@@ -30,6 +30,7 @@ interface Country {
   path: string;
 }
 import { useFocusEffect } from '@react-navigation/native'; 
+import { signOut } from 'firebase/auth';
 
 interface RankingSlot {
   id: string;
@@ -156,6 +157,15 @@ export default function AccountScreen() {
     setSelectedNote(note);
     setIsNotePreviewVisible(true);
   };
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      router.replace('/welcome');
+    } catch (error) {
+      console.error("Error logging out:", error);
+      Alert.alert('Error', 'Failed to log out. Please try again.');
+    }
+  };
   
 
   return (
@@ -167,11 +177,11 @@ export default function AccountScreen() {
             {/* Header with back button and theme toggle */}
             <View style={[styles.header, { paddingTop: height * 0.03 }]}>
               <TouchableOpacity onPress={handleGoBack} style={[styles.headerButton, { marginLeft: -19 }]}>
-                <Ionicons name="arrow-back" size={28} color={theme.colors.onBackground} />
+                <Ionicons name="arrow-back" size={26} color={theme.colors.onBackground} />
               </TouchableOpacity>
               <Text style={[styles.headerTitle, { color: theme.colors.onBackground }]}>Account</Text>
               <TouchableOpacity onPress={toggleTheme} style={[styles.headerButton, { marginRight: -16 }]}>
-                <Ionicons name={isDarkTheme ? 'sunny' : 'moon'} size={26} color={theme.colors.onBackground} />
+                <Ionicons name={isDarkTheme ? 'sunny' : 'moon'} size={24} color={theme.colors.onBackground} />
               </TouchableOpacity>
             </View>
 
@@ -312,6 +322,14 @@ export default function AccountScreen() {
           </View>
         </TouchableWithoutFeedback>
       </ScrollView>
+       {/* Logout Link */}
+       <View style={{ alignItems: 'center', marginBottom: -30 }}>
+        <TouchableOpacity onPress={handleLogout}>
+          <Text style={{ color: theme.colors.primary, fontSize: 12}}>
+            Logout
+          </Text>
+        </TouchableOpacity>
+      </View>
    {/* Note Preview Modal */}
       <Modal
         visible={isNotePreviewVisible}
@@ -386,7 +404,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 21,
     fontWeight: '700',
   },
   userPanel: {
@@ -564,4 +582,19 @@ const styles = StyleSheet.create({
   modalScrollContent: {
     paddingBottom: 20,
   },
+  logoutButton: {
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 10,
+  },
+  logoutText: {
+    fontSize: 16,
+    color: '#FF0000', // Czerwony kolor tekstu, możesz zmienić
+    fontWeight: 'bold',
+  },
+  
 });

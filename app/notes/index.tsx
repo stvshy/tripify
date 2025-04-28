@@ -34,7 +34,7 @@ import NoteItem from '@/components/NoteItem';
 import CountryItem from '@/components/CountryItem';
 import { Animated as AnimatedRN } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import MasonryList from 'react-native-masonry-list';
+// import MasonryList from 'react-native-masonry-list';
 import { writeBatch } from 'firebase/firestore';
 
 // Interface definitions
@@ -404,11 +404,11 @@ export default function NotesScreen() {
           {/* Header */}
           <View style={[styles.header, { paddingTop: height * 0.03 }]}>
             <TouchableOpacity onPress={() => router.back()} style={[styles.headerButton, { marginLeft: -19 }]}>
-              <Ionicons name="arrow-back" size={28} color={theme.colors.onBackground} />
+              <Ionicons name="arrow-back" size={26} color={theme.colors.onBackground} />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, { color: theme.colors.onBackground }]}>Notes</Text>
             <TouchableOpacity onPress={handleToggleTheme} style={[styles.headerButton, { marginRight: -16 }]}>
-              <Ionicons name={isDarkTheme ? "sunny" : "moon"} size={26} color={theme.colors.onBackground} />
+              <Ionicons name={isDarkTheme ? "sunny" : "moon"} size={24} color={theme.colors.onBackground} />
             </TouchableOpacity>
           </View>
 
@@ -735,7 +735,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 21,
     fontWeight: '700',
   },
   masonryContainer: {

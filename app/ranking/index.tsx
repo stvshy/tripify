@@ -1,5 +1,11 @@
-// AccountScreen.tsx
-import React, { useContext, useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import React, {
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import {
   View,
   Text,
@@ -12,17 +18,27 @@ import {
   TouchableWithoutFeedback,
   LayoutAnimation,
   Platform,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { ThemeContext } from '../config/ThemeContext';
-import { useTheme } from 'react-native-paper';
-import { getDoc, doc, updateDoc } from 'firebase/firestore';
-import { db, auth } from '../config/firebaseConfig';
-import { Ionicons } from '@expo/vector-icons';
-import countriesData from '../../assets/maps/countries.json';
-import CountryFlag from 'react-native-country-flag';
-import { Country } from '../../.expo/types/country';
-import DraggableFlatList, { RenderItemParams, DragEndParams } from 'react-native-draggable-flatlist';
+  FlatList,
+} from "react-native";
+import { useFocusEffect, useRouter } from "expo-router";
+import { ThemeContext } from "../config/ThemeContext";
+import { useTheme } from "react-native-paper";
+import { getDoc, doc, updateDoc, onSnapshot } from "firebase/firestore";
+import { db, auth } from "../config/firebaseConfig";
+import { Ionicons } from "@expo/vector-icons";
+import countriesData from "../../assets/maps/countries.json";
+import CountryFlag from "react-native-country-flag";
+import DraggableFlatList, {
+  RenderItemParams,
+  DragEndParams,
+} from "react-native-draggable-flatlist";
+
+interface Country {
+  id: string;
+  cca2: string;
+  name: string;
+  // Add other fields as necessary
+}
 
 interface RankingSlot {
   id: string;
@@ -32,14 +48,15 @@ interface RankingSlot {
 
 const removeDuplicates = (countries: Country[]): Country[] => {
   const unique = new Map<string, Country>();
-  countries.forEach(c => {
+  countries.forEach((c) => {
     unique.set(c.id, c); // Użyj `c.id` jako klucza, zakładając, że jest unikalne
   });
   return Array.from(unique.values());
 };
 
 // Funkcja generująca unikalne id
-const generateUniqueId = () => `rank-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+const generateUniqueId = () =>
+  `rank-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 export default function RankingScreen() {
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
@@ -47,9 +64,11 @@ export default function RankingScreen() {
   const router = useRouter();
   const [countriesVisited, setCountriesVisited] = useState<Country[]>([]);
   const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>([]);
-  const [activeRankingItemId, setActiveRankingItemId] = useState<string | null>(null); // Nowy stan
+  const [activeRankingItemId, setActiveRankingItemId] = useState<string | null>(
+    null
+  ); // Nowy stan
 
-  const { width, height } = Dimensions.get('window');
+  const { width, height } = Dimensions.get("window");
 
   const mappedCountries: Country[] = useMemo(() => {
     return countriesData.countries.map((country) => ({
@@ -59,50 +78,51 @@ export default function RankingScreen() {
     }));
   }, []);
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      const currentUser = auth.currentUser;
-      if (currentUser) {
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          const visitedCountryCodes: string[] = userData.countriesVisited || [];
-          const rankingData: string[] = userData.ranking || [];
+  // 1. Zamiast definiować wewnątrz useEffect, deklarujemy tutaj:
+  const fetchUserData = useCallback(async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
 
-          // Filtruj visited countries, aby wykluczyć te już w rankingu
-          const visitedCountries: Country[] = mappedCountries.filter(
-            (country: Country) =>
-              visitedCountryCodes.includes(country.cca2) &&
-              !rankingData.includes(country.cca2)
-          );
+    const userDocRef = doc(db, "users", currentUser.uid);
+    const userDoc = await getDoc(userDocRef);
+    if (!userDoc.exists()) return;
+    const userData = userDoc.data();
 
-          // Usuń duplikaty
-          const uniqueVisitedCountries = removeDuplicates(visitedCountries);
-          setCountriesVisited(uniqueVisitedCountries);
+    const visitedCodes: string[] = userData.countriesVisited || [];
+    const rankingRaw: string[] = userData.ranking || [];
 
-          // Utwórz initialSlots z unikalnym id
-          const initialSlots: RankingSlot[] = rankingData.map((cca2, index) => {
-            const country = mappedCountries.find((c: Country) => c.cca2 === cca2) || null;
-            return {
-              id: generateUniqueId(), // Użyj unikalnego id
-              rank: index + 1,
-              country: country,
-            };
-          });
+    // filtrujemy ranking tak, aby zostawić tylko te kody, które są w visitedCodes
+    const rankingFiltered = rankingRaw.filter((code) =>
+      visitedCodes.includes(code)
+    );
 
-          setRankingSlots(initialSlots);
-        }
-      }
-    };
+    // budujemy countriesVisited bez tych, co w rankingu
+    const visited = mappedCountries.filter(
+      (c) => visitedCodes.includes(c.cca2) && !rankingFiltered.includes(c.cca2)
+    );
+    setCountriesVisited(removeDuplicates(visited));
 
-    fetchUserData();
+    // budujemy rankingSlots z przefiltrowanego rankingFiltered
+    setRankingSlots(
+      rankingFiltered.map((cca2, idx) => ({
+        id: generateUniqueId(),
+        rank: idx + 1,
+        country: mappedCountries.find((c) => c.cca2 === cca2) || null,
+      }))
+    );
   }, [mappedCountries]);
 
+  // 2) wywołujemy przy mount
   useEffect(() => {
-    console.log('countriesVisited:', countriesVisited.map(c => c.id));
-    console.log('rankingSlots:', rankingSlots.map(slot => slot.id));
-  }, [countriesVisited, rankingSlots]);
+    fetchUserData();
+  }, [fetchUserData]);
+
+  // 3) i przy każdym powrocie na ekran
+  useFocusEffect(
+    useCallback(() => {
+      fetchUserData();
+    }, [fetchUserData])
+  );
 
   const handleGoBack = () => {
     router.back();
@@ -114,7 +134,7 @@ export default function RankingScreen() {
       .map((slot) => slot.country!.cca2);
     const currentUser = auth.currentUser;
     if (currentUser) {
-      const userDocRef = doc(db, 'users', currentUser.uid);
+      const userDocRef = doc(db, "users", currentUser.uid);
       await updateDoc(userDocRef, { ranking: ranking });
     }
   };
@@ -133,9 +153,9 @@ export default function RankingScreen() {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     const slot = rankingSlots[index];
     if (slot.country) {
-      setCountriesVisited(prev => {
+      setCountriesVisited((prev) => {
         // Sprawdź, czy kraj już istnieje w `countriesVisited`
-        if (!prev.some(c => c.id === slot.country!.id)) {
+        if (!prev.some((c) => c.id === slot.country!.id)) {
           return [...prev, slot.country!];
         }
         return prev;
@@ -143,14 +163,22 @@ export default function RankingScreen() {
       const updatedSlots = [...rankingSlots];
       updatedSlots.splice(index, 1); // Usunięcie slotu
       // Zaktualizuj rangi
-      const reRankedSlots = updatedSlots.map((item, idx) => ({ ...item, rank: idx + 1 }));
+      const reRankedSlots = updatedSlots.map((item, idx) => ({
+        ...item,
+        rank: idx + 1,
+      }));
       setRankingSlots(reRankedSlots);
       handleSaveRanking(reRankedSlots);
       setActiveRankingItemId(null); // Resetowanie aktywnego elementu
     }
   };
 
-  const renderRankingItem = ({ item, getIndex, drag, isActive }: RenderItemParams<RankingSlot>) => {
+  const renderRankingItem = ({
+    item,
+    getIndex,
+    drag,
+    isActive,
+  }: RenderItemParams<RankingSlot>) => {
     const index = getIndex(); // Pobranie indeksu za pomocą getIndex()
     const removeAnim = useRef(new Animated.Value(0)).current; // Animacja dla przycisku "x"
 
@@ -185,10 +213,13 @@ export default function RankingScreen() {
         style={[
           styles.rankingSlot,
           {
-            backgroundColor: isActive || activeRankingItemId === item.id
-              ? isDarkTheme ? '#333333' : '#e3e3e3'
-              : theme.colors.surface,
-            paddingVertical: height * 0.014,
+            backgroundColor:
+              isActive || activeRankingItemId === item.id
+                ? isDarkTheme
+                  ? "#333333"
+                  : "#e3e3e3"
+                : theme.colors.surface,
+            paddingVertical: height * 0.011,
             paddingHorizontal: width * 0.04,
             marginBottom: 7, // Zmniejszenie marginesu dolnego
             borderRadius: 15, // Zwiększone zaokrąglenie
@@ -200,28 +231,56 @@ export default function RankingScreen() {
         activeOpacity={0.8}
       >
         <View style={styles.slotContent}>
-          <Text style={[styles.rankNumber, { color: theme.colors.onSurface, fontSize: 20 }]}>
+          <Text
+            style={[
+              styles.rankNumber,
+              { color: theme.colors.onSurface, fontSize: 20 },
+            ]}
+          >
             {item.rank}.
           </Text>
           {item.country ? (
             <View style={styles.countryInfoContainer}>
-              <CountryFlag isoCode={item.country.cca2} size={20} style={styles.flag} />
-              <Text style={{ color: theme.colors.onSurface, marginLeft: 6, fontSize: 14 }}>
+              <CountryFlag
+                isoCode={item.country.cca2}
+                size={20}
+                style={styles.flag}
+              />
+              <Text
+                style={{
+                  color: theme.colors.onSurface,
+                  marginLeft: 6,
+                  fontSize: 14,
+                }}
+              >
                 {item.country.name}
               </Text>
             </View>
           ) : (
-            <Text style={{ color: theme.colors.onSurface, fontStyle: 'italic', fontSize: 12 }}>
+            <Text
+              style={{
+                color: theme.colors.onSurface,
+                fontStyle: "italic",
+                fontSize: 12,
+              }}
+            >
               Drop Here
             </Text>
           )}
         </View>
         <View style={styles.actionContainer}>
           {/* Animowany przycisk "x" */}
-          <Animated.View style={{ opacity: removeOpacity, transform: [{ scale: removeScale }] }}>
+          <Animated.View
+            style={{
+              opacity: removeOpacity,
+              transform: [{ scale: removeScale }],
+            }}
+          >
             {activeRankingItemId === item.id && (
               <TouchableOpacity
-                onPress={() => index !== undefined ? handleRemoveFromRanking(index) : null}
+                onPress={() =>
+                  index !== undefined ? handleRemoveFromRanking(index) : null
+                }
                 style={styles.removeButton}
               >
                 <Ionicons name="close-circle" size={24} color="red" />
@@ -235,7 +294,11 @@ export default function RankingScreen() {
               drag();
             }}
           >
-            <Ionicons name="reorder-three" size={24} color={theme.colors.onSurface} />
+            <Ionicons
+              name="reorder-three"
+              size={24}
+              color={theme.colors.onSurface}
+            />
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -244,8 +307,11 @@ export default function RankingScreen() {
 
   const handleAddToRanking = (country: Country) => {
     // Opcjonalnie: Zapobiegaj dodawaniu tego samego kraju więcej niż raz
-    if (rankingSlots.some(slot => slot.country?.cca2 === country.cca2)) {
-      Alert.alert('Duplicate Entry', `${country.name} is already in the ranking.`);
+    if (rankingSlots.some((slot) => slot.country?.cca2 === country.cca2)) {
+      Alert.alert(
+        "Duplicate Entry",
+        `${country.name} is already in the ranking.`
+      );
       return;
     }
 
@@ -259,77 +325,132 @@ export default function RankingScreen() {
     setRankingSlots(updatedSlots);
     handleSaveRanking(updatedSlots);
     // Usuń kraj z listy "Visited Countries" i upewnij się, że nie ma duplikatów
-    setCountriesVisited(prev => removeDuplicates(prev.filter(c => c.id !== country.id)));
+    setCountriesVisited((prev) =>
+      removeDuplicates(prev.filter((c) => c.id !== country.id))
+    );
     setActiveRankingItemId(null); // Resetowanie aktywnego elementu po dodaniu
   };
 
   return (
-    <TouchableWithoutFeedback onPress={() => setActiveRankingItemId(null)}>
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        {/* Nagłówek z przyciskiem powrotu i przełącznikiem motywu */}
-        <View style={[styles.header, { paddingTop: height * 0.03 }]}>
-          <TouchableOpacity onPress={handleGoBack} style={[styles.headerButton, { marginLeft: -19 }]}>
-            <Ionicons name="arrow-back" size={28} color={theme.colors.onBackground} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: theme.colors.onBackground }]}>Rank Countries</Text>
-          <TouchableOpacity onPress={toggleTheme} style={[styles.headerButton, { marginRight: -16 }]}>
-            <Ionicons name={isDarkTheme ? "sunny" : "moon"} size={26} color={theme.colors.onBackground} />
-          </TouchableOpacity>
-        </View>
+    <View
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
+      {/* Nagłówek z przyciskiem powrotu i przełącznikiem motywu */}
+      <View style={[styles.header, { paddingTop: height * 0.03 }]}>
+        <TouchableOpacity
+          onPress={handleGoBack}
+          style={[styles.headerButton, { marginLeft: -19 }]}
+        >
+          <Ionicons
+            name="arrow-back"
+            size={26}
+            color={theme.colors.onBackground}
+          />
+        </TouchableOpacity>
+        <Text
+          style={[styles.headerTitle, { color: theme.colors.onBackground }]}
+        >
+          Rank Countries
+        </Text>
+        <TouchableOpacity
+          onPress={toggleTheme}
+          style={[styles.headerButton, { marginRight: -16 }]}
+        >
+          <Ionicons
+            name={isDarkTheme ? "sunny" : "moon"}
+            size={24}
+            color={theme.colors.onBackground}
+          />
+        </TouchableOpacity>
+      </View>
 
-        {/* Visited Countries */}
-        {countriesVisited.length > 0 && (
-          <View style={[styles.visitedContainer, { marginTop: height * 0.03 }]}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.onBackground, marginLeft: 4 }]}>
-              Visited Countries
-            </Text>
-            <ScrollView contentContainerStyle={styles.visitedScrollContainer}>
-              {countriesVisited.map((country) => (
-                <View key={`visited-${country.id}`} style={[
+      {/* Visited Countries */}
+      {countriesVisited.length > 0 && (
+        <View style={[styles.visitedContainer, { marginTop: height * 0.03 }]}>
+          <Text
+            style={[
+              styles.sectionTitle,
+              {
+                color: theme.colors.onBackground,
+                marginLeft: 4,
+                paddingBottom: -1,
+              },
+            ]}
+          >
+            Visited Countries
+          </Text>
+          <FlatList
+            data={countriesVisited}
+            keyExtractor={(country) => `visited-${country.id}`}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.visitedScrollContainer}
+            renderItem={({ item }) => (
+              <View
+                key={`visited-${item.id}`}
+                style={[
                   styles.visitedItemContainer,
                   {
-                    backgroundColor: isDarkTheme ? '#171717' : '#fff',
-                  }
-                ]}>
-                  <CountryFlag isoCode={country.cca2} size={20} style={styles.flag} />
-                  <Text style={[
-                    styles.visitedItemText, 
-                    { 
-                      color: isDarkTheme ? '#fff' : theme.colors.onSurface, 
-                      marginLeft: 6 
-                    }
-                  ]}>
-                    {country.name}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => handleAddToRanking(country)}
-                    style={styles.addButtonIcon}
-                  >
-                    <Ionicons name="add-circle" size={23} color="green" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Ranking */}
-        <View style={[styles.rankingContainer, { marginTop: countriesVisited.length > 0 ? height * 0.02 : height * 0.02 }]}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
-            Ranking
-          </Text>
-          <DraggableFlatList
-            data={rankingSlots}
-            keyExtractor={(item) => item.id} // Użyj unikalnego id
-            renderItem={renderRankingItem}
-            onDragEnd={handleDragEnd}
-            activationDistance={20}
-            scrollEnabled={true}
-            showsVerticalScrollIndicator={true} // Zawsze widoczny pasek przewijania
+                    backgroundColor: isDarkTheme ? "#171717" : "#fff",
+                  },
+                ]}
+              >
+                <CountryFlag
+                  isoCode={item.cca2}
+                  size={20}
+                  style={styles.flag}
+                />
+                <Text
+                  style={[
+                    styles.visitedItemText,
+                    {
+                      color: isDarkTheme ? "#fff" : theme.colors.onSurface,
+                      marginLeft: 6,
+                    },
+                  ]}
+                >
+                  {item.name}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => handleAddToRanking(item)}
+                  style={styles.addButtonIcon}
+                >
+                  <Ionicons name="add-circle" size={23} color="green" />
+                </TouchableOpacity>
+              </View>
+            )}
           />
         </View>
+      )}
+
+      {/* Ranking */}
+      <View
+        style={[
+          styles.rankingContainer,
+          {
+            marginTop:
+              countriesVisited.length > 0 ? height * 0.024 : height * 0.02,
+            flex: 1,
+          },
+        ]}
+      >
+        <Text
+          style={[styles.sectionTitle, { color: theme.colors.onBackground }]}
+        >
+          Ranking
+        </Text>
+        <DraggableFlatList
+          data={rankingSlots}
+          keyExtractor={(item) => item.id}
+          renderItem={renderRankingItem}
+          onDragEnd={handleDragEnd}
+          activationDistance={20}
+          scrollEnabled={true}
+          showsVerticalScrollIndicator={true}
+          contentContainerStyle={{ paddingBottom: 5 }}
+        />
       </View>
-    </TouchableWithoutFeedback>
+    </View>
   );
 }
 
@@ -340,88 +461,92 @@ const styles = StyleSheet.create({
     flex: 1, // Zajmuje całą przestrzeń
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 10, // Zmniejszenie paddingu poziomego
   },
   headerButton: {
     padding: 8,
   },
   headerTitle: {
-    fontSize: 24, // Zwiększony rozmiar fontu
-    fontWeight: '700',
+    fontSize: 20, // Zwiększony rozmiar fontu
+    fontWeight: "700",
   },
   sectionTitle: {
-    fontSize: 20, // Zwiększenie rozmiaru fontu
-    marginBottom: 12, // Zwiększenie marginesu
-    fontWeight: '600',
+    fontSize: 17.2, // Zwiększenie rozmiaru fontu
+    marginBottom: 13, // Zwiększenie marginesu
+    fontWeight: "600",
+    marginLeft: 1,
   },
   visitedContainer: {
-    marginBottom: 5, // Zachowany margines dolny
+    // marginBottom: 5, // Zachowany margines dolny
     marginLeft: -4,
     marginRight: -4,
   },
   visitedScrollContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    // flexWrap: 'wrap',
+    alignItems: "center",
+    paddingTop: 1,
+    paddingBottom: 1,
   },
   visitedItemContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 12, // Zwiększenie poziomego paddingu
     paddingVertical: 8, // Zwiększenie pionowego paddingu
-    margin: 6, // Zmniejszenie marginesu dla lepszego układu
+    marginLeft: 6,
+    marginRight: 6,
     borderRadius: 8, // Zwiększenie promienia
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
   },
   visitedItemText: {
     fontSize: 14, // Zwiększenie rozmiaru fontu
-    fontWeight: '600',
+    fontWeight: "600",
   },
   addButtonIcon: {
     marginLeft: 10, // Zwiększenie marginesu
-    marginRight: -3
+    marginRight: -3,
   },
   rankingContainer: {
-    marginBottom: 20, // Zachowany margines dolny
+    marginBottom: -13, // Zachowany margines dolny
     flex: 1, // Pozwól na rozciąganie
   },
   rankingSlot: {
-    flexDirection: 'row', // Ustawienie elementów w wierszu
-    alignItems: 'center',
+    flexDirection: "row", // Ustawienie elementów w wierszu
+    alignItems: "center",
     paddingVertical: 12, // Zwiększenie pionowego paddingu
     paddingHorizontal: 16, // Zwiększenie poziomego paddingu
     marginBottom: 7, // Zmniejszenie marginesu dolnego
     borderRadius: 15, // Zwiększone zaokrąglenie
     borderWidth: 1,
-    justifyContent: 'space-between', // Rozłożenie przestrzeni między elementami
-    backgroundColor: '#fff',
+    justifyContent: "space-between", // Rozłożenie przestrzeni między elementami
+    backgroundColor: "#fff",
     elevation: 3, // Zwiększenie wysokości cienia
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 3,
-    maxWidth: '100%', // Opcjonalnie: Ustawienie maksymalnej szerokości
+    maxWidth: "100%", // Opcjonalnie: Ustawienie maksymalnej szerokości
   },
   slotContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1, // Pozwól na rozciąganie
   },
   rankNumber: {
     fontSize: 20, // Zwiększenie rozmiaru fontu
     marginRight: 12, // Zwiększenie marginesu
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   countryInfoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
   flag: {
@@ -430,8 +555,8 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   actionContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   removeButton: {
     marginRight: 8, // Zwiększenie marginesu po prawej stronie

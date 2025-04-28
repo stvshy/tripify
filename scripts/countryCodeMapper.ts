@@ -9,6 +9,7 @@ const countryNameToCodeMap: { [key: string]: string } = {
   'são tomé and principe': 'ST',
   'canary islands (spain)': 'ES', // Przypisujemy do Hiszpanii
   'faroe islands': 'FO',
+  'faeroe islands': 'FO',
   'united states virgin islands': 'VI',
   'saint pierre and miquelon': 'PM',
   'wallis and futuna': 'WF',
@@ -54,8 +55,10 @@ const countryNameToCodeMap: { [key: string]: string } = {
   'georgia': 'GE',
   'ghana': 'GH',
   'greece': 'GR',
-  'faeroe islands': 'FO',
   'st. eustatius': 'BQ',
+  'bqbo': 'BQ',
+  'bqse': 'BQ',
+  'bqsa': 'BQ',
 };
 
 // Funkcja do mapowania nazwy kraju lub kodu `cca2` na kod `cca2`

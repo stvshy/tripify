@@ -1,12 +1,20 @@
-import React, { useState, useMemo, useCallback, useContext, useEffect, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  SectionList, 
-  Pressable, 
-  StyleSheet, 
-  Alert, 
-  Dimensions, 
+// app/chooseCountries/index.tsx
+import React, {
+  useState,
+  useMemo,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+} from "react";
+import {
+  View,
+  Text,
+  SectionList,
+  Pressable,
+  StyleSheet,
+  Alert,
+  Dimensions,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -20,20 +28,28 @@ import {
   BackHandler,
   TextInput,
   LayoutAnimation,
-} from 'react-native';
-import { TextInput as PaperTextInput, useTheme } from 'react-native-paper';
-import { FontAwesome, MaterialIcons } from '@expo/vector-icons'; 
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { useRouter } from 'expo-router';
-import { auth, db } from '../config/firebaseConfig';
-import CountryFlag from 'react-native-country-flag';
-import { ThemeContext } from '../config/ThemeContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import filteredCountriesData from '../../components/filteredCountries.json'; 
+} from "react-native";
+import { TextInput as PaperTextInput, useTheme } from "react-native-paper";
+import { AntDesign, FontAwesome, MaterialIcons } from "@expo/vector-icons";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { router, useRouter } from "expo-router";
+import { auth, db } from "../config/firebaseConfig";
+import CountryFlag from "react-native-country-flag";
+import { ThemeContext } from "../config/ThemeContext";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import filteredCountriesData from "../../components/filteredCountries.json";
+import { useCountries } from "../config/CountryContext"; // Import hook z kontekstu
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 
-type Continent = 'Africa' | 'North America' | 'South America' | 'Asia' | 'Europe' | 'Oceania' | 'Antarctica';
+type Continent =
+  | "Africa"
+  | "North America"
+  | "South America"
+  | "Asia"
+  | "Europe"
+  | "Oceania"
+  | "Antarctica";
 
 export type Country = {
   id: string;
@@ -51,19 +67,27 @@ export type FilteredCountries = {
   countries: Country[];
 };
 
-// Funkcja do określania kontynentu
+// Function to determine the continent
 const getContinent = (region: string, subregion: string): Continent => {
   switch (region) {
-    case 'Africa': return 'Africa';
-    case 'Americas': return subregion.includes('South') ? 'South America' : 'North America';
-    case 'Asia': return 'Asia';
-    case 'Europe': return 'Europe';
-    case 'Oceania': return 'Oceania';
-    case 'Antarctic': return 'Antarctica';
-    default: return 'Africa';
+    case "Africa":
+      return "Africa";
+    case "Americas":
+      return subregion.includes("South") ? "South America" : "North America";
+    case "Asia":
+      return "Asia";
+    case "Europe":
+      return "Europe";
+    case "Oceania":
+      return "Oceania";
+    case "Antarctic":
+      return "Antarctica";
+    default:
+      return "Africa";
   }
 };
 
+// CountryItem component
 const CountryItem = React.memo(function CountryItem({
   item,
   onSelect,
@@ -79,8 +103,16 @@ const CountryItem = React.memo(function CountryItem({
 
   const handleCheckboxPress = useCallback(() => {
     Animated.sequence([
-      Animated.timing(scaleValue, { toValue: 0.8, duration: 80, useNativeDriver: true }),
-      Animated.timing(scaleValue, { toValue: 1, duration: 80, useNativeDriver: true }),
+      Animated.timing(scaleValue, {
+        toValue: 0.8,
+        duration: 80,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleValue, {
+        toValue: 1,
+        duration: 80,
+        useNativeDriver: true,
+      }),
     ]).start();
     onSelect(item.cca2);
   }, [scaleValue, onSelect, item.cca2]);
@@ -90,7 +122,7 @@ const CountryItem = React.memo(function CountryItem({
     handleCheckboxPress();
   }, [handleCheckboxPress]);
 
-  // Kolory dynamiczne na podstawie motywu
+  // Dynamic colors based on the theme
   const selectedBackgroundColor = isSelected
     ? theme.colors.surfaceVariant
     : theme.colors.surface;
@@ -99,42 +131,65 @@ const CountryItem = React.memo(function CountryItem({
 
   const checkboxBackgroundColor = isSelected
     ? theme.colors.primary
-    : 'transparent';
+    : "transparent";
 
   const checkboxBorderColor = isSelected
     ? theme.colors.primary
     : theme.colors.outline;
 
-  const checkboxIconColor = isSelected
-    ? theme.colors.onPrimary
-    : 'transparent';
-
+  const checkboxIconColor = isSelected ? theme.colors.onPrimary : "transparent";
+  const handleNavigateToCountry = useCallback(() => {
+    router.push(`/country/${item.id}`);
+  }, [router, item.id]);
   return (
     <TouchableOpacity
       onPress={handlePress}
-      style={[
-        styles.countryItemContainer, 
-        {
-          backgroundColor: selectedBackgroundColor,
-          borderRadius: isSelected ? 4.2 : 8,
-        },
-      ]}
+      style={[styles.countryItemContainer, { backgroundColor: "transparent" }]}
       activeOpacity={0.7}
     >
-       <View  style={[
-            styles.countryItem,
-            {
-              backgroundColor: selectedBackgroundColor,
-              borderRadius: isSelected ? 4.2 : 8, // Większe zaokrąglenie, gdy wybrane
-            },
+      <View
+        style={[
+          styles.countryItem,
+          {
+            backgroundColor: selectedBackgroundColor,
+            borderRadius: isSelected ? 4.2 : 8,
+          },
+        ]}
+      >
+        {/* FLAGA */}
+        <Pressable
+          onPress={(e) => {
+            e.stopPropagation();
+            handleNavigateToCountry();
+          }}
+          hitSlop={8}
+          style={[
+            styles.flagContainer,
+            styles.flagWithBorder,
+            { borderColor: flagBorderColor },
           ]}
-          >
-        <View style={[styles.flagContainer, styles.flagWithBorder, { borderColor: flagBorderColor }]}>
+        >
           <CountryFlag isoCode={item.cca2} size={25} />
-        </View>
+        </Pressable>
 
-        <Text style={[styles.countryText, { color: theme.colors.onSurface }]}>{item.name}</Text>
+        {/* NAZWA */}
+        <Pressable
+          onPress={(e) => {
+            e.stopPropagation();
+            handleNavigateToCountry();
+          }}
+          hitSlop={8}
+          style={{ marginLeft: 5 }}
+        >
+          <Text style={[styles.countryText, { color: theme.colors.onSurface }]}>
+            {item.name}
+          </Text>
+        </Pressable>
 
+        {/* SPACER */}
+        <View style={{ flex: 1 }} />
+
+        {/* CHECKBOX */}
         <Animated.View
           style={[
             styles.roundCheckbox,
@@ -145,7 +200,9 @@ const CountryItem = React.memo(function CountryItem({
             },
           ]}
         >
-          {isSelected && <FontAwesome name="check" size={12} color={checkboxIconColor} />}
+          {isSelected && (
+            <FontAwesome name="check" size={12} color={checkboxIconColor} />
+          )}
         </Animated.View>
       </View>
     </TouchableOpacity>
@@ -156,10 +213,12 @@ type ChooseCountriesScreenProps = {
   fromTab?: boolean;
 };
 
-export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountriesScreenProps) {
+export default function ChooseCountriesScreen({
+  fromTab = false,
+}: ChooseCountriesScreenProps) {
   const router = useRouter();
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const { toggleTheme, isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme();
   const [isFocused, setIsFocused] = useState(false);
@@ -168,50 +227,55 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
   const scaleValue = useRef(new Animated.Value(1)).current;
   const [isPopupVisible, setIsPopupVisible] = useState(true);
   const searchInputRef = useRef<TextInput>(null);
+  const { visitedCountries, setVisitedCountries } = useCountries(); // Pobranie stanu z kontekstu
 
   useEffect(() => {
     const checkPopup = async () => {
       try {
-        const value = await AsyncStorage.getItem('hasShownPopup');
-        if (value !== 'true') {
-          setIsPopupVisible(true); // Pokaż pop-up tylko wtedy, gdy klucz nie istnieje lub ma inną wartość
+        const value = await AsyncStorage.getItem("hasShownPopup");
+        if (value !== "true") {
+          setIsPopupVisible(true); // Show pop-up only if the key doesn't exist or has a different value
         }
       } catch (e) {
-        console.error('Failed to load popup status.');
+        console.error("Failed to load popup status.");
       }
     };
-  
+
     checkPopup();
   }, []);
-  
+
   useEffect(() => {
-    // Pobranie zapisanych krajówVisited z Firestore
+    // Fetch saved countriesVisited from Firestore
     const fetchSelectedCountries = async () => {
       const user = auth.currentUser;
       if (user) {
         try {
-          const userDocRef = doc(db, 'users', user.uid);
+          const userDocRef = doc(db, "users", user.uid);
           const userDoc = await getDoc(userDocRef);
           if (userDoc.exists()) {
             const userData = userDoc.data();
             const countriesVisited: string[] = userData?.countriesVisited || [];
             setSelectedCountries(countriesVisited);
+            setVisitedCountries(countriesVisited); // Synchronizacja z kontekstem
           }
         } catch (error) {
-          console.error('Error fetching selected countries:', error);
+          console.error("Error fetching selected countries:", error);
         }
       }
     };
 
     fetchSelectedCountries();
-  }, []);
-
+  }, [setVisitedCountries]);
+  useEffect(() => {
+    // synchronizacja lokalnego selectedCountries z kontekstem
+    setSelectedCountries(visitedCountries);
+  }, [visitedCountries]);
   const handleClosePopup = useCallback(async () => {
     setIsPopupVisible(false);
     try {
-      await AsyncStorage.setItem('hasShownPopup', 'true');
+      await AsyncStorage.setItem("hasShownPopup", "true");
     } catch (e) {
-      console.error('Failed to save popup status.');
+      console.error("Failed to save popup status.");
     }
   }, []);
 
@@ -233,10 +297,15 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
   }, [scaleValue, toggleTheme]);
 
   useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showEvent =
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent =
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
 
-    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+    if (
+      Platform.OS === "android" &&
+      UIManager.setLayoutAnimationEnabledExperimental
+    ) {
       UIManager.setLayoutAnimationEnabledExperimental(true);
     }
 
@@ -255,18 +324,23 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
       }).start();
     });
 
-    // Dodanie listenera dla przycisku "back" na Androidzie
+    // Add listener for the "back" button on Android
     const handleBackPress = () => {
       if (isInputFocused && searchInputRef.current) {
-        console.log('Back button pressed while input is focused. Blurring input.');
+        console.log(
+          "Back button pressed while input is focused. Blurring input."
+        );
         searchInputRef.current.blur();
         return true;
       }
       return false;
     };
-  
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
-  
+
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      handleBackPress
+    );
+
     return () => {
       backHandler.remove();
       keyboardShowListener.remove();
@@ -274,70 +348,83 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
     };
   }, [isInputFocused, fadeAnim]);
 
-  // Przetwarzanie danych krajów
+  // Processing country data
   const processedCountries = useMemo(() => {
-    const filtered = filteredCountriesData.countries.filter((country: Country) =>
-      country.name.toLowerCase().includes(searchQuery.toLowerCase())
+    const filtered = filteredCountriesData.countries.filter(
+      (country: Country) =>
+        country.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  
-    const grouped = filtered.reduce((acc: { [key in Continent]?: Country[] }, country: Country) => {
-      const continent = getContinent(country.region, country.subregion);
-      if (!acc[continent]) {
-        acc[continent] = [];
-      }
-      acc[continent]!.push(country);
-      return acc;
-    }, {} as { [key in Continent]?: Country[] });
-    
-  
+
+    const grouped = filtered.reduce(
+      (acc: { [key in Continent]?: Country[] }, country: Country) => {
+        const continent = getContinent(country.region, country.subregion);
+        if (!acc[continent]) {
+          acc[continent] = [];
+        }
+        acc[continent]!.push(country);
+        return acc;
+      },
+      {} as { [key in Continent]?: Country[] }
+    );
+
     const sections: { title: string; data: Country[] }[] = Object.keys(grouped)
-    .map((continent) => ({
-      title: continent,
-      data: grouped[continent as Continent]!.sort((a: Country, b: Country) =>
-        a.name.localeCompare(b.name)
-      ),
-    }))
-    .sort((a, b) => a.title.localeCompare(b.title));
-  
-  return sections;  
+      .map((continent) => ({
+        title: continent,
+        data: grouped[continent as Continent]!.sort((a: Country, b: Country) =>
+          a.name.localeCompare(b.name)
+        ),
+      }))
+      .sort((a, b) => a.title.localeCompare(b.title));
+
+    return sections;
   }, [searchQuery]);
 
-  const handleSelectCountry = useCallback((countryCode: string) => {
-    setSelectedCountries((prevSelected) => {
-      if (prevSelected.includes(countryCode)) {
-        return prevSelected.filter((c) => c !== countryCode);
-      } else {
-        return [...prevSelected, countryCode];
-      }
-    });
-  }, []);
+  const handleSelectCountry = useCallback(
+    (countryCode: string) => {
+      setSelectedCountries((prevSelected) => {
+        let updatedSelected;
+        if (prevSelected.includes(countryCode)) {
+          updatedSelected = prevSelected.filter((c) => c !== countryCode);
+        } else {
+          updatedSelected = [...prevSelected, countryCode];
+        }
+        setVisitedCountries(updatedSelected); // Aktualizacja kontekstu
+        return updatedSelected;
+      });
+    },
+    [setVisitedCountries]
+  );
 
   const handleSaveCountries = useCallback(async () => {
     if (selectedCountries.length === 0) {
-      Alert.alert('No Selection', 'Please select at least one country.');
+      Alert.alert("No Selection", "Please select at least one country.");
       return;
     }
     const user = auth.currentUser;
     if (user) {
       try {
-        const userDocRef = doc(db, 'users', user.uid);
+        const userDocRef = doc(db, "users", user.uid);
         await updateDoc(userDocRef, {
           countriesVisited: selectedCountries,
           firstLoginComplete: true,
         });
-        await AsyncStorage.setItem('hasShownPopup', 'true');
-        router.replace('/');
+        console.log("Selected countries saved:", selectedCountries);
+        await AsyncStorage.setItem("hasShownPopup", "true");
+        router.replace("/");
       } catch (error) {
-        console.error('Error saving countries:', error);
-        Alert.alert('Error', 'Failed to save selected countries. Please try again.');
+        console.error("Error saving countries:", error);
+        Alert.alert(
+          "Error",
+          "Failed to save selected countries. Please try again."
+        );
       }
     } else {
-      Alert.alert('Not Logged In', 'User is not authenticated.');
-      router.replace('/welcome');
+      Alert.alert("Not Logged In", "User is not authenticated.");
+      router.replace("/welcome");
     }
   }, [selectedCountries, router]);
 
-  // Funkcja do obsługi kliknięcia poza polem tekstowym
+  // Function to handle clicking outside the text input
   const dismissKeyboard = useCallback(() => {
     Keyboard.dismiss();
     setIsInputFocused(false);
@@ -362,23 +449,32 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
 
   const renderSectionHeader = useCallback(
     ({ section }: { section: { title: string } }) => (
-      <View style={[styles.sectionHeader, { backgroundColor: theme.colors.surface }]}>
-        <Text style={[styles.sectionHeaderText, { color: theme.colors.primary }]}>{section.title}</Text>
+      <View
+        style={[
+          styles.sectionHeader,
+          { backgroundColor: theme.colors.surface },
+        ]}
+      >
+        <Text
+          style={[styles.sectionHeaderText, { color: theme.colors.primary }]}
+        >
+          {section.title}
+        </Text>
       </View>
-    ), 
+    ),
     [theme.colors.surface, theme.colors.primary]
   );
 
   return (
     <TouchableWithoutFeedback onPress={dismissKeyboard}>
-      <SafeAreaView 
+      <SafeAreaView
         style={[
-          styles.container, 
-          { backgroundColor: theme.colors.background }, 
-          fromTab ? styles.containerFromTab : styles.containerStandalone
+          styles.container,
+          { backgroundColor: theme.colors.background },
+          fromTab ? styles.containerFromTab : styles.containerStandalone,
         ]}
       >
-        {/* Popup Informacyjny */}
+        {/* Informational Popup */}
         {!fromTab && isPopupVisible && (
           <Modal
             transparent={true}
@@ -387,18 +483,38 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
             onRequestClose={handleClosePopup}
           >
             <View style={styles.modalOverlay}>
-              <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
-                <Text style={[styles.modalTitle, { color: theme.colors.primary }]}>
+              <View
+                style={[
+                  styles.modalContent,
+                  { backgroundColor: theme.colors.surface },
+                ]}
+              >
+                <Text
+                  style={[styles.modalTitle, { color: theme.colors.primary }]}
+                >
                   Hey Traveller!
                 </Text>
-                <Text style={[styles.modalText, { color: theme.colors.onSurface }]}>
-                  Please choose the countries you have visited from the list below.
+                <Text
+                  style={[styles.modalText, { color: theme.colors.onSurface }]}
+                >
+                  Please choose the countries you have visited from the list
+                  below.
                 </Text>
                 <TouchableOpacity
                   onPress={handleClosePopup}
-                  style={[styles.modalButton, { backgroundColor: theme.colors.primary }]}
+                  style={[
+                    styles.modalButton,
+                    { backgroundColor: theme.colors.primary },
+                  ]}
                 >
-                  <Text style={[styles.modalButtonText, { color: theme.colors.onPrimary }]}>Got it</Text>
+                  <Text
+                    style={[
+                      styles.modalButtonText,
+                      { color: theme.colors.onPrimary },
+                    ]}
+                  >
+                    Got it
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -407,15 +523,17 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardAvoidingView}
-          keyboardVerticalOffset={fromTab ? 0 : (Platform.OS === 'ios' ? 80 : 20)}
+          keyboardVerticalOffset={fromTab ? 0 : Platform.OS === "ios" ? 80 : 20}
         >
           <View style={{ flex: 1 }}>
-            {/* Pasek wyszukiwania i przycisk przełączania motywu */}
+            {/* Search Bar and Theme Toggle Button */}
             <View style={styles.searchAndToggleContainer}>
-              <View style={[
-                  styles.inputContainer, 
-                  isFocused && styles.inputFocused
-                ]}>
+              <View
+                style={[
+                  styles.inputContainer,
+                  isFocused && styles.inputFocused,
+                ]}
+              >
                 <PaperTextInput
                   ref={searchInputRef}
                   label="Search Country"
@@ -425,23 +543,41 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
                   style={styles.input}
                   theme={{
                     colors: {
-                      primary: isFocused ? theme.colors.primary : theme.colors.outline,
-                      background: 'transparent',
+                      primary: isFocused
+                        ? theme.colors.primary
+                        : theme.colors.outline,
+                      background: "transparent",
                       text: theme.colors.onSurface,
                     },
                   }}
                   underlineColor="transparent"
                   left={
                     <PaperTextInput.Icon
-                      icon={() => <FontAwesome name="search" size={20} color={isFocused ? theme.colors.primary : theme.colors.outline} />}
+                      icon={() => (
+                        <AntDesign
+                          name="search1"
+                          size={21.5}
+                          color={
+                            isFocused
+                              ? theme.colors.primary
+                              : theme.colors.outline
+                          }
+                        />
+                      )}
                       style={styles.iconLeft}
                     />
                   }
                   right={
                     searchQuery ? (
                       <PaperTextInput.Icon
-                        icon={() => <MaterialIcons name="close" size={17} color={theme.colors.outline} />}
-                        onPress={() => setSearchQuery('')}
+                        icon={() => (
+                          <MaterialIcons
+                            name="close"
+                            size={17}
+                            color={theme.colors.outline}
+                          />
+                        )}
+                        onPress={() => setSearchQuery("")}
                       />
                     ) : null
                   }
@@ -463,7 +599,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
                 />
               </View>
 
-              {/* Okrągły przycisk do przełączania motywu */}
+              {/* Round Button to Toggle Theme */}
               <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
                 <Pressable
                   onPress={handleToggleTheme}
@@ -473,15 +609,23 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
                   ]}
                 >
                   {isDarkTheme ? (
-                    <MaterialIcons name="dark-mode" size={24} color={theme.colors.onPrimary} />
+                    <MaterialIcons
+                      name="dark-mode"
+                      size={24}
+                      color={theme.colors.onPrimary}
+                    />
                   ) : (
-                    <MaterialIcons name="light-mode" size={24} color={theme.colors.onPrimary} />
+                    <MaterialIcons
+                      name="light-mode"
+                      size={24}
+                      color={theme.colors.onPrimary}
+                    />
                   )}
                 </Pressable>
               </Animated.View>
             </View>
 
-            {/* Lista krajów */}
+            {/* Country List */}
             <View style={{ flex: 1, marginBottom: fromTab ? -16 : -20 }}>
               <SectionList
                 sections={processedCountries}
@@ -489,9 +633,9 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
                 renderItem={renderCountryItem}
                 renderSectionHeader={renderSectionHeader}
                 stickySectionHeadersEnabled={false}
-                contentContainerStyle={{ 
+                contentContainerStyle={{
                   flexGrow: 1,
-                  paddingBottom: fromTab ? 86 : 96 
+                  paddingBottom: fromTab ? 86 : 96,
                 }}
                 ListEmptyComponent={() => (
                   <View style={styles.emptyContainer}>
@@ -501,7 +645,7 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
               />
             </View>
 
-            {/* Przycisk "Save and Continue" */}
+            {/* "Save and Continue" Button */}
             <Animated.View
               style={[
                 styles.footer,
@@ -515,7 +659,11 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
                       }),
                     },
                   ],
-                  bottom: fromTab ? -3 : (isInputFocused ? -styles.saveButton.marginBottom - 5 : 0),
+                  bottom: fromTab
+                    ? -3
+                    : isInputFocused
+                      ? -styles.saveButton.marginBottom - 5
+                      : 0,
                 },
               ]}
             >
@@ -524,11 +672,20 @@ export default function ChooseCountriesScreen({ fromTab = false }: ChooseCountri
                 style={[
                   styles.saveButton,
                   selectedCountries.length === 0 && styles.saveButtonDisabled,
-                  selectedCountries.length > 0 ? { backgroundColor: theme.colors.primary } : {},
+                  selectedCountries.length > 0
+                    ? { backgroundColor: theme.colors.primary }
+                    : {},
                 ]}
                 disabled={selectedCountries.length === 0}
               >
-                <Text style={[styles.saveButtonText, { color: theme.colors.onPrimary }]}>Save and Continue</Text>
+                <Text
+                  style={[
+                    styles.saveButtonText,
+                    { color: theme.colors.onPrimary },
+                  ]}
+                >
+                  Save and Continue
+                </Text>
               </Pressable>
             </Animated.View>
           </View>
@@ -553,148 +710,146 @@ const styles = StyleSheet.create({
     paddingTop: 30,
   },
   searchAndToggleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     marginHorizontal: 13,
     marginBottom: 13,
     marginTop: 10,
   },
   inputContainer: {
     width: width * 0.82,
-    backgroundColor: '#f0ed8f5',
+    backgroundColor: "#f0ed8f5",
     borderRadius: 28,
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: 2,
-    borderColor: '#ccc',
-    flexDirection: 'row',
-    alignItems: 'center',
+    borderColor: "#ccc",
+    flexDirection: "row",
+    alignItems: "center",
     height: height * 0.062,
     flex: 1,
   },
   toggleButton: {
     width: height * 0.0615,
     height: height * 0.0615,
-    borderRadius: height * 0.0615 / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: (height * 0.0615) / 2,
+    alignItems: "center",
+    justifyContent: "center",
     marginLeft: 7,
   },
   inputFocused: {
-    borderColor: '#6a1b9a',
+    borderColor: "#6a1b9a", // Purple color when focused
   },
   input: {
     flex: 1,
-    paddingLeft: 10,
+    // paddingLeft: 10,
     height: 50,
     fontSize: 14,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderRadius: 0,
-    color: '#000',
+    color: "#000",
   },
   iconLeft: {
     marginLeft: 10,
   },
   countryItemContainer: {
-    width: '100%',
-    backgroundColor: 'transparent',
+    width: "100%",
+    backgroundColor: "transparent",
   },
   sectionHeader: {
     paddingVertical: 4,
     paddingHorizontal: 8,
-    width: '100%',
+    width: "100%",
     marginLeft: 7,
     marginTop: 7,
   },
   sectionHeaderText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   flagWithBorder: {
     borderWidth: 1,
     borderRadius: 5,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   countryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     height: 50,
     paddingHorizontal: 8,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#ccc',
+    borderBottomColor: "#ccc",
   },
   flagContainer: {
     marginRight: 10,
     width: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginLeft: 7,
   },
   countryText: {
-    flex: 1,
     fontSize: 16,
-    marginLeft: 5,
   },
   roundCheckbox: {
     width: 20,
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 7,
   },
   emptyContainer: {
     padding: 16,
-    alignItems: 'center',
+    alignItems: "center",
   },
   emptyText: {
     fontSize: 16,
-    color: '#666',
+    color: "#666",
   },
   footer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    alignItems: 'center',
-    backgroundColor: 'transparent',
+    alignItems: "center",
+    backgroundColor: "transparent",
     zIndex: 100,
   },
   saveButton: {
-    backgroundColor: '#7511b5',
+    backgroundColor: "#7511b5",
     paddingVertical: 11,
     paddingHorizontal: 30,
-    alignItems: 'center',
+    alignItems: "center",
     borderRadius: 25,
-    width: '80%',
+    width: "80%",
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     marginBottom: 13,
   },
   saveButtonDisabled: {
-    backgroundColor: 'rgba(117, 17, 181, 0.25)',
+    backgroundColor: "rgba(117, 17, 181, 0.25)",
   },
   saveButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalContent: {
     width: width * 0.8,
     padding: 20,
     borderRadius: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
@@ -702,12 +857,12 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 10,
   },
   modalText: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 20,
   },
   modalButton: {
@@ -717,6 +872,6 @@ const styles = StyleSheet.create({
   },
   modalButtonText: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
 });

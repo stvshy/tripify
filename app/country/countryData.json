@@ -1,0 +1,86 @@
+{
+    "PL": {
+      "name": "Poland",
+      "images": [
+        "poland12.jpg",
+        "poland13.jpg",
+        "poland14.jpg",
+        "poland15.jpg",
+        "poland17.jpg",
+        "poland19.jpg",
+        "poland20.jpg",
+        "poland21.jpg",
+        "poland25.jpg",
+        "poland26.jpg",
+        "poland28.jpeg",
+        "poland3.jpg",
+        "poland30.jpg",
+        "poland31.jpg",
+        "poland33.jpg",
+        "poland34.png",
+        "poland35.jpg",
+        "poland36.jpg",
+        "poland37.jpg",
+        "poland38.jpg",
+        "poland4.jpg",
+        "poland40.jpg",
+        "poland7.jpg",
+        "poland8.jpg",
+        "poland9.jpg"
+      ],
+      "description": "Poland is a country with a rich history, culture and beautiful landscapes.",
+      "capital": "Warsaw",
+      "capitalLatitude": 52.2297,
+      "capitalLongitude": 21.0122,
+      "population": "38 million",
+      "area": "312679",
+      "continent": "Europe",
+      "flag": "poland-flag.png",
+      "knownFor": [
+        { "icon": "🏛", "text": "History" },
+        { "icon": "🍽", "text": "Cuisine" },
+        { "icon": "🏙️", "text": "Architecture" }
+      ],
+      "outlets": [ "type-c.png" ],
+      "currency": "USD ($) - PLN",
+      "transportApps": [
+        { "name": "Uber", "logo": "uber-logo.jpeg" },
+        { "name": "Bolt", "logo": "bolt-logo.png" },
+        { "name": "FREENOW", "logo": "freenow-logo.png" }
+      ],
+      "currentWeather": "Sunny, 18°C",
+      "rainySeason": "June - August",
+      "bestTimeToVisit": "May and September",
+      "monthlyTemperatures": {
+        "January": { "day": 2, "night": -5 },
+        "February": { "day": 4, "night": -3 },
+        "March": { "day": 9, "night": 2 },
+        "April": { "day": 15, "night": 6 },
+        "May": { "day": 20, "night": 10 },
+        "June": { "day": 25, "night": 15 },
+        "July": { "day": 30, "night": 18 },
+        "August": { "day": 29, "night": 17 },
+        "September": { "day": 22, "night": 12 },
+        "October": { "day": 15, "night": 7 },
+        "November": { "day": 8, "night": 3 },
+        "December": { "day": 3, "night": -2 }
+      },
+      "visaRequired": "Not required for EU tourists",
+      "travelTips": "Before travelling, be sure to familiarize yourself with local customs and public transport.",
+      "religions": [
+        { "name": "Catholicism", "percentage": 87 },
+        { "name": "Other", "percentage": 13 }
+      ],
+      "dialingCode": "+48",
+      "mainCities": ["Warsaw", "Kraków", "Wrocław", "Łódź"],
+      "networkOperators": ["Orange", "T-Mobile", "Plus"],
+      "drivingSide": { "side": "Right", "image": "driving-right.png" },
+      "legalAlcoholAge": 18,
+      "legalCigarettesAge": 18,
+      "legalDrugs": "Cannabis is decriminalized for personal use",
+      "vaccinationRequirements": "No mandatory vaccinations",
+      "dangerRating": 1,
+      "languages": ["Polish"]
+    }
+  }
+  
