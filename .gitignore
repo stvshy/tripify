@@ -79,3 +79,7 @@ yarn-error.*
 
 expo-env.d.ts
 # @end expo-cli
+
+
+.repomix
+repomix-output.txt

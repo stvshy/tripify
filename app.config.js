@@ -8,7 +8,7 @@ export default {
     scheme: "fb517197711280428",
     userInterfaceStyle: "automatic",
     splash: {
-      image: "./assets/images/gradient5.png",
+      image: "./assets/images/gradient7.png",
       resizeMode: "cover",
       backgroundColor: "#000000",
     },
