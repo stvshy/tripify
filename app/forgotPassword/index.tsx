@@ -80,6 +80,7 @@ export default function ForgotPasswordScreen() {
         top: -150,
         transform: [{ rotate: "-10deg" }],
       }}
+      fadeDuration={0}
     >
       <View style={styles.overlay} />
       <KeyboardAvoidingView

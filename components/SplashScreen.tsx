@@ -98,6 +98,7 @@ export default function SplashScreen() {
         );
         setBackgroundSource(DEFAULT_SPLASH_BACKGROUND); // Wróć do domyślnego w razie błędu ładowania URI
       }}
+      fadeDuration={0}
     >
       <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
         <Image

@@ -374,6 +374,7 @@ export default function WelcomeScreen() {
       source={require("../../assets/images/gradient13.png")}
       style={styles.background}
       imageStyle={{ resizeMode: "cover", width: "110%", height: "110%" }}
+      fadeDuration={0}
     >
       {/* Bardziej neutralny gradient, aby nie wpływać na kolory */}
       <LinearGradient

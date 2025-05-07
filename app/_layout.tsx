@@ -163,7 +163,10 @@ export default function RootLayout() {
               {/* Główny Stack Navigator */}
               <Stack
                 initialRouteName={initialRouteName} // Użyj dynamicznie ustalonej nazwy
-                screenOptions={{ headerShown: false }} // Ukryj domyślny nagłówek
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: "transparent" },
+                }} // Ukryj domyślny nagłówek
               >
                 {/* 
                   Nie ma potrzeby definiować tutaj <Stack.Screen>, 
