@@ -416,9 +416,14 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       [tooltip]
     );
 
-    const visitedCountries = selectedCountries.length;
-    const percentageVisited =
-      totalCountries > 0 ? visitedCountries / totalCountries : 0;
+    const visitedCountries = useMemo(
+      () => selectedCountries.length,
+      [selectedCountries]
+    );
+    const percentageVisited = useMemo(
+      () => (totalCountries > 0 ? visitedCountries / totalCountries : 0),
+      [visitedCountries, totalCountries]
+    );
 
     const clamp = (value: number, min: number, max: number): number => {
       "worklet";
@@ -490,14 +495,18 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     }, [screenWidth, RESOLUTION_FACTOR]);
     const pinchGesture = Gesture.Pinch()
       .onBegin((event) => {
-        runOnJS(setTooltip)(null);
-        initialDistance.value = event.scale;
-        baseScale.value = scale.value;
-        initialFocalX.value = event.focalX;
-        initialFocalY.value = event.focalY;
-        baseTranslateX.value = translateX.value;
-        baseTranslateY.value = translateY.value;
-        isInteracting.value = true;
+        "worklet";
+        if (tooltip) {
+          runOnJS(setTooltip)(null);
+        } else {
+          initialDistance.value = event.scale;
+          baseScale.value = scale.value;
+          initialFocalX.value = event.focalX;
+          initialFocalY.value = event.focalY;
+          baseTranslateX.value = translateX.value;
+          baseTranslateY.value = translateY.value;
+          isInteracting.value = true;
+        }
       })
       .onUpdate((event) => {
         const now = Date.now();
@@ -801,7 +810,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                     renderToHardwareTextureAndroid={true}
                     shouldRasterizeIOS={!isInteracting.value}
                   >
-                    {countryPaths}
+                    <AllCountryPaths />
                   </AnimatedSvg>
                 </Animated.View>
                 {/* Tooltip z informacjami o kraju oraz przyciskiem View */}
