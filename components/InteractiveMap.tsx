@@ -35,6 +35,7 @@ import {
 } from "react-native-gesture-handler";
 import * as Sharing from "expo-sharing";
 import Animated, {
+  cancelAnimation,
   Easing,
   runOnJS,
   useAnimatedStyle,
@@ -111,47 +112,8 @@ const { countries, countryCentroids } = (() => {
   });
   return { countries: uniqueCountries, countryCentroids: centroids };
 })();
-interface CountryPathPropsInternal {
-  d: string;
-  fill: string;
-  stroke: string;
-  strokeWidth: number;
-  onPress: (event: GestureResponderEvent) => void;
-  countryId: string; // Dla klucza i debugowania
-}
 
-const CountryPath = React.memo(
-  ({
-    d,
-    fill,
-    stroke,
-    strokeWidth,
-    onPress,
-    countryId,
-  }: CountryPathPropsInternal) => {
-    // console.log(`Rendering CountryPath for: ${countryId}`); // Do debugowania
-    return (
-      <Path
-        d={d}
-        fill={fill}
-        stroke={stroke}
-        strokeWidth={strokeWidth}
-        onPress={onPress}
-      />
-    );
-  },
-  (prevProps, nextProps) => {
-    // Porównujemy tylko te propsy, które faktycznie mogą się zmienić i wpłynąć na render
-    return (
-      prevProps.d === nextProps.d && // Ścieżka SVG (zazwyczaj stała dla kraju)
-      prevProps.fill === nextProps.fill &&
-      prevProps.stroke === nextProps.stroke &&
-      prevProps.strokeWidth === nextProps.strokeWidth &&
-      prevProps.onPress === nextProps.onPress // Funkcja onPress (powinna być stabilna)
-    );
-  }
-);
-// const data: CountriesData = { countries: uniqueCountries };
+const data: CountriesData = { countries: uniqueCountries };
 
 /**
  * Funkcje służące do obliczania centroidu kraju na podstawie jego ścieżki SVG.
@@ -278,67 +240,89 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
     );
 
     useEffect(() => {
-      const generateImage = async () => {
-        try {
-          const uri = await captureRef(baseMapRef, {
-            format: "jpg",
-            quality: 1,
-            result: "tmpfile",
-            width: screenWidth * pixelRatio * 6,
-            height: screenWidth * pixelRatio * 6 * (16 / 9),
-          });
-          setPreGeneratedImage(uri);
-        } catch (error) {
-          console.error("Błąd przy pre-generowaniu obrazu:", error);
-        }
-      };
-
-      generateImage();
+      // const generateImage = async () => {
+      //   try {
+      //     const uri = await captureRef(baseMapRef, {
+      //       format: "jpg",
+      //       quality: 1,
+      //       result: "tmpfile",
+      //       width: screenWidth * pixelRatio * 6,
+      //       height: screenWidth * pixelRatio * 6 * (16 / 9),
+      //     });
+      //     setPreGeneratedImage(uri);
+      //   } catch (error) {
+      //     console.error("Błąd przy pre-generowaniu obrazu:", error);
+      //   }
+      // };
+      // generateImage();
     }, [baseMapRef, isDarkTheme]);
 
     // Funkcja udostępniania mapy
     const shareMap = async () => {
-      if (isSharing) return; // Zapobiegamy wielokrotnym wywołaniom
+      if (isSharing) return;
       setIsSharing(true);
 
-      // Opóźnienie, by dać czas na pełne odświeżenie widoku
-      setTimeout(async () => {
-        try {
-          const isAvailable = await Sharing.isAvailableAsync();
-          if (!isAvailable) {
-            Alert.alert(
-              "Błąd",
-              "Udostępnianie nie jest dostępne na tym urządzeniu"
-            );
-            setIsSharing(false);
-            return;
-          }
-          let uri = preGeneratedImage;
-          if (!uri) {
-            uri = await captureRef(baseMapRef, {
-              format: "jpg",
-              quality: 1,
-              result: "tmpfile",
-              width: screenWidth * pixelRatio * 6,
-              height: screenWidth * pixelRatio * 6 * (16 / 9),
-            });
-          }
-          if (uri) {
-            await Sharing.shareAsync(uri).catch((error) => {
-              console.log("Udostępnianie anulowane przez użytkownika:", error);
-            });
-          } else {
-            throw new Error("Nie udało się przechwycić widoku. URI jest null.");
-          }
-        } catch (error) {
-          console.error("Błąd podczas udostępniania mapy:", error);
-          if (!String(error).includes("The 2nd argument cannot be cast")) {
-            Alert.alert("Błąd", "Wystąpił problem podczas udostępniania mapy");
-          }
-        } finally {
+      try {
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (!isAvailable) {
+          Alert.alert(
+            "Błąd",
+            "Udostępnianie nie jest dostępne na tym urządzeniu"
+          );
           setIsSharing(false);
+          return;
         }
-      }, 200); // opóźnienie 200ms
+
+        // Przesuwamy widok na widoczną pozycję
+        if (baseMapRef.current) {
+          baseMapRef.current.setNativeProps({
+            style: {
+              position: "absolute",
+              top: 0,
+              left: 0,
+              opacity: 1, // Tymczasowo pokazujemy, by przechwycić
+              width: screenWidth,
+              height: screenWidth * (16 / 9),
+            },
+          });
+        }
+
+        // Dajemy czas na przeliczenie layoutu
+        await new Promise((resolve) => setTimeout(resolve, 200));
+
+        // Generujemy obraz
+        const uri = await captureRef(baseMapRef, {
+          format: "jpg",
+          quality: 0.9,
+          result: "tmpfile",
+        });
+
+        // Ukrywamy z powrotem
+        if (baseMapRef.current) {
+          baseMapRef.current.setNativeProps({
+            style: {
+              position: "absolute",
+              top: -9999,
+              left: -9999,
+              opacity: 0,
+            },
+          });
+        }
+
+        // Udostępniamy obraz
+        if (uri) {
+          await Sharing.shareAsync(uri);
+        } else {
+          throw new Error("Nie udało się przechwycić widoku");
+        }
+      } catch (error) {
+        console.error("Błąd podczas udostępniania mapy:", error);
+        if (!String(error).includes("The 2nd argument cannot be cast")) {
+          Alert.alert("Błąd", "Wystąpił problem podczas udostępniania mapy");
+        }
+      } finally {
+        setIsSharing(false);
+      }
     };
 
     const applyTransparency = (hexColor: string, transparency: number) => {
@@ -394,10 +378,14 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
 
     const SCALE_THRESHOLD = 0.01;
     const TRANSLATE_THRESHOLD = 0.5;
+    const THROTTLE_DELAY = 16; // ~60fps
+    let lastPinchUpdate = 0;
+    let lastPanUpdate = 0;
+    const isInteracting = useSharedValue(false);
 
     const pinchGesture = Gesture.Pinch()
       .onBegin((event) => {
-        runOnJS(setTooltip)(null); // Ukryj tooltip przy rozpoczęciu gestu
+        runOnJS(setTooltip)(null);
         initialDistance.value = event.scale;
         baseScale.value = scale.value;
         initialFocalX.value = event.focalX;
@@ -406,6 +394,10 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         baseTranslateY.value = translateY.value;
       })
       .onUpdate((event) => {
+        const now = Date.now();
+        if (now - lastPinchUpdate < THROTTLE_DELAY) return;
+        lastPinchUpdate = now;
+
         const scaleFactor = event.scale;
         const newScale = clamp(baseScale.value * scaleFactor, 1, 6);
         if (Math.abs(newScale - scale.value) > SCALE_THRESHOLD) {
@@ -429,6 +421,10 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         if (Math.abs(newTranslateY - translateY.value) > TRANSLATE_THRESHOLD) {
           translateY.value = newTranslateY;
         }
+        isInteracting.value = true;
+      })
+      .onFinalize(() => {
+        isInteracting.value = false;
       })
       .onEnd(() => {});
 
@@ -437,8 +433,13 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       .onStart(() => {
         startX.value = translateX.value;
         startY.value = translateY.value;
+        isInteracting.value = true;
       })
       .onUpdate((event) => {
+        const now = Date.now();
+        if (now - lastPanUpdate < THROTTLE_DELAY) return;
+        lastPanUpdate = now;
+
         const maxTranslateX = (windowWidth * (scale.value - 1)) / 2;
         const maxTranslateY = (windowHeight * (scale.value - 1)) / 4;
         translateX.value = clamp(
@@ -451,7 +452,21 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
           -maxTranslateY,
           maxTranslateY
         );
+      })
+      .onFinalize(() => {
+        isInteracting.value = false;
       });
+    const animatedMapQuality = useAnimatedStyle(() => {
+      return {
+        transform: [
+          {
+            scale:
+              1 /
+              (isInteracting.value ? RESOLUTION_FACTOR / 2 : RESOLUTION_FACTOR),
+          },
+        ],
+      };
+    });
 
     const animatedStyle = useAnimatedStyle(() => ({
       transform: [
@@ -563,17 +578,11 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       ) => void;
     }
 
-    const CountryPath = React.memo(
-      ({
-        country,
-        index,
-        getCountryFill,
-        isCountryHighlighted,
-        theme,
-        handlePathPress,
-      }: CountryPathProps) => {
+    const countryPaths = useMemo(() => {
+      return countries.map((country: Country, index: number) => {
         const countryCode = country.id;
         if (!countryCode || countryCode.startsWith("UNKNOWN-")) return null;
+
         return (
           <Path
             key={`${countryCode}-${index}`}
@@ -588,8 +597,14 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
             onPress={(event) => handlePathPress(event, countryCode)}
           />
         );
-      }
-    );
+      });
+    }, [
+      getCountryFill,
+      isCountryHighlighted,
+      theme.colors.primary,
+      theme.colors.outline,
+      handlePathPress,
+    ]);
     const popoverScale = useSharedValue(1);
 
     const animatedPopoverContentStyle = useAnimatedStyle(() => ({
@@ -604,14 +619,31 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       popoverScale.value = withTiming(1, { duration: 100 });
     };
     const resetMap = useCallback(() => {
-      scale.value = withSpring(1, { damping: 18.5, stiffness: 90 });
-      translateX.value = withSpring(0, { damping: 18.5, stiffness: 90 });
-      translateY.value = withSpring(0, { damping: 18.5, stiffness: 90 });
-      setTooltip(null);
-    }, [scale, translateX, translateY]);
-    // const AnimatedPopover = Animated.createAnimatedComponent(
-    //   Popover as unknown as React.ComponentType<any>
-    // );
+      // Użyj workletów Reanimated zamiast withSpring
+      "worklet";
+      // Zatrzymaj wszystkie trwające animacje
+      cancelAnimation(scale);
+      cancelAnimation(translateX);
+      cancelAnimation(translateY);
+
+      // Animuj z optymalnymi parametrami
+      scale.value = withTiming(1, {
+        duration: 400,
+        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      });
+
+      translateX.value = withTiming(0, {
+        duration: 400,
+        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      });
+
+      translateY.value = withTiming(0, {
+        duration: 400,
+        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      });
+
+      runOnJS(setTooltip)(null);
+    }, []);
 
     return (
       <GestureHandlerRootView>
@@ -650,17 +682,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                     preserveAspectRatio="xMidYMid meet"
                     style={styles.mapContainer}
                   >
-                    {countries.map((country: Country, index: number) => (
-                      <CountryPath
-                        key={`${country.id}-${index}`}
-                        country={country}
-                        index={index}
-                        getCountryFill={getCountryFill}
-                        isCountryHighlighted={isCountryHighlighted}
-                        theme={theme}
-                        handlePathPress={handlePathPress}
-                      />
-                    ))}
+                    {countryPaths}
                   </AnimatedSvg>
                 </Animated.View>
                 {/* Tooltip z informacjami o kraju oraz przyciskiem View */}
@@ -776,19 +798,24 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                 viewBox="232 0 1700 857"
                 preserveAspectRatio="xMidYMid meet"
               >
-                {countries.map((country: Country, index: number) => (
-                  <CountryPath
-                    key={`${country.id}-${index}`}
-                    country={country}
-                    index={index}
-                    getCountryFill={getCountryFill}
-                    isCountryHighlighted={isCountryHighlighted}
-                    theme={theme}
-                    handlePathPress={handlePathPress}
-                  />
-                ))}
+                {countries.map((country: Country, index: number) => {
+                  const countryCode = country.id;
+                  if (!countryCode || countryCode.startsWith("UNKNOWN-"))
+                    return null;
+
+                  return (
+                    <Path
+                      key={`share-${countryCode}-${index}`}
+                      d={country.path}
+                      fill={getCountryFill(countryCode)}
+                      stroke={theme.colors.outline}
+                      strokeWidth={0.2}
+                    />
+                  );
+                })}
               </Svg>
             </View>
+
             <View style={styles.bottomSectionPhoto}>
               <View style={styles.progressBarWrapper}>
                 <Progress.Bar
@@ -1005,11 +1032,10 @@ const styles = StyleSheet.create({
   },
   baseMapContainer: {
     position: "absolute",
-    top: 0, // zamiast -1000
-    left: 0, // zamiast -1000
+    top: -9999, // zamiast opacity: 0, całkowicie usuwamy z pola widzenia
+    left: -9999,
     width: screenWidth,
     height: screenWidth * (16 / 9),
-    opacity: 0, // ukrywamy widok, ale pozostaje on w drzewie renderowania
     pointerEvents: "none",
   },
   buttonContainer: {
