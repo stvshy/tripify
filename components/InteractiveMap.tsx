@@ -273,22 +273,23 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
           return;
         }
 
-        // Przesuwamy widok na widoczną pozycję
+        // Przygotuj element do zrzutu ekranu, ale poza widocznym obszarem
         if (baseMapRef.current) {
           baseMapRef.current.setNativeProps({
             style: {
               position: "absolute",
-              top: 0,
+              top: -10000, // Całkowicie poza ekranem
               left: 0,
-              opacity: 1, // Tymczasowo pokazujemy, by przechwycić
+              opacity: 1, // Musi być widoczny, ale poza ekranem
               width: screenWidth,
               height: screenWidth * (16 / 9),
+              zIndex: -1000, // Upewniamy się, że jest pod wszystkim
             },
           });
         }
 
         // Dajemy czas na przeliczenie layoutu
-        await new Promise((resolve) => setTimeout(resolve, 200));
+        await new Promise((resolve) => setTimeout(resolve, 100));
 
         // Generujemy obraz
         const uri = await captureRef(baseMapRef, {
@@ -297,7 +298,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
           result: "tmpfile",
         });
 
-        // Ukrywamy z powrotem
+        // Przywracamy oryginalną pozycję
         if (baseMapRef.current) {
           baseMapRef.current.setNativeProps({
             style: {
@@ -317,9 +318,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         }
       } catch (error) {
         console.error("Błąd podczas udostępniania mapy:", error);
-        if (!String(error).includes("The 2nd argument cannot be cast")) {
-          Alert.alert("Błąd", "Wystąpił problem podczas udostępniania mapy");
-        }
+        Alert.alert("Błąd", "Wystąpił problem podczas udostępniania mapy");
       } finally {
         setIsSharing(false);
       }
@@ -333,18 +332,26 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       return `rgba(${r}, ${g}, ${b}, ${transparency})`;
     };
 
-    const getCountryFill = (countryCode: string) => {
-      const isVisited = selectedCountries.includes(countryCode);
-      const isHighlighted = tooltip && tooltip.country.id === countryCode;
-      if (isHighlighted) {
-        return applyTransparency(theme.colors.primary, 0.75);
-      }
-      return isVisited ? "rgba(0,174,245,255)" : "#b2b7bf";
-    };
+    // Zaktualizuj funkcję getCountryFill
+    const getCountryFill = useCallback(
+      (countryCode: string) => {
+        const isVisited = selectedCountries.includes(countryCode);
+        const isHighlighted = tooltip && tooltip.country.id === countryCode;
+        if (isHighlighted) {
+          return applyTransparency(theme.colors.primary, 0.75);
+        }
+        return isVisited ? "rgba(0,174,245,255)" : "#b2b7bf";
+      },
+      [selectedCountries, tooltip, theme.colors.primary]
+    );
 
-    const isCountryHighlighted = (countryCode: string): boolean => {
-      return Boolean(tooltip && tooltip.country.id === countryCode);
-    };
+    // Zaktualizuj isCountryHighlighted
+    const isCountryHighlighted = useCallback(
+      (countryCode: string): boolean => {
+        return Boolean(tooltip && tooltip.country.id === countryCode);
+      },
+      [tooltip]
+    );
 
     const visitedCountries = selectedCountries.length;
     const percentageVisited =
@@ -364,6 +371,18 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         tooltipVisible.value = 0;
       }
     }, [tooltip]);
+
+    const isMounted = useRef(true);
+
+    useEffect(() => {
+      return () => {
+        isMounted.current = false;
+        // Resetowanie wartości animowanych przy odmontowaniu
+        if (scale) cancelAnimation(scale);
+        if (translateX) cancelAnimation(translateX);
+        if (translateY) cancelAnimation(translateY);
+      };
+    }, []);
 
     const fullViewRef = useRef<View>(null);
 
@@ -392,6 +411,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         initialFocalY.value = event.focalY;
         baseTranslateX.value = translateX.value;
         baseTranslateY.value = translateY.value;
+        isInteracting.value = true;
       })
       .onUpdate((event) => {
         const now = Date.now();
@@ -399,34 +419,41 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         lastPinchUpdate = now;
 
         const scaleFactor = event.scale;
-        const newScale = clamp(baseScale.value * scaleFactor, 1, 6);
+        const newScale = clamp(baseScale.value * scaleFactor, 1, 7);
+
+        // Optymalizacja: aktualizuj tylko jeśli zmiana jest znacząca
         if (Math.abs(newScale - scale.value) > SCALE_THRESHOLD) {
           scale.value = newScale;
+
+          const newTranslateX = clamp(
+            baseTranslateX.value -
+              (initialFocalX.value - windowWidth / 2) * (scaleFactor - 1),
+            (-windowWidth * (newScale - 1)) / 2,
+            (windowWidth * (newScale - 1)) / 2
+          );
+          const newTranslateY = clamp(
+            baseTranslateY.value -
+              (initialFocalY.value - windowHeight / 2) * (scaleFactor - 1),
+            (-windowHeight * (newScale - 1)) / 4,
+            (windowHeight * (newScale - 1)) / 4
+          );
+
+          // Sprawdzamy, czy zmiana pozycji jest wystarczająco duża
+          if (
+            Math.abs(newTranslateX - translateX.value) > TRANSLATE_THRESHOLD
+          ) {
+            translateX.value = newTranslateX;
+          }
+          if (
+            Math.abs(newTranslateY - translateY.value) > TRANSLATE_THRESHOLD
+          ) {
+            translateY.value = newTranslateY;
+          }
         }
-        const newTranslateX = clamp(
-          baseTranslateX.value -
-            (initialFocalX.value - windowWidth / 2) * (scaleFactor - 1),
-          (-windowWidth * (newScale - 1)) / 2,
-          (windowWidth * (newScale - 1)) / 2
-        );
-        const newTranslateY = clamp(
-          baseTranslateY.value -
-            (initialFocalY.value - windowHeight / 2) * (scaleFactor - 1),
-          (-windowHeight * (newScale - 1)) / 4,
-          (windowHeight * (newScale - 1)) / 4
-        );
-        if (Math.abs(newTranslateX - translateX.value) > TRANSLATE_THRESHOLD) {
-          translateX.value = newTranslateX;
-        }
-        if (Math.abs(newTranslateY - translateY.value) > TRANSLATE_THRESHOLD) {
-          translateY.value = newTranslateY;
-        }
-        isInteracting.value = true;
       })
       .onFinalize(() => {
         isInteracting.value = false;
-      })
-      .onEnd(() => {});
+      });
 
     const panGesture = Gesture.Pan()
       .maxPointers(1)
@@ -619,28 +646,15 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       popoverScale.value = withTiming(1, { duration: 100 });
     };
     const resetMap = useCallback(() => {
-      // Użyj workletów Reanimated zamiast withSpring
-      "worklet";
       // Zatrzymaj wszystkie trwające animacje
       cancelAnimation(scale);
       cancelAnimation(translateX);
       cancelAnimation(translateY);
 
-      // Animuj z optymalnymi parametrami
-      scale.value = withTiming(1, {
-        duration: 400,
-        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-      });
-
-      translateX.value = withTiming(0, {
-        duration: 400,
-        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-      });
-
-      translateY.value = withTiming(0, {
-        duration: 400,
-        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-      });
+      // Animuj z oryginalnymi parametrami
+      scale.value = withSpring(1, { damping: 18.5, stiffness: 90 });
+      translateX.value = withSpring(0, { damping: 18.5, stiffness: 90 });
+      translateY.value = withSpring(0, { damping: 18.5, stiffness: 90 });
 
       runOnJS(setTooltip)(null);
     }, []);
