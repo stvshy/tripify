@@ -266,6 +266,37 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         return null;
       },
     }));
+    // Memoize the entire collection of paths
+    const AllCountryPaths = React.memo(
+      () => {
+        return (
+          <>
+            {countries.map((country: Country, index: number) => {
+              const countryCode = country.id;
+              if (!countryCode || countryCode.startsWith("UNKNOWN-"))
+                return null;
+
+              return (
+                <MemoizedCountryPath
+                  key={`${countryCode}-${index}`}
+                  path={country.path}
+                  fill={getCountryFill(countryCode)}
+                  stroke={
+                    isCountryHighlighted(countryCode)
+                      ? theme.colors.primary
+                      : theme.colors.outline
+                  }
+                  strokeWidth={isCountryHighlighted(countryCode) ? 0.5 : 0.2}
+                  onPress={(event) => handlePathPress(event, countryCode)}
+                  countryId={countryCode}
+                />
+              );
+            })}
+          </>
+        );
+      },
+      (prev, next) => !isInteracting.value
+    ); // Only update when not interacting
 
     const [preGeneratedImage, setPreGeneratedImage] = useState<string | null>(
       null
@@ -413,6 +444,20 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         if (scale) cancelAnimation(scale);
         if (translateX) cancelAnimation(translateX);
         if (translateY) cancelAnimation(translateY);
+      };
+    }, []);
+    useEffect(() => {
+      return () => {
+        isMounted.current = false;
+
+        // Properly cancel animations on unmount
+        cancelAnimation(scale);
+        cancelAnimation(translateX);
+        cancelAnimation(translateY);
+        cancelAnimation(scaleValue);
+        cancelAnimation(popoverOffset);
+        cancelAnimation(tooltipVisible);
+        cancelAnimation(storedButtonTranslateY);
       };
     }, []);
 
@@ -688,17 +733,16 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       popoverScale.value = withTiming(1, { duration: 100 });
     };
     const resetMap = useCallback(() => {
-      // Zatrzymaj wszystkie trwające animacje dla płynniejszego przejścia
+      // Cancel any ongoing animations
       cancelAnimation(scale);
       cancelAnimation(translateX);
       cancelAnimation(translateY);
 
-      // Użyj withSpring z bardziej płynnymi parametrami
+      // Use optimized spring configuration
       scale.value = withSpring(1, {
-        damping: 20, // Zwiększ tłumienie
-        stiffness: 90, // Dostosuj sztywność
-        mass: 1.2, // Dodaj masę dla bardziej naturalnego efektu
-        overshootClamping: false,
+        damping: 20,
+        stiffness: 90,
+        mass: 1.2,
         restDisplacementThreshold: 0.01,
         restSpeedThreshold: 0.01,
       });
@@ -707,14 +751,12 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         damping: 20,
         stiffness: 90,
         mass: 1.2,
-        overshootClamping: false,
       });
 
       translateY.value = withSpring(0, {
         damping: 20,
         stiffness: 90,
         mass: 1.2,
-        overshootClamping: false,
       });
 
       runOnJS(setTooltip)(null);
@@ -733,7 +775,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
             setContainerOffset({ x, y });
           }}
         >
-          {/* GĂłrna sekcja z logo */}
+          {/* Główna sekcja z logo */}
           <Animated.View style={[styles.topSection, topTextAnimatedStyle]}>
             <AnimatedImage
               source={isDarkTheme ? logoTextImageDesaturated : logoTextImage}
@@ -756,6 +798,8 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                     viewBox="232 0 1700 857"
                     preserveAspectRatio="xMidYMid meet"
                     style={styles.mapContainer}
+                    renderToHardwareTextureAndroid={true}
+                    shouldRasterizeIOS={!isInteracting.value}
                   >
                     {countryPaths}
                   </AnimatedSvg>
