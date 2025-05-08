@@ -3,13 +3,23 @@ import { useState, useEffect } from "react";
 import { ImageSourcePropType } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// Klucz i domyślne tło - zdefiniowane w jednym miejscu
 const CACHED_URLS_KEY = "cachedSplashBackgroundUrls";
-const DEFAULT_BACKGROUND = require("../assets/images/gradient7.png"); // Ścieżka względna do folderu assets
+const DEFAULT_LOCAL_BACKGROUND_SOURCE: number = require("../assets/images/gradient7.png");
 
-export function useRandomSplashBackground(): ImageSourcePropType {
-  const [backgroundSource, setBackgroundSource] =
-    useState<ImageSourcePropType>(DEFAULT_BACKGROUND);
+// Definiujemy typ zwracany przez hooka
+export interface BackgroundSourceResult {
+  type: "local" | "uri";
+  source: ImageSourcePropType; // Dla lokalnego to będzie liczba, dla URI obiekt {uri: string}
+  uri?: string; // Opcjonalne pole URI dla łatwiejszego dostępu
+}
+
+export function useRandomSplashBackground(): BackgroundSourceResult {
+  // Inicjalizujemy stan z typem lokalnym
+  const [backgroundResult, setBackgroundResult] =
+    useState<BackgroundSourceResult>({
+      type: "local",
+      source: DEFAULT_LOCAL_BACKGROUND_SOURCE,
+    });
 
   useEffect(() => {
     let isMounted = true;
@@ -20,23 +30,40 @@ export function useRandomSplashBackground(): ImageSourcePropType {
           ? JSON.parse(cachedUrlsJson)
           : null;
 
-        let finalSource = DEFAULT_BACKGROUND;
+        let finalResult: BackgroundSourceResult = {
+          type: "local",
+          source: DEFAULT_LOCAL_BACKGROUND_SOURCE,
+        };
+
         if (cachedUrls && cachedUrls.length > 0) {
-          const allOptions: ImageSourcePropType[] = [
-            DEFAULT_BACKGROUND,
-            ...cachedUrls.map((url) => ({ uri: url })),
-          ];
+          // Tworzymy listę opcji z typami
+          const localOption: BackgroundSourceResult = {
+            type: "local",
+            source: DEFAULT_LOCAL_BACKGROUND_SOURCE,
+          };
+          const uriOptions: BackgroundSourceResult[] = cachedUrls.map(
+            (url) => ({
+              type: "uri",
+              source: { uri: url },
+              uri: url,
+            })
+          );
+
+          const allOptions = [localOption, ...uriOptions];
           const randomIndex = Math.floor(Math.random() * allOptions.length);
-          finalSource = allOptions[randomIndex];
+          finalResult = allOptions[randomIndex];
         }
 
         if (isMounted) {
-          setBackgroundSource(finalSource);
+          setBackgroundResult(finalResult);
         }
       } catch (error) {
         console.error("useRandomSplashBackground: Error:", error);
         if (isMounted) {
-          setBackgroundSource(DEFAULT_BACKGROUND); // Fallback
+          setBackgroundResult({
+            type: "local",
+            source: DEFAULT_LOCAL_BACKGROUND_SOURCE,
+          }); // Fallback
         }
       }
     };
@@ -45,7 +72,7 @@ export function useRandomSplashBackground(): ImageSourcePropType {
     return () => {
       isMounted = false;
     };
-  }, []); // Uruchom tylko raz przy montowaniu komponentu używającego hooka
+  }, []);
 
-  return backgroundSource;
+  return backgroundResult;
 }

@@ -111,8 +111,47 @@ const { countries, countryCentroids } = (() => {
   });
   return { countries: uniqueCountries, countryCentroids: centroids };
 })();
+interface CountryPathPropsInternal {
+  d: string;
+  fill: string;
+  stroke: string;
+  strokeWidth: number;
+  onPress: (event: GestureResponderEvent) => void;
+  countryId: string; // Dla klucza i debugowania
+}
 
-const data: CountriesData = { countries: uniqueCountries };
+const CountryPath = React.memo(
+  ({
+    d,
+    fill,
+    stroke,
+    strokeWidth,
+    onPress,
+    countryId,
+  }: CountryPathPropsInternal) => {
+    // console.log(`Rendering CountryPath for: ${countryId}`); // Do debugowania
+    return (
+      <Path
+        d={d}
+        fill={fill}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        onPress={onPress}
+      />
+    );
+  },
+  (prevProps, nextProps) => {
+    // Porównujemy tylko te propsy, które faktycznie mogą się zmienić i wpłynąć na render
+    return (
+      prevProps.d === nextProps.d && // Ścieżka SVG (zazwyczaj stała dla kraju)
+      prevProps.fill === nextProps.fill &&
+      prevProps.stroke === nextProps.stroke &&
+      prevProps.strokeWidth === nextProps.strokeWidth &&
+      prevProps.onPress === nextProps.onPress // Funkcja onPress (powinna być stabilna)
+    );
+  }
+);
+// const data: CountriesData = { countries: uniqueCountries };
 
 /**
  * Funkcje służące do obliczania centroidu kraju na podstawie jego ścieżki SVG.

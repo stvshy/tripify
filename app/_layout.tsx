@@ -5,7 +5,7 @@ import { Stack } from "expo-router";
 import * as ExpoSplashScreen from "expo-splash-screen"; // Zmieniono nazwę importu
 import { useContext, useEffect, useState } from "react";
 import { auth, db, app as firebaseApp } from "./config/firebaseConfig"; // Upewnij się, że 'app' jest eksportowane
-import { StyleSheet } from "react-native";
+import { ImageBackground, StyleSheet, View } from "react-native";
 import LoadingScreen from "@/components/LoadingScreen";
 import { ThemeContext, ThemeProvider } from "./config/ThemeContext";
 import { DraxProvider } from "react-native-drax";
@@ -19,21 +19,19 @@ import { getStorage, ref, listAll, getDownloadURL } from "firebase/storage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import FastImage from "@d11/react-native-fast-image";
 
+import { useRandomSplashBackground } from "../hooks/useRandomSplashScreenBackground"; // Upewnij się, że ścieżka jest poprawna
 // Zapobiegaj automatycznemu ukrywaniu natywnego splash screena
 ExpoSplashScreen.preventAutoHideAsync();
-
 const queryClient = new QueryClient();
-
-// Stałe dla cache'owania teł
 const CACHED_URLS_KEY = "cachedSplashBackgroundUrls";
 const SPLASH_BACKGROUNDS_PATH = "splash_backgrounds";
 
-// Funkcja do pobierania i cache'owania teł w tle
+// Nie potrzebujemy już FALLBACK_LAYOUT_BACKGROUND tutaj, hook to obsłuży
+
 const fetchAndCacheBackgrounds = async () => {
   try {
     const storage = getStorage(firebaseApp);
     const listRef = ref(storage, SPLASH_BACKGROUNDS_PATH);
-    // Usunięto logi dla czystości, ale można je przywrócić do debugowania
     const res = await listAll(listRef);
     if (res.items.length === 0) return;
     const urls = await Promise.all(
@@ -48,7 +46,6 @@ const fetchAndCacheBackgrounds = async () => {
 };
 
 export default function RootLayout() {
-  // Ładowanie czcionek
   const [fontsLoaded, fontError] = useFonts({
     "PlusJakartaSans-Bold": require("../assets/fonts/PlusJakartaSans-Bold.ttf"),
     "DMSans-Bold": require("../assets/fonts/DMSans-Bold.ttf"),
@@ -60,22 +57,17 @@ export default function RootLayout() {
     "Figtree-Regular": require("../assets/fonts/Figtree-Regular.ttf"),
     "Figtree-Medium": require("../assets/fonts/Figtree-Medium.ttf"),
   });
-
-  // Stany do zarządzania inicjalizacją
   const [initialRouteName, setInitialRouteName] = useState<string | null>(null);
   const [appIsReady, setAppIsReady] = useState(false);
 
-  // Efekt do przygotowania aplikacji (sprawdzenie auth, danych użytkownika, ustawienie initialRouteName)
+  // Użyj hooka do losowania tła
+  const backgroundResult = useRandomSplashBackground();
+
   useEffect(() => {
     const prepareApp = async () => {
-      // Czekaj aż czcionki będą gotowe (lub wystąpi błąd ładowania czcionek)
-      if (!fontsLoaded && !fontError) {
-        return;
-      }
-
+      if (!fontsLoaded && !fontError) return;
       try {
         let currentUser = auth.currentUser;
-        // Jeśli nie ma użytkownika, poczekaj na zmianę stanu auth (może się logować w tle)
         if (!currentUser) {
           currentUser = await new Promise((resolve) => {
             const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -84,8 +76,6 @@ export default function RootLayout() {
             });
           });
         }
-
-        // Ustalenie początkowej trasy na podstawie stanu użytkownika
         if (currentUser) {
           const userDocRef = doc(db, "users", currentUser.uid);
           const userDoc = await getDoc(userDocRef);
@@ -94,91 +84,113 @@ export default function RootLayout() {
             const isVerified = currentUser.emailVerified;
             const nickname = userData?.nickname;
             const firstLoginComplete = userData?.firstLoginComplete;
-
-            if (!isVerified) {
-              setInitialRouteName("welcome"); // Niezweryfikowany -> ekran powitalny/logowania
-            } else if (!nickname) {
-              setInitialRouteName("setNickname"); // Zweryfikowany, brak nicku -> ustaw nick
-            } else if (!firstLoginComplete) {
-              setInitialRouteName("chooseCountries"); // Ma nick, nie wybrał krajów -> wybierz kraje
-            } else {
-              setInitialRouteName("(tabs)"); // Wszystko gotowe -> główny interfejs
-            }
+            if (!isVerified) setInitialRouteName("welcome");
+            else if (!nickname) setInitialRouteName("setNickname");
+            else if (!firstLoginComplete)
+              setInitialRouteName("chooseCountries");
+            else setInitialRouteName("(tabs)");
           } else {
-            // Użytkownik w Auth, ale brak dokumentu (np. nowy user FB/Google)
-            setInitialRouteName("welcome"); // Skieruj do welcome/setNickname
+            setInitialRouteName("welcome");
           }
         } else {
-          // Brak zalogowanego użytkownika
           setInitialRouteName("welcome");
         }
       } catch (error) {
         console.error("Error preparing app state:", error);
-        setInitialRouteName("welcome"); // Fallback w razie błędu
+        setInitialRouteName("welcome");
       } finally {
-        // Oznacz aplikację jako gotową do pokazania interfejsu (niezależnie od wyniku)
         setAppIsReady(true);
       }
     };
-
     prepareApp();
-    // Zależność od stanu załadowania czcionek
   }, [fontsLoaded, fontError]);
 
-  // Efekt do pobierania teł splash screena w tle (uruchamiany raz)
   useEffect(() => {
     fetchAndCacheBackgrounds();
   }, []);
 
-  // Efekt do ukrywania natywnego splash screena
   useEffect(() => {
-    // Ukryj splash screen dopiero gdy czcionki są gotowe, aplikacja jest gotowa
-    // ORAZ mamy ustaloną początkową trasę.
     if (appIsReady && initialRouteName && (fontsLoaded || fontError)) {
-      ExpoSplashScreen.hideAsync();
+      const timer = setTimeout(() => {
+        // Dodajemy małe opóźnienie
+        ExpoSplashScreen.hideAsync();
+      }, 50); // np. 50ms
+      return () => clearTimeout(timer);
     }
-  }, [appIsReady, initialRouteName, fontsLoaded, fontError]); // Zależność od wszystkich warunków
+  }, [appIsReady, initialRouteName, fontsLoaded, fontError]);
 
-  // Wyświetlaj LoadingScreen dopóki wszystkie warunki nie są spełnione
-  if (!appIsReady || !initialRouteName || (!fontsLoaded && !fontError)) {
-    return <LoadingScreen />;
-  }
+  // Renderowanie
+  // Używamy ImageBackground dla lokalnych i FastImage dla URI
+  const renderBackground = () => {
+    if (backgroundResult.type === "local") {
+      return (
+        <ImageBackground
+          source={backgroundResult.source} // To będzie wynik require()
+          style={styles.rootLayoutBackground} // Zmieniono na rootLayoutBackground
+          fadeDuration={0}
+        >
+          {renderContent()}
+        </ImageBackground>
+      );
+    } else if (backgroundResult.type === "uri" && backgroundResult.uri) {
+      return (
+        <View style={styles.rootLayoutBackground}>
+          <FastImage
+            style={StyleSheet.absoluteFill}
+            source={{
+              uri: backgroundResult.uri,
+              priority: FastImage.priority.normal,
+            }}
+            resizeMode={FastImage.resizeMode.cover}
+          />
+          {renderContent()}
+        </View>
+      );
+    }
+    // Fallback, jeśli coś pójdzie nie tak (nie powinno się zdarzyć z logiką hooka)
+    return <View style={styles.rootLayoutBackground}>{renderContent()}</View>;
+  };
 
-  // Jeśli wystąpił błąd ładowania czcionek, można wyświetlić komunikat błędu
-  if (fontError) {
-    // Możesz tu zwrócić dedykowany ekran błędu lub prosty tekst
-    console.error("Font loading error:", fontError);
-    // return <View><Text>Error loading fonts.</Text></View>; // Przykładowy ekran błędu
-  }
-
-  // Aplikacja gotowa, renderuj główny nawigator
-  return (
-    <SafeAreaProvider>
-      <GestureHandlerRootView style={{ flex: 1 }}>
+  const renderContent = () => (
+    <SafeAreaProvider style={styles.transparentContainer}>
+      <GestureHandlerRootView style={styles.transparentContainer}>
         <DraxProvider>
           <ThemeProvider>
-            {/* Komponent do zarządzania StatusBar i NavigationBar */}
             <ThemedStatusBarAndNavBar tooltipVisible={false} />
             <QueryClientProvider client={queryClient}>
-              {/* Główny Stack Navigator */}
-              <Stack
-                initialRouteName={initialRouteName} // Użyj dynamicznie ustalonej nazwy
-                screenOptions={{
-                  headerShown: false,
-                  contentStyle: { backgroundColor: "transparent" },
-                }} // Ukryj domyślny nagłówek
-              >
-                {/* 
-                  Nie ma potrzeby definiować tutaj <Stack.Screen>, 
-                  Expo Router automatycznie wykryje trasy z folderów w /app 
-                */}
-              </Stack>
+              {!appIsReady ||
+              !initialRouteName ||
+              (!fontsLoaded && !fontError) ? (
+                <LoadingScreen />
+              ) : (
+                <Stack
+                  initialRouteName={initialRouteName}
+                  screenOptions={{
+                    headerShown: false,
+                    contentStyle: { backgroundColor: "transparent" },
+                  }}
+                />
+              )}
             </QueryClientProvider>
           </ThemeProvider>
         </DraxProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>
   );
+
+  // Jeśli czcionki się jeszcze ładują lub wystąpił błąd, ale aplikacja nie jest gotowa
+  // (ten warunek jest teraz w renderContent, ale można go też tu zostawić dla LoadingScreen)
+  if (!appIsReady || !initialRouteName || (!fontsLoaded && !fontError)) {
+    // Renderuj tło, a w nim LoadingScreen
+    return renderBackground();
+  }
+  if (fontError) {
+    console.error("Font loading error:", fontError);
+    // Można zwrócić dedykowany ekran błędu z tłem
+    return renderBackground(); // Nadal pokazuj tło, nawet przy błędzie czcionek
+  }
+
+  return renderBackground();
 }
 
 // Komponent do stylizacji paska statusu i nawigacji (bez zmian)
@@ -218,6 +230,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     flex: 1,
+  },
+  rootLayoutBackground: {
+    flex: 1,
+  },
+  transparentContainer: {
+    flex: 1,
+    backgroundColor: "transparent", // Kluczowe dla przezroczystości
   },
   logo: {
     width: 120,
