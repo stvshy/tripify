@@ -56,7 +56,7 @@ import Popover, { Rect } from "react-native-popover-view";
 import { useRouter } from "expo-router";
 import { AntDesign } from "@expo/vector-icons";
 import { Entypo } from "@expo/vector-icons";
-import { r } from "@tanstack/query-core/build/legacy/hydration-De1u5VYH";
+import FastImage from "react-native-fast-image";
 
 export interface Country {
   id: string;
@@ -913,10 +913,14 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
             ]}
           >
             <View style={styles.topSectionPhoto}>
-              <Image
-                source={logoImage}
+              <FastImage
+                source={
+                  typeof logoImage === "number"
+                    ? logoImage
+                    : { uri: Image.resolveAssetSource(logoImage).uri }
+                }
                 style={styles.logoImage}
-                resizeMode="contain"
+                resizeMode={FastImage.resizeMode.contain}
               />
             </View>
             <View style={styles.mapContainerPhoto}>
