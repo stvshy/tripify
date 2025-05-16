@@ -6,20 +6,18 @@
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "paths": {
-      "@/*": [
-        "./*"
-      ],
-      "@firebase/auth": [
-        "./node_modules/@firebase/auth/dist/index.rn.d.ts"
-      ]
+      "@/*": ["./*"],
+      "@firebase/auth": ["./node_modules/@firebase/auth/dist/index.rn.d.ts"]
     },
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
     "target": "esnext",
     "module": "esnext",
-    "lib": [
-      "dom",
-      "esnext"
+    "lib": ["dom", "esnext"],
+    "typeRoots": [
+      // POPRAWIONA SEKCJA typeRoots
+      "./node_modules/@types",
+      "./types" // Dodaj ten wiersz, jeśli masz katalog 'types' z własnymi definicjami
     ]
   },
   "include": [
@@ -28,13 +26,18 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
     ".expo/types/react-native-svg.d.ts",
-    "@types", 
-    "types",
-    "types/**/*.d.ts",
-    "src",
-    "zoomable-view.d.ts"
+    "@types", // Jeśli to katalog z definicjami, to OK. Jeśli nie, może być zbędne.
+    "types", // Jeśli masz taki katalog z plikami .d.ts
+    "types/**/*.d.ts", // Dobre, jeśli masz podfoldery w 'types'
+    // "src", // Usuń, jeśli nie masz folderu src na głównym poziomie
+    "zoomable-view.d.ts" // To jest OK, jeśli plik jest w głównym katalogu projektu
   ],
-  "exclude": ["node_modules", "babel.config.js", "metro.config.js", "jest.config.js"],
-  "extends": "expo/tsconfig.base",
-  "typeRoots": ["zoomable-view.d.ts, ./node_modules/@types"]
+  "exclude": [
+    "node_modules",
+    "babel.config.js",
+    "metro.config.js",
+    "jest.config.js"
+  ],
+  "extends": "expo/tsconfig.base"
+  // Usuń starą linię "typeRoots" stąd, jeśli była na końcu pliku poza "compilerOptions"
 }

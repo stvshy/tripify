@@ -38,7 +38,6 @@
     "expo-font": "~12.0.10",
     "expo-gl": "~14.0.2",
     "expo-gpu": "^0.0.0",
-    "expo-image": "~1.13.0",
     "expo-image-manipulator": "~12.0.5",
     "expo-linear-gradient": "~13.0.2",
     "expo-linking": "~6.3.1",
@@ -61,7 +60,6 @@
     "react-native-country-flag": "^2.0.2",
     "react-native-draggable-flatlist": "^4.0.1",
     "react-native-drax": "^0.10.3",
-    "react-native-fast-image": "^8.6.3",
     "react-native-fbsdk-next": "^11.3.0",
     "react-native-gesture-handler": "~2.16.1",
     "react-native-keyboard-aware-scroll-view": "^0.9.5",
@@ -102,7 +100,8 @@
     "typescript": "~5.3.3"
   },
   "overrides": {
-    "@expo/config-plugins": "~8.0.0"
+    "@expo/config-plugins": "~8.0.0",
+    "expo-constants": "~16.0.1"
   },
   "private": true
 }

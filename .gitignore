@@ -9,8 +9,8 @@ dist/
 web-build/
 
 # Native Android/iOS folders
-/android
 /ios
+/android
 
 # Native
 *.orig.*
@@ -83,3 +83,5 @@ expo-env.d.ts
 
 .repomix
 repomix-output.txt
+aapt2
+aapt

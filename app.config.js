@@ -3,6 +3,7 @@ export default {
     name: "Tripify",
     slug: "tripify",
     version: "1.0.0",
+    sdkVersion: "51.0.0",
     jsEngine: "hermes",
     orientation: "portrait",
     icon: "./assets/images/tripify-icon-1024x1024.png",

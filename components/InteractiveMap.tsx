@@ -56,7 +56,7 @@ import Popover, { Rect } from "react-native-popover-view";
 import { useRouter } from "expo-router";
 import { AntDesign } from "@expo/vector-icons";
 import { Entypo } from "@expo/vector-icons";
-import FastImage from "react-native-fast-image";
+import FastImage from "@d11/react-native-fast-image";
 
 export interface Country {
   id: string;
