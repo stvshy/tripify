@@ -373,14 +373,20 @@ export default function WelcomeScreen() {
     <ImageBackground
       source={require("../../assets/images/gradient13.png")}
       style={styles.background}
-      imageStyle={{ resizeMode: "cover", width: "110%", height: "110%" }}
+      imageStyle={{
+        resizeMode: "cover",
+        width: "140%",
+        height: "110%",
+        left: "-16%",
+      }}
       fadeDuration={0}
+      blurRadius={10}
     >
       {/* Bardziej neutralny gradient, aby nie wpływać na kolory */}
-      <LinearGradient
+      {/* <LinearGradient
         colors={["rgba(255, 255, 255, 0.05)", "rgba(255, 255, 255, 0)"]}
         style={StyleSheet.absoluteFillObject}
-      />
+      /> */}
 
       <View style={styles.overlay} />
       <KeyboardAvoidingView
@@ -565,7 +571,8 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    // backgroundColor: "rgba(255, 0, 225, 0.09)",
+    backgroundColor: "rgba(0, 179, 255, 0.02)",
   },
   container: {
     flex: 1,
