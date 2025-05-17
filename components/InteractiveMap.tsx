@@ -63,6 +63,7 @@ import {
   Skia,
   Path as SkiaPathDrawing,
 } from "@shopify/react-native-skia";
+import { LinearGradient } from "expo-linear-gradient";
 
 export interface Country {
   id: string;
@@ -285,19 +286,55 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       });
       toggleTheme();
     };
+    const PINK_HEX = theme.colors.primary;
+    const TURQUOISE_HEX = "#00AEF5"; // Turkusowy
 
-    useImperativeHandle(ref, () => ({
-      capture: async () => {
-        if (mapViewRef.current) {
-          const uri = await captureRef(mapViewRef, {
-            format: "png",
-            quality: 1,
-          });
-          return uri;
-        }
-        return null;
-      },
-    }));
+    // Bazowa definicja kolorów dla gradientu
+    // Fioletowy -> Fioletowy -> Turkusowy
+    // Oznacza to, że fioletowy będzie jednolity na początku, a potem przejdzie w turkus
+    const gradientColorsBase = [
+      PINK_HEX, // Fiolet
+      PINK_HEX,
+      TURQUOISE_HEX, // Turkus
+      PINK_HEX, // Fiolet
+      PINK_HEX,
+    ];
+
+    // Rozmieszczenie kolorów w gradiencie dla symetrycznego przejścia:
+    // 0.0: Początek (Fioletowy)
+    // 0.5: Środek (Turkusowy) - gładkie przejście Fioletowy -> Turkusowy
+    // 1.0: Koniec (Fioletowy) - gładkie przejście Turkusowy -> Fioletowy
+    const gradientLocations = [0, 0.18, 0.5, 0.82, 1];
+
+    const hexToRgba = (hex: string, alpha: number): string => {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      if (isNaN(r) || isNaN(g) || isNaN(b)) {
+        if (hex.toLowerCase().startsWith("rgba")) return hex;
+        console.warn(`Invalid hex color: ${hex} in hexToRgba`);
+        return `rgba(0,0,0,${alpha})`;
+      }
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    };
+
+    // Kolory dla WYPEŁNIONEJ części paska (pełna nieprzezroczystość)
+    const filledGradientColors = gradientColorsBase.map((color) =>
+      hexToRgba(color, 1)
+    );
+
+    // Kolory dla TŁA (NIEWYPEŁNIONEJ części paska) - bardziej przezroczyste
+    const backgroundAlpha = 0.25;
+    const backgroundGradientColors = gradientColorsBase.map((color) =>
+      hexToRgba(color, backgroundAlpha)
+    );
+
+    const progressBarWrapperStyle = useMemo(
+      () => ({
+        ...styles.progressBarWrapper,
+      }),
+      []
+    );
 
     const MemoizedSkiaCountryPaths = React.memo(
       () => {
@@ -1095,16 +1132,40 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
           <Animated.View
             style={[styles.bottomSection, bottomTextAnimatedStyle]}
           >
-            <View style={styles.progressBarWrapper}>
-              <Progress.Bar
-                progress={percentageVisited}
-                width={screenWidth * 0.8}
-                color={theme.colors.primary}
-                unfilledColor={theme.colors.surfaceVariant}
-                borderWidth={0}
-                height={20}
-                borderRadius={10}
+            <View style={progressBarWrapperStyle}>
+              {/* Gradient TŁA (bardziej przezroczysty) - na CAŁEJ szerokości wrappera */}
+              <LinearGradient
+                colors={backgroundGradientColors}
+                locations={gradientLocations} // Dodane locations
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={StyleSheet.absoluteFill} // Rozciąga się na cały progressBarWrapper
               />
+
+              {/* Widok przycinający dla gradientu wypełnienia */}
+              <View
+                style={{
+                  width: `${percentageVisited * 100}%`, // Szerokość dynamiczna
+                  height: "100%",
+                  overflow: "hidden", // Kluczowe: przycina wewnętrzny gradient
+                }}
+              >
+                {/* Gradient WYPEŁNIENIA (pełne kolory) */}
+                {/* Renderowany z pełną szerokością paska, aby zachować spójność gradientu */}
+                {/* Zostanie przycięty przez nadrzędny View z overflow: 'hidden' */}
+                <LinearGradient
+                  colors={filledGradientColors}
+                  locations={gradientLocations} // Dodane locations
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={{
+                    width: screenWidth * 0.8, // Pełna szerokość progressBarWrapper
+                    height: "100%",
+                  }}
+                />
+              </View>
+
+              {/* Teksty postępu (muszą być NAD gradientami) */}
               <View style={styles.progressTextLeft}>
                 <Text
                   style={[
@@ -1307,9 +1368,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
     borderRadius: 10,
+    // backgroundColor: theme.colors.surfaceVariant,
   },
   popoverContainer: {
-    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    backgroundColor: "rgba(0, 0, 0, 0.77)",
     padding: 8,
     borderRadius: 8,
   },
