@@ -85,3 +85,4 @@ expo-env.d.ts
 repomix-output.txt
 aapt2
 aapt
+components/InteractiveMapSkia.tsx

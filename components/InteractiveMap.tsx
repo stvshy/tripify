@@ -57,6 +57,12 @@ import { useRouter } from "expo-router";
 import { AntDesign } from "@expo/vector-icons";
 import { Entypo } from "@expo/vector-icons";
 import FastImage from "@d11/react-native-fast-image";
+import {
+  Canvas,
+  Group,
+  Skia,
+  Path as SkiaPathDrawing,
+} from "@shopify/react-native-skia";
 
 export interface Country {
   id: string;
@@ -144,11 +150,10 @@ interface MemoizedCountryPathProps {
   countryId: string;
 }
 
-// Następnie używamy tego interfejsu w komponencie
 const MemoizedCountryPath = React.memo<MemoizedCountryPathProps>(
   (props) => {
     return (
-      <Path
+      <Path // Ten Path jest z 'react-native-svg'
         d={props.path}
         fill={props.fill}
         stroke={props.stroke}
@@ -166,6 +171,28 @@ const MemoizedCountryPath = React.memo<MemoizedCountryPathProps>(
     );
   }
 );
+// Następnie używamy tego interfejsu w komponencie
+// const MemoizedCountryPath = React.memo<MemoizedCountryPathProps>(
+//   (props) => {
+//     return (
+//       <Path
+//         d={props.path}
+//         fill={props.fill}
+//         stroke={props.stroke}
+//         strokeWidth={props.strokeWidth}
+//         onPress={props.onPress}
+//       />
+//     );
+//   },
+//   (prev, next) => {
+//     return (
+//       prev.path === next.path &&
+//       prev.fill === next.fill &&
+//       prev.stroke === next.stroke &&
+//       prev.strokeWidth === next.strokeWidth
+//     );
+//   }
+// );
 
 function computeArea(points: { x: number; y: number }[]): number {
   let area = 0;
@@ -201,7 +228,12 @@ function computeCentroid(points: { x: number; y: number }[]): {
 export interface InteractiveMapRef {
   capture: () => Promise<string | null>;
 }
-
+const skiaPaths = countries.map((country) => ({
+  id: country.id,
+  cca2: country.cca2, // potrzebne do tooltipa i flagi
+  name: country.name, // potrzebne do tooltipa
+  skPath: Skia.Path.MakeFromSVGString(country.path), // Główna konwersja
+}));
 interface TooltipPosition {
   x: number;
   y: number;
@@ -266,6 +298,82 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
         return null;
       },
     }));
+
+    const MemoizedSkiaCountryPaths = React.memo(
+      () => {
+        return (
+          <>
+            {skiaPaths.map((countryData, index) => {
+              if (
+                !countryData.skPath ||
+                !countryData.id ||
+                countryData.id.startsWith("UNKNOWN-")
+              )
+                return null;
+              const countryCode = countryData.id;
+
+              const fill = getCountryFill(countryCode); // Twoja istniejąca funkcja
+              const strokeColor = isCountryHighlighted(countryCode)
+                ? theme.colors.primary
+                : theme.colors.outline;
+              const strokeWidthVal = isCountryHighlighted(countryCode)
+                ? 0.5
+                : 0.2; // Zmieniłem nazwę zmiennej strokeWidth, aby uniknąć konfliktu, jeśli istnieje props o tej nazwie
+
+              return (
+                <React.Fragment key={`skia-${countryCode}-${index}`}>
+                  {/* POPRAWKA TUTAJ */}
+                  <SkiaPathDrawing
+                    path={countryData.skPath}
+                    color={fill}
+                    style="fill"
+                  />
+                  {/* POPRAWKA TUTAJ */}
+                  <SkiaPathDrawing
+                    path={countryData.skPath}
+                    color={strokeColor}
+                    style="stroke"
+                    strokeWidth={strokeWidthVal} // Użyj zmienionej nazwy
+                  />
+                </React.Fragment>
+              );
+            })}
+          </>
+        );
+      },
+      (prev, next) => !isInteracting.value
+    );
+
+    // Niewidzialne ścieżki SVG do obsługi tapnięć
+    // Upewnij się, że MemoizedCountryPath i AllCountryPaths są zdefiniowane tak jak wcześniej
+    // ale będą renderowane z fill="transparent" i stroke="transparent"
+
+    const InvisibleSvgCountryPaths = React.memo(
+      () => {
+        return (
+          <>
+            {countries.map((country: Country, index: number) => {
+              const countryCode = country.id;
+              if (!countryCode || countryCode.startsWith("UNKNOWN-"))
+                return null;
+
+              return (
+                <MemoizedCountryPath // Twój istniejący komponent
+                  key={`touch-${countryCode}-${index}`}
+                  path={country.path}
+                  fill="transparent" // Niewidzialne
+                  stroke="transparent" // Niewidzialne
+                  strokeWidth={0}
+                  onPress={(event) => handlePathPress(event, countryCode)} // Twoja logika pozostaje
+                  countryId={countryCode}
+                />
+              );
+            })}
+          </>
+        );
+      },
+      (prev, next) => true // Te ścieżki się nie zmieniają wizualnie
+    );
     // Memoize the entire collection of paths
     const AllCountryPaths = React.memo(
       () => {
@@ -415,7 +523,80 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
       },
       [tooltip]
     );
+    const SkiaVisibleCountries = React.memo(
+      () => {
+        console.log(
+          "SkiaVisibleCountries re-render, isInteracting:",
+          isInteracting.value
+        ); // Do debugowania
+        return (
+          <>
+            {skiaPaths.map((countryData) => {
+              if (
+                !countryData.skPath ||
+                !countryData.id ||
+                countryData.id.startsWith("UNKNOWN-")
+              ) {
+                return null;
+              }
+              const countryCode = countryData.id;
+              const fill = getCountryFill(countryCode); // Twoja funkcja
+              const strokeColor = isCountryHighlighted(countryCode)
+                ? theme.colors.primary
+                : theme.colors.outline;
+              const strokeWidthVal = isCountryHighlighted(countryCode)
+                ? 0.5
+                : 0.2;
 
+              return (
+                <React.Fragment key={`skia-visible-${countryCode}`}>
+                  <SkiaPathDrawing // Ten Path jest z '@shopify/react-native-skia'
+                    path={countryData.skPath}
+                    color={fill}
+                    style="fill"
+                  />
+                  <SkiaPathDrawing
+                    path={countryData.skPath}
+                    color={strokeColor}
+                    style="stroke"
+                    strokeWidth={strokeWidthVal}
+                  />
+                </React.Fragment>
+              );
+            })}
+          </>
+        );
+      },
+      (prev, next) => !isInteracting.value
+    ); // Twoja optymalizacja memo
+    const SvgInvisibleTouchLayer = React.memo(
+      () => {
+        console.log("SvgInvisibleTouchLayer re-render"); // Do debugowania
+        return (
+          <>
+            {countries.map((country) => {
+              // Używamy oryginalnych `countries` z `path` SVG
+              const countryCode = country.id;
+              if (!countryCode || countryCode.startsWith("UNKNOWN-")) {
+                return null;
+              }
+              return (
+                <MemoizedCountryPath // Używa komponentu SVG
+                  key={`touch-svg-${countryCode}`}
+                  path={country.path}
+                  fill="transparent" // Niewidzialne
+                  stroke="transparent" // Niewidzialne
+                  strokeWidth={0.1} // Minimalna grubość dla wykrywania dotyku
+                  onPress={(event) => handlePathPress(event, countryCode)} // Twoja istniejąca funkcja
+                  countryId={countryCode}
+                />
+              );
+            })}
+          </>
+        );
+      },
+      () => true
+    );
     const visitedCountries = useMemo(
       () => selectedCountries.length,
       [selectedCountries]
@@ -798,21 +979,68 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
             <Animated.View style={[styles.container, animatedStyle]}>
               <View ref={mapViewRef} style={styles.mapContainer}>
                 <Animated.View
-                  style={{ transform: [{ scale: 1 / RESOLUTION_FACTOR }] }}
-                  pointerEvents="auto"
+                  style={{
+                    width: highResWidth, // Canvas Skia potrzebuje jawnych wymiarów
+                    height: highResHeight,
+                    transform: [{ scale: 1 / RESOLUTION_FACTOR }],
+                  }}
+                  pointerEvents="none" // Skia nie będzie obsługiwać dotyku bezpośrednio
                 >
-                  <AnimatedSvg
-                    width={highResWidth}
-                    height={highResHeight}
-                    viewBox="232 0 1700 857"
-                    preserveAspectRatio="xMidYMid meet"
-                    style={styles.mapContainer}
-                    renderToHardwareTextureAndroid={true}
-                    shouldRasterizeIOS={!isInteracting.value}
-                  >
-                    <AllCountryPaths />
-                  </AnimatedSvg>
+                  <Canvas style={{ flex: 1 }}>
+                    {(() => {
+                      const vbParts = mapDimensions.viewBox
+                        .split(" ")
+                        .map(Number); // [232, 0, 1700, 857]
+                      const vbX = vbParts[0];
+                      const vbY = vbParts[1];
+                      const vbWidth = vbParts[2];
+                      const vbHeight = vbParts[3];
+
+                      const scaleToFitX = highResWidth / vbWidth;
+                      const scaleToFitY = highResHeight / vbHeight;
+                      const scaleFactor = Math.min(scaleToFitX, scaleToFitY); // Zachowuje proporcje 'meet'
+
+                      // Oblicz przesunięcia, aby wycentrować zawartość viewBox na płótnie Skia
+                      const scaledContentWidth = vbWidth * scaleFactor;
+                      const scaledContentHeight = vbHeight * scaleFactor;
+
+                      const translateX =
+                        (highResWidth - scaledContentWidth) / 2;
+                      const translateY =
+                        (highResHeight - scaledContentHeight) / 2;
+
+                      // Budujemy macierz transformacji dla Skia <Group>
+                      const transformMatrix = Skia.Matrix();
+                      transformMatrix.translate(translateX, translateY); // 3. Przesuń na środek płótna
+                      transformMatrix.scale(scaleFactor, scaleFactor); // 2. Skaluj
+                      transformMatrix.translate(-vbX, -vbY); // 1. Przesuń początek viewBox do (0,0)
+
+                      return (
+                        <Group matrix={transformMatrix}>
+                          <SkiaVisibleCountries />
+                        </Group>
+                      );
+                    })()}
+                  </Canvas>
                 </Animated.View>
+
+                {/* ---- WARSTWA 2: SVG (NIEWIDZIALNA, DLA KLIKNIĘĆ) ---- */}
+                <View
+                  style={{
+                    ...StyleSheet.absoluteFillObject, // Rozciąga się na cały mapViewRef
+                    // backgroundColor: 'rgba(0,255,0,0.1)', // Do debugowania pozycji warstwy SVG
+                  }}
+                  pointerEvents="auto" // Ta warstwa przechwytuje dotyk
+                >
+                  <Svg
+                    width="100%"
+                    height="100%"
+                    viewBox={mapDimensions.viewBox} // Użyj tego samego viewBox co wcześniej
+                    preserveAspectRatio="xMidYMid meet" // Kluczowe dla dopasowania geometrii kliknięć
+                  >
+                    <SvgInvisibleTouchLayer />
+                  </Svg>
+                </View>
                 {/* Tooltip z informacjami o kraju oraz przyciskiem View */}
                 {tooltip && (
                   <Popover
