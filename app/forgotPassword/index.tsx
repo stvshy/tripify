@@ -70,15 +70,15 @@ export default function ForgotPasswordScreen() {
 
   return (
     <ImageBackground
-      source={require("../../assets/images/gradient14.png")}
+      source={require("../../assets/images/to spoko.png")}
       style={styles.background}
       imageStyle={{
         resizeMode: "cover",
-        width: "141%",
-        height: "150%",
-        left: -80,
-        top: -150,
-        transform: [{ rotate: "-10deg" }],
+        width: "130%",
+        height: "110%",
+        left: -10,
+        // top: -150,
+        transform: [{ rotate: "-180deg" }],
       }}
       fadeDuration={0}
     >
@@ -188,6 +188,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     paddingBottom: 10, // Smaller bottom padding, controlled by footer
+    backgroundColor: "rgba(0, 0, 0, 0.02)",
   },
   scrollView: {
     width: "100%", // Ensure ScrollView takes full width

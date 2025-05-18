@@ -466,6 +466,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between", // Rozmieszczenie zawartości od góry do dołu
     alignItems: "center",
     padding: 16,
+    // backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   keyboardAvoidingView: {
     flex: 1,
