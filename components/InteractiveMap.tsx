@@ -64,6 +64,7 @@ import {
   Path as SkiaPathDrawing,
 } from "@shopify/react-native-skia";
 import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "@react-native-community/blur";
 
 export interface Country {
   id: string;
@@ -1151,8 +1152,6 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                 }}
               >
                 {/* Gradient WYPEŁNIENIA (pełne kolory) */}
-                {/* Renderowany z pełną szerokością paska, aby zachować spójność gradientu */}
-                {/* Zostanie przycięty przez nadrzędny View z overflow: 'hidden' */}
                 <LinearGradient
                   colors={filledGradientColors}
                   locations={gradientLocations} // Dodane locations
@@ -1164,6 +1163,14 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                   }}
                 />
               </View>
+
+              {/* Warstwa Blur */}
+              <BlurView
+                style={styles.blurView}
+                blurType={isDarkTheme ? "dark" : "light"} // Dopasuj do motywu
+                blurAmount={5} // Możesz dostosować intensywność (np. 5-15)
+                // reducedTransparencyFallbackColor="white" // Opcjonalny fallback dla Androida
+              />
 
               {/* Teksty postępu (muszą być NAD gradientami) */}
               <View style={styles.progressTextLeft}>
@@ -1238,15 +1245,30 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
             </View>
 
             <View style={styles.bottomSectionPhoto}>
-              <View style={styles.progressBarWrapper}>
-                <Progress.Bar
-                  progress={percentageVisited}
-                  width={screenWidth * 0.8}
-                  color={theme.colors.primary}
-                  unfilledColor={theme.colors.surfaceVariant}
-                  borderWidth={0}
-                  height={20}
-                  borderRadius={10}
+              <LinearGradient
+                colors={backgroundGradientColors}
+                locations={gradientLocations}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={StyleSheet.absoluteFill}
+              />
+              {/* Gradient wypełnienia */}
+              <View
+                style={{
+                  width: `${percentageVisited * 100}%`,
+                  height: "100%",
+                  overflow: "hidden",
+                }}
+              >
+                <LinearGradient
+                  colors={filledGradientColors}
+                  locations={gradientLocations}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={{
+                    width: screenWidth * 0.8,
+                    height: "100%",
+                  }}
                 />
                 <View style={styles.progressTextLeft}>
                   <Text
@@ -1507,6 +1529,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 3,
+  },
+  blurView: {
+    ...StyleSheet.absoluteFillObject, // Rozciąga się na cały kontener rodzica
+    // borderRadius: 10, // Nie jest tu potrzebny, jeśli rodzic (progressBarWrapper) ma borderRadius i overflow: 'hidden'
   },
   resetIcon: {
     transform: [{ rotate: "-45deg" }],

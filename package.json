@@ -19,6 +19,7 @@
     "@expo/vector-icons": "^14.0.3",
     "@firebasegen/default": "file:generated/javascript/default",
     "@react-native-async-storage/async-storage": "1.23.1",
+    "@react-native-community/blur": "^4.4.1",
     "@react-native-community/cli-platform-android": "^15.0.0",
     "@react-navigation/native": "^6.1.18",
     "@react-navigation/native-stack": "^6.11.0",
