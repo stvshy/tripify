@@ -1,13 +1,12 @@
 // LoadingScreen.tsx (Uproszczona wersja)
 import React from "react";
-import { View, Image, ActivityIndicator, StyleSheet } from "react-native";
+import { View, Image, StyleSheet } from "react-native";
+import MyCustomSpinner from "./MyCustomSpinner";
 
 // Nie potrzebujemy już logiki tła tutaj
 
 const LoadingScreen = ({ showLogo = true }) => {
   return (
-    // Zamiast ImageBackground, użyjemy zwykłego View,
-    // bo tło będzie pochodzić z _layout.tsx
     <View style={styles.container}>
       {showLogo && (
         <Image
@@ -15,7 +14,7 @@ const LoadingScreen = ({ showLogo = true }) => {
           style={styles.logo}
         />
       )}
-      <ActivityIndicator size="large" color="#FFF" style={styles.loader} />
+      <MyCustomSpinner size="large" />
     </View>
   );
 };

@@ -10,7 +10,7 @@ export default {
     scheme: "fb517197711280428",
     userInterfaceStyle: "automatic",
     splash: {
-      image: "./assets/images/gradient7.png",
+      image: "./assets/images/native-splash-screen.png",
       resizeMode: "cover",
       backgroundColor: "#000000",
     },

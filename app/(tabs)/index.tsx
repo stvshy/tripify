@@ -9,6 +9,7 @@ import { auth, db } from "../config/firebaseConfig";
 import { ThemeContext } from "../config/ThemeContext";
 import { useTheme } from "react-native-paper";
 import filteredCountriesData from "../../components/filteredCountries.json";
+import MyCustomSpinner from "@/components/MyCustomSpinner";
 
 const totalCountries = filteredCountriesData.countries.length;
 
@@ -63,7 +64,7 @@ export default function IndexScreen() {
           { backgroundColor: theme.colors.background },
         ]}
       >
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <MyCustomSpinner size="large" />
       </View>
     );
   }
