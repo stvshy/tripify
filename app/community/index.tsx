@@ -573,176 +573,184 @@ export default function CommunityScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loading}>
+      <View
+        style={[styles.loading, { backgroundColor: theme.colors.background }]}
+      >
         <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
 
   return (
-    <TouchableWithoutFeedback onPress={() => setActiveFriendId(null)}>
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: theme.colors.background }]}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.keyboardAvoidingView}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 20}
+    // ZMIANA: Dodaj wrapper z tłem - to już było, ale upewnijmy się
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <TouchableWithoutFeedback onPress={() => setActiveFriendId(null)}>
+        <SafeAreaView
+          style={[
+            styles.container,
+            { backgroundColor: theme.colors.background },
+          ]}
         >
-          <View style={{ flex: 1 }}>
-            <View style={styles.searchAndToggleContainer}>
-              <View
-                style={[
-                  styles.searchContainer,
-                  {
-                    borderColor: isFocused
-                      ? theme.colors.primary
-                      : theme.colors.outline,
-                  },
-                ]}
-              >
-                <AntDesign
-                  name="search1"
-                  size={17}
-                  color={theme.colors.onSurfaceVariant}
-                  style={styles.searchIcon}
-                />
-                <TextInput
-                  placeholder={
-                    isSearchMode
-                      ? "Enter friend's nickname..."
-                      : "Search friends..."
-                  }
-                  value={searchText}
-                  onChangeText={setSearchText}
-                  keyboardType="default"
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={styles.keyboardAvoidingView}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 20}
+          >
+            <View style={{ flex: 1 }}>
+              <View style={styles.searchAndToggleContainer}>
+                <View
                   style={[
-                    styles.input,
+                    styles.searchContainer,
                     {
-                      color: theme.colors.onBackground,
-                      opacity: 0.97,
-                      marginLeft: 4,
+                      borderColor: isFocused
+                        ? theme.colors.primary
+                        : theme.colors.outline,
                     },
                   ]}
-                  placeholderTextColor={theme.colors.onSurfaceVariant}
-                  autoCapitalize="none"
-                  onFocus={() => setIsFocused(true)}
-                  onBlur={() => setIsFocused(false)}
-                />
-                {searchText.length > 0 && (
+                >
+                  <AntDesign
+                    name="search1"
+                    size={17}
+                    color={theme.colors.onSurfaceVariant}
+                    style={styles.searchIcon}
+                  />
+                  <TextInput
+                    placeholder={
+                      isSearchMode
+                        ? "Enter friend's nickname..."
+                        : "Search friends..."
+                    }
+                    value={searchText}
+                    onChangeText={setSearchText}
+                    keyboardType="default"
+                    style={[
+                      styles.input,
+                      {
+                        color: theme.colors.onBackground,
+                        opacity: 0.97,
+                        marginLeft: 4,
+                      },
+                    ]}
+                    placeholderTextColor={theme.colors.onSurfaceVariant}
+                    autoCapitalize="none"
+                    onFocus={() => setIsFocused(true)}
+                    onBlur={() => setIsFocused(false)}
+                  />
+                  {searchText.length > 0 && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSearchText("");
+                        setDebouncedSearchText("");
+                      }}
+                      style={styles.clearIcon}
+                    >
+                      <MaterialIcons
+                        name="close"
+                        size={18}
+                        color={theme.colors.onSurfaceVariant}
+                      />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <View style={styles.modeToggleContainer}>
                   <TouchableOpacity
+                    style={[
+                      styles.modeButton,
+                      {
+                        backgroundColor: isSearchMode
+                          ? theme.colors.surfaceVariant
+                          : theme.colors.primary,
+                        borderTopLeftRadius: 25,
+                        borderBottomLeftRadius: 25,
+                      },
+                    ]}
                     onPress={() => {
-                      setSearchText("");
-                      setDebouncedSearchText("");
+                      if (isSearchMode) toggleMode();
                     }}
-                    style={styles.clearIcon}
                   >
-                    <MaterialIcons
-                      name="close"
-                      size={18}
-                      color={theme.colors.onSurfaceVariant}
+                    <AntDesign
+                      name="smileo"
+                      size={19}
+                      color={
+                        isSearchMode ? theme.colors.onSurfaceVariant : "#fff"
+                      }
+                      style={{ marginLeft: 3 }}
                     />
                   </TouchableOpacity>
-                )}
+
+                  <TouchableOpacity
+                    style={[
+                      styles.modeButton,
+                      {
+                        backgroundColor: isSearchMode
+                          ? theme.colors.primary
+                          : theme.colors.surfaceVariant,
+                        borderTopRightRadius: 25,
+                        borderBottomRightRadius: 25,
+                      },
+                    ]}
+                    onPress={() => {
+                      if (!isSearchMode) toggleMode();
+                    }}
+                  >
+                    <AntDesign
+                      name="adduser"
+                      size={19}
+                      color={
+                        !isSearchMode ? theme.colors.onSurfaceVariant : "#fff"
+                      }
+                      style={{ marginRight: 3 }}
+                    />
+                  </TouchableOpacity>
+                </View>
               </View>
 
-              <View style={styles.modeToggleContainer}>
-                <TouchableOpacity
-                  style={[
-                    styles.modeButton,
-                    {
-                      backgroundColor: isSearchMode
-                        ? theme.colors.surfaceVariant
-                        : theme.colors.primary,
-                      borderTopLeftRadius: 25,
-                      borderBottomLeftRadius: 25,
-                    },
-                  ]}
-                  onPress={() => {
-                    if (isSearchMode) toggleMode();
-                  }}
-                >
-                  <AntDesign
-                    name="smileo"
-                    size={19}
-                    color={
-                      isSearchMode ? theme.colors.onSurfaceVariant : "#fff"
-                    }
-                    style={{ marginLeft: 3 }}
-                  />
-                </TouchableOpacity>
+              {!isSearchMode && (
+                <>
+                  {combinedFriendships.length === 0 ? (
+                    <View style={styles.empty}>
+                      <Text style={{ color: theme.colors.onBackground }}>
+                        You have no friends yet.
+                      </Text>
+                    </View>
+                  ) : (
+                    <FlatList
+                      data={combinedFriendships.filter((friend) =>
+                        friend.nickname
+                          .toLowerCase()
+                          .includes(debouncedSearchText.toLowerCase())
+                      )}
+                      keyExtractor={(item) => item.id}
+                      renderItem={renderFriendItem}
+                    />
+                  )}
+                </>
+              )}
 
-                <TouchableOpacity
-                  style={[
-                    styles.modeButton,
-                    {
-                      backgroundColor: isSearchMode
-                        ? theme.colors.primary
-                        : theme.colors.surfaceVariant,
-                      borderTopRightRadius: 25,
-                      borderBottomRightRadius: 25,
-                    },
-                  ]}
-                  onPress={() => {
-                    if (!isSearchMode) toggleMode();
-                  }}
-                >
-                  <AntDesign
-                    name="adduser"
-                    size={19}
-                    color={
-                      !isSearchMode ? theme.colors.onSurfaceVariant : "#fff"
-                    }
-                    style={{ marginRight: 3 }}
-                  />
-                </TouchableOpacity>
-              </View>
+              {isSearchMode && (
+                <>
+                  {searchResults.length === 0 &&
+                  debouncedSearchText.length >= 3 ? (
+                    <View style={styles.noResults}>
+                      <Text style={{ color: theme.colors.onBackground }}>
+                        No users found.
+                      </Text>
+                    </View>
+                  ) : (
+                    <FlatList
+                      data={searchResults}
+                      keyExtractor={(item) => item.uid}
+                      renderItem={renderSearchItem}
+                    />
+                  )}
+                </>
+              )}
             </View>
-
-            {!isSearchMode && (
-              <>
-                {combinedFriendships.length === 0 ? (
-                  <View style={styles.empty}>
-                    <Text style={{ color: theme.colors.onBackground }}>
-                      You have no friends yet.
-                    </Text>
-                  </View>
-                ) : (
-                  <FlatList
-                    data={combinedFriendships.filter((friend) =>
-                      friend.nickname
-                        .toLowerCase()
-                        .includes(debouncedSearchText.toLowerCase())
-                    )}
-                    keyExtractor={(item) => item.id}
-                    renderItem={renderFriendItem}
-                  />
-                )}
-              </>
-            )}
-
-            {isSearchMode && (
-              <>
-                {searchResults.length === 0 &&
-                debouncedSearchText.length >= 3 ? (
-                  <View style={styles.noResults}>
-                    <Text style={{ color: theme.colors.onBackground }}>
-                      No users found.
-                    </Text>
-                  </View>
-                ) : (
-                  <FlatList
-                    data={searchResults}
-                    keyExtractor={(item) => item.uid}
-                    renderItem={renderSearchItem}
-                  />
-                )}
-              </>
-            )}
-          </View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </TouchableWithoutFeedback>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </TouchableWithoutFeedback>
+    </View>
   );
 }
 
