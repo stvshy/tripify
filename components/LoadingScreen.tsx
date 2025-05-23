@@ -1,7 +1,7 @@
 // LoadingScreen.tsx (Uproszczona wersja)
 import React from "react";
 import { View, Image, StyleSheet } from "react-native";
-import MyCustomSpinner from "./MyCustomSpinner";
+import MyCustomSpinner from "./MyCustomSpinner2";
 
 // Nie potrzebujemy już logiki tła tutaj
 

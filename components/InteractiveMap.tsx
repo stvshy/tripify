@@ -64,7 +64,8 @@ import {
   Path as SkiaPathDrawing,
 } from "@shopify/react-native-skia";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "@react-native-community/blur";
+// import { BlurView } from "@react-native-community/blur";
+import { BlurView } from "expo-blur";
 
 export interface Country {
   id: string;
@@ -1129,7 +1130,7 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
               </View>
             </Animated.View>
           </GestureDetector>
-          {/* Dolna sekcja z paskiem postÄpu */}
+          {/* Dolna sekcja z paskiem postÄ™pu */}
           <Animated.View
             style={[styles.bottomSection, bottomTextAnimatedStyle]}
           >
@@ -1143,12 +1144,12 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                 style={StyleSheet.absoluteFill} // Rozciąga się na cały progressBarWrapper
               />
 
-              {/* Widok przycinający dla gradientu wypełnienia */}
+              {/* Widok przycinający dla gradientu wypełnienia ORAZ BLURA */}
               <View
                 style={{
                   width: `${percentageVisited * 100}%`, // Szerokość dynamiczna
                   height: "100%",
-                  overflow: "hidden", // Kluczowe: przycina wewnętrzny gradient
+                  overflow: "hidden", // Kluczowe: przycina wewnętrzny gradient I BLUR
                 }}
               >
                 {/* Gradient WYPEŁNIENIA (pełne kolory) */}
@@ -1158,21 +1159,29 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
                   start={{ x: 0, y: 0.5 }}
                   end={{ x: 1, y: 0.5 }}
                   style={{
-                    width: screenWidth * 0.8, // Pełna szerokość progressBarWrapper
+                    width: screenWidth * 0.8, // Pełna szerokość paska, aby gradient był spójny
                     height: "100%",
                   }}
                 />
+                {/* Warstwa Blur - TERAZ WEWNĄTRZ PRZYCIĘTEGO WIDOKU */}
+                {/* Umieszczona nad gradientem wypełnienia, aby go rozmywać */}
+                {!isDarkTheme && (
+                  <BlurView
+                    style={StyleSheet.absoluteFillObject}
+                    tint="light"
+                    intensity={23} // Dostosuj
+                  />
+                )}
+                {isDarkTheme && (
+                  <BlurView
+                    style={StyleSheet.absoluteFillObject}
+                    tint="dark"
+                    intensity={8} // Dostosuj
+                  />
+                )}
               </View>
-
-              {/* Warstwa Blur */}
-              <BlurView
-                style={styles.blurView}
-                blurType={isDarkTheme ? "dark" : "light"} // Dopasuj do motywu
-                blurAmount={5} // Możesz dostosować intensywność (np. 5-15)
-                // reducedTransparencyFallbackColor="white" // Opcjonalny fallback dla Androida
-              />
-
-              {/* Teksty postępu (muszą być NAD gradientami) */}
+              {/* Teksty postępu (muszą być NAD gradientami i blurem) */}
+              {/* Upewnij się, że style progressTextLeft/Right mają zIndex: 1 */}
               <View style={styles.progressTextLeft}>
                 <Text
                   style={[
@@ -1245,31 +1254,47 @@ const InteractiveMap = forwardRef<InteractiveMapRef, InteractiveMapProps>(
             </View>
 
             <View style={styles.bottomSectionPhoto}>
-              <LinearGradient
-                colors={backgroundGradientColors}
-                locations={gradientLocations}
-                start={{ x: 0, y: 0.5 }}
-                end={{ x: 1, y: 0.5 }}
-                style={StyleSheet.absoluteFill}
-              />
-              {/* Gradient wypełnienia */}
-              <View
-                style={{
-                  width: `${percentageVisited * 100}%`,
-                  height: "100%",
-                  overflow: "hidden",
-                }}
-              >
+              {/* Używamy progressBarWrapper dla spójności stylów i wymiarów */}
+              <View style={styles.progressBarWrapper}>
+                {/* Gradient TŁA (bardziej przezroczysty) */}
                 <LinearGradient
-                  colors={filledGradientColors}
+                  colors={backgroundGradientColors}
                   locations={gradientLocations}
                   start={{ x: 0, y: 0.5 }}
                   end={{ x: 1, y: 0.5 }}
-                  style={{
-                    width: screenWidth * 0.8,
-                    height: "100%",
-                  }}
+                  style={StyleSheet.absoluteFill}
                 />
+
+                {/* Widok przycinający dla gradientu wypełnienia ORAZ BLURA */}
+                <View
+                  style={{
+                    width: `${percentageVisited * 100}%`,
+                    height: "100%",
+                    overflow: "hidden", // Kluczowe: przycina wewnętrzny gradient I BLUR
+                  }}
+                >
+                  {/* Gradient WYPEŁNIENIA (pełne kolory) */}
+                  <LinearGradient
+                    colors={filledGradientColors}
+                    locations={gradientLocations}
+                    start={{ x: 0, y: 0.5 }}
+                    end={{ x: 1, y: 0.5 }}
+                    style={{
+                      width: screenWidth * 0.8, // Pełna szerokość paska, aby gradient był spójny
+                      height: "100%",
+                    }}
+                  />
+                  {/* Warstwa Blur - WEWNĄTRZ PRZYCIĘTEGO WIDOKU */}
+                  {!isDarkTheme && (
+                    <BlurView
+                      style={StyleSheet.absoluteFillObject}
+                      tint="light"
+                      intensity={15} // Dostosuj
+                    />
+                  )}
+                </View>
+
+                {/* Teksty postępu (muszą być NAD gradientami i blurem) */}
                 <View style={styles.progressTextLeft}>
                   <Text
                     style={[
@@ -1427,6 +1452,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     justifyContent: "center",
+    zIndex: 1,
   },
   progressTextRight: {
     position: "absolute",
@@ -1434,6 +1460,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     justifyContent: "center",
+    zIndex: 1,
   },
   progressText: {
     fontSize: 12,
@@ -1529,10 +1556,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 3,
-  },
-  blurView: {
-    ...StyleSheet.absoluteFillObject, // Rozciąga się na cały kontener rodzica
-    // borderRadius: 10, // Nie jest tu potrzebny, jeśli rodzic (progressBarWrapper) ma borderRadius i overflow: 'hidden'
   },
   resetIcon: {
     transform: [{ rotate: "-45deg" }],
