@@ -3,7 +3,8 @@ import React, { useContext } from "react";
 import { Stack } from "expo-router";
 import { useTheme, IconButton } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
-import { ThemeContext } from "../../app/config/ThemeContext";
+// Poprawiona ścieżka, jeśli ThemeContext jest w app/config
+import { ThemeContext } from "../config/ThemeContext";
 import { TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 
@@ -11,7 +12,9 @@ export default function CommunityLayout() {
   const { toggleTheme, isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme();
   const router = useRouter();
+
   return (
+    // Ten View jest kluczowy. Upewnij się, że theme.colors.background jest nieprzezroczysty.
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <Stack
         screenOptions={{
@@ -34,10 +37,15 @@ export default function CommunityLayout() {
               />
             </TouchableOpacity>
           ),
+          // contentStyle ustawia tło dla obszaru *wewnątrz* karty ekranu.
+          // To jest prawidłowe i powinno działać.
           contentStyle: {
-            backgroundColor: theme.colors.background, // To jest dla treści ekranu
+            backgroundColor: theme.colors.background,
           },
           animation: "slide_from_right",
+          // Upewnijmy się, że nagłówek nie jest ustawiony na przezroczysty,
+          // co mogłoby wpłynąć na zachowanie karty. Domyślnie jest false.
+          headerTransparent: false,
         }}
       >
         <Stack.Screen name="index" options={{ title: "Your Friends" }} />

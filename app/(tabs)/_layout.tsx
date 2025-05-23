@@ -185,7 +185,10 @@ const TabLayoutContent: React.FC = () => {
   }
 
   if (!user) {
-    return null;
+    // Można zwrócić pusty View z tłem, aby uniknąć problemów, jeśli ten stan wystąpi na krótko
+    return (
+      <View style={{ flex: 1, backgroundColor: theme.colors.background }} />
+    );
   }
 
   const handleLogout = async () => {
@@ -202,142 +205,148 @@ const TabLayoutContent: React.FC = () => {
   };
 
   return (
-    <Tabs
-      screenOptions={{
-        tabBarIconStyle: {
-          marginTop: window.height * 0.014,
-        },
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
-        tabBarStyle: {
-          backgroundColor: theme.colors.surface,
-          height: window.height * 0.067,
-          borderTopWidth: 0,
-          justifyContent: "center",
-          // marginTop: -1,
-        },
-        tabBarItemStyle: {
-          justifyContent: "center",
-          alignItems: "center",
-          marginTop: window.height * 0.014,
-        },
-        headerStyle: {
-          backgroundColor: theme.colors.surface,
-          height: window.height * 0.108,
-          shadowOpacity: 0,
-          elevation: 0,
-        },
-        headerTitle: () => (
-          <SafeAreaView>
-            <Pressable
-              onPress={handleNavigateToAccount}
-              style={({ pressed }) => [
-                styles.headerTitleContainer,
-                pressed && styles.pressedHeader,
-              ]}
-            >
-              <AntDesign
-                name="user"
-                size={19}
-                color={theme.colors.onSurface}
-                style={styles.userIcon}
-              />
-              <Text
-                style={[
-                  styles.headerTitleText,
-                  { color: theme.colors.onSurface },
+    // Opakuj Tabs w View, które ma flex: 1 i tło z motywu
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <Tabs
+        screenOptions={{
+          tabBarIconStyle: {
+            marginTop: window.height * 0.014,
+          },
+          tabBarActiveTintColor: theme.colors.primary,
+          tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
+          tabBarStyle: {
+            backgroundColor: theme.colors.surface, // Tło samego paska zakładek
+            height: window.height * 0.067,
+            borderTopWidth: 0,
+            justifyContent: "center",
+          },
+          tabBarItemStyle: {
+            justifyContent: "center",
+            alignItems: "center",
+            marginTop: window.height * 0.014,
+          },
+          headerStyle: {
+            backgroundColor: theme.colors.surface, // Tło nagłówka w zakładkach
+            height: window.height * 0.108,
+            shadowOpacity: 0,
+            elevation: 0,
+          },
+          headerTitle: () => (
+            <SafeAreaView>
+              <Pressable
+                onPress={handleNavigateToAccount}
+                style={({ pressed }) => [
+                  styles.headerTitleContainer,
+                  pressed && styles.pressedHeader,
                 ]}
               >
-                {nickname ? nickname : "Welcome"}
-              </Text>
-            </Pressable>
-          </SafeAreaView>
-        ),
-        // Remove global headerRight
-      }}
-    >
-      {/* Three Tab (Community) */}
-      <Tabs.Screen
-        name="three"
-        options={{
-          title: "",
-          tabBarButton: (props) => (
-            <CustomTabBarButton onPress={props.onPress}>
-              {props.children}
-            </CustomTabBarButton>
+                <AntDesign
+                  name="user"
+                  size={19}
+                  color={theme.colors.onSurface}
+                  style={styles.userIcon}
+                />
+                <Text
+                  style={[
+                    styles.headerTitleText,
+                    { color: theme.colors.onSurface },
+                  ]}
+                >
+                  {nickname ? nickname : "Welcome"}
+                </Text>
+              </Pressable>
+            </SafeAreaView>
           ),
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="people" size={26} color={color} />
-          ),
-          headerRight: () => (
-            <Pressable
-              onPress={() => router.push("/community/friendRequests")}
-              style={({ pressed }) => [
-                styles.headerRightContainer,
-                pressed && styles.pressedHeaderRight,
-              ]}
-            >
-              <View style={{ position: "relative" }}>
-                <Ionicons
-                  name="mail-outline"
-                  size={23}
+          // Możesz też jawnie ustawić tło dla contentStyle każdego ekranu w Tabs,
+          // chociaż opakowujący View powinien to załatwić.
+          // To jest opcja w react-navigation/stack, dla react-navigation/bottom-tabs
+          // odpowiednikiem może być stylizowanie komponentu renderującego scenę,
+          // ale opakowanie w View jest prostsze.
+        }}
+      >
+        {/* Three Tab (Community) */}
+        <Tabs.Screen
+          name="three"
+          options={{
+            title: "",
+            tabBarButton: (props) => (
+              <CustomTabBarButton onPress={props.onPress}>
+                {props.children}
+              </CustomTabBarButton>
+            ),
+            tabBarIcon: ({ color }) => (
+              <Ionicons name="people" size={26} color={color} />
+            ),
+            headerRight: () => (
+              <Pressable
+                onPress={() => router.push("/community/friendRequests")}
+                style={({ pressed }) => [
+                  styles.headerRightContainer,
+                  pressed && styles.pressedHeaderRight,
+                ]}
+              >
+                <View style={{ position: "relative" }}>
+                  <Ionicons
+                    name="mail-outline"
+                    size={23}
+                    color={theme.colors.onSurface}
+                  />
+                  <Badge count={friendRequestsCount} />
+                </View>
+              </Pressable>
+            ),
+          }}
+        />
+        {/* Index Tab (Main) */}
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: "",
+            tabBarButton: (props) => (
+              <CustomTabBarButton onPress={props.onPress}>
+                {props.children}
+              </CustomTabBarButton>
+            ),
+            tabBarIcon: ({ color }) => (
+              <Ionicons name="earth" size={26} color={color} />
+            ),
+            headerRight: () => (
+              <Pressable
+                onPress={() => {}}
+                style={({ pressed }) => [
+                  styles.headerRightContainer,
+                  pressed && styles.pressedHeaderRight,
+                ]}
+              >
+                <AntDesign
+                  name="search1"
+                  size={20.1}
                   color={theme.colors.onSurface}
                 />
-                <Badge count={friendRequestsCount} />
+              </Pressable>
+            ),
+          }}
+        />
+        {/* Two Tab (ChooseCountries) */}
+        <Tabs.Screen
+          name="two"
+          options={{
+            title: "",
+            tabBarButton: (props) => (
+              <CustomTabBarButton onPress={props.onPress}>
+                {props.children}
+              </CustomTabBarButton>
+            ),
+            tabBarIcon: ({ color }) => (
+              <View style={styles.tabIconContainer}>
+                <FontAwesome6 name="list-check" size={22} color={color} />
               </View>
-            </Pressable>
-          ),
-        }}
-      />
-      {/* Index Tab (Main) */}
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "",
-          tabBarButton: (props) => (
-            <CustomTabBarButton onPress={props.onPress}>
-              {props.children}
-            </CustomTabBarButton>
-          ),
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="earth" size={26} color={color} />
-          ),
-          headerRight: () => (
-            <Pressable
-              onPress={() => {}}
-              style={({ pressed }) => [
-                styles.headerRightContainer,
-                pressed && styles.pressedHeaderRight,
-              ]}
-            >
-              <AntDesign
-                name="search1"
-                size={20.1}
-                color={theme.colors.onSurface}
-              />
-            </Pressable>
-          ),
-        }}
-      />
-      {/* Two Tab (ChooseCountries) */}
-      <Tabs.Screen
-        name="two"
-        options={{
-          title: "",
-          tabBarButton: (props) => (
-            <CustomTabBarButton onPress={props.onPress}>
-              {props.children}
-            </CustomTabBarButton>
-          ),
-          tabBarIcon: ({ color }) => (
-            <View style={styles.tabIconContainer}>
-              <FontAwesome6 name="list-check" size={22} color={color} />
-            </View>
-          ),
-          headerRight: () => <VisitedToggle />,
-        }}
-      />
-    </Tabs>
+            ),
+            headerRight: () => <VisitedToggle />,
+          }}
+        />
+      </Tabs>
+    </View>
   );
 };
 

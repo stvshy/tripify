@@ -1,11 +1,12 @@
+// RootLayout.tsx
 import "expo-dev-client";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
-import * as ExpoSplashScreen from "expo-splash-screen"; // Zmieniono nazwę importu
+import * as ExpoSplashScreen from "expo-splash-screen";
 import { useContext, useEffect, useState } from "react";
-import { auth, db, app as firebaseApp } from "./config/firebaseConfig"; // Upewnij się, że 'app' jest eksportowane
-import { ImageBackground, StyleSheet, View } from "react-native";
+import { auth, db, app as firebaseApp } from "./config/firebaseConfig";
+import { View, StyleSheet } from "react-native";
 import LoadingScreen from "@/components/LoadingScreen";
 import { ThemeContext, ThemeProvider } from "./config/ThemeContext";
 import { DraxProvider } from "react-native-drax";
@@ -19,14 +20,12 @@ import { getStorage, ref, listAll, getDownloadURL } from "firebase/storage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import FastImage from "@d11/react-native-fast-image";
 
-import { useRandomSplashBackground } from "../hooks/useRandomSplashScreenBackground"; // Upewnij się, że ścieżka jest poprawna
 // Zapobiegaj automatycznemu ukrywaniu natywnego splash screena
 ExpoSplashScreen.preventAutoHideAsync();
+
 const queryClient = new QueryClient();
 const CACHED_URLS_KEY = "cachedSplashBackgroundUrls";
 const SPLASH_BACKGROUNDS_PATH = "splash_backgrounds";
-
-// Nie potrzebujemy już FALLBACK_LAYOUT_BACKGROUND tutaj, hook to obsłuży
 
 const fetchAndCacheBackgrounds = async () => {
   try {
@@ -59,9 +58,6 @@ export default function RootLayout() {
   });
   const [initialRouteName, setInitialRouteName] = useState<string | null>(null);
   const [appIsReady, setAppIsReady] = useState(false);
-
-  // Użyj hooka do losowania tła
-  const backgroundResult = useRandomSplashBackground();
 
   useEffect(() => {
     const prepareApp = async () => {
@@ -112,48 +108,18 @@ export default function RootLayout() {
   useEffect(() => {
     if (appIsReady && initialRouteName && (fontsLoaded || fontError)) {
       const timer = setTimeout(() => {
-        // Dodajemy małe opóźnienie
         ExpoSplashScreen.hideAsync();
-      }, 50); // np. 50ms
+      }, 50);
       return () => clearTimeout(timer);
     }
   }, [appIsReady, initialRouteName, fontsLoaded, fontError]);
 
-  // Renderowanie
-  // Używamy ImageBackground dla lokalnych i FastImage dla URI
-  const renderBackground = () => {
-    if (backgroundResult.type === "local") {
-      return (
-        <ImageBackground
-          source={backgroundResult.source} // To będzie wynik require()
-          style={styles.rootLayoutBackground} // Zmieniono na rootLayoutBackground
-          fadeDuration={0}
-        >
-          {renderContent()}
-        </ImageBackground>
-      );
-    } else if (backgroundResult.type === "uri" && backgroundResult.uri) {
-      return (
-        <View style={styles.rootLayoutBackground}>
-          <FastImage
-            style={StyleSheet.absoluteFill}
-            source={{
-              uri: backgroundResult.uri,
-              priority: FastImage.priority.normal,
-            }}
-            resizeMode={FastImage.resizeMode.cover}
-          />
-          {renderContent()}
-        </View>
-      );
-    }
-    // Fallback, jeśli coś pójdzie nie tak (nie powinno się zdarzyć z logiką hooka)
-    return <View style={styles.rootLayoutBackground}>{renderContent()}</View>;
-  };
-
+  // Renderowanie - teraz znacznie prostsze
   const renderContent = () => (
-    <SafeAreaProvider style={styles.transparentContainer}>
-      <GestureHandlerRootView style={styles.transparentContainer}>
+    <SafeAreaProvider style={{ flex: 1, backgroundColor: "transparent" }}>
+      <GestureHandlerRootView
+        style={{ flex: 1, backgroundColor: "transparent" }}
+      >
         <DraxProvider>
           <ThemeProvider>
             <ThemedStatusBarAndNavBar tooltipVisible={false} />
@@ -161,15 +127,18 @@ export default function RootLayout() {
               {!appIsReady ||
               !initialRouteName ||
               (!fontsLoaded && !fontError) ? (
-                <LoadingScreen />
+                <LoadingScreen /> // LoadingScreen ma teraz własne gradientowe tło
               ) : (
-                <Stack
-                  initialRouteName={initialRouteName}
-                  screenOptions={{
-                    headerShown: false,
-                    contentStyle: { backgroundColor: "transparent" },
-                  }}
-                />
+                // Gdy aplikacja załadowana, użyj prostego View z tłem z motywu
+                <ThemedBackgroundWrapper>
+                  <Stack
+                    initialRouteName={initialRouteName}
+                    screenOptions={{
+                      headerShown: false,
+                      contentStyle: { backgroundColor: "transparent" },
+                    }}
+                  />
+                </ThemedBackgroundWrapper>
               )}
             </QueryClientProvider>
           </ThemeProvider>
@@ -178,44 +147,52 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 
-  // Jeśli czcionki się jeszcze ładują lub wystąpił błąd, ale aplikacja nie jest gotowa
-  // (ten warunek jest teraz w renderContent, ale można go też tu zostawić dla LoadingScreen)
   if (!appIsReady || !initialRouteName || (!fontsLoaded && !fontError)) {
-    // Renderuj tło, a w nim LoadingScreen
-    return renderBackground();
+    return <LoadingScreen />;
   }
+
   if (fontError) {
     console.error("Font loading error:", fontError);
-    // Można zwrócić dedykowany ekran błędu z tłem
-    return renderBackground(); // Nadal pokazuj tło, nawet przy błędzie czcionek
+    return <LoadingScreen />; // Można stworzyć dedykowany ErrorScreen
   }
 
-  return renderBackground();
+  return renderContent();
 }
 
-// Komponent do stylizacji paska statusu i nawigacji (bez zmian)
+// Helper component do aplikowania tła z motywu
+function ThemedBackgroundWrapper({ children }: { children: React.ReactNode }) {
+  const theme = useTheme();
+
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      {children}
+    </View>
+  );
+}
+
+// Komponent do stylizacji paska statusu i nawigacji
 function ThemedStatusBarAndNavBar({
-  tooltipVisible, // Ten prop wydaje się nieużywany, ale zostawiam
+  tooltipVisible,
 }: {
   tooltipVisible: boolean;
 }) {
   const { isDarkTheme } = useContext(ThemeContext);
-  const theme = useTheme(); // Zakładam, że to theme z react-native-paper
+  const theme = useTheme();
 
   useEffect(() => {
     // Ustaw kolor tła paska nawigacji (dolnego)
     NavigationBar.setBackgroundColorAsync(
-      isDarkTheme ? theme.colors.surface : theme.colors.surface // Dostosuj kolory jeśli trzeba
+      isDarkTheme ? theme.colors.surface : theme.colors.surface
     );
     // Ustaw styl przycisków paska nawigacji (dolnego)
     NavigationBar.setButtonStyleAsync(isDarkTheme ? "light" : "dark");
-  }, [isDarkTheme, theme.colors.surface]); // Zależność od motywu
+  }, [isDarkTheme, theme.colors.surface]);
 
   return (
     <StatusBar
-      style={isDarkTheme ? "light" : "dark"} // Styl ikon paska statusu (górnego)
-      backgroundColor="transparent" // Przezroczyste tło, aby gradient był widoczny
-      translucent // Pozwala treści wchodzić pod pasek statusu (dla efektu pełnego ekranu)
+      style={isDarkTheme ? "light" : "dark"}
+      backgroundColor="transparent"
+      translucent
     />
   );
 }
