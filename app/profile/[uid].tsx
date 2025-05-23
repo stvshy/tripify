@@ -3,7 +3,7 @@ import React, {
   useEffect,
   useState,
   useMemo,
-  useCallback, // Dodano useCallback
+  useCallback,
   useContext,
   memo,
 } from "react";
@@ -34,7 +34,7 @@ import {
   arrayUnion,
   onSnapshot,
 } from "firebase/firestore";
-import { useTheme } from "react-native-paper";
+import { useTheme, MD3DarkTheme, MD3LightTheme } from "react-native-paper"; // Added MD3DarkTheme, MD3LightTheme
 import { Ionicons } from "@expo/vector-icons";
 import countriesData from "../../assets/maps/countries.json";
 import CountryFlag from "react-native-country-flag";
@@ -64,13 +64,6 @@ interface RankingSlot {
   country: Country | null;
 }
 
-// FriendRequest interface (jeśli potrzebna, choć nie jest bezpośrednio używana w stanie)
-// interface FriendRequest {
-//   senderUid: string;
-//   receiverUid: string;
-//   status: string;
-// }
-
 const removeDuplicates = (countries: Country[]): Country[] => {
   const unique = new Map<string, Country>();
   countries.forEach((c) => {
@@ -83,7 +76,6 @@ const generateUniqueId = () =>
   `rank-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 const ProfileRankingItem: React.FC<{ slot: RankingSlot }> = memo(({ slot }) => {
-  // Owiń w memo
   const theme = useTheme();
   return (
     <View
@@ -122,21 +114,22 @@ const ProfileRankingItem: React.FC<{ slot: RankingSlot }> = memo(({ slot }) => {
   );
 });
 
+type FriendStatus = "none" | "sent" | "received" | "friend" | "checking";
+
 export default function ProfileScreen() {
   const { uid } = useLocalSearchParams();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>([]);
   const [countriesVisited, setCountriesVisited] = useState<Country[]>([]);
-  const [loading, setLoading] = useState(true); // Domyślnie true
+  const [loading, setLoading] = useState(true);
   const theme = useTheme();
   const router = useRouter();
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
   const { width, height } = Dimensions.get("window");
   const [isRankingModalVisible, setIsRankingModalVisible] = useState(false);
 
-  const [friendStatus, setFriendStatus] = useState<
-    "none" | "sent" | "received" | "friend"
-  >("none");
+  // MODYFIKACJA 2: Ustaw stan początkowy friendStatus na "checking"
+  const [friendStatus, setFriendStatus] = useState<FriendStatus>("checking");
 
   const mappedCountries: Country[] = useMemo(() => {
     return countriesData.countries.map((country) => ({
@@ -152,9 +145,11 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (!uid) {
       setLoading(false);
+      setUserProfile(null); // Dodano, aby wyczyścić profil, jeśli UID zniknie
+      setFriendStatus("none"); // Jeśli nie ma UID, nie ma kontekstu statusu znajomości
       return;
     }
-    setLoading(true); // Ustaw ładowanie przy zmianie UID
+    setLoading(true);
     const userRef = doc(db, "users", uid as string);
 
     const unsubscribe = onSnapshot(userRef, (snap) => {
@@ -190,7 +185,7 @@ export default function ProfileScreen() {
         ranking: rankingFiltered,
         countriesVisited: visitedCodes,
       });
-      setLoading(false); // Zakończ ładowanie po pobraniu danych
+      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -198,9 +193,6 @@ export default function ProfileScreen() {
 
   const checkFriendStatus = useCallback(
     async (currentUserUid: string, profileUserUid: string) => {
-      console.log(
-        `[checkFriendStatus] Checking for currentUser: ${currentUserUid}, profileUser: ${profileUserUid}`
-      );
       try {
         const friendshipQuery1 = query(
           collection(db, "friendships"),
@@ -219,7 +211,6 @@ export default function ProfileScreen() {
         const friendshipSnapshot2 = await getDocs(friendshipQuery2);
 
         if (!friendshipSnapshot1.empty || !friendshipSnapshot2.empty) {
-          console.log("[checkFriendStatus] Status: friend");
           setFriendStatus("friend");
           return;
         }
@@ -232,7 +223,6 @@ export default function ProfileScreen() {
         );
         const outgoingSnapshot = await getDocs(outgoingRequestQuery);
         if (!outgoingSnapshot.empty) {
-          console.log("[checkFriendStatus] Status: sent");
           setFriendStatus("sent");
           return;
         }
@@ -245,12 +235,9 @@ export default function ProfileScreen() {
         );
         const incomingSnapshot = await getDocs(incomingRequestQuery);
         if (!incomingSnapshot.empty) {
-          console.log("[checkFriendStatus] Status: received");
           setFriendStatus("received");
           return;
         }
-
-        console.log("[checkFriendStatus] Status: none");
         setFriendStatus("none");
       } catch (error) {
         console.error("Error checking friend status:", error);
@@ -258,39 +245,33 @@ export default function ProfileScreen() {
       }
     },
     [setFriendStatus]
-  ); // setFriendStatus jest stabilne
+  );
 
+  // MODYFIKACJA 3: Zmodyfikuj useEffect dla checkFriendStatus
   useEffect(() => {
     const currentAuthUser = auth.currentUser;
     const profileUidStr = uid as string;
 
-    if (
-      currentAuthUser &&
-      profileUidStr &&
-      currentAuthUser.uid !== profileUidStr
-    ) {
+    if (!currentAuthUser || !profileUidStr) {
+      setFriendStatus("none"); // Użytkownik niezalogowany lub brak UID profilu
+      return;
+    }
+
+    if (currentAuthUser.uid === profileUidStr) {
+      setFriendStatus("none"); // Oglądanie własnego profilu
+    } else {
+      // Oglądanie profilu innego użytkownika
+      setFriendStatus("checking"); // Ustaw na "checking" przed asynchronicznym wywołaniem
       console.log(
-        `[ProfileScreen useEffect] Triggering checkFriendStatus for profile ${profileUidStr}`
+        `[ProfileScreen FriendStatus useEffect] Triggering checkFriendStatus for profile ${profileUidStr}`
       );
       checkFriendStatus(currentAuthUser.uid, profileUidStr);
-    } else if (
-      currentAuthUser &&
-      profileUidStr &&
-      currentAuthUser.uid === profileUidStr
-    ) {
-      setFriendStatus("none"); // Oglądanie własnego profilu
-      console.log("[ProfileScreen useEffect] Viewing own profile.");
-    } else {
-      setFriendStatus("none"); // Użytkownik niezalogowany lub brak UID profilu
-      console.log(
-        "[ProfileScreen useEffect] User not logged in or profile UID missing for friend status check."
-      );
     }
-  }, [uid, auth.currentUser?.uid, checkFriendStatus]);
+  }, [uid, auth.currentUser?.uid, checkFriendStatus]); // `checkFriendStatus` jest stabilne dzięki `useCallback`
 
   const handleAddFriend = useCallback(async () => {
     const currentUser = auth.currentUser;
-    const profileUserUid = uid as string; // Użyj uid z parametrów
+    const profileUserUid = uid as string;
 
     if (!currentUser || !profileUserUid) {
       Alert.alert("Error", "User data is not available.");
@@ -304,12 +285,7 @@ export default function ProfileScreen() {
     const senderUid = currentUser.uid;
     const receiverUid = profileUserUid;
 
-    console.log(
-      `[handleAddFriend] Attempting to add friend: ${receiverUid} by ${senderUid}`
-    );
-
     try {
-      // Sprawdź, czy już są przyjaciółmi
       const fsQuery1 = query(
         collection(db, "friendships"),
         where("userAUid", "==", senderUid),
@@ -330,7 +306,6 @@ export default function ProfileScreen() {
         return;
       }
 
-      // Sprawdź, czy istnieje już wysłane zaproszenie
       const outQuery = query(
         collection(db, "friendRequests"),
         where("senderUid", "==", senderUid),
@@ -347,7 +322,6 @@ export default function ProfileScreen() {
         return;
       }
 
-      // Sprawdź, czy profileUser wysłał zaproszenie do currentUser
       const inQuery = query(
         collection(db, "friendRequests"),
         where("senderUid", "==", receiverUid),
@@ -388,14 +362,8 @@ export default function ProfileScreen() {
         );
         return;
       }
-
-      const receiverUid = currentUser.uid; // Obecny użytkownik jest odbiorcą
-      const senderUid = senderProfileUid; // Użytkownik z profilu jest nadawcą
-
-      console.log(
-        `[handleAcceptRequest] User ${receiverUid} accepting request from ${senderUid}`
-      );
-
+      const receiverUid = currentUser.uid;
+      const senderUid = senderProfileUid;
       try {
         const batch = writeBatch(db);
         const friendRequestsQuery = query(
@@ -407,7 +375,6 @@ export default function ProfileScreen() {
         const snapshot = await getDocs(friendRequestsQuery);
         if (snapshot.empty) {
           Alert.alert("Error", "No pending friend request found.");
-          // Możliwe, że stan się zdesynchronizował, warto ponownie sprawdzić status
           checkFriendStatus(receiverUid, senderUid);
           return;
         }
@@ -417,18 +384,11 @@ export default function ProfileScreen() {
 
         const friendshipRef = doc(collection(db, "friendships"));
         batch.set(friendshipRef, {
-          userAUid: senderUid, // Nadawca zaproszenia
-          userBUid: receiverUid, // Odbiorca (obecny użytkownik)
+          userAUid: senderUid,
+          userBUid: receiverUid,
           createdAt: serverTimestamp(),
           status: "accepted",
         });
-
-        // Aktualizacja list znajomych nie jest już potrzebna w 'users' jeśli używasz 'friendships'
-        // const userDocRef = doc(db, "users", receiverUid);
-        // batch.update(userDocRef, { friends: arrayUnion(senderUid) });
-        // const senderDocRef = doc(db, "users", senderUid);
-        // batch.update(senderDocRef, { friends: arrayUnion(receiverUid) });
-
         await batch.commit();
         Alert.alert("Success", "Friend request accepted!");
         setFriendStatus("friend");
@@ -452,11 +412,6 @@ export default function ProfileScreen() {
       }
       const receiverUid = currentUser.uid;
       const senderUid = senderProfileUid;
-
-      console.log(
-        `[handleDeclineRequest] User ${receiverUid} declining request from ${senderUid}`
-      );
-
       try {
         const friendRequestsQuery = query(
           collection(db, "friendRequests"),
@@ -504,7 +459,6 @@ export default function ProfileScreen() {
           { backgroundColor: theme.colors.background, alignItems: "center" },
         ]}
       >
-        {/* Header z przyciskiem powrotu i motywem, nawet jeśli profil nie istnieje */}
         <View
           style={[
             profileStyles.header,
@@ -554,9 +508,12 @@ export default function ProfileScreen() {
     <ScrollView
       style={[
         profileStyles.container,
-        { backgroundColor: theme.colors.background },
+        { backgroundColor: theme.colors.background, opacity: 1 },
       ]}
-      contentContainerStyle={{ paddingBottom: 50 }}
+      contentContainerStyle={{
+        paddingBottom: 50,
+        backgroundColor: theme.colors.background,
+      }}
     >
       <View style={[profileStyles.header, { paddingTop: height * 0.02 }]}>
         <TouchableOpacity
@@ -607,7 +564,8 @@ export default function ProfileScreen() {
           {userProfile.email}
         </Text>
 
-        {auth.currentUser?.uid !== userProfile.uid && (
+        {/* MODYFIKACJA 4: Zaktualizuj logikę renderowania przycisku */}
+        {auth.currentUser?.uid !== userProfile.uid && userProfile && (
           <>
             {friendStatus === "received" ? (
               <View style={profileStyles.friendActionButtons}>
@@ -630,6 +588,20 @@ export default function ProfileScreen() {
                   <Text style={profileStyles.buttonText}>Decline</Text>
                 </TouchableOpacity>
               </View>
+            ) : friendStatus === "checking" ? (
+              <TouchableOpacity
+                style={[
+                  profileStyles.addFriendButton,
+                  {
+                    backgroundColor: theme.dark
+                      ? "rgba(70, 70, 70, 0.8)"
+                      : "#e0e0e0",
+                  }, // Styl dla stanu "checking"
+                ]}
+                disabled={true}
+              >
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+              </TouchableOpacity>
             ) : (
               <TouchableOpacity
                 onPress={handleAddFriend}
@@ -643,7 +615,7 @@ export default function ProfileScreen() {
                           : "#D8BFD8"
                         : friendStatus === "sent"
                           ? "#ccc"
-                          : theme.colors.primary,
+                          : theme.colors.primary, // Stan "none" (i inne) trafi tutaj
                   },
                 ]}
                 disabled={friendStatus === "sent" || friendStatus === "friend"}
@@ -780,7 +752,6 @@ export default function ProfileScreen() {
   );
 }
 
-// StyleSheet dla ProfileScreen (bez zmian)
 const profileStyles = StyleSheet.create({
   container: {
     flex: 1,
@@ -860,6 +831,8 @@ const profileStyles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
+    minWidth: 80, // Dodano minimalną szerokość, aby pomieścić ActivityIndicator
+    minHeight: 30, // Dodano minimalną wysokość
   },
   addFriendButtonText: {
     color: "#fff",
@@ -939,11 +912,10 @@ const profileStyles = StyleSheet.create({
     width: 20,
     height: 15,
     borderRadius: 2,
-    marginRight: 6, // Dodano margines dla flagi w rankingu
+    marginRight: 6,
   },
 });
 
-// StyleSheet dla Modal (bez zmian)
 const modalStyles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
