@@ -374,7 +374,8 @@ const styles = StyleSheet.create({
     marginLeft: -4,
   },
   headerTitleText: {
-    fontSize: 16,
+    fontSize: 17,
+    fontFamily: "Figtree-Regular",
   },
   badgeContainer: {
     position: "absolute",
