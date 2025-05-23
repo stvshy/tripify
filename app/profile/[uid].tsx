@@ -5,6 +5,7 @@ import React, {
   useMemo,
   useCallback, // Dodano useCallback
   useContext,
+  memo,
 } from "react";
 import {
   View,
@@ -81,7 +82,8 @@ const removeDuplicates = (countries: Country[]): Country[] => {
 const generateUniqueId = () =>
   `rank-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-const ProfileRankingItem: React.FC<{ slot: RankingSlot }> = ({ slot }) => {
+const ProfileRankingItem: React.FC<{ slot: RankingSlot }> = memo(({ slot }) => {
+  // Owiń w memo
   const theme = useTheme();
   return (
     <View
@@ -118,7 +120,7 @@ const ProfileRankingItem: React.FC<{ slot: RankingSlot }> = ({ slot }) => {
       )}
     </View>
   );
-};
+});
 
 export default function ProfileScreen() {
   const { uid } = useLocalSearchParams();

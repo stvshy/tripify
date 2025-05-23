@@ -1,42 +1,54 @@
 // app/community/index.tsx
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  FlatList, 
-  StyleSheet, 
-  ActivityIndicator, 
-  TouchableOpacity, 
-  TextInput, 
-  Alert, 
-  Animated, 
-  TouchableWithoutFeedback, 
-  SafeAreaView, 
-  KeyboardAvoidingView, 
-  Platform 
-} from 'react-native';
-import { auth, db } from '../config/firebaseConfig';
-import { 
-  doc, 
-  getDoc, 
-  collection, 
-  query, 
-  where, 
-  onSnapshot, 
-  deleteDoc, 
-  getDocs, 
-  writeBatch, 
-  serverTimestamp, 
-  limit
-} from 'firebase/firestore';
-import { useRouter } from 'expo-router';
-import { useTheme } from 'react-native-paper';
-import { useFocusEffect } from '@react-navigation/native';
-import { AntDesign, Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { LayoutAnimation, UIManager } from 'react-native';
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  useMemo,
+  memo,
+} from "react";
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  TouchableWithoutFeedback,
+  SafeAreaView,
+  KeyboardAvoidingView,
+  Platform,
+  // TextStyle, // Dodaj, jeśli potrzebujesz bardziej szczegółowego typu dla stylu tekstu
+  // ViewStyle, // Dodaj, jeśli potrzebujesz bardziej szczegółowego typu dla stylu widoku
+} from "react-native";
+import { auth, db } from "../config/firebaseConfig";
+import {
+  doc,
+  getDoc,
+  collection,
+  query,
+  where,
+  onSnapshot,
+  deleteDoc,
+  getDocs,
+  writeBatch,
+  serverTimestamp,
+  limit,
+} from "firebase/firestore";
+import { useRouter } from "expo-router";
+import { useTheme } from "react-native-paper";
+import type { MD3Theme } from "react-native-paper";
+import { useFocusEffect } from "@react-navigation/native";
+import { AntDesign, Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { LayoutAnimation, UIManager } from "react-native";
 
 // Enable LayoutAnimation for Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
@@ -47,106 +59,266 @@ interface User {
 
 interface Friendship {
   id: string;
-  userAUid: string;
-  userBUid: string;
+  friendUid: string;
   nickname: string;
 }
 
+const DEBOUNCE_DELAY = 300;
+
+// --- NOWY KOMPONENT: FriendListItem ---
+interface FriendListItemProps {
+  item: Friendship;
+  currentUserUid: string | undefined;
+  activeFriendId: string | null;
+  theme: MD3Theme;
+  onNavigateToProfile: (uid: string) => void;
+  onSetActiveFriendId: (id: string | null) => void;
+  onRemoveFriend: (id: string) => void;
+}
+
+const FriendListItem: React.FC<FriendListItemProps> = memo(
+  ({
+    item,
+    activeFriendId,
+    theme,
+    onNavigateToProfile,
+    onSetActiveFriendId,
+    onRemoveFriend,
+  }) => {
+    return (
+      <TouchableOpacity
+        onPress={() => onNavigateToProfile(item.friendUid)}
+        onLongPress={() => onSetActiveFriendId(item.id)}
+        style={[
+          styles.friendItem,
+          {
+            backgroundColor:
+              activeFriendId === item.id
+                ? theme.colors.surfaceVariant
+                : theme.colors.surface,
+            borderBottomColor: theme.colors.outline,
+          },
+        ]}
+      >
+        <View style={styles.friendInfo}>
+          <AntDesign
+            name="smileo"
+            size={18.3}
+            color={theme.colors.primary}
+            style={styles.friendIcon}
+          />
+          <Text
+            style={{
+              color: theme.colors.onBackground,
+              fontSize: 15,
+              marginLeft: 1.4,
+            }}
+          >
+            {item.nickname}
+          </Text>
+        </View>
+        {activeFriendId === item.id && (
+          <TouchableOpacity
+            onPress={() => onRemoveFriend(item.id)}
+            style={styles.removeButton}
+          >
+            <Ionicons name="close-circle" size={24} color="red" />
+          </TouchableOpacity>
+        )}
+      </TouchableOpacity>
+    );
+  }
+);
+
+// --- NOWY KOMPONENT: SearchResultItem ---
+interface SearchResultItemProps {
+  item: User;
+  theme: MD3Theme;
+  isAlreadyFriend: (uid: string) => boolean;
+  hasSentRequest: (uid: string) => boolean;
+  onNavigateToProfile: (uid: string) => void;
+  onAddFriend: (uid: string) => void;
+}
+
+const SearchResultItem: React.FC<SearchResultItemProps> = memo(
+  ({
+    item,
+    theme,
+    isAlreadyFriend,
+    hasSentRequest,
+    onNavigateToProfile,
+    onAddFriend,
+  }) => {
+    const alreadyFriend = isAlreadyFriend(item.uid);
+    const requestSent = hasSentRequest(item.uid);
+
+    let buttonContent = <Ionicons name="add" size={17} color="#fff" />;
+    let isDisabled = false;
+    let specificButtonStyle; // Zmienna na specyficzny styl (addCircle lub sentButton)
+    let buttonBackgroundColor = theme.colors.primary; // Domyślny kolor dla "Add"
+
+    if (alreadyFriend) {
+      specificButtonStyle = styles.friendButton; // Kształt jak "Sent"
+      buttonBackgroundColor = theme.dark
+        ? "rgba(148, 112, 148, 0.65)"
+        : "rgba(220, 200, 220, 0.9)";
+      buttonContent = (
+        <Text
+          style={{
+            color: "#fff", // ZMIANA: Kolor tekstu "Friend" na biały
+            fontSize: 14,
+            fontWeight: "500",
+            // Opcjonalnie: Dodaj padding, aby przesunąć tekst w prawo wewnątrz przycisku
+            // paddingLeft: 5, // Przykładowa wartość, dostosuj według potrzeb
+          }}
+        >
+          Friend
+        </Text>
+      );
+      isDisabled = true;
+    } else if (requestSent) {
+      specificButtonStyle = styles.sentButton;
+      buttonBackgroundColor = "#ccc";
+      buttonContent = <Text style={styles.sentButtonText}>Sent</Text>; // Zakładamy, że styl sentButtonText ma już biały kolor
+      isDisabled = true;
+    } else {
+      specificButtonStyle = styles.addCircle;
+      buttonContent = <Ionicons name="add" size={17} color="#fff" />;
+      // buttonBackgroundColor pozostaje theme.colors.primary (ustawione domyślnie)
+    }
+
+    return (
+      <TouchableOpacity
+        onPress={() => onNavigateToProfile(item.uid)}
+        style={[styles.searchItem, { borderBottomColor: theme.colors.outline }]}
+      >
+        <Text style={{ color: theme.colors.onBackground, fontSize: 15 }}>
+          {item.nickname}
+        </Text>
+        <TouchableOpacity
+          onPress={() => onAddFriend(item.uid)}
+          style={[
+            specificButtonStyle, // Zastosuj wybrany styl (addCircle lub sentButton)
+            { backgroundColor: buttonBackgroundColor },
+          ]}
+          disabled={isDisabled}
+        >
+          {buttonContent}
+        </TouchableOpacity>
+      </TouchableOpacity>
+    );
+  }
+);
+// --- KONIEC NOWYCH KOMPONENTÓW ---
+
 export default function CommunityScreen() {
   const [loading, setLoading] = useState(true);
-  const [friendships, setFriendships] = useState<Friendship[]>([]);
-  const [searchText, setSearchText] = useState('');
-  const [searchResults, setSearchResults] = useState<User[]>([]);
-  const [isSearchMode, setIsSearchMode] = useState(false); // Mode: false - Friends, true - Search
-  const [activeFriendId, setActiveFriendId] = useState<string | null>(null); // Active friend to remove
-  const [isFocused, setIsFocused] = useState(false); // State to track focus
-  const [sentRequests, setSentRequests] = useState<string[]>([]); // Nowy stan dla wysłanych zaproszeń
-  const router = useRouter();
-  const theme = useTheme();
+  const [friendshipsAsUserA, setFriendshipsAsUserA] = useState<Friendship[]>(
+    []
+  );
+  const [friendshipsAsUserB, setFriendshipsAsUserB] = useState<Friendship[]>(
+    []
+  );
 
-  const navigateToProfile = (uid: string) => {
-    router.push(`/profile/${uid}`);
-  };
+  const [searchText, setSearchText] = useState("");
+  const [debouncedSearchText, setDebouncedSearchText] = useState("");
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const [searchResults, setSearchResults] = useState<User[]>([]);
+  const [isSearchMode, setIsSearchMode] = useState(false);
+  const [activeFriendId, setActiveFriendId] = useState<string | null>(null);
+  const [isFocused, setIsFocused] = useState(false);
+  const [sentRequests, setSentRequests] = useState<string[]>([]);
+  const router = useRouter();
+  const theme = useTheme(); // theme jest teraz dostępne w całym komponencie
+  const currentUser = auth.currentUser;
+
+  const navigateToProfile = useCallback(
+    (uid: string) => {
+      router.push(`/profile/${uid}`);
+    },
+    [router]
+  );
 
   const fetchFriendships = useCallback(() => {
-    const currentUser = auth.currentUser;
     if (!currentUser) {
       setLoading(false);
-      return;
+      setFriendshipsAsUserA([]);
+      setFriendshipsAsUserB([]);
+      return () => {};
     }
 
     const userId = currentUser.uid;
+    setLoading(true);
 
-    // Listener for friendships where the user is one of the two
+    const processSnapshot = async (
+      snapshot: any,
+      isUserA: boolean,
+      setter: React.Dispatch<React.SetStateAction<Friendship[]>>
+    ) => {
+      const fetchedFriendships: Friendship[] = [];
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
+        const friendUid = isUserA ? data.userBUid : data.userAUid;
+        try {
+          const friendDoc = await getDoc(doc(db, "users", friendUid));
+          if (friendDoc.exists()) {
+            const friendData = friendDoc.data();
+            fetchedFriendships.push({
+              id: docSnap.id,
+              friendUid: friendUid,
+              nickname: friendData.nickname || "Unknown",
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching friend document:", error);
+        }
+      }
+      setter(fetchedFriendships);
+    };
+
     const friendshipsQueryA = query(
-      collection(db, 'friendships'),
-      where('userAUid', '==', userId),
-      where('status', '==', 'accepted')
+      collection(db, "friendships"),
+      where("userAUid", "==", userId),
+      where("status", "==", "accepted")
     );
 
     const friendshipsQueryB = query(
-      collection(db, 'friendships'),
-      where('userBUid', '==', userId),
-      where('status', '==', 'accepted')
+      collection(db, "friendships"),
+      where("userBUid", "==", userId),
+      where("status", "==", "accepted")
     );
 
-    const unsubscribeA = onSnapshot(friendshipsQueryA, async (snapshot) => {
-      const fetchedFriendships: Friendship[] = [];
-      for (const docSnap of snapshot.docs) {
-        const data = docSnap.data();
-        const friendUid = data.userBUid;
-        const friendDoc = await getDoc(doc(db, 'users', friendUid));
-        if (friendDoc.exists()) {
-          const friendData = friendDoc.data();
-          fetchedFriendships.push({
-            id: docSnap.id,
-            userAUid: data.userAUid,
-            userBUid: data.userBUid,
-            nickname: friendData.nickname || 'Unknown',
-          });
-        }
+    const unsubscribeA = onSnapshot(
+      friendshipsQueryA,
+      (snapshot) => processSnapshot(snapshot, true, setFriendshipsAsUserA),
+      (error) => {
+        console.error("Error fetching friendships (A):", error);
+        setLoading(false);
       }
-      setFriendships((prev) => {
-        // Remove old friendships to avoid duplicates
-        const filtered = prev.filter(
-          (f) => f.userAUid !== userId && f.userBUid !== userId
-        );
-        return [...filtered, ...fetchedFriendships];
-      });
-    });
+    );
 
-    const unsubscribeB = onSnapshot(friendshipsQueryB, async (snapshot) => {
-      const fetchedFriendships: Friendship[] = [];
-      for (const docSnap of snapshot.docs) {
-        const data = docSnap.data();
-        const friendUid = data.userAUid;
-        const friendDoc = await getDoc(doc(db, 'users', friendUid));
-        if (friendDoc.exists()) {
-          const friendData = friendDoc.data();
-          fetchedFriendships.push({
-            id: docSnap.id,
-            userAUid: data.userAUid,
-            userBUid: data.userBUid,
-            nickname: friendData.nickname || 'Unknown',
-          });
-        }
+    const unsubscribeB = onSnapshot(
+      friendshipsQueryB,
+      (snapshot) => processSnapshot(snapshot, false, setFriendshipsAsUserB),
+      (error) => {
+        console.error("Error fetching friendships (B):", error);
+        setLoading(false);
       }
-      setFriendships((prev) => {
-        // Remove old friendships to avoid duplicates
-        const filtered = prev.filter(
-          (f) => f.userAUid !== userId && f.userBUid !== userId
-        );
-        return [...filtered, ...fetchedFriendships];
-      });
-    });
+    );
 
-    setLoading(false);
+    Promise.all([
+      getDocs(friendshipsQueryA),
+      getDocs(friendshipsQueryB),
+    ]).finally(() => {
+      setLoading(false);
+    });
 
     return () => {
       unsubscribeA();
       unsubscribeB();
     };
-  }, []);
+  }, [currentUser]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -156,180 +328,248 @@ export default function CommunityScreen() {
   );
 
   useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    searchTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearchText(searchText);
+    }, DEBOUNCE_DELAY);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchText]);
+
+  const actualSearchFunction = useCallback(
+    async (text: string) => {
+      if (text.length < 3) {
+        setSearchResults([]);
+        return;
+      }
+      if (!currentUser) return;
+
+      try {
+        const usersRef = collection(db, "users");
+        const q = query(
+          usersRef,
+          where("nickname", ">=", text),
+          where("nickname", "<=", text + "\uf8ff"),
+          limit(10)
+        );
+        const snapshot = await getDocs(q);
+        const foundUsers: User[] = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.nickname && docSnap.id !== currentUser.uid) {
+            foundUsers.push({ uid: docSnap.id, nickname: data.nickname });
+          }
+        });
+        setSearchResults(foundUsers);
+      } catch (error) {
+        console.error("Error searching users:", error);
+        Alert.alert("Error", "Failed to search users.");
+      }
+    },
+    [currentUser]
+  );
+
+  useEffect(() => {
     if (isSearchMode) {
-      handleSearch(searchText);
+      actualSearchFunction(debouncedSearchText);
     } else {
       setSearchResults([]);
     }
-  }, [searchText, isSearchMode]);
+  }, [debouncedSearchText, isSearchMode, actualSearchFunction]);
 
-  const handleSearch = async (text: string) => {
-    if (text.length < 3) {
-      setSearchResults([]);
-      return;
-    }
-
-    try {
-      const usersRef = collection(db, 'users');
-      const q = query(
-        usersRef,
-        where('nickname', '>=', text),
-        where('nickname', '<=', text + '\uf8ff'),
-        limit(10)
-      );
-      const snapshot = await getDocs(q);
-      const foundUsers: User[] = [];
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        if (data.nickname && docSnap.id !== auth.currentUser?.uid) {
-          foundUsers.push({ uid: docSnap.id, nickname: data.nickname });
-        }
-      });
-      setSearchResults(foundUsers);
-      console.log(`Found ${foundUsers.length} users matching "${text}".`);
-    } catch (error) {
-      console.error('Error searching users:', error);
-      Alert.alert('Error', 'Failed to search users.');
-    }
-  };
-
-  const handleRemoveFriend = async (friendshipId: string) => {
+  const handleRemoveFriend = useCallback(async (friendshipId: string) => {
     Alert.alert(
-      'Confirmation',
-      'Are you sure you want to remove this friend?',
+      "Confirmation",
+      "Are you sure you want to remove this friend?",
       [
         {
-          text: 'Cancel',
-          style: 'cancel',
+          text: "Cancel",
+          style: "cancel",
         },
         {
-          text: 'Remove',
-          style: 'destructive',
+          text: "Remove",
+          style: "destructive",
           onPress: async () => {
             try {
-              // Animation for removal
-              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-              await deleteDoc(doc(db, 'friendships', friendshipId));
-              Alert.alert('Success', 'Friend removed!');
-              console.log(`Removed friendship document: ${friendshipId}`);
+              LayoutAnimation.configureNext(
+                LayoutAnimation.Presets.easeInEaseOut
+              );
+              await deleteDoc(doc(db, "friendships", friendshipId));
+              Alert.alert("Success", "Friend removed!");
               setActiveFriendId(null);
             } catch (error) {
-              console.error('Error removing friend:', error);
-              Alert.alert('Error', 'Failed to remove friend.');
+              console.error("Error removing friend:", error);
+              Alert.alert("Error", "Failed to remove friend.");
             }
           },
         },
       ]
     );
-  };
+  }, []);
 
-  const handleAddFriend = async (friendUid: string) => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      Alert.alert('Error', 'User is not logged in.');
-      return;
-    }
+  const combinedFriendships = useMemo(() => {
+    const all = [...friendshipsAsUserA, ...friendshipsAsUserB];
+    const uniqueMap = new Map<string, Friendship>();
+    all.forEach((f) => {
+      if (!uniqueMap.has(f.id)) {
+        uniqueMap.set(f.id, f);
+      }
+    });
+    return Array.from(uniqueMap.values());
+  }, [friendshipsAsUserA, friendshipsAsUserB]);
 
-    const senderUid = currentUser.uid;
-    const receiverUid = friendUid;
-
-    try {
-      // Check if already friends
-      const friendshipQuery = query(
-        collection(db, 'friendships'),
-        where('userAUid', '==', senderUid),
-        where('userBUid', '==', receiverUid),
-        where('status', '==', 'accepted')
-      );
-      const friendshipSnapshot = await getDocs(friendshipQuery);
-      if (!friendshipSnapshot.empty) {
-        Alert.alert('Info', 'This person is already your friend.');
+  const handleAddFriend = useCallback(
+    async (friendUid: string) => {
+      if (!currentUser) {
+        Alert.alert("Error", "User is not logged in.");
         return;
       }
 
-      // Check if an outgoing request already exists
-      const outgoingSnapshot = await getDocs(query(
-        collection(db, 'friendRequests'),
-        where('senderUid', '==', senderUid),
-        where('receiverUid', '==', receiverUid),
-        where('status', '==', 'pending')
-      ));
-      if (!outgoingSnapshot.empty) {
-        Alert.alert('Info', 'A friend request has already been sent to this person.');
-        return;
+      const senderUid = currentUser.uid;
+      const receiverUid = friendUid;
+
+      try {
+        if (combinedFriendships.some((f) => f.friendUid === receiverUid)) {
+          Alert.alert("Info", "This person is already your friend.");
+          return;
+        }
+
+        const outgoingSnapshot = await getDocs(
+          query(
+            collection(db, "friendRequests"),
+            where("senderUid", "==", senderUid),
+            where("receiverUid", "==", receiverUid),
+            where("status", "==", "pending")
+          )
+        );
+        if (!outgoingSnapshot.empty) {
+          Alert.alert(
+            "Info",
+            "A friend request has already been sent to this person."
+          );
+          return;
+        }
+
+        const incomingSnapshot = await getDocs(
+          query(
+            collection(db, "friendRequests"),
+            where("senderUid", "==", receiverUid),
+            where("receiverUid", "==", senderUid),
+            where("status", "==", "pending")
+          )
+        );
+        if (!incomingSnapshot.empty) {
+          Alert.alert(
+            "Info",
+            "This person has already sent you a friend request."
+          );
+          return;
+        }
+
+        const batch = writeBatch(db);
+        const friendRequestRef = doc(collection(db, "friendRequests"));
+        batch.set(friendRequestRef, {
+          senderUid: senderUid,
+          receiverUid: receiverUid,
+          status: "pending",
+          createdAt: serverTimestamp(),
+        });
+        await batch.commit();
+      } catch (error) {
+        console.error("Error sending friend request:", error);
+        Alert.alert("Error", "Failed to send friend request.");
       }
+    },
+    [currentUser, combinedFriendships]
+  );
 
-      // Check if the receiver has already sent a friend request to the sender
-      const incomingSnapshot = await getDocs(query(
-        collection(db, 'friendRequests'),
-        where('senderUid', '==', receiverUid),
-        where('receiverUid', '==', senderUid),
-        where('status', '==', 'pending')
-      ));
-      if (!incomingSnapshot.empty) {
-        Alert.alert('Info', 'This person has already sent you a friend request.');
-        return;
-      }
-
-      const batch = writeBatch(db);
-
-      // Add a friend request (status: pending)
-      const friendRequestRef = doc(collection(db, 'friendRequests'));
-      batch.set(friendRequestRef, {
-        senderUid: senderUid,
-        receiverUid: receiverUid,
-        status: 'pending',
-        createdAt: serverTimestamp(),
-      });
-
-      await batch.commit();
-
-      // Aktualizacja stanu wysłanych zaproszeń
-      setSentRequests(prev => [...prev, friendUid]);
-    } catch (error) {
-      console.error('Error sending friend request:', error);
-      Alert.alert('Error', 'Failed to send friend request.');
-    }
-  };
-
-  const toggleMode = () => {
+  const toggleMode = useCallback(() => {
     setIsSearchMode((prev) => !prev);
-    setSearchText('');
+    setSearchText("");
+    setDebouncedSearchText("");
     setSearchResults([]);
     setActiveFriendId(null);
-  };
-
-  const isAlreadyFriend = (uid: string): boolean => {
-    return friendships.some(
-      (friend) => friend.userAUid === uid || friend.userBUid === uid
-    );
-  };
-
-  const hasSentRequest = (uid: string): boolean => {
-    return sentRequests.includes(uid);
-  };
-
-  // Pobranie wysłanych zaproszeń podczas montowania komponentu
-  useEffect(() => {
-    const fetchSentRequests = async () => {
-      const currentUser = auth.currentUser;
-      if (!currentUser) return;
-      try {
-        const q = query(
-          collection(db, 'friendRequests'),
-          where('senderUid', '==', currentUser.uid),
-          where('status', '==', 'pending')
-        );
-        const snapshot = await getDocs(q);
-        const sent = snapshot.docs.map(doc => doc.data().receiverUid);
-        setSentRequests(sent);
-      } catch (error) {
-        console.error('Error fetching sent friend requests:', error);
-      }
-    };
-
-    fetchSentRequests();
   }, []);
+
+  const isAlreadyFriend = useCallback(
+    (uid: string): boolean => {
+      return combinedFriendships.some((friend) => friend.friendUid === uid);
+    },
+    [combinedFriendships]
+  );
+
+  const hasSentRequest = useCallback(
+    (uid: string): boolean => {
+      return sentRequests.includes(uid);
+    },
+    [sentRequests]
+  );
+
+  useEffect(() => {
+    if (!currentUser) {
+      setSentRequests([]);
+      return () => {};
+    }
+    const q = query(
+      collection(db, "friendRequests"),
+      where("senderUid", "==", currentUser.uid),
+      where("status", "==", "pending")
+    );
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const sentUids = snapshot.docs.map(
+          (doc) => doc.data().receiverUid as string
+        );
+        setSentRequests(sentUids);
+      },
+      (error) => {
+        console.error("Error fetching sent friend requests snapshot:", error);
+      }
+    );
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  const renderFriendItem = useCallback(
+    ({ item }: { item: Friendship }) => (
+      <FriendListItem
+        item={item}
+        currentUserUid={currentUser?.uid}
+        activeFriendId={activeFriendId}
+        theme={theme}
+        onNavigateToProfile={navigateToProfile}
+        onSetActiveFriendId={setActiveFriendId}
+        onRemoveFriend={handleRemoveFriend}
+      />
+    ),
+    [
+      currentUser?.uid,
+      activeFriendId,
+      theme,
+      navigateToProfile,
+      handleRemoveFriend,
+    ]
+  );
+
+  const renderSearchItem = useCallback(
+    ({ item }: { item: User }) => (
+      <SearchResultItem
+        item={item}
+        theme={theme}
+        isAlreadyFriend={isAlreadyFriend}
+        hasSentRequest={hasSentRequest}
+        onNavigateToProfile={navigateToProfile}
+        onAddFriend={handleAddFriend}
+      />
+    ),
+    [theme, isAlreadyFriend, hasSentRequest, navigateToProfile, handleAddFriend]
+  );
 
   if (loading) {
     return (
@@ -341,20 +581,26 @@ export default function CommunityScreen() {
 
   return (
     <TouchableWithoutFeedback onPress={() => setActiveFriendId(null)}>
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+      >
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardAvoidingView}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 20}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 20}
         >
           <View style={{ flex: 1 }}>
-            {/* Search bar and mode toggle */}
             <View style={styles.searchAndToggleContainer}>
-              {/* Search field */}
-              <View style={[
-                styles.searchContainer,
-                { borderColor: isFocused ? theme.colors.primary : theme.colors.outline }
-              ]}>
+              <View
+                style={[
+                  styles.searchContainer,
+                  {
+                    borderColor: isFocused
+                      ? theme.colors.primary
+                      : theme.colors.outline,
+                  },
+                ]}
+              >
                 <AntDesign
                   name="search1"
                   size={17}
@@ -362,7 +608,11 @@ export default function CommunityScreen() {
                   style={styles.searchIcon}
                 />
                 <TextInput
-                  placeholder={isSearchMode ? "Enter friend's nickname..." : "Search friends..."}
+                  placeholder={
+                    isSearchMode
+                      ? "Enter friend's nickname..."
+                      : "Search friends..."
+                  }
                   value={searchText}
                   onChangeText={setSearchText}
                   keyboardType="default"
@@ -371,7 +621,7 @@ export default function CommunityScreen() {
                     {
                       color: theme.colors.onBackground,
                       opacity: 0.97,
-                      marginLeft: 4 
+                      marginLeft: 4,
                     },
                   ]}
                   placeholderTextColor={theme.colors.onSurfaceVariant}
@@ -381,21 +631,29 @@ export default function CommunityScreen() {
                 />
                 {searchText.length > 0 && (
                   <TouchableOpacity
-                    onPress={() => setSearchText('')}
+                    onPress={() => {
+                      setSearchText("");
+                      setDebouncedSearchText("");
+                    }}
                     style={styles.clearIcon}
                   >
-                    <MaterialIcons name="close" size={18} color={theme.colors.onSurfaceVariant} />
+                    <MaterialIcons
+                      name="close"
+                      size={18}
+                      color={theme.colors.onSurfaceVariant}
+                    />
                   </TouchableOpacity>
                 )}
               </View>
 
-              {/* Mode toggle */}
               <View style={styles.modeToggleContainer}>
                 <TouchableOpacity
                   style={[
                     styles.modeButton,
                     {
-                      backgroundColor: isSearchMode ? theme.colors.surfaceVariant : theme.colors.primary,
+                      backgroundColor: isSearchMode
+                        ? theme.colors.surfaceVariant
+                        : theme.colors.primary,
                       borderTopLeftRadius: 25,
                       borderBottomLeftRadius: 25,
                     },
@@ -407,7 +665,9 @@ export default function CommunityScreen() {
                   <AntDesign
                     name="smileo"
                     size={19}
-                    color={isSearchMode ? theme.colors.onSurfaceVariant : '#fff'}
+                    color={
+                      isSearchMode ? theme.colors.onSurfaceVariant : "#fff"
+                    }
                     style={{ marginLeft: 3 }}
                   />
                 </TouchableOpacity>
@@ -416,7 +676,9 @@ export default function CommunityScreen() {
                   style={[
                     styles.modeButton,
                     {
-                      backgroundColor: isSearchMode ? theme.colors.primary : theme.colors.surfaceVariant,
+                      backgroundColor: isSearchMode
+                        ? theme.colors.primary
+                        : theme.colors.surfaceVariant,
                       borderTopRightRadius: 25,
                       borderBottomRightRadius: 25,
                     },
@@ -428,100 +690,51 @@ export default function CommunityScreen() {
                   <AntDesign
                     name="adduser"
                     size={19}
-                    color={!isSearchMode ? theme.colors.onSurfaceVariant : '#fff'}
+                    color={
+                      !isSearchMode ? theme.colors.onSurfaceVariant : "#fff"
+                    }
                     style={{ marginRight: 3 }}
                   />
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* Friends Mode */}
             {!isSearchMode && (
               <>
-                {/* Filtered friends list */}
-                {friendships.length === 0 ? (
+                {combinedFriendships.length === 0 ? (
                   <View style={styles.empty}>
-                    <Text style={{ color: theme.colors.onBackground }}>You have no friends yet.</Text>
+                    <Text style={{ color: theme.colors.onBackground }}>
+                      You have no friends yet.
+                    </Text>
                   </View>
                 ) : (
                   <FlatList
-                    data={friendships.filter((friend) =>
-                      friend.nickname.toLowerCase().includes(searchText.toLowerCase())
+                    data={combinedFriendships.filter((friend) =>
+                      friend.nickname
+                        .toLowerCase()
+                        .includes(debouncedSearchText.toLowerCase())
                     )}
                     keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                      <TouchableOpacity
-                        onPress={() => navigateToProfile(item.userAUid === auth.currentUser?.uid ? item.userBUid : item.userAUid)}
-                        onLongPress={() => setActiveFriendId(item.id)}
-                        style={[
-                          styles.friendItem,
-                          {
-                            backgroundColor: activeFriendId === item.id 
-                              ? theme.colors.surfaceVariant 
-                              : theme.colors.surface,
-                            borderBottomColor: theme.colors.outline,
-                          },
-                        ]}
-                      >
-                        <View style={styles.friendInfo}>
-                          <AntDesign name="smileo" size={18.3} color={theme.colors.primary} style={styles.friendIcon} />
-                          <Text style={{ color: theme.colors.onBackground, fontSize:15, marginLeft: 1.4 }}>{item.nickname}</Text>
-                        </View>
-                        {activeFriendId === item.id && (
-                          <TouchableOpacity
-                            onPress={() => handleRemoveFriend(item.id)}
-                            style={styles.removeButton}
-                          >
-                            <Ionicons name="close-circle" size={24} color="red" />
-                          </TouchableOpacity>
-                        )}
-                      </TouchableOpacity>
-                    )}
+                    renderItem={renderFriendItem}
                   />
                 )}
               </>
             )}
 
-            {/* Search Mode */}
             {isSearchMode && (
               <>
-                {/* Search results list */}
-                {searchResults.length === 0 && searchText.length >= 3 ? (
+                {searchResults.length === 0 &&
+                debouncedSearchText.length >= 3 ? (
                   <View style={styles.noResults}>
-                    <Text style={{ color: theme.colors.onBackground }}>No users found.</Text>
+                    <Text style={{ color: theme.colors.onBackground }}>
+                      No users found.
+                    </Text>
                   </View>
                 ) : (
                   <FlatList
                     data={searchResults}
                     keyExtractor={(item) => item.uid}
-                    renderItem={({ item }) => (
-                      <TouchableOpacity
-                        onPress={() => navigateToProfile(item.uid)}
-                        style={[styles.searchItem, { borderBottomColor: theme.colors.outline }]}
-                      >
-                        <Text style={{ color: theme.colors.onBackground, fontSize: 15}}>{item.nickname}</Text>
-                        <TouchableOpacity
-                          onPress={() => handleAddFriend(item.uid)}
-                          style={[
-                            hasSentRequest(item.uid) ? styles.sentButton : styles.addCircle,
-                            {
-                              backgroundColor: hasSentRequest(item.uid)
-                                ? '#ccc' // Szary przycisk dla „Sent”
-                                : theme.colors.primary, // Fioletowe kółko dla „Add”
-                            },
-                          ]}
-                          disabled={isAlreadyFriend(item.uid) || hasSentRequest(item.uid)}
-                        >
-                          {isAlreadyFriend(item.uid) ? (
-                            <Text style={styles.addButtonText}>Friend</Text>
-                          ) : hasSentRequest(item.uid) ? (
-                            <Text style={styles.sentButtonText}>Sent</Text>
-                          ) : (
-                            <Ionicons name="add" size={17} color="#fff" />
-                          )}
-                        </TouchableOpacity>
-                      </TouchableOpacity>
-                    )}
+                    renderItem={renderSearchItem}
                   />
                 )}
               </>
@@ -533,6 +746,8 @@ export default function CommunityScreen() {
   );
 }
 
+// StyleSheet.create jest wywoływane tylko raz na poziomie modułu.
+// Style zależne od theme muszą być definiowane inline lub przez funkcję przyjmującą theme.
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -543,27 +758,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   searchAndToggleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 10,
   },
   searchContainer: {
-    flex: 2.5, // 80% width
-    flexDirection: 'row',
-    alignItems: 'center',
+    flex: 2.5,
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
     borderRadius: 25,
-    paddingLeft: 40, // Padding for search icon
-    paddingRight: 40, // Padding for clear icon
+    paddingLeft: 40,
+    paddingRight: 40,
     height: 45,
   },
   searchIcon: {
-    position: 'absolute',
+    position: "absolute",
     left: 16,
   },
   clearIcon: {
-    position: 'absolute',
+    position: "absolute",
     right: 16,
   },
   input: {
@@ -571,20 +786,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   modeToggleContainer: {
-    flex: 1.1 , // 20% width
-    flexDirection: 'row',
+    flex: 1.1,
+    flexDirection: "row",
     marginLeft: 5,
   },
   modeButton: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 12,
   },
   friendItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 12,
     paddingHorizontal: 11,
     borderBottomWidth: 1,
@@ -592,8 +807,8 @@ const styles = StyleSheet.create({
     marginBottom: 7,
   },
   friendInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginLeft: 4.8,
   },
   friendIcon: {
@@ -603,57 +818,67 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   addCircle: {
-    width: 27, // Szerokość kółka
-    height: 27, // Wysokość kółka
-    borderRadius: 20, // Zaokrąglenie, aby utworzyć kółko
-    alignItems: 'center', // Wyśrodkowanie ikony w poziomie
-    justifyContent: 'center', // Wyśrodkowanie ikony w pionie
-    elevation: 2, // Dodanie cienia (opcjonalnie)
-    shadowColor: '#000',
+    // Styl dla przycisku "Add" (kółko)
+    width: 27,
+    height: 27,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 2,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
-    marginRight: 10, // Opcjonalny margines
+    marginRight: 10,
   },
-  
-  addButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+  sentButton: {
+    // Styl dla przycisków "Sent" i "Friend" (kształt prostokąta)
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    left: 2.7, // Możesz dostosować lub usunąć, jeśli nie jest potrzebne
+    // marginRight: 10, // Możesz dodać, jeśli chcesz odstęp jak w addCircle
   },
+  friendButton: {
+    // Styl dla przycisków "Sent" i "Friend" (kształt prostokąta)
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    left: 8, // Możesz dostosować lub usunąć, jeśli nie jest potrzebne
+    // marginRight: 10, // Możesz dodać, jeśli chcesz odstęp jak w addCircle
+  },
+  sentButtonText: {
+    // Styl tekstu dla przycisku "Sent"
+    color: "#fff", // Zakładając, że tło (#ccc) jest wystarczająco jasne
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  // Usunięto friendButtonText, ponieważ styl tekstu "Friend" jest teraz inline
   searchItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     marginLeft: 4,
   },
   noResults: {
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 20,
   },
   empty: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loading: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sentButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    left:2.7
-  },
-  sentButtonText: {
-    color: '#fff', // Kolor tekstu dla „Sent”
-    // fontWeight: 'bold',
-    fontSize: 14, // Rozmiar tekstu
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
