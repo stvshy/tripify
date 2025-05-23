@@ -1464,7 +1464,7 @@ const styles = StyleSheet.create({
   },
   progressText: {
     fontSize: 12,
-    fontWeight: "bold",
+    fontFamily: "DMSans-SemiBold",
   },
   topSectionPhoto: {
     position: "absolute",
