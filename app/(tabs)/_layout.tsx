@@ -7,8 +7,9 @@ import {
   useWindowDimensions,
   SafeAreaView,
   Pressable,
+  BackHandler,
 } from "react-native";
-import { Tabs, useRouter } from "expo-router";
+import { Tabs, useRouter, useSegments, useFocusEffect } from "expo-router"; // Usunięto useNavigation
 
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import {
@@ -28,11 +29,8 @@ import AntDesign from "@expo/vector-icons/AntDesign";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { BottomTabBarButtonProps } from "@react-navigation/bottom-tabs";
-import { TouchableOpacity } from "react-native-gesture-handler";
 import { CountriesProvider, useCountries } from "../config/CountryContext";
-import { FontAwesome } from "@expo/vector-icons";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useSegments } from "expo-router";
 import filteredCountriesData from "../../components/filteredCountries.json";
 const db = getFirestore();
 
@@ -69,6 +67,7 @@ export default function TabLayout() {
     </CountriesProvider>
   );
 }
+
 function VisitedToggle() {
   const segments = useSegments();
   const router = useRouter();
@@ -76,8 +75,12 @@ function VisitedToggle() {
   const { visitedCountriesCount } = useCountries();
   const totalCountriesCount = filteredCountriesData.countries.length;
 
-  const last = segments[segments.length - 1];
-  const inVisited = last === "chooseVisitedCountries";
+  const inVisited =
+    segments.length === 3 &&
+    segments[0] === "(tabs)" &&
+    segments[1] === "two" &&
+    segments[2] === "chooseVisitedCountries";
+
   const iconName = inVisited ? "eye-off-outline" : "eye-check-outline";
 
   const onPress = () =>
@@ -106,15 +109,14 @@ function VisitedToggle() {
 }
 
 const TabLayoutContent: React.FC = () => {
-  const { isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme();
   const [user, setUser] = useState<User | null>(auth.currentUser);
   const [loading, setLoading] = useState(true);
   const [nickname, setNickname] = useState<string | null>(null);
   const router = useRouter();
   const window = useWindowDimensions();
-  const { visitedCountriesCount } = useCountries();
   const [friendRequestsCount, setFriendRequestsCount] = useState<number>(0);
+  const segments = useSegments();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -129,10 +131,10 @@ const TabLayoutContent: React.FC = () => {
         const userDoc = await getDoc(userDocRef);
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          const nickname = userData?.nickname;
+          const localNickname = userData?.nickname; // Zmieniono nazwę zmiennej
           const firstLoginComplete = userData?.firstLoginComplete;
 
-          if (!nickname) {
+          if (!localNickname) {
             router.replace("/setNickname");
             setLoading(false);
             return;
@@ -145,8 +147,7 @@ const TabLayoutContent: React.FC = () => {
           }
 
           setUser(currentUser);
-          setNickname(nickname);
-          console.log(`User data loaded: ${nickname}`);
+          setNickname(localNickname); // Użyto lokalnej zmiennej
         } else {
           router.replace("/welcome");
         }
@@ -160,7 +161,6 @@ const TabLayoutContent: React.FC = () => {
 
   useEffect(() => {
     if (user) {
-      // Listener for friend requests count (where receiverUid == user.uid and status == 'pending')
       const friendRequestsQuery = query(
         collection(db, "friendRequests"),
         where("receiverUid", "==", user.uid),
@@ -170,7 +170,6 @@ const TabLayoutContent: React.FC = () => {
         friendRequestsQuery,
         (snapshot) => {
           setFriendRequestsCount(snapshot.size);
-          console.log(`Friend requests count updated: ${snapshot.size}`);
         }
       );
 
@@ -180,12 +179,76 @@ const TabLayoutContent: React.FC = () => {
     }
   }, [user]);
 
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        console.log("BackHandler: segments=", segments);
+
+        const layoutGroup = segments[0]; // np. "(tabs)"
+        const currentTabRouteName = segments[1] as string | undefined; // np. "three", "two", lub undefined
+
+        // Jeśli jesteśmy na ekranie głębiej wewnątrz stosu zakładki
+        // np. ["(tabs)", "three", "friendRequests"]
+        if (segments.length > 2) {
+          console.log(
+            "Deeper screen in tab, allowing default back behavior (e.g., navigating back within the tab's stack)."
+          );
+          return false; // Pozwól na cofanie wewnątrz stosu zakładki
+        }
+
+        if (layoutGroup === "(tabs)") {
+          // Przypadek 1: Jesteśmy na initialRouteName (zakładamy, że to 'index')
+          // Wtedy segments to np. ["(tabs)"] (długość 1)
+          if (segments.length === 1) {
+            console.log(
+              "On (tabs) initial route (which is 'index'). Allowing app exit/minimize."
+            );
+            return false; // Pozwól na domyślne zachowanie (wyjście/minimalizacja)
+          }
+          // Przypadek 2: Jesteśmy na innej nazwanej zakładce (nie initialRouteName)
+          // Wtedy segments to np. ["(tabs)", "three"] lub ["(tabs)", "two"]
+          else if (
+            segments.length === 2 &&
+            (currentTabRouteName === "three" || currentTabRouteName === "two")
+          ) {
+            console.log(
+              `On tab '${currentTabRouteName}'. Navigating to initial tab (index).`
+            );
+            // Nawiguj do initialRouteName layoutu (tabs), czyli do ścieżki bazowej tego layoutu.
+            // Jeśli initialRouteName="index", to / (tabs) / rozwiąże się do / (tabs)/index.
+            router.navigate("/(tabs)/");
+            return true; // Zapobiegnij domyślnemu zachowaniu
+          }
+          // Przypadek 3 (zabezpieczenie, choć mniej prawdopodobny z initialRouteName="index"):
+          // Jeśli segments to ["(tabs)", "index"]
+          else if (segments.length === 2 && currentTabRouteName === "index") {
+            console.log(
+              "Explicitly on 'index' tab (segments: ['(tabs)', 'index']). Allowing app exit/minimize."
+            );
+            return false;
+          }
+        }
+
+        console.log(
+          "Unhandled custom back behavior case or not in (tabs) layout. Allowing default back behavior."
+        );
+        return false;
+      };
+
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        onBackPress
+      );
+
+      return () => subscription.remove();
+    }, [segments, router]) // Usunięto navigation z zależności
+  );
+
   if (loading) {
     return <LoadingScreen showLogo={true} />;
   }
 
   if (!user) {
-    // Można zwrócić pusty View z tłem, aby uniknąć problemów, jeśli ten stan wystąpi na krótko
     return (
       <View style={{ flex: 1, backgroundColor: theme.colors.background }} />
     );
@@ -205,9 +268,10 @@ const TabLayoutContent: React.FC = () => {
   };
 
   return (
-    // Opakuj Tabs w View, które ma flex: 1 i tło z motywu
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <Tabs
+        initialRouteName="index"
+        backBehavior="none" // KLUCZOWA ZMIANA: Zapobiega własnej obsłudze "wstecz" przez Tabs
         screenOptions={{
           tabBarIconStyle: {
             marginTop: window.height * 0.014,
@@ -215,7 +279,7 @@ const TabLayoutContent: React.FC = () => {
           tabBarActiveTintColor: theme.colors.primary,
           tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
           tabBarStyle: {
-            backgroundColor: theme.colors.surface, // Tło samego paska zakładek
+            backgroundColor: theme.colors.surface,
             height: window.height * 0.067,
             borderTopWidth: 0,
             justifyContent: "center",
@@ -226,7 +290,7 @@ const TabLayoutContent: React.FC = () => {
             marginTop: window.height * 0.014,
           },
           headerStyle: {
-            backgroundColor: theme.colors.surface, // Tło nagłówka w zakładkach
+            backgroundColor: theme.colors.surface,
             height: window.height * 0.108,
             shadowOpacity: 0,
             elevation: 0,
@@ -257,14 +321,9 @@ const TabLayoutContent: React.FC = () => {
               </Pressable>
             </SafeAreaView>
           ),
-          // Możesz też jawnie ustawić tło dla contentStyle każdego ekranu w Tabs,
-          // chociaż opakowujący View powinien to załatwić.
-          // To jest opcja w react-navigation/stack, dla react-navigation/bottom-tabs
-          // odpowiednikiem może być stylizowanie komponentu renderującego scenę,
-          // ale opakowanie w View jest prostsze.
         }}
       >
-        {/* Three Tab (Community) */}
+        {/* Three Tab (Community) - Pierwsze miejsce w UI */}
         <Tabs.Screen
           name="three"
           options={{
@@ -297,7 +356,7 @@ const TabLayoutContent: React.FC = () => {
             ),
           }}
         />
-        {/* Index Tab (Main) */}
+        {/* Index Tab (Main/InteractiveMap) - Środkowe miejsce w UI */}
         <Tabs.Screen
           name="index"
           options={{
@@ -312,7 +371,9 @@ const TabLayoutContent: React.FC = () => {
             ),
             headerRight: () => (
               <Pressable
-                onPress={() => {}}
+                onPress={() => {
+                  /* TODO: Implement search functionality */
+                }}
                 style={({ pressed }) => [
                   styles.headerRightContainer,
                   pressed && styles.pressedHeaderRight,
@@ -327,7 +388,7 @@ const TabLayoutContent: React.FC = () => {
             ),
           }}
         />
-        {/* Two Tab (ChooseCountries) */}
+        {/* Two Tab (ChooseCountries) - Trzecie miejsce w UI */}
         <Tabs.Screen
           name="two"
           options={{
@@ -374,7 +435,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   tabIconContainer: {
-    flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -390,7 +450,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: -6,
     top: -3,
-    backgroundColor: "#8A2BE2", // Purple color
+    backgroundColor: "#8A2BE2",
     borderRadius: 8,
     paddingHorizontal: 4,
     paddingVertical: 1,
@@ -405,13 +465,9 @@ const styles = StyleSheet.create({
   },
   visitedCountriesContainer: {
     marginRight: 16,
-    // backgroundColor: '#8A2BE2', // Purple color
     borderRadius: 12,
-    // paddingHorizontal: 8,
-    // paddingVertical: 4,
   },
   visitedCountriesText: {
     color: "#fff",
-    // fontWeight: 'bold',
   },
 });
