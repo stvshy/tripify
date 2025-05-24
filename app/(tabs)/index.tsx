@@ -1,5 +1,11 @@
-import React, { useState, useCallback, useContext, useRef } from "react";
-import { View, StyleSheet, ActivityIndicator } from "react-native";
+import React, {
+  useState,
+  useCallback,
+  useContext,
+  useRef,
+  // useEffect, // Można usunąć, jeśli nie jest używany do innych celów
+} from "react";
+import { View, StyleSheet } from "react-native";
 import InteractiveMap, {
   InteractiveMapRef,
 } from "../../components/InteractiveMap";
@@ -14,49 +20,74 @@ import MyCustomSpinner from "@/components/MyCustomSpinner";
 const totalCountries = filteredCountriesData.countries.length;
 
 export default function IndexScreen() {
-  const { isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme();
-  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const mapRef = useRef<InteractiveMapRef>(null);
+  const [selectedCountries, setSelectedCountries] = useState<string[] | null>(
+    null
+  );
+  // Zmieniamy nazwę loading na isLoading dla większej czytelności
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  // Dodajemy stan do śledzenia, czy ekran jest aktywny (focused)
+  const [isScreenFocused, setIsScreenFocused] = useState<boolean>(false);
 
-  const fetchSelectedCountries = async () => {
-    const user = auth.currentUser;
-    if (user) {
-      try {
-        const userDocRef = doc(db, "users", user.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          const countriesVisited: string[] = data.countriesVisited || [];
-          setSelectedCountries(countriesVisited);
-        } else {
-          console.log("No such document!");
-          setSelectedCountries([]);
-        }
-      } catch (error) {
-        console.error("Error fetching countries:", error);
-        setSelectedCountries([]);
-      }
-    } else {
-      console.log("User not authenticated");
-      setSelectedCountries([]);
-    }
-    setLoading(false);
-  };
+  const mapRef = useRef<InteractiveMapRef>(null);
 
   useFocusEffect(
     useCallback(() => {
-      setLoading(true);
-      fetchSelectedCountries();
+      setIsScreenFocused(true); // Ekran jest teraz aktywny
+      setIsLoading(true); // Ustawiamy ładowanie na true natychmiast po fokusie
+      setSelectedCountries(null); // Czyścimy poprzednie dane, aby spinner się pokazał
+
+      let isActive = true;
+      const fetchSelectedCountriesData = async () => {
+        const user = auth.currentUser;
+        let countries: string[] = [];
+        if (user) {
+          try {
+            const userDocRef = doc(db, "users", user.uid);
+            const userDoc = await getDoc(userDocRef);
+            if (userDoc.exists()) {
+              const data = userDoc.data();
+              countries = data.countriesVisited || [];
+            } else {
+              console.log("IndexScreen: No such document for user!");
+            }
+          } catch (error) {
+            console.error("IndexScreen: Error fetching countries:", error);
+          }
+        } else {
+          console.log("IndexScreen: User not authenticated");
+        }
+
+        if (isActive) {
+          setSelectedCountries(countries);
+          setIsLoading(false); // Kończymy ładowanie po ustawieniu danych
+        }
+      };
+
+      fetchSelectedCountriesData();
+
+      return () => {
+        isActive = false;
+        setIsScreenFocused(false); // Ekran traci fokus
+        // Opcjonalnie: Możesz chcieć zresetować stan ładowania tutaj,
+        // aby spinner pojawił się natychmiast przy następnym fokusie,
+        // nawet przed rozpoczęciem pobierania danych.
+        // setIsLoading(true);
+        // setSelectedCountries(null);
+      };
     }, [])
   );
 
-  const handleCountryPress = (countryCode: string) => {
+  const handleCountryPress = useCallback((countryCode: string) => {
     console.log(`Country pressed: ${countryCode}`);
-  };
+  }, []);
 
-  if (loading) {
+  // Ulepszona logika renderowania:
+  // Pokaż spinner, jeśli:
+  // 1. Ekran nie jest jeszcze aktywny (isScreenFocused === false)
+  // 2. Trwa ładowanie (isLoading === true)
+  // 3. Dane krajów nie zostały jeszcze załadowane (selectedCountries === null)
+  if (!isScreenFocused || isLoading || selectedCountries === null) {
     return (
       <View
         style={[
@@ -69,13 +100,15 @@ export default function IndexScreen() {
     );
   }
 
+  // Renderuj InteractiveMap tylko wtedy, gdy ekran jest aktywny,
+  // ładowanie zakończone i dane są dostępne.
   return (
     <View
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <InteractiveMap
         ref={mapRef}
-        selectedCountries={selectedCountries}
+        selectedCountries={selectedCountries} // selectedCountries jest teraz string[]
         totalCountries={totalCountries}
         onCountryPress={handleCountryPress}
         style={styles.map}

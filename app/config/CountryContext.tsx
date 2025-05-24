@@ -1,7 +1,13 @@
 // app/config/CountryContext.tsx
-import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
-import { auth, db } from './firebaseConfig';
-import { doc, onSnapshot } from 'firebase/firestore';
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useContext,
+} from "react";
+import { auth, db } from "./firebaseConfig";
+import { doc, onSnapshot } from "firebase/firestore";
 
 // Definicja interfejsu dla kontekstu
 interface CountryContextProps {
@@ -23,13 +29,15 @@ interface CountryProviderProps {
 }
 
 // Provider kontekstu zarządzający stanem odwiedzonych krajów
-export const CountriesProvider: React.FC<CountryProviderProps> = ({ children }) => {
+export const CountriesProvider: React.FC<CountryProviderProps> = ({
+  children,
+}) => {
   const [visitedCountries, setVisitedCountries] = useState<string[]>([]);
 
   useEffect(() => {
     const user = auth.currentUser;
     if (user) {
-      const userDocRef = doc(db, 'users', user.uid);
+      const userDocRef = doc(db, "users", user.uid);
       const unsubscribe = onSnapshot(userDocRef, (docSnapshot) => {
         if (docSnapshot.exists()) {
           const data = docSnapshot.data();
