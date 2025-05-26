@@ -160,8 +160,8 @@ const SearchResultItem: React.FC<SearchResultItemProps> = memo(
     if (alreadyFriend) {
       specificButtonStyle = styles.friendButton; // Kształt jak "Sent"
       buttonBackgroundColor = theme.dark
-        ? "rgba(148, 112, 148, 0.65)"
-        : "rgba(220, 200, 220, 0.9)";
+        ? "rgba(171, 109, 197, 0.4)" // NOWY kolor dla "Friend" (ciemny)
+        : "rgba(143, 73, 179, 0.37)";
       buttonContent = (
         <Text
           style={{
@@ -178,7 +178,9 @@ const SearchResultItem: React.FC<SearchResultItemProps> = memo(
       isDisabled = true;
     } else if (requestSent) {
       specificButtonStyle = styles.sentButton;
-      buttonBackgroundColor = "#ccc";
+      buttonBackgroundColor = theme.dark
+        ? "rgba(128, 128, 128, 0.4)"
+        : "rgba(204, 204, 204, 0.7)";
       buttonContent = <Text style={styles.sentButtonText}>Sent</Text>; // Zakładamy, że styl sentButtonText ma już biały kolor
       isDisabled = true;
     } else {

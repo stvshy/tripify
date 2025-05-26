@@ -611,22 +611,34 @@ export default function ProfileScreen() {
                     backgroundColor:
                       friendStatus === "friend"
                         ? isDarkTheme
-                          ? "rgba(148, 112, 148, 0.50)"
-                          : "#D8BFD8"
+                          ? "rgba(171, 109, 197, 0.4)" // NOWY kolor dla "Friend" (ciemny)
+                          : "rgba(191, 115, 229, 0.43)" // NOWY kolor dla "Friend" (jasny)
                         : friendStatus === "sent"
-                          ? "#ccc"
-                          : theme.colors.primary, // Stan "none" (i inne) trafi tutaj
+                          ? isDarkTheme
+                            ? "rgba(128, 128, 128, 0.4)" // NOWY kolor dla "Sent" (ciemny)
+                            : "rgba(204, 204, 204, 0.7)" // NOWY kolor dla "Sent" (jasny)
+                          : theme.colors.primary, // Dla stanu "Add" (bez zmian)
                   },
                 ]}
                 disabled={friendStatus === "sent" || friendStatus === "friend"}
               >
-                <Text style={profileStyles.addFriendButtonText}>
-                  {friendStatus === "friend"
-                    ? "Friend"
-                    : friendStatus === "sent"
-                      ? "Request Sent"
-                      : "Add"}
-                </Text>
+                {friendStatus === "friend" ? (
+                  <Text
+                    style={{
+                      color: "#fff", // Kolor tekstu "Friend" na biały
+                      fontSize: 14,
+                      fontWeight: "500", // Zgodnie z prośbą
+                    }}
+                  >
+                    Friend
+                  </Text>
+                ) : friendStatus === "sent" ? (
+                  <Text style={profileStyles.addFriendButtonText}>
+                    Sent {/* Zmieniony tekst na "Sent" */}
+                  </Text>
+                ) : (
+                  <Text style={profileStyles.addFriendButtonText}>Add</Text>
+                )}
               </TouchableOpacity>
             )}
           </>
