@@ -21,7 +21,7 @@ export default {
     android: {
       package: "com.matisp6.tripify",
       icon: "./assets/images/tripify-icon-1024x1024.png",
-
+      softwareKeyboardLayoutMode: "pan",
       permissions: [
         "com.facebook.permission.FACEBOOK_LOGIN",
         "INTERNET",

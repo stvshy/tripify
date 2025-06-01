@@ -227,15 +227,24 @@ export default function RegisterScreen() {
           {/* ScrollView zawiera WSZYSTKO, co ma być scrollowalne, włącznie ze wskaźnikiem */}
           <ScrollView
             style={styles.scrollView}
-            contentContainerStyle={styles.scrollViewContent}
+            contentContainerStyle={[
+              styles.scrollViewContent,
+              // Dodajemy paddingBottom do scrollViewContent, gdy klawiatura jest widoczna,
+              // aby było miejsce na scroll do ostatniego inputu, jeśli footer jest długi
+              // To jest alternatywa dla skomplikowanego KAV.
+              // { paddingBottom: isKeyboardVisible ? keyboardHeight + 20 : 20 }
+              // LUB jeśli KAV dobrze działa z "padding" na iOS, to może nie być potrzebne.
+            ]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
+            // Dla Androida, jeśli tło pojawia się pod klawiaturą:
+            contentInsetAdjustmentBehavior="never" // Może pomóc, ale ostrożnie
           >
             {/* 1. Wskaźnik kroków jako pierwszy element w ScrollView */}
             <View style={styles.stepperWrapperInScroll}>
               <CustomStepIndicator
                 currentPosition={0}
-                labels={["Konto", "Pseudonim", "Gotowe"]}
+                labels={["Register", "Username", "Success"]}
                 stepCount={3}
               />
             </View>
@@ -510,13 +519,15 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1, // ScrollView musi wypełnić KAV
     width: "100%", // Upewnij się, że ScrollView zajmuje całą szerokość
+    // paddingBottom: -30,
   },
   scrollViewContent: {
-    flexGrow: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    // marginTop: 10,
-    // marginBottom: 5
+    flexGrow: 1, // Pozwala kontenerowi rosnąć i wypełniać ScrollView, umożliwiając scroll
+    alignItems: "center", // Utrzymuje centrowanie elementów w poziomie
+    // justifyContent: "center", // USUŃ LUB ZAKOMENTUJ TĘ LINIĘ
+    // marginTop: 10, // Możesz dostosować lub usunąć, jeśli niepotrzebne
+    // marginBottom: 5, // Możesz dostosować lub usunąć
+    // paddingBottom: -30, // Dodaj trochę przestrzeni na dole przewijanej zawartości
   },
   logo: {
     width: "40%", // Procentowa szerokość
@@ -590,6 +601,7 @@ const styles = StyleSheet.create({
   keyboardAvoidingViewContainer: {
     // KAV opakowujący ScrollView
     flex: 1,
+    backgroundColor: "transparent", // DODAJ TĘ LINIĘ
   },
   stepperWrapperInScroll: {
     // Wrapper dla wskaźnika, gdy jest w ScrollView
@@ -597,12 +609,13 @@ const styles = StyleSheet.create({
     marginTop: 40, // Większy padding, gdy jest częścią scrolla
     // paddingHorizontal: 0, // PaddingHorizontal będzie z scrollViewContent
     // backgroundColor: 'rgba(0,0,0,0.1)', // Test
-    marginLeft: 8.8,
+    // marginLeft: 8.8,
+    marginRight: 0.3,
     marginBottom: -20,
   },
   requirementsContainer: {
     marginTop: 6,
-    marginBottom: 20,
+    // marginBottom: 20,
     width: width * 0.88,
   },
   requirementRow: {
@@ -615,6 +628,8 @@ const styles = StyleSheet.create({
     flex: 1,
     // paddingTop NIE JEST POTRZEBNY TUTAJ, bo wskaźnik jest wewnątrz
     // justifyContent: "space-between", // Możesz potrzebować, jeśli KAV i footer mają się rozłożyć
+    justifyContent: "space-between", // WAŻNE: Upewnij się, że to jest aktywne
+    backgroundColor: "transparent", // DODAJ TĘ LINIĘ
   },
   stepperWrapper: {
     // Ten wrapper zawiera wskaźnik i dba o jego paddingi

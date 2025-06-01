@@ -100,19 +100,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5, // Mały padding, aby etykiety nie dotykały linii, jeśli są długie
   },
   circle: {
-    width: 30,
-    height: 30,
+    width: 24,
+    height: 24,
     borderRadius: 15,
-    backgroundColor: "#e0e0e0",
+    backgroundColor: "#f0efef",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: "#e0e0e0",
     marginBottom: 5,
   },
   circleActive: {
-    borderColor: "#6a1b9a",
-    backgroundColor: "#fff",
+    borderColor: "#961b9a",
+    backgroundColor: "#ae05ea",
   },
   circleCompleted: {
     backgroundColor: "#059c78",
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
   },
   stepNumber: {
     color: "#757575",
-    fontSize: 14,
+    fontSize: 13,
   },
   stepNumberActive: {
     color: "#6a1b9a",
@@ -131,13 +131,13 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   label: {
-    fontSize: 12,
-    color: "#757575",
+    fontSize: 11,
+    color: "#ededed",
     textAlign: "center",
-    marginTop: 2, // Mały odstęp od kółka
+    // marginTop: 0.2, // Mały odstęp od kółka
   },
   labelActive: {
-    color: "#6a1b9a",
+    color: "#8802b8",
     fontWeight: "bold",
   },
   labelCompleted: {
@@ -145,9 +145,9 @@ const styles = StyleSheet.create({
   },
   lineSeparator: {
     flexGrow: 1, // Pozwala linii się rozciągnąć
-    height: 2,
+    height: 1.7,
     backgroundColor: "#e0e0e0",
-    marginTop: 15 - 1, // (wysokość kółka / 2) - (wysokość linii / 2)
+    marginTop: 12 - 1, // (wysokość kółka / 2) - (wysokość linii / 2)
     // marginHorizontal: -5, // Ujemny margines, aby linia wchodziła "pod" padding stepItem, jeśli jest
   },
   lineSeparatorCompleted: {
