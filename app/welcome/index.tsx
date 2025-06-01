@@ -526,7 +526,7 @@ export default function WelcomeScreen() {
 
             <Button
               mode="contained"
-              onPress={() => router.push("/register")}
+              onPress={() => router.push("/(registration)/register")}
               style={styles.registerButton}
               labelStyle={styles.buttonLabel}
             >

@@ -161,7 +161,7 @@ const SearchResultItem: React.FC<SearchResultItemProps> = memo(
       specificButtonStyle = styles.friendButton; // Kształt jak "Sent"
       buttonBackgroundColor = theme.dark
         ? "rgba(171, 109, 197, 0.4)" // NOWY kolor dla "Friend" (ciemny)
-        : "rgba(143, 73, 179, 0.37)";
+        : " (143, 73, 179, 0.37)";
       buttonContent = (
         <Text
           style={{
