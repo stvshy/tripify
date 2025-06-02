@@ -223,10 +223,10 @@ export default function SetNicknameScreen() {
           color: "#FFEEFCFF",
         },
         subtitle: {
-          fontSize: width * 0.04, // Użycie width z useWindowDimensions
+          fontSize: width * 0.039, // Użycie width z useWindowDimensions
           fontFamily: "Figtree-Regular",
           textAlign: "center",
-          marginBottom: 25,
+          marginBottom: 19,
           color: "#FFE3F9D1",
           paddingHorizontal: 10,
         },
@@ -235,7 +235,7 @@ export default function SetNicknameScreen() {
           backgroundColor: "#f0ed8f5",
           borderRadius: 28,
           overflow: "hidden",
-          marginBottom: 15,
+          marginBottom: 13,
           borderWidth: 2,
           borderColor: "transparent",
           flexDirection: "row",
@@ -249,9 +249,9 @@ export default function SetNicknameScreen() {
           fontSize: 15,
         },
         inputFocused: {
-          borderColor: "#6a1b9a",
+          borderColor: "#9002c2",
         },
-        inputUnfocusedText: {},
+        inputUnfocusedText: { marginBottom: 4 },
         iconLeft: {
           marginLeft: 12,
           marginRight: 5,
@@ -264,7 +264,7 @@ export default function SetNicknameScreen() {
           textAlign: "center",
           marginBottom: 16,
           fontSize: 12.5,
-          fontFamily: "Inter-Medium",
+
           fontWeight: "500",
         },
         footer: {
@@ -274,7 +274,7 @@ export default function SetNicknameScreen() {
           paddingBottom: Platform.OS === "ios" ? 20 : 15,
         },
         sendButton: {
-          backgroundColor: "#7511b5",
+          backgroundColor: "#9002c2",
           paddingVertical: 13,
           paddingHorizontal: 30,
           alignItems: "center",
@@ -336,7 +336,7 @@ export default function SetNicknameScreen() {
             </View>
             <Text style={styles.title}>Choose a Nickname</Text>
             <Text style={styles.subtitle}>
-              This will be your unique identifier in Tripify.
+              This will be your unique identifier in Tripify
             </Text>
             <View
               style={[
@@ -356,8 +356,8 @@ export default function SetNicknameScreen() {
                 ]}
                 theme={{
                   colors: {
-                    primary: isFocused.nickname ? "#6a1b9a" : "transparent",
-                    placeholder: "#6a1b9a",
+                    primary: isFocused.nickname ? "#9002c2" : "transparent",
+                    placeholder: "#9002c2",
                     background: "#f0ed8f5",
                     text: "#000",
                   },
@@ -370,7 +370,7 @@ export default function SetNicknameScreen() {
                       <FontAwesome
                         name="user"
                         size={20}
-                        color={isFocused.nickname ? "#6a1b9a" : "#606060"}
+                        color={isFocused.nickname ? "#9002c2" : "#606060"}
                       />
                     )}
                     style={styles.iconLeft}

@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
     marginTop: -1,
   },
   labelCompleted: {
-    color: "#02d960",
+    color: "#02c959",
     marginTop: -1,
   },
   lineSeparator: {
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     // marginHorizontal: -5, // Ujemny margines, aby linia wchodziła "pod" padding stepItem, jeśli jest
   },
   lineSeparatorCompleted: {
-    backgroundColor: "#02d960",
+    backgroundColor: "#01C356",
   },
 });
 
