@@ -186,7 +186,7 @@ export default function RegisterScreen() {
     <FontAwesome
       name={isValid ? "check-circle" : "times-circle"}
       size={18}
-      color={isValid ? "#059c78" : "#a43267"}
+      color={isValid ? "#00dea8" : "#a43267"}
       style={styles.iconRequirement}
     />
   );
@@ -212,7 +212,7 @@ export default function RegisterScreen() {
   //   }, [stepperHeight, fallbackIndicatorHeight]);
   return (
     <ImageBackground
-      source={require("../../../assets/images/gradient4.png")}
+      source={require("../../../assets/images/register2.png")}
       style={styles.background}
       imageStyle={styles.backgroundImageStyle}
       fadeDuration={0}
@@ -642,10 +642,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   valid: {
-    color: "#50baa1",
+    color: "#b0f5e5",
   },
   invalid: {
-    color: "violet",
+    color: "#fcc7e8",
   },
   footer: {
     width: "100%", // Upewnij się, że footer zajmuje całą szerokość
