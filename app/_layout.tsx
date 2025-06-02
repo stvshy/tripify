@@ -54,7 +54,10 @@ export default function RootLayout() {
     "Inter-Regular": require("../assets/fonts/Inter-Regular.ttf"),
     "Inter-Medium": require("../assets/fonts/Inter-Medium.ttf"),
     "Figtree-Regular": require("../assets/fonts/Figtree-Regular.ttf"),
+    "Figtree-SemiBold": require("../assets/fonts/Figtree-SemiBold.ttf"),
     "Figtree-Medium": require("../assets/fonts/Figtree-Medium.ttf"),
+    "Figtree-Bold": require("../assets/fonts/Figtree-Bold.ttf"),
+    Inter: require("../assets/fonts/Inter-VariableFont_opsz,wght.ttf"),
   });
   const [initialRouteName, setInitialRouteName] = useState<string | null>(null);
   const [appIsReady, setAppIsReady] = useState(false);

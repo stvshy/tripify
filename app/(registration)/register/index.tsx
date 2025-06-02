@@ -73,7 +73,7 @@ export default function RegisterScreen() {
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     setEmailError(
       email && !emailPattern.test(email)
-        ? "Please enter a valid email address."
+        ? "Please enter a valid email address"
         : null
     );
   }, [email]);
@@ -112,19 +112,19 @@ export default function RegisterScreen() {
     setIsLoading(true); // Ustawienie spinnera na "true"
 
     if (!email) {
-      setErrorMessage("Please enter your email address.");
+      setErrorMessage("Please enter your email address");
       setIsLoading(false);
       return;
     }
 
     if (!password) {
-      setErrorMessage("Please enter a password.");
+      setErrorMessage("Please enter a password");
       setIsLoading(false);
       return;
     }
 
     if (password !== confirmPassword) {
-      setErrorMessage("Passwords do not match.");
+      setErrorMessage("Passwords do not match");
       setIsLoading(false);
       return;
     }
@@ -135,7 +135,7 @@ export default function RegisterScreen() {
       !passwordRequirements.upperCase ||
       !passwordRequirements.number
     ) {
-      setErrorMessage("Password does not meet all requirements.");
+      setErrorMessage("Password does not meet all requirements");
       setIsLoading(false);
       return;
     }
@@ -582,13 +582,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   error: {
-    color: "#f398fa", // Upewnij się, że kolor pasuje do reszty aplikacji
-    marginBottom: 12,
+    color: "violet", // Upewnij się, że kolor pasuje do reszty aplikacji
+    marginBottom: 10,
     fontSize: 12,
     textAlign: "center",
     width: "90%",
     // paddingVertical: 15,
     // height: height * 0.01
+    fontFamily: "Inter-Medium", // Użyj odpowiedniej czcionki
+    // fontWeight: "700",
   },
   errorTop: {
     color: "violet", // Upewnij się, że kolor pasuje do reszty aplikacji
@@ -597,6 +599,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: "center",
     width: "90%",
+    fontFamily: "Roboto",
+    fontWeight: "500",
     // paddingVertical: 15
     // height: height * 0.01
   },
@@ -612,7 +616,7 @@ const styles = StyleSheet.create({
     // paddingHorizontal: 0, // PaddingHorizontal będzie z scrollViewContent
     // backgroundColor: 'rgba(0,0,0,0.1)', // Test
     // marginLeft: 8.8,
-    marginRight: 0.3,
+    marginRight: 2.3,
     marginBottom: -20,
   },
   requirementsContainer: {

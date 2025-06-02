@@ -135,10 +135,13 @@ const styles = StyleSheet.create({
     color: "#ededed",
     textAlign: "center",
     // marginTop: 0.2, // Mały odstęp od kółka
+    fontFamily: "Figtree-Regular",
   },
   labelActive: {
-    color: "#8802b8",
-    fontWeight: "bold",
+    color: "#c707f0",
+    // fontWeight: "bold",
+    fontFamily: "Figtree-Bold", // Użyj Roboto-Medium, jeśli jest dostępne
+    marginTop: -1,
   },
   labelCompleted: {
     color: "#059c78",
