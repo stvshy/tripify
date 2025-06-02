@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -13,8 +13,12 @@ import {
   Pressable,
   Alert,
   BackHandler,
+  StatusBar,
 } from "react-native";
 import { TextInput } from "react-native-paper";
+
+const ESTIMATED_HEADER_AREA_HEIGHT =
+  Platform.OS === "ios" ? 15 : StatusBar.currentHeight || 0;
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import {
   getFirestore,
@@ -29,6 +33,7 @@ import {
 import { sendEmailVerification } from "firebase/auth";
 import { auth } from "../../config/firebaseConfig";
 import { useRouter } from "expo-router";
+import CustomStepIndicator from "../../../components/CustomStepIndicator"; // <<< DODANE
 
 const { width, height } = Dimensions.get("window");
 const db = getFirestore();
@@ -154,32 +159,174 @@ export default function SetNicknameScreen() {
     setIsNicknameValid(null);
     validateNickname(text);
   };
+  const isButtonDisabled =
+    !nickname.trim() ||
+    isNicknameValid === false ||
+    (isNicknameValid === null && nickname.trim().length > 0);
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        background: {
+          flex: 1,
+        },
+        backgroundImageStyle: {
+          resizeMode: "cover",
+          width: "140%",
+          height: "150%",
+          // Użyj width i height z useWindowDimensions do obliczeń, jeśli potrzebne
+          left: -width * 0.15, // np. -width * 0.2 lub stała wartość
+          top: -height * 0.18, // np. -height * 0.2 lub stała wartość
+          transform: [{ rotate: "-10deg" }],
+        },
+        overlay: {
+          ...StyleSheet.absoluteFillObject,
+          backgroundColor: "rgba(255, 255, 255, 0.1)",
+        },
+        safeAreaContainer: {
+          flex: 1,
+        },
+        keyboardAvoidingViewContainer: {
+          flex: 1,
+          justifyContent: "space-between",
+        },
+        scrollView: {
+          width: "100%",
+        },
+        scrollViewContent: {
+          flexGrow: 1,
+          alignItems: "center",
+          paddingHorizontal: 16,
+          paddingBottom: 20,
+        },
+        stepperWrapperInScroll: {
+          width: "94%",
+          alignSelf: "center",
+          marginTop: 40,
+          marginBottom: 20,
+        },
+        logoContainer: {
+          justifyContent: "center",
+          alignItems: "center",
+          marginBottom: 20,
+          marginTop: height * 0.03, // Użycie height z useWindowDimensions
+        },
+        logo: {
+          width: width * 0.42, // Użycie width z useWindowDimensions
+          height: height * 0.17, // Użycie height z useWindowDimensions
+          marginTop: 80,
+        },
+        title: {
+          fontSize: width * 0.065, // Użycie width z useWindowDimensions
+          fontFamily: "Figtree-Bold",
+          textAlign: "center",
+          marginBottom: 8,
+          color: "#FFEEFCFF",
+        },
+        subtitle: {
+          fontSize: width * 0.04, // Użycie width z useWindowDimensions
+          fontFamily: "Figtree-Regular",
+          textAlign: "center",
+          marginBottom: 25,
+          color: "#FFE3F9D1",
+          paddingHorizontal: 10,
+        },
+        inputContainer: {
+          width: width * 0.89, // Użycie width z useWindowDimensions
+          backgroundColor: "#f0ed8f5",
+          borderRadius: 28,
+          overflow: "hidden",
+          marginBottom: 15,
+          borderWidth: 2,
+          borderColor: "transparent",
+          flexDirection: "row",
+          alignItems: "center",
+          height: height * 0.075, // Użycie height z useWindowDimensions
+        },
+        input: {
+          flex: 1,
+          paddingLeft: 5,
+          // height: "100%", // Spróbuj usunąć lub ustawić na konkretną liczbę, jeśli ostrzeżenia nadal występują
+          fontSize: 15,
+        },
+        inputFocused: {
+          borderColor: "#6a1b9a",
+        },
+        inputUnfocusedText: {},
+        iconLeft: {
+          marginLeft: 12,
+          marginRight: 5,
+        },
+        iconRight: {
+          marginRight: 12,
+        },
+        errorMessage: {
+          color: "violet",
+          textAlign: "center",
+          marginBottom: 16,
+          fontSize: 12.5,
+          fontFamily: "Inter-Medium",
+          fontWeight: "500",
+        },
+        footer: {
+          width: "100%",
+          alignItems: "center",
+          paddingVertical: 10,
+          paddingBottom: Platform.OS === "ios" ? 20 : 15,
+        },
+        sendButton: {
+          backgroundColor: "#7511b5",
+          paddingVertical: 13,
+          paddingHorizontal: 30,
+          alignItems: "center",
+          borderRadius: 25,
+          width: "90%",
+          elevation: 3,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 3.84,
+          borderWidth: 0.3,
+          borderColor: "#6a1b9a",
+        },
+        sendButtonDisabled: {
+          opacity: 0.5,
+        },
+        sendButtonText: {
+          color: "#FFFFFF",
+          fontSize: 16,
+          fontFamily: "Figtree-SemiBold",
+        },
+      }),
+    [width, height] // Zależności dla useMemo
+  );
 
   return (
     <ImageBackground
       source={require("../../../assets/images/gradient2.jpg")}
       style={styles.background}
-      imageStyle={{
-        resizeMode: "cover",
-        width: "140%",
-        height: "150%",
-        left: -80,
-        top: -150,
-        transform: [{ rotate: "-10deg" }],
-      }}
+      imageStyle={styles.backgroundImageStyle}
       fadeDuration={0}
     >
       <View style={styles.overlay} />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
-        <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.safeAreaContainer}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.keyboardAvoidingViewContainer}
+          keyboardVerticalOffset={0} // Ustawione na 0, bo stepper jest w scrollu
+        >
           <ScrollView
             contentContainerStyle={styles.scrollViewContent}
             keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
             style={styles.scrollView}
           >
+            <View style={styles.stepperWrapperInScroll}>
+              <CustomStepIndicator
+                currentPosition={1}
+                labels={["Register", "Username", "Success"]}
+                stepCount={3}
+              />
+            </View>
             <View style={styles.logoContainer}>
               <Image
                 source={require("../../../assets/images/tripify-icon.png")}
@@ -189,10 +336,8 @@ export default function SetNicknameScreen() {
             </View>
             <Text style={styles.title}>Choose a Nickname</Text>
             <Text style={styles.subtitle}>
-              Please enter a unique nickname to continue.
+              This will be your unique identifier in Tripify.
             </Text>
-
-            {/* Nickname Input */}
             <View
               style={[
                 styles.inputContainer,
@@ -215,8 +360,8 @@ export default function SetNicknameScreen() {
                     placeholder: "#6a1b9a",
                     background: "#f0ed8f5",
                     text: "#000",
-                    error: "red",
                   },
+                  roundness: 28,
                 }}
                 underlineColor="transparent"
                 left={
@@ -233,7 +378,7 @@ export default function SetNicknameScreen() {
                 }
                 autoCapitalize="none"
                 right={
-                  isNicknameValid !== null && (
+                  nickname.trim() && isNicknameValid !== null ? (
                     <TextInput.Icon
                       icon={() => (
                         <FontAwesome
@@ -246,164 +391,28 @@ export default function SetNicknameScreen() {
                       )}
                       style={styles.iconRight}
                     />
-                  )
+                  ) : null
                 }
               />
             </View>
-
-            {/* Komunikaty */}
             {errorMessage && (
               <Text style={styles.errorMessage}>{errorMessage}</Text>
             )}
-            {verificationMessage && (
-              <Text style={styles.successMessage}>{verificationMessage}</Text>
-            )}
           </ScrollView>
-
-          {/* Footer with Buttons */}
           <View style={styles.footer}>
             <Pressable
               onPress={handleSetNickname}
-              style={styles.sendButton}
-              disabled={resendTimer > 0}
+              style={[
+                styles.sendButton,
+                isButtonDisabled && styles.sendButtonDisabled,
+              ]}
+              disabled={isButtonDisabled}
             >
-              <Text style={styles.sendButtonText}>
-                {resendTimer > 0
-                  ? `Save Nickname (Resend in ${resendTimer}s)`
-                  : "Save Nickname"}
-              </Text>
+              <Text style={styles.sendButtonText}>Save Nickname</Text>
             </Pressable>
           </View>
-        </SafeAreaView>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </ImageBackground>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-  },
-  background: {
-    flex: 1,
-    resizeMode: "cover",
-  },
-  container: {
-    flex: 1,
-    justifyContent: "space-between", // Distribute content from top to bottom
-    alignItems: "center",
-    padding: 16,
-    paddingBottom: 10, // Smaller bottom padding, controlled by footer
-  },
-  scrollView: {
-    width: "100%", // Ensure ScrollView takes full width
-  },
-  scrollViewContent: {
-    flexGrow: 1,
-    justifyContent: "center", // Adjust as needed
-    alignItems: "center",
-  },
-  logo: {
-    width: width * 0.5,
-    height: height * 0.2,
-  },
-  logoContainer: {
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 20,
-    marginTop: 20, // Reduced top margin for better placement
-  },
-  title: {
-    fontSize: width * 0.06, // Proportional size
-    fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: 10, // Reduced bottom margin to accommodate subtitle
-    color: "#FFEEFCFF",
-  },
-  subtitle: {
-    fontSize: width * 0.04, // Slightly smaller than title
-    textAlign: "center",
-    marginBottom: 20,
-    color: "#FFE3F9D1",
-    marginTop: 5,
-  },
-  inputContainer: {
-    width: width * 0.89,
-    backgroundColor: "#f0ed8f5",
-    borderRadius: 28, // Increased borderRadius for better aesthetics
-    overflow: "hidden",
-    marginBottom: 13,
-    borderWidth: 2,
-    borderColor: "transparent", // Default border color
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  input: {
-    flex: 1,
-    paddingLeft: 10,
-    height: 52,
-    fontSize: 15,
-  },
-  inputFocused: {
-    borderColor: "#6a1b9a", // Border color when focused
-  },
-  inputUnfocusedText: {
-    // Additional styles for unfocused state text if needed
-  },
-  iconLeft: {
-    marginLeft: 10,
-  },
-  validationIcon: {
-    // marginRight: -10,
-    // marginLeft: 10,
-  },
-  successMessage: {
-    color: "#50baa1",
-    textAlign: "center",
-    marginBottom: 16,
-    fontSize: 12,
-  },
-  errorMessage: {
-    color: "violet",
-    textAlign: "center",
-    marginBottom: 16,
-    fontSize: 12,
-  },
-  footer: {
-    width: "100%", // Ensure footer takes full width
-    alignItems: "center",
-    paddingVertical: 10,
-  },
-  sendButton: {
-    backgroundColor: "#7511b5",
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    alignItems: "center",
-    borderRadius: 25,
-    width: "90%",
-    marginBottom: 10,
-    elevation: 2, // Shadow effect for Android
-    shadowColor: "#000", // Shadow effect for iOS
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  sendButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  backButton: {
-    paddingVertical: 10,
-    marginBottom: -5,
-  },
-  backButtonText: {
-    color: "#4a136c",
-    fontSize: 14,
-    textAlign: "center",
-  },
-  iconRight: {
-    // marginLeft: 10,
-  },
-});

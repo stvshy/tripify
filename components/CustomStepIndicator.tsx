@@ -1,4 +1,5 @@
 // app/components/CustomStepIndicator.tsx
+import { FontAwesome } from "@expo/vector-icons";
 import React from "react";
 import { View, Text, StyleSheet } from "react-native"; // Usunięto Platform, bo nie jest tu używany
 
@@ -48,7 +49,7 @@ const CustomStepIndicator: React.FC<CustomStepIndicatorProps> = ({
           ]}
         >
           {isCompleted ? (
-            <Text style={styles.checkMark}>✓</Text>
+            <FontAwesome name="check" size={14} color="#fff" />
           ) : (
             <Text
               style={[styles.stepNumber, isActive && styles.stepNumberActive]}
@@ -115,7 +116,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#ae05ea",
   },
   circleCompleted: {
-    backgroundColor: "#059c78",
+    backgroundColor: "#0ab958",
     borderColor: "#059c78",
   },
   stepNumber: {
@@ -136,6 +137,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     // marginTop: 0.2, // Mały odstęp od kółka
     fontFamily: "Figtree-Regular",
+    marginTop: -1,
   },
   labelActive: {
     color: "#c707f0",
@@ -144,7 +146,8 @@ const styles = StyleSheet.create({
     marginTop: -1,
   },
   labelCompleted: {
-    color: "#059c78",
+    color: "#02d960",
+    marginTop: -1,
   },
   lineSeparator: {
     flexGrow: 1, // Pozwala linii się rozciągnąć
@@ -154,7 +157,7 @@ const styles = StyleSheet.create({
     // marginHorizontal: -5, // Ujemny margines, aby linia wchodziła "pod" padding stepItem, jeśli jest
   },
   lineSeparatorCompleted: {
-    backgroundColor: "#059c78",
+    backgroundColor: "#02d960",
   },
 });
 
