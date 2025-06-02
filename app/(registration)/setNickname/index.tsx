@@ -34,6 +34,7 @@ import { sendEmailVerification } from "firebase/auth";
 import { auth } from "../../config/firebaseConfig";
 import { useRouter } from "expo-router";
 import CustomStepIndicator from "../../../components/CustomStepIndicator"; // <<< DODANE
+import { Ionicons } from "@expo/vector-icons";
 
 const { width, height } = Dimensions.get("window");
 const db = getFirestore();
@@ -92,12 +93,12 @@ export default function SetNicknameScreen() {
   const validateNickname = async (nickname: string) => {
     const trimmedNickname = nickname.trim();
     if (!/^[a-zA-Z0-9]*$/.test(trimmedNickname)) {
-      setErrorMessage("Nickname can only contain letters and numbers.");
+      setErrorMessage("Nickname can only contain letters and numbers");
       setIsNicknameValid(false);
       return;
     }
     if (trimmedNickname.length > 24) {
-      setErrorMessage("Nickname cannot exceed 24 characters.");
+      setErrorMessage("Nickname cannot exceed 24 characters");
       setIsNicknameValid(false);
       return;
     }
@@ -111,7 +112,7 @@ export default function SetNicknameScreen() {
       const querySnapshot = await getDocs(nicknameQuery);
 
       if (!querySnapshot.empty) {
-        setErrorMessage("This nickname is already taken.");
+        setErrorMessage("This nickname is already taken");
         setIsNicknameValid(false);
       } else {
         setErrorMessage(null);
@@ -119,14 +120,14 @@ export default function SetNicknameScreen() {
       }
     } catch (error) {
       console.error("Firestore Query Error:", error);
-      setErrorMessage("An error occurred while validating the nickname.");
+      setErrorMessage("An error occurred while validating the nickname");
       setIsNicknameValid(false);
     }
   };
 
   const handleSetNickname = async () => {
     if (!nickname.trim()) {
-      setErrorMessage("Please enter a nickname.");
+      setErrorMessage("Please enter a nickname");
       return;
     }
 
@@ -149,7 +150,7 @@ export default function SetNicknameScreen() {
       }
     } catch (error) {
       setErrorMessage(
-        "An error occurred while setting your nickname. Please try again."
+        "An error occurred while setting your nickname. Please try again"
       );
     }
   };
@@ -199,7 +200,7 @@ export default function SetNicknameScreen() {
           paddingBottom: 20,
         },
         stepperWrapperInScroll: {
-          width: "94%",
+          width: "98%",
           alignSelf: "center",
           marginTop: 40,
           marginBottom: 20,
@@ -240,7 +241,7 @@ export default function SetNicknameScreen() {
           borderColor: "transparent",
           flexDirection: "row",
           alignItems: "center",
-          height: height * 0.075, // Użycie height z useWindowDimensions
+          height: height * 0.078, // Użycie height z useWindowDimensions
         },
         input: {
           flex: 1,
@@ -255,6 +256,7 @@ export default function SetNicknameScreen() {
         iconLeft: {
           marginLeft: 12,
           marginRight: 5,
+          marginTop: 9, // Dostosowanie marginesu góry, aby ikona była lepiej wyśrodkowana
         },
         iconRight: {
           marginRight: 12,
@@ -265,7 +267,7 @@ export default function SetNicknameScreen() {
           marginBottom: 16,
           fontSize: 12.5,
 
-          fontWeight: "500",
+          fontWeight: "400",
         },
         footer: {
           width: "100%",
@@ -294,7 +296,7 @@ export default function SetNicknameScreen() {
         sendButtonText: {
           color: "#FFFFFF",
           fontSize: 16,
-          fontFamily: "Figtree-SemiBold",
+          fontFamily: "Inter-SemiBold",
         },
       }),
     [width, height] // Zależności dla useMemo
@@ -367,8 +369,8 @@ export default function SetNicknameScreen() {
                 left={
                   <TextInput.Icon
                     icon={() => (
-                      <FontAwesome
-                        name="user"
+                      <Ionicons
+                        name="person"
                         size={20}
                         color={isFocused.nickname ? "#9002c2" : "#606060"}
                       />

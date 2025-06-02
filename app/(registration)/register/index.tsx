@@ -24,6 +24,7 @@ import { auth } from "../../config/firebaseConfig";
 import { useRouter } from "expo-router";
 import { getFirestore, setDoc, doc, serverTimestamp } from "firebase/firestore";
 import CustomStepIndicator from "../../../components/CustomStepIndicator";
+import { Ionicons } from "@expo/vector-icons";
 const { width, height } = Dimensions.get("window");
 const db = getFirestore();
 const ESTIMATED_STEPPER_HEIGHT = 70;
@@ -292,8 +293,8 @@ export default function RegisterScreen() {
                 left={
                   <TextInput.Icon
                     icon={() => (
-                      <FontAwesome
-                        name="envelope"
+                      <Ionicons
+                        name="mail"
                         size={20} // Dostosowany rozmiar
                         color={isFocused.email ? "#9002c2" : "#606060"}
                       />
@@ -335,8 +336,8 @@ export default function RegisterScreen() {
                 left={
                   <TextInput.Icon
                     icon={() => (
-                      <FontAwesome
-                        name="lock"
+                      <Ionicons
+                        name="lock-closed"
                         size={23} // Dostosowany rozmiar
                         color={isFocused.password ? "#9002c2" : "#606060"}
                       />
@@ -391,8 +392,8 @@ export default function RegisterScreen() {
                 left={
                   <TextInput.Icon
                     icon={() => (
-                      <FontAwesome
-                        name="lock"
+                      <Ionicons
+                        name="lock-closed"
                         size={23}
                         color={
                           isFocused.confirmPassword ? "#9002c2" : "#606060"
@@ -536,16 +537,16 @@ const styles = StyleSheet.create({
   logoContainer: {
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 10,
-    marginTop: height * 0.065, // Zmniejszony margines górny dla lepszego rozmieszczenia
+    marginBottom: 12,
+    marginTop: height * 0.069, // Zmniejszony margines górny dla lepszego rozmieszczenia
     width: "100%",
   },
   title: {
-    fontSize: width * 0.06, // Zastosowanie proporcjonalnej wielkości,
+    fontSize: width * 0.062, // Zastosowanie proporcjonalnej wielkości,
     fontFamily: "Figtree-Medium",
     // fontFamily: "Inter-Regular",
     textAlign: "center",
-    marginBottom: 23,
+    marginBottom: 20,
     color: "#FFEEFCFF",
     // marginTop: 5,
     width: "100%",
@@ -584,7 +585,7 @@ const styles = StyleSheet.create({
   error: {
     color: "violet", // Upewnij się, że kolor pasuje do reszty aplikacji
     marginBottom: 10,
-    fontSize: 12,
+    fontSize: 12.5,
     textAlign: "center",
     width: "90%",
     // paddingVertical: 15,
@@ -596,7 +597,7 @@ const styles = StyleSheet.create({
     color: "violet", // Upewnij się, że kolor pasuje do reszty aplikacji
     marginBottom: 9,
     marginTop: -10,
-    fontSize: 12,
+    fontSize: 12.5,
     textAlign: "center",
     width: "90%",
     fontFamily: "Roboto",
@@ -663,11 +664,11 @@ const styles = StyleSheet.create({
   },
   registerButton: {
     backgroundColor: "#9502d4",
-    paddingVertical: 12,
-    paddingHorizontal: 30,
+    paddingVertical: 10,
+    // paddingHorizontal: 2,
     alignItems: "center",
     borderRadius: 25,
-    width: "90%",
+    width: "88%",
     marginBottom: -2,
     elevation: 2, // Dodanie cienia dla efektu uniesienia (Android)
     shadowColor: "#000", // Dodanie cienia dla efektu uniesienia (iOS)
@@ -680,7 +681,8 @@ const styles = StyleSheet.create({
   registerButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: "bold",
+    // fontWeight: "bold",
+    fontFamily: "Inter-SemiBold", // Użyj odpowiedniej czcionki
   },
   loginRedirectButton: {
     paddingTop: 10,
