@@ -281,7 +281,7 @@ export default function RegisterScreen() {
                 ]}
                 theme={{
                   colors: {
-                    primary: isFocused.email ? "#6a1b9a" : "transparent",
+                    primary: isFocused.email ? "#9002c2" : "transparent",
                     placeholder: "#6a1b9a",
                     background: "#f0ed8f5",
                     text: "#000",
@@ -295,7 +295,7 @@ export default function RegisterScreen() {
                       <FontAwesome
                         name="envelope"
                         size={20} // Dostosowany rozmiar
-                        color={isFocused.email ? "#6a1b9a" : "#606060"}
+                        color={isFocused.email ? "#9002c2" : "#606060"}
                       />
                     )}
                     style={styles.iconLeft}
@@ -325,7 +325,7 @@ export default function RegisterScreen() {
                 ]}
                 theme={{
                   colors: {
-                    primary: isFocused.password ? "#6a1b9a" : "transparent",
+                    primary: isFocused.password ? "#9002c2" : "transparent",
                     placeholder: "#6a1b9a",
                     background: "#f0ed8f5",
                     text: "#000",
@@ -338,7 +338,7 @@ export default function RegisterScreen() {
                       <FontAwesome
                         name="lock"
                         size={23} // Dostosowany rozmiar
-                        color={isFocused.password ? "#6a1b9a" : "#606060"}
+                        color={isFocused.password ? "#9002c2" : "#606060"}
                       />
                     )}
                     style={styles.iconLeft}
@@ -349,7 +349,7 @@ export default function RegisterScreen() {
                     icon={showPassword ? "eye-off" : "eye"}
                     size={23}
                     onPress={() => setShowPassword(!showPassword)}
-                    color={isFocused.password ? "#6a1b9a" : "#606060"}
+                    color={isFocused.password ? "#9002c2" : "#606060"}
                   />
                 }
               />
@@ -380,7 +380,7 @@ export default function RegisterScreen() {
                 theme={{
                   colors: {
                     primary: isFocused.confirmPassword
-                      ? "#6a1b9a"
+                      ? "#9002c2"
                       : "transparent",
                     placeholder: "#6a1b9a",
                     background: "#f0ed8f5",
@@ -395,7 +395,7 @@ export default function RegisterScreen() {
                         name="lock"
                         size={23}
                         color={
-                          isFocused.confirmPassword ? "#6a1b9a" : "#606060"
+                          isFocused.confirmPassword ? "#9002c2" : "#606060"
                         }
                       />
                     )}
@@ -407,7 +407,7 @@ export default function RegisterScreen() {
                     icon={showConfirmPassword ? "eye-off" : "eye"}
                     size={23}
                     onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                    color={isFocused.confirmPassword ? "#6a1b9a" : "#606060"}
+                    color={isFocused.confirmPassword ? "#9002c2" : "#606060"}
                   />
                 }
               />
@@ -531,22 +531,23 @@ const styles = StyleSheet.create({
   },
   logo: {
     width: "40%", // Procentowa szerokość
-    height: height * 0.19, // Możesz dostosować, jeśli chcesz bardziej responsywne
+    height: height * 0.185, // Możesz dostosować, jeśli chcesz bardziej responsywne
   },
   logoContainer: {
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 10,
     marginTop: height * 0.065, // Zmniejszony margines górny dla lepszego rozmieszczenia
     width: "100%",
   },
   title: {
-    fontSize: width * 0.06, // Zastosowanie proporcjonalnej wielkości
-    fontWeight: "bold",
+    fontSize: width * 0.06, // Zastosowanie proporcjonalnej wielkości,
+    fontFamily: "Figtree-Medium",
+    // fontFamily: "Inter-Regular",
     textAlign: "center",
     marginBottom: 23,
     color: "#FFEEFCFF",
-    marginTop: 5,
+    // marginTop: 5,
     width: "100%",
   },
   inputContainer: {
@@ -554,6 +555,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginBottom: 13,
     width: width * 0.89,
+    height: height * 0.08, // Ustawienie wysokości na 7% wysokości ekranu
     backgroundColor: "#f0ed8f5",
     borderWidth: 2,
     borderColor: "transparent", // Domyślny kolor obramowania
@@ -564,7 +566,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   inputFocused: {
-    borderColor: "#6a1b9a", // Kolor obramowania w stanie fokusu
+    borderColor: "#9002c2", // Kolor obramowania w stanie fokusu
   },
   inputUnfocusedText: {
     // Możesz dodać dodatkowe style dla tekstu w unfocused state, jeśli potrzebujesz
@@ -580,12 +582,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   error: {
-    color: "violet", // Upewnij się, że kolor pasuje do reszty aplikacji
-    marginBottom: -3,
+    color: "#f398fa", // Upewnij się, że kolor pasuje do reszty aplikacji
+    marginBottom: 12,
     fontSize: 12,
     textAlign: "center",
     width: "90%",
-    paddingVertical: 15,
+    // paddingVertical: 15,
     // height: height * 0.01
   },
   errorTop: {
@@ -639,7 +641,7 @@ const styles = StyleSheet.create({
     // Nie potrzebuje position: absolute
   },
   requirementText: {
-    fontSize: 12,
+    fontSize: 12.5,
   },
   valid: {
     color: "#b0f5e5",
@@ -656,7 +658,7 @@ const styles = StyleSheet.create({
     // Możesz dodać tło lub inne style, jeśli potrzebujesz
   },
   registerButton: {
-    backgroundColor: "#7511b5",
+    backgroundColor: "#9502d4",
     paddingVertical: 12,
     paddingHorizontal: 30,
     alignItems: "center",
@@ -668,6 +670,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
+    borderWidth: 0.3,
+    borderColor: "#6a1b9a", // Dodanie obramowania w kolorze wskaźnika
   },
   registerButtonText: {
     color: "#FFFFFF",
