@@ -200,7 +200,7 @@ export default function SetNicknameScreen() {
           paddingBottom: 20,
         },
         stepperWrapperInScroll: {
-          width: "98%",
+          width: "95.6%",
           alignSelf: "center",
           marginTop: 40,
           marginBottom: 20,

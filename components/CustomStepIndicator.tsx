@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f0efef",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
+    borderWidth: 0.1,
     borderColor: "#e0e0e0",
     marginBottom: 5,
   },
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   stepNumberActive: {
-    color: "#6a1b9a",
+    color: "#f0e4ef",
   },
   checkMark: {
     color: "#fff",
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     marginTop: -1,
   },
   labelActive: {
-    color: "#c707f0",
+    color: "#d216fa",
     // fontWeight: "bold",
     fontFamily: "Figtree-Bold", // Użyj Roboto-Medium, jeśli jest dostępne
     marginTop: -1,
