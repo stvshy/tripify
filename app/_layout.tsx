@@ -19,7 +19,8 @@ import { useTheme } from "react-native-paper";
 import { getStorage, ref, listAll, getDownloadURL } from "firebase/storage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import FastImage from "@d11/react-native-fast-image";
-
+import { useAuthStore, UserProfileData } from "./store/authStore";
+import { User as FirebaseUser } from "firebase/auth"; // Zmień alias lub użyj User bezpośrednio
 // Zapobiegaj automatycznemu ukrywaniu natywnego splash screena
 ExpoSplashScreen.preventAutoHideAsync();
 
@@ -45,6 +46,13 @@ const fetchAndCacheBackgrounds = async () => {
 };
 
 export default function RootLayout() {
+  const {
+    isLoadingAuth,
+    setFirebaseUser,
+    setUserProfile,
+    setIsLoadingAuth,
+    setErrorAuth,
+  } = useAuthStore();
   const [fontsLoaded, fontError] = useFonts({
     "PlusJakartaSans-Bold": require("../assets/fonts/PlusJakartaSans-Bold.ttf"),
     "DMSans-Bold": require("../assets/fonts/DMSans-Bold.ttf"),
@@ -60,65 +68,119 @@ export default function RootLayout() {
     Inter: require("../assets/fonts/Inter-VariableFont_opsz,wght.ttf"),
   });
   const [initialRouteName, setInitialRouteName] = useState<string | null>(null);
-  const [appIsReady, setAppIsReady] = useState(false);
-
-  useEffect(() => {
-    const prepareApp = async () => {
-      if (!fontsLoaded && !fontError) return;
-      try {
-        let currentUser = auth.currentUser;
-        if (!currentUser) {
-          currentUser = await new Promise((resolve) => {
-            const unsubscribe = auth.onAuthStateChanged((user) => {
-              unsubscribe();
-              resolve(user);
-            });
-          });
-        }
-        if (currentUser) {
-          const userDocRef = doc(db, "users", currentUser.uid);
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            const isVerified = currentUser.emailVerified;
-            const nickname = userData?.nickname;
-            const firstLoginComplete = userData?.firstLoginComplete;
-            if (!isVerified) setInitialRouteName("welcome");
-            else if (!nickname) setInitialRouteName("setNickname");
-            else if (!firstLoginComplete)
-              setInitialRouteName("chooseCountries");
-            else setInitialRouteName("(tabs)");
-          } else {
-            setInitialRouteName("welcome");
-          }
-        } else {
-          setInitialRouteName("welcome");
-        }
-      } catch (error) {
-        console.error("Error preparing app state:", error);
-        setInitialRouteName("welcome");
-      } finally {
-        setAppIsReady(true);
-      }
-    };
-    prepareApp();
-  }, [fontsLoaded, fontError]);
+  const [isNavigationReady, setIsNavigationReady] = useState(false);
 
   useEffect(() => {
     fetchAndCacheBackgrounds();
   }, []);
 
   useEffect(() => {
-    if (appIsReady && initialRouteName && (fontsLoaded || fontError)) {
+    // Funkcja pomocnicza do finalizowania i ustawiania stanu gotowości
+    const finalizePreparation = (route: string) => {
+      setInitialRouteName(route);
+      setIsLoadingAuth(false); // Zakończ ładowanie w store
+      setIsNavigationReady(true); // Ustaw nawigację jako gotową
+    };
+
+    const prepareApp = async () => {
+      if (!fontsLoaded && !fontError) {
+        return; // Czekaj na załadowanie fontów
+      }
+      setIsLoadingAuth(true); // Rozpocznij ładowanie w store
+
+      try {
+        const unsubscribe = auth.onAuthStateChanged(
+          async (user: FirebaseUser | null) => {
+            unsubscribe(); // Odsubskrybuj po pierwszym odczycie
+
+            if (user) {
+              setFirebaseUser(user); // Zapisz obiekt FirebaseUser w store
+              const userDocRef = doc(db, "users", user.uid);
+              const userDoc = await getDoc(userDocRef);
+
+              if (userDoc.exists()) {
+                const firestoreData = userDoc.data();
+                const profileData: UserProfileData = {
+                  nickname: firestoreData?.nickname || null,
+                  firstLoginComplete:
+                    firestoreData?.firstLoginComplete || false,
+                  emailVerified: user.emailVerified,
+                };
+                setUserProfile(profileData); // Zapisz profil w store
+
+                // Ustal initialRouteName
+                if (!profileData.emailVerified) finalizePreparation("welcome");
+                else if (!profileData.nickname)
+                  finalizePreparation("setNickname");
+                else if (!profileData.firstLoginComplete)
+                  finalizePreparation("chooseCountries");
+                else finalizePreparation("(tabs)");
+              } else {
+                console.warn(
+                  "User document not found in Firestore for UID:",
+                  user.uid
+                );
+                const defaultProfile: UserProfileData = {
+                  nickname: null,
+                  firstLoginComplete: false,
+                  emailVerified: user.emailVerified,
+                };
+                setUserProfile(defaultProfile);
+                if (!user.emailVerified) finalizePreparation("welcome");
+                else finalizePreparation("setNickname");
+              }
+            } else {
+              // Brak zalogowanego użytkownika
+              setFirebaseUser(null);
+              setUserProfile(null);
+              finalizePreparation("welcome");
+            }
+          }
+        );
+      } catch (error: any) {
+        console.error("Error preparing app state:", error);
+        setErrorAuth(error.message || "An unknown error occurred");
+        setFirebaseUser(null);
+        setUserProfile(null);
+        finalizePreparation("welcome"); // Fallback route
+      }
+    };
+
+    prepareApp();
+  }, [
+    fontsLoaded,
+    fontError,
+    setFirebaseUser,
+    setUserProfile,
+    setIsLoadingAuth,
+    setErrorAuth,
+    // Nie ma potrzeby dodawać setInitialRouteName i setIsNavigationReady,
+    // ponieważ są one wywoływane przez funkcję zdefiniowaną wewnątrz tego efektu.
+  ]);
+
+  useEffect(() => {
+    if (fontsLoaded && isNavigationReady) {
+      // Ukryj Splash Screen, gdy fonty są załadowane i nawigacja jest gotowa
       const timer = setTimeout(() => {
         ExpoSplashScreen.hideAsync();
-      }, 50);
+      }, 50); // Krótkie opóźnienie dla pewności
       return () => clearTimeout(timer);
     }
-  }, [appIsReady, initialRouteName, fontsLoaded, fontError]);
+  }, [fontsLoaded, isNavigationReady, fontError]);
 
-  // Renderowanie - teraz znacznie prostsze
-  const renderContent = () => (
+  if (fontError) {
+    console.error("Font loading error:", fontError);
+    return <LoadingScreen />;
+  }
+
+  // Pokazuj LoadingScreen dopóki nawigacja nie jest gotowa
+  // (co obejmuje załadowanie fontów, zakończenie isLoadingAuth ze store'u i ustalenie initialRouteName)
+  if (!isNavigationReady) {
+    return <LoadingScreen />;
+  }
+
+  // Jeśli dotarliśmy tutaj, nawigacja jest gotowa i initialRouteName jest ustawione
+  return (
     <SafeAreaProvider style={{ flex: 1, backgroundColor: "transparent" }}>
       <GestureHandlerRootView
         style={{ flex: 1, backgroundColor: "transparent" }}
@@ -127,39 +189,28 @@ export default function RootLayout() {
           <ThemeProvider>
             <ThemedStatusBarAndNavBar tooltipVisible={false} />
             <QueryClientProvider client={queryClient}>
-              {!appIsReady ||
-              !initialRouteName ||
-              (!fontsLoaded && !fontError) ? (
-                <LoadingScreen /> // LoadingScreen ma teraz własne gradientowe tło
-              ) : (
-                // Gdy aplikacja załadowana, użyj prostego View z tłem z motywu
-                <ThemedBackgroundWrapper>
+              <ThemedBackgroundWrapper>
+                {/* Renderuj Stack tylko gdy initialRouteName jest dostępne (co jest zapewnione przez isNavigationReady) */}
+                {initialRouteName && (
                   <Stack
                     initialRouteName={initialRouteName}
                     screenOptions={{
                       headerShown: false,
                       contentStyle: { backgroundColor: "transparent" },
+                      presentation: "card",
+                      animation: "ios",
+                      gestureEnabled: true,
+                      gestureDirection: "horizontal",
                     }}
                   />
-                </ThemedBackgroundWrapper>
-              )}
+                )}
+              </ThemedBackgroundWrapper>
             </QueryClientProvider>
           </ThemeProvider>
         </DraxProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>
   );
-
-  if (!appIsReady || !initialRouteName || (!fontsLoaded && !fontError)) {
-    return <LoadingScreen />;
-  }
-
-  if (fontError) {
-    console.error("Font loading error:", fontError);
-    return <LoadingScreen />; // Można stworzyć dedykowany ErrorScreen
-  }
-
-  return renderContent();
 }
 
 // Helper component do aplikowania tła z motywu

@@ -86,7 +86,8 @@
     "world-countries": "^5.0.0",
     "xml2js": "^0.6.2",
     "xmldom": "^0.6.0",
-    "yarn": "^1.22.22"
+    "yarn": "^1.22.22",
+    "zustand": "^5.0.5"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",

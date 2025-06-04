@@ -32,6 +32,7 @@ import { BottomTabBarButtonProps } from "@react-navigation/bottom-tabs";
 import { CountriesProvider, useCountries } from "../config/CountryContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import filteredCountriesData from "../../components/filteredCountries.json";
+import { useAuthStore } from "../store/authStore";
 const db = getFirestore();
 
 // Custom TabBarButton component
@@ -110,74 +111,99 @@ function VisitedToggle() {
 
 const TabLayoutContent: React.FC = () => {
   const theme = useTheme();
-  const [user, setUser] = useState<User | null>(auth.currentUser);
-  const [loading, setLoading] = useState(true);
-  const [nickname, setNickname] = useState<string | null>(null);
-  const router = useRouter();
+  // const [user, setUser] = useState<User | null>(auth.currentUser);
+  // const [loading, setLoading] = useState(true);
+  // const [isUserDataFetched, setIsUserDataFetched] = useState(false);
+  // const [nickname, setNickname] = useState<string | null>(null);
   const window = useWindowDimensions();
-  const [friendRequestsCount, setFriendRequestsCount] = useState<number>(0);
+  // const [friendRequestsCount, setFriendRequestsCount] = useState<number>(0);
   const segments = useSegments();
+  const {
+    firebaseUser,
+    userProfile,
+    isLoadingAuth,
+    clearAuthData, // Do wylogowania
+  } = useAuthStore();
+  const router = useRouter();
+  const [friendRequestsCount, setFriendRequestsCount] = useState<number>(0);
+  useFocusEffect(
+    React.useCallback(() => {
+      // Ta logika wykona się za każdym razem, gdy ekran (tabs) zyska fokus
+      // ORAZ gdy zależności (isLoadingAuth, firebaseUser, userProfile) się zmienią
+      // podczas gdy ekran ma fokus.
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        if (!currentUser.emailVerified) {
-          router.replace("/welcome");
-          setLoading(false);
-          return;
-        }
-
-        const userDocRef = doc(db, "users", currentUser.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          const localNickname = userData?.nickname; // Zmieniono nazwę zmiennej
-          const firstLoginComplete = userData?.firstLoginComplete;
-
-          if (!localNickname) {
-            router.replace("/setNickname");
-            setLoading(false);
-            return;
-          }
-
-          if (!firstLoginComplete) {
-            router.replace("/chooseCountries");
-            setLoading(false);
-            return;
-          }
-
-          setUser(currentUser);
-          setNickname(localNickname); // Użyto lokalnej zmiennej
-        } else {
-          router.replace("/welcome");
-        }
-      } else {
-        router.replace("/welcome");
+      // Nie wykonuj nic, jeśli RootLayout nadal ładuje podstawowe dane
+      if (isLoadingAuth) {
+        return; // Poczekaj, aż isLoadingAuth będzie false
       }
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, [router]);
 
+      // Jeśli po załadowaniu nie ma użytkownika lub profilu, przekieruj
+      if (!firebaseUser || !userProfile) {
+        router.replace("/welcome");
+        return;
+      }
+
+      // Sprawdź inne warunki przekierowania
+      if (!userProfile.emailVerified) {
+        router.replace("/welcome");
+        return;
+      }
+      if (!userProfile.nickname) {
+        router.replace("/setNickname");
+        return;
+      }
+      if (!userProfile.firstLoginComplete) {
+        router.replace("/chooseCountries");
+        return;
+      }
+
+      // Jeśli doszliśmy tutaj, wszystko jest OK, nie ma potrzeby przekierowania
+      // Można tu dodać logikę, która ma się wykonać, gdy zakładki zyskują fokus
+      // i użytkownik jest poprawnie skonfigurowany.
+    }, [isLoadingAuth, firebaseUser, userProfile, router]) // Zależności dla useCallback
+  );
+
+  // useEffect dla friendRequestsCount - używa firebaseUser ze store'u
   useEffect(() => {
-    if (user) {
+    if (firebaseUser) {
+      // Nie potrzebujemy już isUserDataFetched, bo userProfile jest w store
       const friendRequestsQuery = query(
         collection(db, "friendRequests"),
-        where("receiverUid", "==", user.uid),
+        where("receiverUid", "==", firebaseUser.uid),
         where("status", "==", "pending")
       );
-      const unsubscribeFriendRequests = onSnapshot(
-        friendRequestsQuery,
-        (snapshot) => {
-          setFriendRequestsCount(snapshot.size);
-        }
-      );
-
-      return () => {
-        unsubscribeFriendRequests();
-      };
+      const unsubscribe = onSnapshot(friendRequestsQuery, (snapshot) => {
+        setFriendRequestsCount(snapshot.size);
+      });
+      return () => unsubscribe();
+    } else {
+      setFriendRequestsCount(0);
     }
-  }, [user]);
+  }, [firebaseUser]); // Zależność tylko od firebaseUser
+  if (isLoadingAuth) {
+    // Jeśli RootLayout (i store) nadal ładuje podstawowe dane autentykacji/profilu
+    return <LoadingScreen showLogo={true} />;
+  }
+
+  if (!firebaseUser || !userProfile) {
+    // Jeśli po zakończeniu ładowania nadal nie ma użytkownika lub jego profilu
+    // (powinno być obsłużone przez useEffect z przekierowaniem, ale jako zabezpieczenie)
+    return (
+      <View style={{ flex: 1, backgroundColor: theme.colors.background }} />
+    );
+  }
+
+  // Jeśli dotarliśmy tutaj, mamy użytkownika i jego profil ze store'u
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      clearAuthData(); // Wyczyść dane w store Zustand
+      // router.replace("/welcome"); // Przekierowanie jest już obsługiwane przez useEffect powyżej
+      // po zmianie firebaseUser na null w store
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+  };
 
   useFocusEffect(
     React.useCallback(() => {
@@ -244,24 +270,9 @@ const TabLayoutContent: React.FC = () => {
     }, [segments, router]) // Usunięto navigation z zależności
   );
 
-  if (loading) {
-    return <LoadingScreen showLogo={true} />;
-  }
-
-  if (!user) {
-    return (
-      <View style={{ flex: 1, backgroundColor: theme.colors.background }} />
-    );
-  }
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      router.replace("/welcome");
-    } catch (error) {
-      console.error("Error logging out:", error);
-    }
-  };
+  // if (loading) {
+  //   return <LoadingScreen showLogo={true} />;
+  // }
 
   const handleNavigateToAccount = () => {
     router.push("/account");
@@ -316,7 +327,7 @@ const TabLayoutContent: React.FC = () => {
                     { color: theme.colors.onSurface },
                   ]}
                 >
-                  {nickname ? nickname : "Welcome"}
+                  {userProfile.nickname ? userProfile.nickname : "Welcome"}
                 </Text>
               </Pressable>
             </SafeAreaView>
