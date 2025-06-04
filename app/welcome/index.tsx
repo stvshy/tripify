@@ -249,7 +249,12 @@ export default function WelcomeScreen() {
           setIsLoading(false);
           return;
         }
-        router.replace("/");
+
+        // Jeśli doszliśmy tutaj, wszystko jest OK
+        console.log(
+          "WelcomeScreen: Login successful, all checks passed. REPLACING to / (which should be (tabs)/index)"
+        );
+        router.replace("/"); // Lub router.replace("/(tabs)/");
         setIsLoading(false);
         return;
       }

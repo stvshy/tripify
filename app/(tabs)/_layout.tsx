@@ -128,45 +128,60 @@ const TabLayoutContent: React.FC = () => {
   const [friendRequestsCount, setFriendRequestsCount] = useState<number>(0);
   useFocusEffect(
     React.useCallback(() => {
-      // Ta logika wykona się za każdym razem, gdy ekran (tabs) zyska fokus
-      // ORAZ gdy zależności (isLoadingAuth, firebaseUser, userProfile) się zmienią
-      // podczas gdy ekran ma fokus.
+      console.log(
+        "TabLayout FOCUSED. isLoadingAuth:",
+        isLoadingAuth,
+        "firebaseUser:",
+        !!firebaseUser,
+        "userProfile:",
+        userProfile
+      );
 
-      // Nie wykonuj nic, jeśli RootLayout nadal ładuje podstawowe dane
+      // 1. Jeśli RootLayout nadal ładuje, nic nie rób tutaj.
+      //    RootLayout sam pokaże LoadingScreen.
       if (isLoadingAuth) {
-        return; // Poczekaj, aż isLoadingAuth będzie false
-      }
-
-      // Jeśli po załadowaniu nie ma użytkownika lub profilu, przekieruj
-      if (!firebaseUser || !userProfile) {
-        router.replace("/welcome");
+        console.log("TabLayout: isLoadingAuth is TRUE, waiting.");
         return;
       }
 
-      // Sprawdź inne warunki przekierowania
+      // 2. Jeśli po zakończeniu ładowania przez RootLayout nie ma użytkownika lub profilu,
+      //    przekieruj. To obsłuży przypadek wylogowania.
+      if (!firebaseUser || !userProfile) {
+        console.log(
+          "TabLayout: No firebaseUser or userProfile (isLoadingAuth is false). REPLACING to /welcome."
+        );
+        router.replace("/welcome");
+        return; // Ważne, aby zakończyć tutaj, jeśli przekierowujemy
+      }
+
+      // 3. Sprawdź inne warunki, jeśli użytkownik i profil istnieją
       if (!userProfile.emailVerified) {
+        console.log("TabLayout: Email NOT verified. REPLACING to /welcome.");
         router.replace("/welcome");
         return;
       }
       if (!userProfile.nickname) {
+        console.log(
+          "TabLayout: Nickname IS NULL/empty. REPLACING to /setNickname."
+        );
         router.replace("/setNickname");
         return;
       }
       if (!userProfile.firstLoginComplete) {
+        console.log(
+          "TabLayout: First login NOT complete. REPLACING to /chooseCountries."
+        );
         router.replace("/chooseCountries");
         return;
       }
 
-      // Jeśli doszliśmy tutaj, wszystko jest OK, nie ma potrzeby przekierowania
-      // Można tu dodać logikę, która ma się wykonać, gdy zakładki zyskują fokus
-      // i użytkownik jest poprawnie skonfigurowany.
-    }, [isLoadingAuth, firebaseUser, userProfile, router]) // Zależności dla useCallback
+      console.log("TabLayout: All checks PASSED. Staying in tabs.");
+    }, [isLoadingAuth, firebaseUser, userProfile, router])
   );
 
-  // useEffect dla friendRequestsCount - używa firebaseUser ze store'u
+  // useEffect dla friendRequestsCount
   useEffect(() => {
     if (firebaseUser) {
-      // Nie potrzebujemy już isUserDataFetched, bo userProfile jest w store
       const friendRequestsQuery = query(
         collection(db, "friendRequests"),
         where("receiverUid", "==", firebaseUser.uid),
@@ -179,32 +194,13 @@ const TabLayoutContent: React.FC = () => {
     } else {
       setFriendRequestsCount(0);
     }
-  }, [firebaseUser]); // Zależność tylko od firebaseUser
-  if (isLoadingAuth) {
-    // Jeśli RootLayout (i store) nadal ładuje podstawowe dane autentykacji/profilu
-    return <LoadingScreen showLogo={true} />;
-  }
+  }, [firebaseUser]);
 
-  if (!firebaseUser || !userProfile) {
-    // Jeśli po zakończeniu ładowania nadal nie ma użytkownika lub jego profilu
-    // (powinno być obsłużone przez useEffect z przekierowaniem, ale jako zabezpieczenie)
-    return (
-      <View style={{ flex: 1, backgroundColor: theme.colors.background }} />
-    );
-  }
-
-  // Jeśli dotarliśmy tutaj, mamy użytkownika i jego profil ze store'u
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      clearAuthData(); // Wyczyść dane w store Zustand
-      // router.replace("/welcome"); // Przekierowanie jest już obsługiwane przez useEffect powyżej
-      // po zmianie firebaseUser na null w store
-    } catch (error) {
-      console.error("Error logging out:", error);
-    }
-  };
-
+  // if (isLoadingAuth) {
+  //   // Jeśli RootLayout (i store) nadal ładuje podstawowe dane autentykacji/profilu
+  //   return <LoadingScreen showLogo={true} />;
+  // }
+  // useFocusEffect dla BackHandler (ten jest OK, bo jest hookiem)
   useFocusEffect(
     React.useCallback(() => {
       const onBackPress = () => {
@@ -270,9 +266,36 @@ const TabLayoutContent: React.FC = () => {
     }, [segments, router]) // Usunięto navigation z zależności
   );
 
-  // if (loading) {
-  //   return <LoadingScreen showLogo={true} />;
-  // }
+  // --- Logika renderowania ---
+  // Pokazuj LoadingScreen tylko, gdy RootLayout (i store) sygnalizuje ładowanie.
+  // Jeśli isLoadingAuth jest false, ale nie ma użytkownika, useFocusEffect powinien
+  // był już zainicjować przekierowanie, a my tu zwrócimy null lub lekki placeholder,
+  // aby uniknąć renderowania Tabs.
+  if (isLoadingAuth) {
+    return <LoadingScreen showLogo={true} />;
+  }
+
+  // Jeśli nie ładujemy, ale nie ma użytkownika lub profilu
+  // (co oznacza, że useFocusEffect zaraz przekieruje lub już to zrobił),
+  // zwróć null, aby uniknąć próby renderowania Tabs z niekompletnymi danymi.
+  // To zapobiega błędowi "Rendered fewer hooks" bo nie ma wczesnego return *przed* innymi hookami.
+  if (!firebaseUser || !userProfile) {
+    console.log(
+      "TabLayout: Rendering null/placeholder because no firebaseUser or userProfile (and not isLoadingAuth). Redirect should be in progress."
+    );
+    return null; // Lub <View style={{ flex: 1, backgroundColor: theme.colors.background }} />;
+  }
+
+  // Jeśli dotarliśmy tutaj, mamy użytkownika, profil i nie ładujemy. Renderuj Tabs.
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      clearAuthData(); // To spowoduje zmianę firebaseUser/userProfile na null,
+      // co z kolei triggeruje useFocusEffect do przekierowania.
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+  };
 
   const handleNavigateToAccount = () => {
     router.push("/account");

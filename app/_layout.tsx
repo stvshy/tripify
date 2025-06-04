@@ -77,76 +77,88 @@ export default function RootLayout() {
   useEffect(() => {
     // Funkcja pomocnicza do finalizowania i ustawiania stanu gotowości
     const finalizePreparation = (route: string) => {
+      console.log(
+        `RootLayout: Finalizing preparation. Determined route: ${route}. Current firebaseUser (in store via getState): ${!!useAuthStore.getState().firebaseUser}, Current userProfile (in store via getState):`,
+        useAuthStore.getState().userProfile
+      );
       setInitialRouteName(route);
       setIsLoadingAuth(false); // Zakończ ładowanie w store
       setIsNavigationReady(true); // Ustaw nawigację jako gotową
     };
-
-    const prepareApp = async () => {
+    const initAuthListener = () => {
       if (!fontsLoaded && !fontError) {
-        return; // Czekaj na załadowanie fontów
-      }
-      setIsLoadingAuth(true); // Rozpocznij ładowanie w store
-
-      try {
-        const unsubscribe = auth.onAuthStateChanged(
-          async (user: FirebaseUser | null) => {
-            unsubscribe(); // Odsubskrybuj po pierwszym odczycie
-
-            if (user) {
-              setFirebaseUser(user); // Zapisz obiekt FirebaseUser w store
-              const userDocRef = doc(db, "users", user.uid);
-              const userDoc = await getDoc(userDocRef);
-
-              if (userDoc.exists()) {
-                const firestoreData = userDoc.data();
-                const profileData: UserProfileData = {
-                  nickname: firestoreData?.nickname || null,
-                  firstLoginComplete:
-                    firestoreData?.firstLoginComplete || false,
-                  emailVerified: user.emailVerified,
-                };
-                setUserProfile(profileData); // Zapisz profil w store
-
-                // Ustal initialRouteName
-                if (!profileData.emailVerified) finalizePreparation("welcome");
-                else if (!profileData.nickname)
-                  finalizePreparation("setNickname");
-                else if (!profileData.firstLoginComplete)
-                  finalizePreparation("chooseCountries");
-                else finalizePreparation("(tabs)");
-              } else {
-                console.warn(
-                  "User document not found in Firestore for UID:",
-                  user.uid
-                );
-                const defaultProfile: UserProfileData = {
-                  nickname: null,
-                  firstLoginComplete: false,
-                  emailVerified: user.emailVerified,
-                };
-                setUserProfile(defaultProfile);
-                if (!user.emailVerified) finalizePreparation("welcome");
-                else finalizePreparation("setNickname");
-              }
-            } else {
-              // Brak zalogowanego użytkownika
-              setFirebaseUser(null);
-              setUserProfile(null);
-              finalizePreparation("welcome");
-            }
-          }
+        console.log(
+          "RootLayout: Fonts not loaded yet, waiting for auth listener setup."
         );
-      } catch (error: any) {
-        console.error("Error preparing app state:", error);
-        setErrorAuth(error.message || "An unknown error occurred");
-        setFirebaseUser(null);
-        setUserProfile(null);
-        finalizePreparation("welcome"); // Fallback route
+        return () => {}; // Zwróć pustą funkcję czyszczącą, jeśli fonty nie są gotowe
       }
+
+      console.log("RootLayout: Setting up onAuthStateChanged listener.");
+      setIsLoadingAuth(true);
+
+      const unsubscribeAuth = auth.onAuthStateChanged(
+        // <--- Listener jest tworzony tutaj
+        async (user: FirebaseUser | null) => {
+          console.log(
+            "RootLayout: onAuthStateChanged FIRED. User:",
+            user ? user.uid : "null"
+          );
+          // UWAGA: Jeśli `unsubscribe()` było tutaj, to jest problem.
+          // W poprzedniej wersji kodu, który analizowaliśmy, mogło tu jeszcze być.
+          // Upewnijmy się, że `unsubscribeAuth` NIE jest wywoływane wewnątrz tego callbacku.
+
+          if (user) {
+            setFirebaseUser(user);
+            const userDocRef = doc(db, "users", user.uid);
+            const userDoc = await getDoc(userDocRef);
+
+            if (userDoc.exists()) {
+              const firestoreData = userDoc.data();
+              const profileData: UserProfileData = {
+                nickname: firestoreData?.nickname || null,
+                firstLoginComplete: firestoreData?.firstLoginComplete || false,
+                emailVerified: user.emailVerified,
+              };
+              setUserProfile(profileData); // Zapisz profil w store
+
+              // Ustal initialRouteName
+              if (!profileData.emailVerified) finalizePreparation("welcome");
+              else if (!profileData.nickname)
+                finalizePreparation("setNickname");
+              else if (!profileData.firstLoginComplete)
+                finalizePreparation("chooseCountries");
+              else finalizePreparation("(tabs)");
+            } else {
+              console.warn(
+                "User document not found in Firestore for UID:",
+                user.uid
+              );
+              const defaultProfile: UserProfileData = {
+                nickname: null,
+                firstLoginComplete: false,
+                emailVerified: user.emailVerified,
+              };
+              setUserProfile(defaultProfile);
+              if (!user.emailVerified) finalizePreparation("welcome");
+              else finalizePreparation("setNickname");
+            }
+          } else {
+            // Brak zalogowanego użytkownika
+            setFirebaseUser(null);
+            setUserProfile(null);
+            finalizePreparation("welcome");
+          }
+        }
+      );
+      return () => {
+        // Funkcja czyszcząca dla useEffect
+        console.log("RootLayout: Unsubscribing from onAuthStateChanged.");
+        unsubscribeAuth(); // <--- unsubscribeAuth jest wywoływane TYLKO przy odmontowywaniu RootLayout
+      };
     };
 
-    prepareApp();
+    const cleanupFunction = initAuthListener();
+    return cleanupFunction;
   }, [
     fontsLoaded,
     fontError,
@@ -154,8 +166,6 @@ export default function RootLayout() {
     setUserProfile,
     setIsLoadingAuth,
     setErrorAuth,
-    // Nie ma potrzeby dodawać setInitialRouteName i setIsNavigationReady,
-    // ponieważ są one wywoływane przez funkcję zdefiniowaną wewnątrz tego efektu.
   ]);
 
   useEffect(() => {
@@ -190,19 +200,37 @@ export default function RootLayout() {
             <ThemedStatusBarAndNavBar tooltipVisible={false} />
             <QueryClientProvider client={queryClient}>
               <ThemedBackgroundWrapper>
-                {/* Renderuj Stack tylko gdy initialRouteName jest dostępne (co jest zapewnione przez isNavigationReady) */}
                 {initialRouteName && (
-                  <Stack
+                  <Stack // Ten <Stack> jest głównym nawigatorem
                     initialRouteName={initialRouteName}
                     screenOptions={{
                       headerShown: false,
                       contentStyle: { backgroundColor: "transparent" },
                       presentation: "card",
-                      animation: "ios",
+                      animation: "ios", // Domyślny slide dla innych przejść
                       gestureEnabled: true,
                       gestureDirection: "horizontal",
                     }}
-                  />
+                  >
+                    {/* Definiujemy ekrany wewnątrz tego Stacka */}
+                    <Stack.Screen
+                      name="welcome/index"
+                      options={{
+                        animation: "fade",
+                      }}
+                    />
+                    <Stack.Screen name="setNickname/index" />
+                    <Stack.Screen name="chooseCountries/index" />
+                    <Stack.Screen name="(tabs)" />
+                    <Stack.Screen name="(registration)" />
+                    <Stack.Screen name="forgotPassword/index" />
+                    <Stack.Screen name="login/index" />
+                    {/* Dodaj tutaj inne Stack.Screen dla tras najwyższego poziomu,
+                        jeśli chcesz dla nich ustawić specyficzne opcje lub
+                        jawnie je zadeklarować. Pamiętaj o poprawnych nazwach
+                        zgodnych z tym, co widzi Expo Router (np. "nazwaFolderu/index").
+                    */}
+                  </Stack>
                 )}
               </ThemedBackgroundWrapper>
             </QueryClientProvider>
