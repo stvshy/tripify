@@ -153,11 +153,11 @@ const styles = StyleSheet.create({
     paddingBottom: 20, // Zmniejszono trochę, aby dać więcej miejsca treści
   },
   mainContentContainer: {
-    flex: 1, // Ten kontener zajmie dostępną przestrzeń, pchając stopkę na dół
-    justifyContent: "center",
-    alignItems: "center",
+    flex: 1, // Ten kontener nadal zajmuje dostępną przestrzeń, pchając stopkę na dół
+    justifyContent: "flex-start", // ZMIANA: Wyrównuje zawartość do góry
+    alignItems: "center", // Utrzymuje zawartość wyśrodkowaną w poziomie
     paddingHorizontal: 20,
-    // paddingTop: -75, // Usunięto, pozwólmy flexboxowi zarządzać przestrzenią
+    paddingTop: 187,
   },
   loadingContainer: {
     flex: 1,

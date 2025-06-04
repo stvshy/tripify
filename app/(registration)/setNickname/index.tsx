@@ -171,14 +171,26 @@ export default function SetNicknameScreen() {
         background: {
           flex: 1,
         },
+        // backgroundImageStyle: {
+        //   resizeMode: "cover",
+        //   width: "140%",
+        //   height: "150%",
+        //   // Użyj width i height z useWindowDimensions do obliczeń, jeśli potrzebne
+        //   left: -width * 0.15, // np. -width * 0.2 lub stała wartość
+        //   top: -height * 0.18, // np. -height * 0.2 lub stała wartość
+        //   transform: [{ rotate: "-10deg" }],
+        // },
         backgroundImageStyle: {
           resizeMode: "cover",
-          width: "140%",
-          height: "150%",
-          // Użyj width i height z useWindowDimensions do obliczeń, jeśli potrzebne
-          left: -width * 0.15, // np. -width * 0.2 lub stała wartość
-          top: -height * 0.18, // np. -height * 0.2 lub stała wartość
-          transform: [{ rotate: "-10deg" }],
+          width: "124%",
+          height: "120%",
+          left: -20,
+          //   right: -10,
+          top: -90, // Zakomentowane w Twoim kodzie
+          transform: [
+            { rotate: "-180deg" }, // Istniejąca rotacja
+            { scaleY: -1 }, // Dodane pionowe odbicie lustrzane
+          ],
         },
         overlay: {
           ...StyleSheet.absoluteFillObject,
@@ -292,7 +304,7 @@ export default function SetNicknameScreen() {
           borderColor: "#6a1b9a",
         },
         sendButtonDisabled: {
-          opacity: 0.5,
+          opacity: 0.6,
         },
         sendButtonText: {
           color: "#FFFFFF",
@@ -305,7 +317,8 @@ export default function SetNicknameScreen() {
 
   return (
     <ImageBackground
-      source={require("../../../assets/images/gradient2.jpg")}
+      //   source={require("../../../assets/images/gradient2.jpg")}
+      source={require("../../../assets/images/to spoko.png")}
       style={styles.background}
       imageStyle={styles.backgroundImageStyle}
       fadeDuration={0}
