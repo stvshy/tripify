@@ -39,7 +39,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 const { width, height } = Dimensions.get("window");
 const db = getFirestore();
-
+const TURQUOISE_COLOR = "#8a32fe";
 export default function SetNicknameScreen() {
   const [nickname, setNickname] = useState("");
   const [isNicknameValid, setIsNicknameValid] = useState<null | boolean>(null);
@@ -171,15 +171,6 @@ export default function SetNicknameScreen() {
         background: {
           flex: 1,
         },
-        // backgroundImageStyle: {
-        //   resizeMode: "cover",
-        //   width: "140%",
-        //   height: "150%",
-        //   // Użyj width i height z useWindowDimensions do obliczeń, jeśli potrzebne
-        //   left: -width * 0.15, // np. -width * 0.2 lub stała wartość
-        //   top: -height * 0.18, // np. -height * 0.2 lub stała wartość
-        //   transform: [{ rotate: "-10deg" }],
-        // },
         backgroundImageStyle: {
           resizeMode: "cover",
           width: "124%",
@@ -288,13 +279,25 @@ export default function SetNicknameScreen() {
           paddingVertical: 10,
           paddingBottom: Platform.OS === "ios" ? 20 : 15,
         },
+        // NOWY STYL: Kontener dla przycisku i jego tła w stanie disabled
+        buttonWrapper: {
+          width: "90%", // Taka sama szerokość jak sendButton
+          position: "relative", // Potrzebne dla absolutnego pozycjonowania overlay
+        },
+        disabledButtonBackgroundOverlay: {
+          ...StyleSheet.absoluteFillObject, // Rozciągnij na cały buttonWrapper
+          backgroundColor: TURQUOISE_COLOR,
+          borderRadius: 25, // Taki sam jak sendButton
+          // Nie potrzebuje opacity, bo sam przycisk będzie miał opacity
+          opacity: 0.75,
+        },
         sendButton: {
           backgroundColor: "#9002c2",
           paddingVertical: 13,
           paddingHorizontal: 30,
           alignItems: "center",
           borderRadius: 25,
-          width: "90%",
+          width: "100%",
           elevation: 3,
           shadowColor: "#000",
           shadowOffset: { width: 0, height: 2 },
@@ -415,17 +418,24 @@ export default function SetNicknameScreen() {
               <Text style={styles.errorMessage}>{errorMessage}</Text>
             )}
           </ScrollView>
+          {/* ZMIANY W SEKCJI FOOTER */}
           <View style={styles.footer}>
-            <Pressable
-              onPress={handleSetNickname}
-              style={[
-                styles.sendButton,
-                isButtonDisabled && styles.sendButtonDisabled,
-              ]}
-              disabled={isButtonDisabled}
-            >
-              <Text style={styles.sendButtonText}>Save Nickname</Text>
-            </Pressable>
+            <View style={styles.buttonWrapper}>
+              {/* Ten View będzie widoczny tylko gdy przycisk jest disabled */}
+              {isButtonDisabled && (
+                <View style={styles.disabledButtonBackgroundOverlay} />
+              )}
+              <Pressable
+                onPress={handleSetNickname}
+                style={[
+                  styles.sendButton,
+                  isButtonDisabled && styles.sendButtonDisabled,
+                ]}
+                disabled={isButtonDisabled}
+              >
+                <Text style={styles.sendButtonText}>Save Nickname</Text>
+              </Pressable>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
