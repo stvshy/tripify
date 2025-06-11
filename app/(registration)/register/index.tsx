@@ -532,21 +532,21 @@ const styles = StyleSheet.create({
   },
   logo: {
     width: "40%", // Procentowa szerokość
-    height: height * 0.185, // Możesz dostosować, jeśli chcesz bardziej responsywne
+    height: height * 0.183, // Możesz dostosować, jeśli chcesz bardziej responsywne
   },
   logoContainer: {
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 12,
-    marginTop: height * 0.069, // Zmniejszony margines górny dla lepszego rozmieszczenia
+    marginBottom: 15,
+    marginTop: height * 0.079, // Zmniejszony margines górny dla lepszego rozmieszczenia
     width: "100%",
   },
   title: {
-    fontSize: width * 0.062, // Zastosowanie proporcjonalnej wielkości,
+    fontSize: width * 0.064, // Zastosowanie proporcjonalnej wielkości,
     fontFamily: "Figtree-Medium",
     // fontFamily: "Inter-Regular",
     textAlign: "center",
-    marginBottom: 20,
+    marginBottom: 15.2,
     color: "#FFEEFCFF",
     // marginTop: 5,
     width: "100%",
@@ -556,7 +556,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginBottom: 13,
     width: width * 0.89,
-    height: height * 0.08, // Ustawienie wysokości na 7% wysokości ekranu
+    height: height * 0.078, // Ustawienie wysokości na 7% wysokości ekranu
     backgroundColor: "#f0ed8f5",
     borderWidth: 2,
     borderColor: "transparent", // Domyślny kolor obramowania
@@ -624,6 +624,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
     // marginBottom: 20,
     width: width * 0.88,
+    marginLeft: -14,
   },
   requirementRow: {
     flexDirection: "row",
@@ -646,7 +647,7 @@ const styles = StyleSheet.create({
     // Nie potrzebuje position: absolute
   },
   requirementText: {
-    fontSize: 12.5,
+    fontSize: 12.7,
   },
   valid: {
     color: "#b0f5e5",
