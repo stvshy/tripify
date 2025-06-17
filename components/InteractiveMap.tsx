@@ -67,6 +67,8 @@ import { LinearGradient } from "expo-linear-gradient";
 // import { BlurView } from "@react-native-community/blur";
 import { BlurView } from "expo-blur";
 
+import { useMapState } from "@/app/config/MapStateProvider";
+
 export interface Country {
   id: string;
   name: string;
@@ -255,6 +257,7 @@ const InteractiveMapComponent = forwardRef<
   InteractiveMapRef,
   InteractiveMapProps
 >(({ selectedCountries, totalCountries, onCountryPress, style }, ref) => {
+  const { scale, translateX, translateY, resetMapTransform } = useMapState();
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
   const theme = useTheme();
   const router = useRouter(); // Hook do nawigacji
@@ -263,9 +266,9 @@ const InteractiveMapComponent = forwardRef<
   const [isSharing, setIsSharing] = useState(false);
   const [tooltip, setTooltip] = useState<TooltipPosition | null>(null);
   const scaleValue = useSharedValue(1);
-  const scale = useSharedValue(1);
-  const translateX = useSharedValue(initialTranslateX);
-  const translateY = useSharedValue(initialTranslateY);
+  // const scale = useSharedValue(1);
+  // const translateX = useSharedValue(initialTranslateX);
+  // const translateY = useSharedValue(initialTranslateY);
   const AnimatedImage = Animated.createAnimatedComponent(Image);
   const storedButtonTranslateY = useSharedValue(0);
   const tooltipVisible = useSharedValue(0);
@@ -958,34 +961,9 @@ const InteractiveMapComponent = forwardRef<
     popoverScale.value = withTiming(1, { duration: 100 });
   };
   const resetMap = useCallback(() => {
-    // Cancel any ongoing animations
-    cancelAnimation(scale);
-    cancelAnimation(translateX);
-    cancelAnimation(translateY);
-
-    // Use optimized spring configuration
-    scale.value = withSpring(1, {
-      damping: 20,
-      stiffness: 90,
-      mass: 1.2,
-      restDisplacementThreshold: 0.01,
-      restSpeedThreshold: 0.01,
-    });
-
-    translateX.value = withSpring(0, {
-      damping: 20,
-      stiffness: 90,
-      mass: 1.2,
-    });
-
-    translateY.value = withSpring(0, {
-      damping: 20,
-      stiffness: 90,
-      mass: 1.2,
-    });
-
+    resetMapTransform();
     runOnJS(setTooltip)(null);
-  }, []);
+  }, [resetMapTransform]);
 
   return (
     <GestureHandlerRootView>

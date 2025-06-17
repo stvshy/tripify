@@ -33,6 +33,7 @@ import { CountriesProvider, useCountries } from "../config/CountryContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import filteredCountriesData from "../../components/filteredCountries.json";
 import { useAuthStore } from "../store/authStore";
+import { MapStateProvider } from "../config/MapStateProvider";
 const db = getFirestore();
 
 // Custom TabBarButton component
@@ -63,9 +64,12 @@ const Badge: React.FC<{ count: number }> = ({ count }) => {
 
 export default function TabLayout() {
   return (
-    <CountriesProvider>
-      <TabLayoutContent />
-    </CountriesProvider>
+    // 2. Owiń wszystko w MapStateProvider
+    <MapStateProvider>
+      <CountriesProvider>
+        <TabLayoutContent />
+      </CountriesProvider>
+    </MapStateProvider>
   );
 }
 
