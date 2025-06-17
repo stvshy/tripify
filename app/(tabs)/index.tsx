@@ -5,7 +5,8 @@ import { useTheme } from "react-native-paper";
 import filteredCountriesData from "../../components/filteredCountries.json";
 import MyCustomSpinner from "@/components/MyCustomSpinner";
 
-// Importuj TYLKO hook do pobierania stanu z Contextu
+// KROK 1: Importuj useFocusEffect
+import { useFocusEffect } from "@react-navigation/native";
 import { useMapState } from "../config/MapStateProvider";
 
 const totalCountries = filteredCountriesData.countries.length;
@@ -13,14 +14,25 @@ const totalCountries = filteredCountriesData.countries.length;
 export default function IndexScreen() {
   const theme = useTheme();
 
-  // Pobierz wszystko, czego potrzebujesz, z jednego, centralnego miejsca
-  const { selectedCountries, isLoadingData } = useMapState();
+  // KROK 2: Pobierz funkcję resetującą z naszego hooka
+  const { selectedCountries, isLoadingData, resetMapTransform } = useMapState();
+
+  // KROK 3: Użyj useFocusEffect, aby zresetować mapę przy każdym wejściu
+  useFocusEffect(
+    useCallback(() => {
+      // Ta funkcja zostanie wykonana za każdym razem, gdy ekran (zakładka)
+      // stanie się aktywny.
+      resetMapTransform();
+
+      // Nie potrzebujemy funkcji czyszczącej, więc jej nie zwracamy.
+    }, [resetMapTransform]) // Zależność od funkcji resetującej
+  );
 
   const handleCountryPress = useCallback((countryCode: string) => {
     console.log(`Country pressed: ${countryCode}`);
   }, []);
 
-  // Logika renderowania jest teraz o wiele czystsza
+  // Logika renderowania spinnera pozostaje bez zmian
   if (isLoadingData || selectedCountries === null) {
     return (
       <View
@@ -34,7 +46,7 @@ export default function IndexScreen() {
     );
   }
 
-  // Renderuj mapę - teraz jej propsy będą stabilne i nie spowodują re-renderu
+  // Renderowanie mapy również pozostaje bez zmian
   return (
     <View
       style={[styles.container, { backgroundColor: theme.colors.background }]}
