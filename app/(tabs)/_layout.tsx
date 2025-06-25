@@ -34,7 +34,19 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import filteredCountriesData from "../../components/filteredCountries.json";
 import { useAuthStore } from "../store/authStore";
 import { MapStateProvider } from "../config/MapStateProvider";
+import { MMKV } from "react-native-mmkv";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
+
+const mmkv = new MMKV();
 const db = getFirestore();
+const persister = createSyncStoragePersister({
+  storage: {
+    setItem: (key, value) => mmkv.set(key, value),
+    getItem: (key) => mmkv.getString(key) ?? null,
+    removeItem: (key) => mmkv.delete(key),
+  },
+});
 
 // Custom TabBarButton component
 const CustomTabBarButton: React.FC<BottomTabBarButtonProps> = ({

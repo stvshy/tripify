@@ -1,5 +1,4 @@
-// ThemeContext.tsx
-
+// app/config/ThemeContext.tsx
 import React, {
   createContext,
   useState,
@@ -13,12 +12,17 @@ import {
   Provider as PaperProvider,
   MD3Theme,
 } from "react-native-paper";
+import { Appearance } from "react-native"; // <-- POPRAWKA: Import Appearance
+import { storage } from "./storage";
+
+const THEME_KEY = "user-theme";
 
 interface ThemeContextProps {
   toggleTheme: () => void;
   isDarkTheme: boolean;
 }
 
+// <-- POPRAWKA: Poprawnie wyeksportowany ThemeContext
 export const ThemeContext = createContext<ThemeContextProps>({
   toggleTheme: () => {},
   isDarkTheme: false,
@@ -29,12 +33,23 @@ interface ThemeProviderProps {
 }
 
 export const ThemeProvider = ({ children }: ThemeProviderProps) => {
-  const [isDarkTheme, setIsDarkTheme] = useState(false);
+  // Przy starcie odczytaj motyw z pamięci lub użyj domyślnego
+  const [isDarkTheme, setIsDarkTheme] = useState(() => {
+    const storedTheme = storage.getString(THEME_KEY);
+    if (storedTheme) {
+      return storedTheme === "dark";
+    }
+    return Appearance.getColorScheme() === "dark"; // Domyślny z systemu
+  });
 
   const toggleTheme = useCallback(() => {
-    setIsDarkTheme((prevTheme) => !prevTheme);
-    console.log("Theme toggled to:", !isDarkTheme ? "dark" : "light");
-  }, [isDarkTheme]);
+    setIsDarkTheme((prevTheme) => {
+      const newTheme = !prevTheme;
+      storage.set(THEME_KEY, newTheme ? "dark" : "light");
+      console.log("Theme toggled to:", newTheme ? "dark" : "light");
+      return newTheme;
+    });
+  }, []);
 
   const theme: MD3Theme = useMemo(() => {
     if (isDarkTheme) {
@@ -42,10 +57,9 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
         ...PaperDarkTheme,
         colors: {
           ...PaperDarkTheme.colors,
-          primary: "#bf80ff", // Jaśniejszy fiolet w trybie ciemnym
-          surfaceVariant: "#2c2c2c", // Przyciemnione tło dla zaznaczonych elementów w trybie ciemnym
-          outline: "#555555", // Przyciemnione obramowanie flag i separatorów w trybie ciemnym
-          // Dodaj inne dostosowane kolory tutaj
+          primary: "#bf80ff",
+          surfaceVariant: "#2c2c2c",
+          outline: "#555555",
         },
       };
     } else {
@@ -53,10 +67,9 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
         ...PaperDefaultTheme,
         colors: {
           ...PaperDefaultTheme.colors,
-          primary: "#ae05ea", // Fioletowy kolor przycisku i innych elementów w trybie jasnym
-          surfaceVariant: "#f0efef", // Jaśniejsze tło dla zaznaczonych elementów w trybie jasnym
-          outline: "#cccccc", // Jasne obramowanie flag i separatorów w trybie jasnym
-          // Dodaj inne dostosowane kolory tutaj
+          primary: "#ae05ea",
+          surfaceVariant: "#f0efef",
+          outline: "#cccccc",
         },
       };
     }
