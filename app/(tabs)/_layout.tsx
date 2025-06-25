@@ -141,7 +141,7 @@ const TabLayoutContent: React.FC = () => {
     clearAuthData, // Do wylogowania
   } = useAuthStore();
   const router = useRouter();
-  const [friendRequestsCount, setFriendRequestsCount] = useState<number>(0);
+  // const [friendRequestsCount, setFriendRequestsCount] = useState<number>(0);
   useFocusEffect(
     React.useCallback(() => {
       console.log(
@@ -196,21 +196,19 @@ const TabLayoutContent: React.FC = () => {
   );
 
   // useEffect dla friendRequestsCount
+  // ZMIANA: Pobierz nowe dane i akcje ze store'a (dodaj je na górze komponentu TabLayoutContent)
+  const { listenToFriendRequests, friendRequestsCount } = useAuthStore();
+
+  // ZMIANA: Zastąp stary useEffect tym
   useEffect(() => {
-    if (firebaseUser) {
-      const friendRequestsQuery = query(
-        collection(db, "friendRequests"),
-        where("receiverUid", "==", firebaseUser.uid),
-        where("status", "==", "pending")
-      );
-      const unsubscribe = onSnapshot(friendRequestsQuery, (snapshot) => {
-        setFriendRequestsCount(snapshot.size);
-      });
-      return () => unsubscribe();
-    } else {
-      setFriendRequestsCount(0);
+    if (firebaseUser?.uid) {
+      // Uruchom nasłuchiwanie, przekazując UID użytkownika
+      listenToFriendRequests(firebaseUser.uid);
     }
-  }, [firebaseUser]);
+
+    // Funkcja czyszcząca jest teraz zarządzana wewnątrz store'a,
+    // więc nie musimy jej tutaj zwracać.
+  }, [firebaseUser, listenToFriendRequests]);
 
   // if (isLoadingAuth) {
   //   // Jeśli RootLayout (i store) nadal ładuje podstawowe dane autentykacji/profilu
