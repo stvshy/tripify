@@ -41,6 +41,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../config/firebaseConfig";
 import { LinearGradient } from "expo-linear-gradient";
+import { useAuthStore } from "../store/authStore";
 
 const { width, height } = Dimensions.get("window");
 
@@ -60,7 +61,7 @@ export default function WelcomeScreen() {
   });
   const [isLoading, setIsLoading] = useState<boolean>(false); // Dodany spinner
   const [emailError, setEmailError] = useState<string | null>(null);
-
+  const { setUserProfile } = useAuthStore();
   useEffect(() => {
     if (resendTimer > 0) {
       const timerId = setInterval(
@@ -228,11 +229,14 @@ export default function WelcomeScreen() {
         const nickname = userData?.nickname;
         const isVerifiedInDb = userData?.isVerified;
         const firstLoginComplete = userData?.firstLoginComplete;
-        // Jeśli użytkownik potwierdził e-mail, ale `isVerified` jest `false` w Firestore, zaktualizuj to pole
-        if (!isVerifiedInDb && user.emailVerified) {
-          await updateDoc(userDocRef, { isVerified: true });
-          console.log("User verified in Firestore.");
-        }
+
+        // <<-- ZMIANA 3: Zaktualizuj stan w Zustand PRZED nawigacją!
+        // To jest najważniejsza poprawka.
+        setUserProfile({
+          nickname: userData.nickname,
+          firstLoginComplete: userData.firstLoginComplete,
+          emailVerified: user.emailVerified, // Używamy świeżej wartości z obiektu 'user'
+        });
 
         if (!nickname) {
           console.log("Nickname not set, redirecting to setNickname");

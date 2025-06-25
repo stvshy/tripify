@@ -13,9 +13,9 @@ import { useRouter } from "expo-router";
 import { auth, db } from "../../config/firebaseConfig"; // Upewnij się, że ścieżka jest poprawna
 import { onAuthStateChanged } from "firebase/auth";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore"; // Import updateDoc
 import CustomStepIndicator from "../../../components/CustomStepIndicator"; // Upewnij się, że ścieżka jest poprawna
-
+import { useAuthStore } from "../../store/authStore";
 // const { width } = Dimensions.get('window');
 
 export default function RegistrationSuccessScreen() {
@@ -24,7 +24,7 @@ export default function RegistrationSuccessScreen() {
   const [isVerified, setIsVerified] = useState(false);
   const [countdown, setCountdown] = useState(7);
   const [showSuccessScreen, setShowSuccessScreen] = useState(true);
-
+  const { setUserProfile } = useAuthStore.getState();
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -32,42 +32,55 @@ export default function RegistrationSuccessScreen() {
         const emailVerified = user.emailVerified;
         setIsVerified(emailVerified);
 
-        const redirectDelay = 7000; // 7 sekund
+        const userDocRef = doc(db, "users", user.uid);
 
         if (emailVerified) {
-          const userDocRef = doc(db, "users", user.uid);
           const userDoc = await getDoc(userDocRef);
-
           if (userDoc.exists()) {
             const userData = userDoc.data();
+
+            // 3. Zaktualizuj stan w Zustand!
+            // To jest kluczowa zmiana, która rozwiąże problem.
+            setUserProfile({
+              nickname: userData.nickname,
+              firstLoginComplete: userData.firstLoginComplete,
+              emailVerified: true, // Ustawiamy na true!
+            });
+
+            // Opcjonalnie: zaktualizuj też pole w Firestore, jeśli takie masz
+            if (userData.isVerified === false) {
+              await updateDoc(userDocRef, { isVerified: true });
+            }
+
             const firstLoginComplete = userData?.firstLoginComplete;
 
             if (!firstLoginComplete) {
               setTimeout(() => {
                 router.replace("/chooseCountries");
-              }, redirectDelay);
-              setLoading(false);
-              return;
+              }, 7000);
+            } else {
+              setTimeout(() => {
+                router.replace("/");
+              }, 7000);
             }
           }
-          setTimeout(() => {
-            router.replace("/");
-          }, redirectDelay);
         } else {
+          // Jeśli email nie jest zweryfikowany, przekieruj do welcome
           setTimeout(() => {
             router.replace("/welcome");
-          }, redirectDelay);
+          }, 7000);
         }
       } else {
+        // Jeśli nie ma użytkownika, przekieruj do welcome
         setTimeout(() => {
           router.replace("/welcome");
-        }, 7000); // Użyj redirectDelay także tutaj, jeśli ma być spójne
+        }, 7000);
       }
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [router]);
+  }, [router, setUserProfile]);
 
   useEffect(() => {
     if (!loading && countdown > 0) {

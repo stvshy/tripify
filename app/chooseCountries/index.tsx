@@ -39,7 +39,7 @@ import { ThemeContext } from "../config/ThemeContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import filteredCountriesData from "../../components/filteredCountries.json";
 import { useCountries } from "../config/CountryContext"; // Import hook z kontekstu
-
+import { useAuthStore } from "../store/authStore";
 const { width, height } = Dimensions.get("window");
 
 type Continent =
@@ -228,7 +228,7 @@ export default function ChooseCountriesScreen({
   const [isPopupVisible, setIsPopupVisible] = useState(true);
   const searchInputRef = useRef<TextInput>(null);
   const { visitedCountries, setVisitedCountries } = useCountries(); // Pobranie stanu z kontekstu
-
+  const { userProfile, setUserProfile } = useAuthStore();
   useEffect(() => {
     const checkPopup = async () => {
       try {
@@ -404,12 +404,26 @@ export default function ChooseCountriesScreen({
     if (user) {
       try {
         const userDocRef = doc(db, "users", user.uid);
+
+        // Aktualizujesz Firestore (to jest już u Ciebie i jest OK)
         await updateDoc(userDocRef, {
           countriesVisited: selectedCountries,
-          firstLoginComplete: true,
+          firstLoginComplete: true, // Kluczowy fragment
         });
         console.log("Selected countries saved:", selectedCountries);
+
+        // 3. ZAKTUALIZUJ STAN W ZUSTAND
+        // To jest kluczowy fragment, który musisz dodać.
+        if (userProfile) {
+          setUserProfile({
+            ...userProfile, // Zachowaj istniejące dane jak nickname, emailVerified
+            firstLoginComplete: true, // Nadpisz tylko to pole
+          });
+        }
+
         await AsyncStorage.setItem("hasShownPopup", "true");
+
+        // Przekieruj na stronę główną
         router.replace("/");
       } catch (error) {
         console.error("Error saving countries:", error);
@@ -422,7 +436,8 @@ export default function ChooseCountriesScreen({
       Alert.alert("Not Logged In", "User is not authenticated.");
       router.replace("/welcome");
     }
-  }, [selectedCountries, router]);
+    // ZMIANA: Dodaj userProfile i setUserProfile do tablicy zależności hooka useCallback
+  }, [selectedCountries, router, userProfile, setUserProfile]);
 
   // Function to handle clicking outside the text input
   const dismissKeyboard = useCallback(() => {
