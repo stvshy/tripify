@@ -1,4 +1,3 @@
-// app/store/authStore.ts
 import { create } from "zustand";
 import { User as FirebaseUser } from "firebase/auth";
 import { db } from "../config/firebaseConfig";
@@ -9,77 +8,55 @@ export interface UserProfileData {
   firstLoginComplete: boolean;
   emailVerified: boolean;
 }
-
-// POPRAWKA: Dodajemy nowe pola i akcje do interfejsów
 interface AuthState {
   firebaseUser: FirebaseUser | null;
   userProfile: UserProfileData | null;
   isLoadingAuth: boolean;
   errorAuth: string | null;
-  friendRequestsCount: number; // <-- NOWE POLE
-  unsubscribeRequests?: () => void; // <-- NOWE POLE
+  friendRequestsCount: number;
+  unsubscribeRequests?: () => void;
 }
-
 interface AuthActions {
   setFirebaseUser: (user: FirebaseUser | null) => void;
   setUserProfile: (profile: UserProfileData | null) => void;
   setIsLoadingAuth: (loading: boolean) => void;
   setErrorAuth: (error: string | null) => void;
   clearAuthData: () => void;
-  listenToFriendRequests: (uid: string) => void; // <-- NOWA AKCJA
+  listenToFriendRequests: (uid: string) => void;
 }
 
-export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
-  // --- Istniejący stan ---
+const initialState: AuthState = {
   firebaseUser: null,
   userProfile: null,
   isLoadingAuth: true,
   errorAuth: null,
-
-  // --- NOWY STAN ---
   friendRequestsCount: 0,
   unsubscribeRequests: undefined,
+};
 
-  // --- Istniejące akcje ---
+export const useAuthStore = create<AuthState & AuthActions>()((set, get) => ({
+  ...initialState,
   setFirebaseUser: (user) => set({ firebaseUser: user }),
   setUserProfile: (profile) => set({ userProfile: profile }),
   setIsLoadingAuth: (loading) => set({ isLoadingAuth: loading }),
   setErrorAuth: (error) => set({ errorAuth: error }),
-
   clearAuthData: () => {
-    get().unsubscribeRequests?.(); // Anuluj subskrypcję przy wylogowaniu
-    set({
-      firebaseUser: null,
-      userProfile: null,
-      isLoadingAuth: false,
-      friendRequestsCount: 0, // Zresetuj licznik
-      unsubscribeRequests: undefined,
-    });
-  },
-
-  // --- NOWA AKCJA ---
-  listenToFriendRequests: (uid: string) => {
-    // Anuluj poprzednią subskrypcję, jeśli istnieje, by uniknąć wycieków
     get().unsubscribeRequests?.();
-
-    const q = query(
-      collection(db, "friendRequests"),
-      where("receiverUid", "==", uid),
-      where("status", "==", "pending")
-    );
-
+    set(initialState);
+  },
+  listenToFriendRequests: (uid: string) => {
+    get().unsubscribeRequests?.();
+    const requestsRef = collection(db, "users", uid, "incomingFriendRequests");
     const unsubscribe = onSnapshot(
-      q,
+      requestsRef,
       (snapshot) => {
         set({ friendRequestsCount: snapshot.size });
       },
       (error) => {
-        console.error("Error listening to friend requests:", error);
+        console.error("Error listening to friend requests count:", error);
         set({ friendRequestsCount: 0 });
       }
     );
-
-    // Zapisz nową funkcję anulowania subskrypcji
     set({ unsubscribeRequests: unsubscribe });
   },
 }));

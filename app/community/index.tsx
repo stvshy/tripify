@@ -1,4 +1,3 @@
-// app/community/index.tsx
 import React, { useEffect, useState, useCallback, useRef, memo } from "react";
 import {
   View,
@@ -18,7 +17,13 @@ import { useTheme, MD3Theme } from "react-native-paper";
 import { useFocusEffect } from "@react-navigation/native";
 import { AntDesign, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { LayoutAnimation, UIManager } from "react-native";
-import { useCommunityStore, User, Friendship } from "../store/communityStore";
+// ZMIANA: Importujemy Friendship, bo jest potrzebny do typowania
+import {
+  useCommunityStore,
+  User,
+  Friendship,
+  OutgoingRequest,
+} from "../store/communityStore";
 
 if (
   Platform.OS === "android" &&
@@ -31,7 +36,7 @@ const DEBOUNCE_DELAY = 300;
 
 // --- Komponenty potomne (bez zmian) ---
 interface FriendListItemProps {
-  item: Friendship;
+  item: Friendship; // item to teraz { uid: string, nickname: string }
   activeFriendId: string | null;
   theme: MD3Theme;
   onNavigateToProfile: (uid: string) => void;
@@ -48,16 +53,16 @@ const FriendListItem: React.FC<FriendListItemProps> = memo(
     onRemoveFriend,
   }) => (
     <TouchableOpacity
-      onPress={() => onNavigateToProfile(item.friendUid)}
+      onPress={() => onNavigateToProfile(item.uid)} // ZMIANA: item.friendUid -> item.uid
       onLongPress={() => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        onSetActiveFriendId(item.id);
+        onSetActiveFriendId(item.uid); // ZMIANA: item.id -> item.uid
       }}
       style={[
         styles.friendItem,
         {
           backgroundColor:
-            activeFriendId === item.id
+            activeFriendId === item.uid // ZMIANA: item.id -> item.uid
               ? theme.colors.surfaceVariant
               : theme.colors.surface,
           borderBottomColor: theme.colors.outline,
@@ -81,9 +86,9 @@ const FriendListItem: React.FC<FriendListItemProps> = memo(
           {item.nickname}
         </Text>
       </View>
-      {activeFriendId === item.id && (
+      {activeFriendId === item.uid && ( // ZMIANA: item.id -> item.uid
         <TouchableOpacity
-          onPress={() => onRemoveFriend(item.id)}
+          onPress={() => onRemoveFriend(item.uid)} // ZMIANA: item.id -> item.uid
           style={styles.removeButton}
         >
           <Ionicons name="close-circle" size={24} color="red" />
@@ -92,13 +97,14 @@ const FriendListItem: React.FC<FriendListItemProps> = memo(
     </TouchableOpacity>
   )
 );
+
 interface SearchResultItemProps {
   item: User;
   theme: MD3Theme;
   isAlreadyFriend: boolean;
   hasSentRequest: boolean;
   onNavigateToProfile: (uid: string) => void;
-  onAddFriend: (uid: string) => void;
+  onAddFriend: (uid: string, nickname: string) => void;
 }
 const SearchResultItem: React.FC<SearchResultItemProps> = memo(
   ({
@@ -144,7 +150,7 @@ const SearchResultItem: React.FC<SearchResultItemProps> = memo(
           {item.nickname}
         </Text>
         <TouchableOpacity
-          onPress={() => onAddFriend(item.uid)}
+          onPress={() => onAddFriend(item.uid, item.nickname)}
           style={[
             specificButtonStyle,
             { backgroundColor: buttonBackgroundColor },
@@ -160,13 +166,13 @@ const SearchResultItem: React.FC<SearchResultItemProps> = memo(
 
 // --- Główny komponent ---
 export default function CommunityScreen() {
-  // POPRAWKA: Pobieramy `friendsAsUserA` i `friendsAsUserB` zamiast `friends`
   const {
     friends,
-    sentRequestReceiverUids,
+    outgoingRequests,
     searchResults,
     isLoading,
-    listenForCommunityData,
+    // listenForCommunityData,
+    // cleanup,
     searchUsers,
     sendFriendRequest,
     removeFriend,
@@ -180,19 +186,12 @@ export default function CommunityScreen() {
   const router = useRouter();
   const theme = useTheme();
 
-  useFocusEffect(
-    useCallback(() => {
-      listenForCommunityData();
-      return () => useCommunityStore.getState().unsubscribeListeners();
-    }, [listenForCommunityData])
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      listenForCommunityData();
-      return () => useCommunityStore.getState().unsubscribeListeners();
-    }, [listenForCommunityData])
-  );
+  // useFocusEffect(
+  //   useCallback(() => {
+  //     listenForCommunityData();
+  //     return () => cleanup();
+  //   }, [listenForCommunityData, cleanup])
+  // );
 
   useEffect(() => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
@@ -214,13 +213,15 @@ export default function CommunityScreen() {
     searchUsers("");
     setActiveFriendId(null);
   }, [searchUsers]);
+
   const isAlreadyFriend = useCallback(
-    (uid: string) => friends.some((friend) => friend.friendUid === uid),
+    (uid: string) => friends.some((friend) => friend.uid === uid), // ZMIANA: friend.friendUid -> friend.uid
     [friends]
   );
+
   const hasSentRequest = useCallback(
-    (uid: string) => sentRequestReceiverUids.includes(uid),
-    [sentRequestReceiverUids]
+    (uid: string) => outgoingRequests.some((req) => req.receiverUid === uid),
+    [outgoingRequests]
   );
 
   if (isLoading) {
@@ -354,16 +355,21 @@ export default function CommunityScreen() {
                     </View>
                   ) : (
                     <FlatList
-                      // POPRAWKA: Jawne typowanie parametru `friend`
+                      // NOWA WERSJA (odporna na błąd)
                       data={friends.filter((friend: Friendship) =>
-                        friend.nickname
-                          .toLowerCase()
-                          .includes(searchText.toLowerCase())
+                        friend &&
+                        friend.nickname &&
+                        typeof friend.nickname === "string"
+                          ? friend.nickname
+                              .toLowerCase()
+                              .includes(searchText.toLowerCase())
+                          : false
                       )}
-                      keyExtractor={(item) => item.id}
+                      // To również zacznie działać
+                      keyExtractor={(item) => item.uid}
                       renderItem={({ item }) => (
                         <FriendListItem
-                          item={item}
+                          item={item} // item to teraz {uid, nickname}
                           activeFriendId={activeFriendId}
                           theme={theme}
                           onNavigateToProfile={navigateToProfile}
@@ -408,8 +414,8 @@ export default function CommunityScreen() {
     </View>
   );
 }
-// StyleSheet.create jest wywoływane tylko raz na poziomie modułu.
-// Style zależne od theme muszą być definiowane inline lub przez funkcję przyjmującą theme.
+
+// StyleSheet (bez zmian)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -480,7 +486,6 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   addCircle: {
-    // Styl dla przycisku "Add" (kółko)
     width: 27,
     height: 27,
     borderRadius: 20,
@@ -494,32 +499,26 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   sentButton: {
-    // Styl dla przycisków "Sent" i "Friend" (kształt prostokąta)
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    left: 2.7, // Możesz dostosować lub usunąć, jeśli nie jest potrzebne
-    // marginRight: 10, // Możesz dodać, jeśli chcesz odstęp jak w addCircle
+    left: 2.7,
   },
   friendButton: {
-    // Styl dla przycisków "Sent" i "Friend" (kształt prostokąta)
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    left: 8, // Możesz dostosować lub usunąć, jeśli nie jest potrzebne
-    // marginRight: 10, // Możesz dodać, jeśli chcesz odstęp jak w addCircle
+    left: 8,
   },
   sentButtonText: {
-    // Styl tekstu dla przycisku "Sent"
-    color: "#fff", // Zakładając, że tło (#ccc) jest wystarczająco jasne
+    color: "#fff",
     fontSize: 14,
     fontWeight: "500",
   },
-  // Usunięto friendButtonText, ponieważ styl tekstu "Friend" jest teraz inline
   searchItem: {
     flexDirection: "row",
     justifyContent: "space-between",

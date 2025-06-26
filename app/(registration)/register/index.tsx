@@ -25,6 +25,7 @@ import { useRouter } from "expo-router";
 import { getFirestore, setDoc, doc, serverTimestamp } from "firebase/firestore";
 import CustomStepIndicator from "../../../components/CustomStepIndicator";
 import { Ionicons } from "@expo/vector-icons";
+import { useAuthStore, UserProfileData } from "@/app/store/authStore";
 const { width, height } = Dimensions.get("window");
 const db = getFirestore();
 const ESTIMATED_STEPPER_HEIGHT = 70;
@@ -107,7 +108,7 @@ export default function RegisterScreen() {
       keyboardDidHideListener.remove();
     };
   }, []);
-
+  const { setFirebaseUser, setUserProfile } = useAuthStore();
   const handleRegister = async () => {
     setErrorMessage(null);
     setIsLoading(true); // Ustawienie spinnera na "true"
@@ -149,21 +150,35 @@ export default function RegisterScreen() {
       );
       const user = userCredential.user;
 
+      // ZMIANA ZACZYNA SIĘ TUTAJ
+
+      // 1. Przygotuj dane profilu, które zapiszesz
+      const newUserProfile: UserProfileData = {
+        nickname: null,
+        firstLoginComplete: false,
+        emailVerified: user.emailVerified, // Będzie `false`
+      };
+
+      // 2. Zapisz dokument w Firestore
       await setDoc(doc(db, "users", user.uid), {
         uid: user.uid,
         email: user.email,
-        nickname: null,
-        isVerified: false,
+        nickname: newUserProfile.nickname,
+        isVerified: user.emailVerified,
         createdAt: serverTimestamp(),
         authProvider: "email",
-        firstLoginComplete: false,
+        firstLoginComplete: newUserProfile.firstLoginComplete,
       });
 
-      // Wysłanie e-maila weryfikacyjnego
+      // 3. Zaktualizuj globalny stan (store) OD RAZU
+      setFirebaseUser(user);
+      setUserProfile(newUserProfile);
+
+      // 4. Wyślij e-mail weryfikacyjny
       await sendEmailVerification(user);
-      setErrorMessage(null);
-      setResendTimer(60); // Ustawienie timera na 60 sekund;
-      router.replace("/setNickname"); // Przekierowanie do ekranu ustawienia pseudonimu
+
+      // 5. Przekieruj - teraz RootLayout będzie miał już aktualne dane ze store'u
+      router.replace("/setNickname");
     } catch (error: any) {
       switch (error.code) {
         case "auth/email-already-in-use":

@@ -1,5 +1,5 @@
 // app/(tabs)/_layout.tsx
-import React, { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState, useContext, useCallback } from "react";
 import {
   View,
   Text,
@@ -37,6 +37,7 @@ import { MapStateProvider } from "../config/MapStateProvider";
 import { MMKV } from "react-native-mmkv";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
+import { useCommunityStore } from "../store/communityStore";
 
 const mmkv = new MMKV();
 const db = getFirestore();

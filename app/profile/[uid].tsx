@@ -40,6 +40,8 @@ import countriesData from "../../assets/maps/countries.json";
 import CountryFlag from "react-native-country-flag";
 import RankingList from "../../components/RankingList";
 import { ThemeContext } from "../config/ThemeContext";
+import { useCommunityStore } from "../store/communityStore";
+import { useFocusEffect } from "expo-router";
 
 interface Country {
   id: string;
@@ -49,7 +51,6 @@ interface Country {
   class: string;
   path: string;
 }
-
 interface UserProfile {
   uid: string;
   nickname: string;
@@ -57,13 +58,11 @@ interface UserProfile {
   ranking: string[];
   countriesVisited: string[];
 }
-
 interface RankingSlot {
   id: string;
   rank: number;
   country: Country | null;
 }
-
 const removeDuplicates = (countries: Country[]): Country[] => {
   const unique = new Map<string, Country>();
   countries.forEach((c) => {
@@ -71,10 +70,8 @@ const removeDuplicates = (countries: Country[]): Country[] => {
   });
   return Array.from(unique.values());
 };
-
 const generateUniqueId = () =>
   `rank-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
 const ProfileRankingItem: React.FC<{ slot: RankingSlot }> = memo(({ slot }) => {
   const theme = useTheme();
   return (
@@ -89,11 +86,12 @@ const ProfileRankingItem: React.FC<{ slot: RankingSlot }> = memo(({ slot }) => {
       </Text>
       {slot.country ? (
         <>
+          {" "}
           <CountryFlag
             isoCode={slot.country.cca2}
             size={20}
             style={profileStyles.flag}
-          />
+          />{" "}
           <Text
             style={[
               profileStyles.countryName,
@@ -101,7 +99,7 @@ const ProfileRankingItem: React.FC<{ slot: RankingSlot }> = memo(({ slot }) => {
             ]}
           >
             {slot.country.name}
-          </Text>
+          </Text>{" "}
         </>
       ) : (
         <Text
@@ -113,24 +111,59 @@ const ProfileRankingItem: React.FC<{ slot: RankingSlot }> = memo(({ slot }) => {
     </View>
   );
 });
-
-type FriendStatus = "none" | "sent" | "received" | "friend" | "checking";
+// type FriendStatus = "none" | "sent" | "received" | "friend" | "checking";
 
 export default function ProfileScreen() {
-  const { uid } = useLocalSearchParams();
+  // useFocusEffect(
+  //   useCallback(() => {
+  //     const { listenForCommunityData, cleanup } = useCommunityStore.getState();
+  //     listenForCommunityData();
+  //     return () => cleanup();
+  //   }, [])
+  // );
+
+  const { uid: profileUid } = useLocalSearchParams<{ uid: string }>();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>([]);
   const [countriesVisited, setCountriesVisited] = useState<Country[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingProfile, setLoadingProfile] = useState(true);
   const theme = useTheme();
   const router = useRouter();
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
-  const { width, height } = Dimensions.get("window");
+  const { height } = Dimensions.get("window");
   const [isRankingModalVisible, setIsRankingModalVisible] = useState(false);
+  const currentUser = auth.currentUser;
 
-  // MODYFIKACJA 2: Ustaw stan początkowy friendStatus na "checking"
-  const [friendStatus, setFriendStatus] = useState<FriendStatus>("checking");
+  const {
+    friends,
+    incomingRequests,
+    outgoingRequests,
+    isLoading: isLoadingCommunity,
+    acceptFriendRequest,
+    rejectFriendRequest,
+    sendFriendRequest,
+    removeFriend,
+  } = useCommunityStore();
 
+  const isLoading = loadingProfile || isLoadingCommunity;
+
+  // Sprawdzenie statusu znajomości (POPRAWIONE)
+  const isFriend = useMemo(
+    () => friends.some((friend) => friend.uid === profileUid), // ZMIANA
+    [friends, profileUid]
+  );
+  const hasSentRequest = useMemo(
+    () => outgoingRequests.some((req) => req.receiverUid === profileUid),
+    [outgoingRequests, profileUid]
+  );
+  const hasReceivedRequest = useMemo(
+    () => incomingRequests.some((req) => req.senderUid === profileUid),
+    [incomingRequests, profileUid]
+  );
+  const incomingRequestFromProfile = useMemo(
+    () => incomingRequests.find((req) => req.senderUid === profileUid),
+    [incomingRequests, profileUid]
+  );
   const mappedCountries: Country[] = useMemo(() => {
     return countriesData.countries.map((country) => ({
       ...country,
@@ -141,304 +174,83 @@ export default function ProfileScreen() {
       path: country.path || "Unknown",
     }));
   }, []);
-
   useEffect(() => {
-    if (!uid) {
-      setLoading(false);
-      setUserProfile(null); // Dodano, aby wyczyścić profil, jeśli UID zniknie
-      setFriendStatus("none"); // Jeśli nie ma UID, nie ma kontekstu statusu znajomości
+    if (!profileUid) {
+      setLoadingProfile(false);
+      setUserProfile(null);
       return;
     }
-    setLoading(true);
-    const userRef = doc(db, "users", uid as string);
-
-    const unsubscribe = onSnapshot(userRef, (snap) => {
-      if (!snap.exists()) {
-        setUserProfile(null);
-        setLoading(false);
-        return;
-      }
-      const data = snap.data() as UserProfile;
-
-      const rankingRaw = data.ranking || [];
-      const visitedCodes = data.countriesVisited || [];
-      const rankingFiltered = rankingRaw.filter((code) =>
-        visitedCodes.includes(code)
-      );
-
-      setRankingSlots(
-        rankingFiltered.map((cca2, idx) => ({
-          id: generateUniqueId(),
-          rank: idx + 1,
-          country: mappedCountries.find((c) => c.cca2 === cca2) || null,
-        }))
-      );
-      setCountriesVisited(
-        removeDuplicates(
-          mappedCountries.filter((c) => visitedCodes.includes(c.cca2))
-        )
-      );
-      setUserProfile({
-        uid: snap.id,
-        nickname: data.nickname || "Unknown",
-        email: data.email,
-        ranking: rankingFiltered,
-        countriesVisited: visitedCodes,
-      });
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [uid, mappedCountries]);
-
-  const checkFriendStatus = useCallback(
-    async (currentUserUid: string, profileUserUid: string) => {
-      try {
-        const friendshipQuery1 = query(
-          collection(db, "friendships"),
-          where("userAUid", "==", currentUserUid),
-          where("userBUid", "==", profileUserUid),
-          where("status", "==", "accepted")
-        );
-        const friendshipSnapshot1 = await getDocs(friendshipQuery1);
-
-        const friendshipQuery2 = query(
-          collection(db, "friendships"),
-          where("userAUid", "==", profileUserUid),
-          where("userBUid", "==", currentUserUid),
-          where("status", "==", "accepted")
-        );
-        const friendshipSnapshot2 = await getDocs(friendshipQuery2);
-
-        if (!friendshipSnapshot1.empty || !friendshipSnapshot2.empty) {
-          setFriendStatus("friend");
+    setLoadingProfile(true);
+    const userRef = doc(db, "users", profileUid);
+    const unsubscribe = onSnapshot(
+      userRef,
+      (snap) => {
+        if (!snap.exists()) {
+          setUserProfile(null);
+          setLoadingProfile(false);
           return;
         }
-
-        const outgoingRequestQuery = query(
-          collection(db, "friendRequests"),
-          where("senderUid", "==", currentUserUid),
-          where("receiverUid", "==", profileUserUid),
-          where("status", "==", "pending")
+        const data = snap.data() as UserProfile;
+        const rankingRaw = data.ranking || [];
+        const visitedCodes = data.countriesVisited || [];
+        const rankingFiltered = rankingRaw.filter((code) =>
+          visitedCodes.includes(code)
         );
-        const outgoingSnapshot = await getDocs(outgoingRequestQuery);
-        if (!outgoingSnapshot.empty) {
-          setFriendStatus("sent");
-          return;
-        }
-
-        const incomingRequestQuery = query(
-          collection(db, "friendRequests"),
-          where("senderUid", "==", profileUserUid),
-          where("receiverUid", "==", currentUserUid),
-          where("status", "==", "pending")
+        setRankingSlots(
+          rankingFiltered.map((cca2, idx) => ({
+            id: generateUniqueId(),
+            rank: idx + 1,
+            country: mappedCountries.find((c) => c.cca2 === cca2) || null,
+          }))
         );
-        const incomingSnapshot = await getDocs(incomingRequestQuery);
-        if (!incomingSnapshot.empty) {
-          setFriendStatus("received");
-          return;
-        }
-        setFriendStatus("none");
-      } catch (error) {
-        console.error("Error checking friend status:", error);
-        setFriendStatus("none");
-      }
-    },
-    [setFriendStatus]
-  );
-
-  // MODYFIKACJA 3: Zmodyfikuj useEffect dla checkFriendStatus
-  useEffect(() => {
-    const currentAuthUser = auth.currentUser;
-    const profileUidStr = uid as string;
-
-    if (!currentAuthUser || !profileUidStr) {
-      setFriendStatus("none"); // Użytkownik niezalogowany lub brak UID profilu
-      return;
-    }
-
-    if (currentAuthUser.uid === profileUidStr) {
-      setFriendStatus("none"); // Oglądanie własnego profilu
-    } else {
-      // Oglądanie profilu innego użytkownika
-      setFriendStatus("checking"); // Ustaw na "checking" przed asynchronicznym wywołaniem
-      console.log(
-        `[ProfileScreen FriendStatus useEffect] Triggering checkFriendStatus for profile ${profileUidStr}`
-      );
-      checkFriendStatus(currentAuthUser.uid, profileUidStr);
-    }
-  }, [uid, auth.currentUser?.uid, checkFriendStatus]); // `checkFriendStatus` jest stabilne dzięki `useCallback`
-
-  const handleAddFriend = useCallback(async () => {
-    const currentUser = auth.currentUser;
-    const profileUserUid = uid as string;
-
-    if (!currentUser || !profileUserUid) {
-      Alert.alert("Error", "User data is not available.");
-      return;
-    }
-    if (currentUser.uid === profileUserUid) {
-      Alert.alert("Error", "You cannot add yourself as a friend.");
-      return;
-    }
-
-    const senderUid = currentUser.uid;
-    const receiverUid = profileUserUid;
-
-    try {
-      const fsQuery1 = query(
-        collection(db, "friendships"),
-        where("userAUid", "==", senderUid),
-        where("userBUid", "==", receiverUid),
-        where("status", "==", "accepted")
-      );
-      const fsSnap1 = await getDocs(fsQuery1);
-      const fsQuery2 = query(
-        collection(db, "friendships"),
-        where("userAUid", "==", receiverUid),
-        where("userBUid", "==", senderUid),
-        where("status", "==", "accepted")
-      );
-      const fsSnap2 = await getDocs(fsQuery2);
-      if (!fsSnap1.empty || !fsSnap2.empty) {
-        Alert.alert("Info", "You are already friends with this user.");
-        setFriendStatus("friend");
-        return;
-      }
-
-      const outQuery = query(
-        collection(db, "friendRequests"),
-        where("senderUid", "==", senderUid),
-        where("receiverUid", "==", receiverUid),
-        where("status", "==", "pending")
-      );
-      const outSnap = await getDocs(outQuery);
-      if (!outSnap.empty) {
-        Alert.alert(
-          "Info",
-          "You have already sent a friend request to this user."
+        setCountriesVisited(
+          removeDuplicates(
+            mappedCountries.filter((c) => visitedCodes.includes(c.cca2))
+          )
         );
-        setFriendStatus("sent");
-        return;
-      }
-
-      const inQuery = query(
-        collection(db, "friendRequests"),
-        where("senderUid", "==", receiverUid),
-        where("receiverUid", "==", senderUid),
-        where("status", "==", "pending")
-      );
-      const inSnap = await getDocs(inQuery);
-      if (!inSnap.empty) {
-        Alert.alert("Info", "This user has already sent you a friend request.");
-        setFriendStatus("received");
-        return;
-      }
-
-      const batch = writeBatch(db);
-      const friendRequestRef = doc(collection(db, "friendRequests"));
-      batch.set(friendRequestRef, {
-        senderUid: senderUid,
-        receiverUid: receiverUid,
-        status: "pending",
-        createdAt: serverTimestamp(),
-      });
-      await batch.commit();
-      Alert.alert("Success", "Friend request sent!");
-      setFriendStatus("sent");
-    } catch (error) {
-      console.error("Error sending friend request:", error);
-      Alert.alert("Error", "Failed to send friend request.");
-    }
-  }, [uid, setFriendStatus]);
-
-  const handleAcceptRequest = useCallback(
-    async (senderProfileUid: string) => {
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        Alert.alert(
-          "Error",
-          "You need to be logged in to accept friend requests."
-        );
-        return;
-      }
-      const receiverUid = currentUser.uid;
-      const senderUid = senderProfileUid;
-      try {
-        const batch = writeBatch(db);
-        const friendRequestsQuery = query(
-          collection(db, "friendRequests"),
-          where("senderUid", "==", senderUid),
-          where("receiverUid", "==", receiverUid),
-          where("status", "==", "pending")
-        );
-        const snapshot = await getDocs(friendRequestsQuery);
-        if (snapshot.empty) {
-          Alert.alert("Error", "No pending friend request found.");
-          checkFriendStatus(receiverUid, senderUid);
-          return;
-        }
-        const friendRequestDoc = snapshot.docs[0];
-        const friendRequestRef = doc(db, "friendRequests", friendRequestDoc.id);
-        batch.update(friendRequestRef, { status: "accepted" });
-
-        const friendshipRef = doc(collection(db, "friendships"));
-        batch.set(friendshipRef, {
-          userAUid: senderUid,
-          userBUid: receiverUid,
-          createdAt: serverTimestamp(),
-          status: "accepted",
+        setUserProfile({
+          uid: snap.id,
+          nickname: data.nickname || "Unknown",
+          email: data.email,
+          ranking: rankingFiltered,
+          countriesVisited: visitedCodes,
         });
-        await batch.commit();
-        Alert.alert("Success", "Friend request accepted!");
-        setFriendStatus("friend");
-      } catch (error) {
-        console.error("Error accepting friend request:", error);
-        Alert.alert("Error", "Failed to accept the friend request.");
+        setLoadingProfile(false);
+      },
+      (error) => {
+        console.error("Error fetching profile:", error);
+        setLoadingProfile(false);
       }
-    },
-    [setFriendStatus, checkFriendStatus]
-  );
+    );
+    return () => unsubscribe();
+  }, [profileUid, mappedCountries]);
 
-  const handleDeclineRequest = useCallback(
-    async (senderProfileUid: string) => {
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        Alert.alert(
-          "Error",
-          "You need to be logged in to decline friend requests."
-        );
-        return;
-      }
-      const receiverUid = currentUser.uid;
-      const senderUid = senderProfileUid;
-      try {
-        const friendRequestsQuery = query(
-          collection(db, "friendRequests"),
-          where("senderUid", "==", senderUid),
-          where("receiverUid", "==", receiverUid),
-          where("status", "==", "pending")
-        );
-        const snapshot = await getDocs(friendRequestsQuery);
-        if (snapshot.empty) {
-          Alert.alert("Error", "No pending friend request found.");
-          checkFriendStatus(receiverUid, senderUid);
-          return;
-        }
-        const friendRequestDoc = snapshot.docs[0];
-        const friendRequestRef = doc(db, "friendRequests", friendRequestDoc.id);
-        await updateDoc(friendRequestRef, { status: "rejected" });
-        Alert.alert("Success", "Friend request declined!");
-        setFriendStatus("none");
-      } catch (error) {
-        console.error("Error declining friend request:", error);
-        Alert.alert("Error", "Failed to decline the friend request.");
-      }
-    },
-    [setFriendStatus, checkFriendStatus]
-  );
+  // --- Handlers (POPRAWIONE) ---
+  const handleAdd = () => {
+    if (userProfile) {
+      sendFriendRequest(userProfile.uid, userProfile.nickname);
+    }
+  };
 
-  if (loading) {
+  const handleRemove = () => {
+    if (profileUid) {
+      removeFriend(profileUid); // removeFriend oczekuje UID
+    }
+  };
+
+  const handleAccept = () => {
+    if (incomingRequestFromProfile) {
+      acceptFriendRequest(incomingRequestFromProfile);
+    }
+  };
+
+  const handleDecline = () => {
+    if (incomingRequestFromProfile) {
+      rejectFriendRequest(incomingRequestFromProfile.id);
+    }
+  };
+
+  if (isLoading) {
     return (
       <View
         style={[
@@ -567,10 +379,10 @@ export default function ProfileScreen() {
         {/* MODYFIKACJA 4: Zaktualizuj logikę renderowania przycisku */}
         {auth.currentUser?.uid !== userProfile.uid && userProfile && (
           <>
-            {friendStatus === "received" ? (
+            {hasReceivedRequest ? (
               <View style={profileStyles.friendActionButtons}>
                 <TouchableOpacity
-                  onPress={() => handleAcceptRequest(userProfile.uid)}
+                  onPress={handleAccept}
                   style={[
                     profileStyles.acceptButton,
                     { backgroundColor: theme.colors.primary },
@@ -579,7 +391,7 @@ export default function ProfileScreen() {
                   <Text style={profileStyles.buttonText}>Accept</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={() => handleDeclineRequest(userProfile.uid)}
+                  onPress={handleDecline}
                   style={[
                     profileStyles.declineButton,
                     { backgroundColor: "rgba(116, 116, 116, 0.3)" },
@@ -588,57 +400,47 @@ export default function ProfileScreen() {
                   <Text style={profileStyles.buttonText}>Decline</Text>
                 </TouchableOpacity>
               </View>
-            ) : friendStatus === "checking" ? (
+            ) : isFriend ? (
+              <TouchableOpacity
+                onPress={handleRemove}
+                style={[
+                  profileStyles.addFriendButton,
+                  {
+                    backgroundColor: isDarkTheme
+                      ? "rgba(171, 109, 197, 0.4)"
+                      : "rgba(191, 115, 229, 0.43)",
+                  },
+                ]}
+              >
+                <Text
+                  style={{ color: "#fff", fontSize: 14, fontWeight: "500" }}
+                >
+                  Friend
+                </Text>
+              </TouchableOpacity>
+            ) : hasSentRequest ? (
               <TouchableOpacity
                 style={[
                   profileStyles.addFriendButton,
                   {
-                    backgroundColor: theme.dark
-                      ? "rgba(70, 70, 70, 0.8)"
-                      : "#e0e0e0",
-                  }, // Styl dla stanu "checking"
+                    backgroundColor: isDarkTheme
+                      ? "rgba(128, 128, 128, 0.4)"
+                      : "rgba(204, 204, 204, 0.7)",
+                  },
                 ]}
                 disabled={true}
               >
-                <ActivityIndicator size="small" color={theme.colors.primary} />
+                <Text style={profileStyles.addFriendButtonText}>Sent</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
-                onPress={handleAddFriend}
+                onPress={handleAdd}
                 style={[
                   profileStyles.addFriendButton,
-                  {
-                    backgroundColor:
-                      friendStatus === "friend"
-                        ? isDarkTheme
-                          ? "rgba(171, 109, 197, 0.4)" // NOWY kolor dla "Friend" (ciemny)
-                          : "rgba(191, 115, 229, 0.43)" // NOWY kolor dla "Friend" (jasny)
-                        : friendStatus === "sent"
-                          ? isDarkTheme
-                            ? "rgba(128, 128, 128, 0.4)" // NOWY kolor dla "Sent" (ciemny)
-                            : "rgba(204, 204, 204, 0.7)" // NOWY kolor dla "Sent" (jasny)
-                          : theme.colors.primary, // Dla stanu "Add" (bez zmian)
-                  },
+                  { backgroundColor: theme.colors.primary },
                 ]}
-                disabled={friendStatus === "sent" || friendStatus === "friend"}
               >
-                {friendStatus === "friend" ? (
-                  <Text
-                    style={{
-                      color: "#fff", // Kolor tekstu "Friend" na biały
-                      fontSize: 14,
-                      fontWeight: "500", // Zgodnie z prośbą
-                    }}
-                  >
-                    Friend
-                  </Text>
-                ) : friendStatus === "sent" ? (
-                  <Text style={profileStyles.addFriendButtonText}>
-                    Sent {/* Zmieniony tekst na "Sent" */}
-                  </Text>
-                ) : (
-                  <Text style={profileStyles.addFriendButtonText}>Add</Text>
-                )}
+                <Text style={profileStyles.addFriendButtonText}>Add</Text>
               </TouchableOpacity>
             )}
           </>

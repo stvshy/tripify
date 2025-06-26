@@ -11,7 +11,12 @@ import LoadingScreen from "@/components/LoadingScreen";
 import { ThemeContext, ThemeProvider } from "./config/ThemeContext";
 import { DraxProvider } from "react-native-drax";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { doc, getDoc } from "firebase/firestore";
+import {
+  doc,
+  DocumentData,
+  DocumentSnapshot,
+  getDoc,
+} from "firebase/firestore";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as NavigationBar from "expo-navigation-bar";
@@ -21,7 +26,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import FastImage from "@d11/react-native-fast-image";
 import { useAuthStore, UserProfileData } from "./store/authStore";
 import { User as FirebaseUser } from "firebase/auth"; // Zmień alias lub użyj User bezpośrednio
-// Zapobiegaj automatycznemu ukrywaniu natywnego splash screena
+import { useCommunityStore } from "./store/communityStore";
+
 ExpoSplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
@@ -70,103 +76,91 @@ export default function RootLayout() {
   const [initialRouteName, setInitialRouteName] = useState<string | null>(null);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
 
+  const { listenForCommunityData, cleanup: cleanupCommunity } =
+    useCommunityStore();
   useEffect(() => {
     fetchAndCacheBackgrounds();
   }, []);
 
   useEffect(() => {
-    // Funkcja pomocnicza do finalizowania i ustawiania stanu gotowości
+    // Czekamy na załadowanie fontów, to jest poprawne.
+    if (!fontsLoaded && !fontError) {
+      return;
+    }
+
+    // Funkcja pomocnicza do finalizowania, bez zmian.
     const finalizePreparation = (route: string) => {
-      console.log(
-        `RootLayout: Finalizing preparation. Determined route: ${route}. Current firebaseUser (in store via getState): ${!!useAuthStore.getState().firebaseUser}, Current userProfile (in store via getState):`,
-        useAuthStore.getState().userProfile
-      );
       setInitialRouteName(route);
-      setIsLoadingAuth(false); // Zakończ ładowanie w store
-      setIsNavigationReady(true); // Ustaw nawigację jako gotową
+      setIsLoadingAuth(false);
+      setIsNavigationReady(true);
     };
-    const initAuthListener = () => {
-      if (!fontsLoaded && !fontError) {
+
+    console.log("RootLayout: Setting up onAuthStateChanged listener.");
+    setIsLoadingAuth(true);
+
+    const unsubscribeAuth = auth.onAuthStateChanged(
+      async (user: FirebaseUser | null) => {
         console.log(
-          "RootLayout: Fonts not loaded yet, waiting for auth listener setup."
+          "RootLayout: onAuthStateChanged FIRED. User:",
+          user ? user.uid : "null"
         );
-        return () => {}; // Zwróć pustą funkcję czyszczącą, jeśli fonty nie są gotowe
-      }
 
-      console.log("RootLayout: Setting up onAuthStateChanged listener.");
-      setIsLoadingAuth(true);
+        if (user) {
+          // UŻYTKOWNIK JEST ZALOGOWANY
+          listenForCommunityData(); // Uruchom listenery dla danych społecznościowych
+          setFirebaseUser(user);
 
-      const unsubscribeAuth = auth.onAuthStateChanged(
-        // <--- Listener jest tworzony tutaj
-        async (user: FirebaseUser | null) => {
-          console.log(
-            "RootLayout: onAuthStateChanged FIRED. User:",
-            user ? user.uid : "null"
-          );
-          // UWAGA: Jeśli `unsubscribe()` było tutaj, to jest problem.
-          // W poprzedniej wersji kodu, który analizowaliśmy, mogło tu jeszcze być.
-          // Upewnijmy się, że `unsubscribeAuth` NIE jest wywoływane wewnątrz tego callbacku.
+          const userDocRef = doc(db, "users", user.uid);
+          const userDoc = await getDoc(userDocRef);
 
-          if (user) {
-            setFirebaseUser(user);
-            const userDocRef = doc(db, "users", user.uid);
-            const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            const firestoreData = userDoc.data();
+            const profileData: UserProfileData = {
+              nickname: firestoreData?.nickname || null,
+              firstLoginComplete: firestoreData?.firstLoginComplete || false,
+              emailVerified: user.emailVerified,
+            };
+            setUserProfile(profileData);
 
-            if (userDoc.exists()) {
-              const firestoreData = userDoc.data();
-              const profileData: UserProfileData = {
-                nickname: firestoreData?.nickname || null,
-                firstLoginComplete: firestoreData?.firstLoginComplete || false,
-                emailVerified: user.emailVerified,
-              };
-              setUserProfile(profileData); // Zapisz profil w store
-
-              // Ustal initialRouteName
-              if (!profileData.emailVerified) finalizePreparation("welcome");
-              else if (!profileData.nickname)
-                finalizePreparation("setNickname");
-              else if (!profileData.firstLoginComplete)
-                finalizePreparation("chooseCountries");
-              else finalizePreparation("(tabs)");
-            } else {
-              console.warn(
-                "User document not found in Firestore for UID:",
-                user.uid
-              );
-              const defaultProfile: UserProfileData = {
-                nickname: null,
-                firstLoginComplete: false,
-                emailVerified: user.emailVerified,
-              };
-              setUserProfile(defaultProfile);
-              if (!user.emailVerified) finalizePreparation("welcome");
-              else finalizePreparation("setNickname");
-            }
+            // Standardowa logika routingu
+            if (!profileData.emailVerified) finalizePreparation("welcome");
+            else if (!profileData.nickname) finalizePreparation("setNickname");
+            else if (!profileData.firstLoginComplete)
+              finalizePreparation("chooseCountries");
+            else finalizePreparation("(tabs)");
           } else {
-            // Brak zalogowanego użytkownika
-            setFirebaseUser(null);
-            setUserProfile(null);
-            finalizePreparation("welcome");
+            // To się nie powinno zdarzyć dla zalogowanego użytkownika, ale jest dobrym zabezpieczeniem.
+            // Dzieje się tak tylko jeśli dokument zostanie usunięty ręcznie w bazie.
+            console.warn(
+              "User document not found for a logged-in user:",
+              user.uid
+            );
+            const defaultProfile: UserProfileData = {
+              nickname: null,
+              firstLoginComplete: false,
+              emailVerified: user.emailVerified,
+            };
+            setUserProfile(defaultProfile);
+            // Skieruj na ścieżkę naprawczą (np. ustawienie nicku)
+            finalizePreparation("setNickname");
           }
+        } else {
+          // BRAK ZALOGOWANEGO UŻYTKOWNIKA
+          cleanupCommunity(); // Wyczyść dane i zatrzymaj listenery
+          setFirebaseUser(null);
+          setUserProfile(null);
+          finalizePreparation("welcome");
         }
-      );
-      return () => {
-        // Funkcja czyszcząca dla useEffect
-        console.log("RootLayout: Unsubscribing from onAuthStateChanged.");
-        unsubscribeAuth(); // <--- unsubscribeAuth jest wywoływane TYLKO przy odmontowywaniu RootLayout
-      };
-    };
+      }
+    );
 
-    const cleanupFunction = initAuthListener();
-    return cleanupFunction;
-  }, [
-    fontsLoaded,
-    fontError,
-    setFirebaseUser,
-    setUserProfile,
-    setIsLoadingAuth,
-    setErrorAuth,
-  ]);
+    return () => {
+      // Funkcja czyszcząca
+      console.log("RootLayout: Unsubscribing from onAuthStateChanged.");
+      unsubscribeAuth();
+      cleanupCommunity();
+    };
+  }, [fontsLoaded, fontError]);
 
   useEffect(() => {
     if (fontsLoaded && isNavigationReady) {
