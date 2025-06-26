@@ -42,6 +42,7 @@ interface CommunityState {
   incomingRequests: IncomingRequest[];
   outgoingRequests: OutgoingRequest[];
   searchResults: User[];
+  isSearching: boolean; // Stan ładowania dla wyszukiwania
   isLoading: boolean;
   unsubscribeListeners: () => void;
 }
@@ -66,6 +67,7 @@ const initialState: CommunityState = {
   incomingRequests: [],
   outgoingRequests: [],
   searchResults: [],
+  isSearching: false, // Poprawiona wartość początkowa
   isLoading: true,
   unsubscribeListeners: () => {},
 };
@@ -295,7 +297,6 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
       }
 
       try {
-        // ---- NOWA CZĘŚĆ: POBIERZ NICKNAME AKTUALNEGO UŻYTKOWNIKA ----
         const currentUserDoc = await getDoc(doc(db, "users", currentUser.uid));
         const currentUserNickname = currentUserDoc.data()?.nickname;
 
@@ -303,31 +304,31 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
           Alert.alert("Error", "Your profile is incomplete.");
           return;
         }
-        // -----------------------------------------------------------------
 
         const batch = writeBatch(db);
 
         const incomingRequestRef = doc(
           collection(db, "users", receiverUid, "incomingFriendRequests")
         );
-
-        // ---- ZMIANA: Zapisz więcej danych w dokumencie zaproszenia ----
         batch.set(incomingRequestRef, {
           senderUid: currentUser.uid,
-          senderNickname: currentUserNickname, // <--- DODANE
+          senderNickname: currentUserNickname,
           createdAt: serverTimestamp(),
         });
 
-        // Operacja 2: Aktualizacja dokumentu nadawcy
         const currentUserRef = doc(db, "users", currentUser.uid);
+        const newOutgoingRequest = { receiverUid, receiverNickname }; // Tworzymy obiekt nowego zaproszenia
         batch.update(currentUserRef, {
-          "friendRequests.outgoing": arrayUnion({
-            receiverUid,
-            receiverNickname,
-          }),
+          "friendRequests.outgoing": arrayUnion(newOutgoingRequest),
         });
 
-        await batch.commit();
+        await batch.commit(); // Wykonujemy operacje na bazie
+
+        // ----  NOWA, KLUCZOWA CZĘŚĆ: OPTYMISTYCZNA AKTUALIZACJA STANU ----
+        set((state) => ({
+          outgoingRequests: [...state.outgoingRequests, newOutgoingRequest],
+        }));
+        // ------------------------------------------------------------------
 
         Alert.alert("Success", `Friend request sent to ${receiverNickname}.`);
       } catch (error) {
@@ -384,29 +385,34 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
 
     searchUsers: async (text: string) => {
       const currentUser = auth.currentUser;
-      if (!currentUser || text.length < 3) {
-        set({ searchResults: [] });
+      const trimmedText = text.trim();
+
+      if (!currentUser || trimmedText.length < 3) {
+        set({ searchResults: [], isSearching: false });
         return;
       }
+
+      set({ isSearching: true });
+
       try {
-        // ZMIANA: Usunęliśmy `lowerCaseText`
+        const usersRef = collection(db, "users");
         const q = query(
-          collection(db, "users"),
-          where("nickname", ">=", text), // ZMIANA: filtrujemy po 'nickname'
-          where("nickname", "<=", text + "\uf8ff"), // ZMIANA: filtrujemy po 'nickname'
-          limit(10)
+          usersRef,
+          where("nickname_tokens", "array-contains", trimmedText.toLowerCase()),
+          limit(20)
         );
-        const snapshot = await getDocs(q);
-        const foundUsers = snapshot.docs
+        const querySnapshot = await getDocs(q);
+        const foundUsers: User[] = querySnapshot.docs
           .map((doc) => ({
             uid: doc.id,
             nickname: doc.data().nickname as string,
           }))
           .filter((user) => user.uid !== currentUser.uid);
-        set({ searchResults: foundUsers });
+
+        set({ searchResults: foundUsers, isSearching: false }); // POPRAWKA z isLoading na isSearching
       } catch (error) {
-        console.error("Search error:", error);
-        set({ searchResults: [] });
+        console.error("Błąd podczas wyszukiwania użytkowników:", error);
+        set({ searchResults: [], isSearching: false }); // POPRAWKA z isLoading na isSearching
       }
     },
   })

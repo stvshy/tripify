@@ -139,13 +139,16 @@ export default function FriendRequestsScreen() {
   const animatedValueRef = useRef(screenHeight);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
 
-  // NOWA CZĘŚĆ: Używamy useFocusEffect do zarządzania listenerami ze store'u
-  // useFocusEffect(
-  //   useCallback(() => {
-  //     listenForCommunityData();
-  //     return () => cleanup();
-  //   }, []) // Pusta tablica jest OK, bo funkcje ze store'u są stabilne
-  // );
+  useFocusEffect(
+    useCallback(() => {
+      // Pobieramy funkcje ze store'u wewnątrz callbacka
+      const { listenForCommunityData, cleanup } = useCommunityStore.getState();
+
+      listenForCommunityData(); // Uruchom nasłuchiwanie
+
+      return () => cleanup(); // Sprzątaj, gdy ekran traci fokus
+    }, [])
+  );
 
   useEffect(() => {
     const listenerId = animatedValue.addListener(({ value }) => {

@@ -114,13 +114,16 @@ const ProfileRankingItem: React.FC<{ slot: RankingSlot }> = memo(({ slot }) => {
 // type FriendStatus = "none" | "sent" | "received" | "friend" | "checking";
 
 export default function ProfileScreen() {
-  // useFocusEffect(
-  //   useCallback(() => {
-  //     const { listenForCommunityData, cleanup } = useCommunityStore.getState();
-  //     listenForCommunityData();
-  //     return () => cleanup();
-  //   }, [])
-  // );
+  useFocusEffect(
+    useCallback(() => {
+      // Pobieramy funkcje ze store'u wewnątrz callbacka
+      const { listenForCommunityData, cleanup } = useCommunityStore.getState();
+
+      listenForCommunityData(); // Uruchom nasłuchiwanie
+
+      return () => cleanup(); // Sprzątaj, gdy ekran traci fokus
+    }, [])
+  );
 
   const { uid: profileUid } = useLocalSearchParams<{ uid: string }>();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);

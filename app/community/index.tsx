@@ -40,6 +40,140 @@ if (
 }
 
 const DEBOUNCE_DELAY = 300;
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 10,
+    paddingTop: 4,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  searchAndToggleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  visibleList: {
+    flex: 1,
+  },
+  hiddenList: {
+    flex: 1,
+    display: "none",
+  },
+  searchContainer: {
+    flex: 2.5,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 25,
+    paddingLeft: 40,
+    paddingRight: 40,
+    height: 45,
+  },
+  searchIcon: {
+    position: "absolute",
+    left: 16,
+  },
+  clearIcon: {
+    position: "absolute",
+    right: 16,
+  },
+  input: {
+    flex: 1,
+    fontSize: 13,
+  },
+  modeToggleContainer: {
+    flex: 1.1,
+    flexDirection: "row",
+    marginLeft: 5,
+  },
+  modeButton: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+  },
+  friendItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 11,
+    borderBottomWidth: 1,
+    borderRadius: 15,
+    marginBottom: 7,
+  },
+  friendInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: 4.8,
+  },
+  friendIcon: {
+    marginRight: 10,
+  },
+  removeButton: {
+    padding: 4,
+  },
+  addCircle: {
+    width: 27,
+    height: 27,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    marginRight: 10,
+  },
+  sentButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    left: 2.7,
+  },
+  friendButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    left: 8,
+  },
+  sentButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  searchItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    marginLeft: 4,
+  },
+  noResults: {
+    alignItems: "center",
+    marginTop: 20,
+  },
+  empty: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loading: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+});
 
 // --- Komponenty potomne (bez zmian) ---
 interface FriendListItemProps {
@@ -177,7 +311,7 @@ export default function CommunityScreen() {
     friends,
     outgoingRequests,
     searchResults,
-    isLoading,
+    isSearching,
     // listenForCommunityData,
     // cleanup,
     searchUsers,
@@ -188,10 +322,18 @@ export default function CommunityScreen() {
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [activeFriendId, setActiveFriendId] = useState<string | null>(null);
   const [isFocused, setIsFocused] = useState(false);
-
+  const [searchAttempted, setSearchAttempted] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
   const theme = useTheme();
+
+  useFocusEffect(
+    useCallback(() => {
+      const { listenForCommunityData, cleanup } = useCommunityStore.getState();
+      listenForCommunityData();
+      return () => cleanup();
+    }, [])
+  );
 
   const filteredFriends = useMemo(() => {
     if (!searchText) {
@@ -206,9 +348,24 @@ export default function CommunityScreen() {
 
   useEffect(() => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    // Jeśli tekst jest za krótki, nie robimy nic i resetujemy flagę
+    if (searchText.trim().length < 3) {
+      setSearchAttempted(false);
+      // Opcjonalnie: czyść wyniki, jeśli chcesz, aby zniknęły od razu
+      if (isSearchMode) searchUsers("");
+      return;
+    }
+
     searchTimeoutRef.current = setTimeout(() => {
-      if (isSearchMode) searchUsers(searchText);
+      if (isSearchMode) {
+        searchUsers(searchText).then(() => {
+          // ZMIANA 2: Ustawiamy flagę, że wyszukiwanie się odbyło
+          setSearchAttempted(true);
+        });
+      }
     }, DEBOUNCE_DELAY);
+
     return () => {
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     };
@@ -223,6 +380,7 @@ export default function CommunityScreen() {
     setSearchText("");
     searchUsers("");
     setActiveFriendId(null);
+    setSearchAttempted(false);
   }, [searchUsers]);
 
   const isAlreadyFriend = useCallback(
@@ -235,15 +393,15 @@ export default function CommunityScreen() {
     [outgoingRequests]
   );
 
-  if (isLoading) {
-    return (
-      <View
-        style={[styles.loading, { backgroundColor: theme.colors.background }]}
-      >
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
-    );
-  }
+  // if (isLoading) {
+  //   return (
+  //     <View
+  //       style={[styles.loading, { backgroundColor: theme.colors.background }]}
+  //     >
+  //       <ActivityIndicator size="large" color={theme.colors.primary} />
+  //     </View>
+  //   );
+  // }
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
@@ -291,6 +449,7 @@ export default function CommunityScreen() {
                     onFocus={() => setIsFocused(true)}
                     onBlur={() => setIsFocused(false)}
                   />
+
                   {searchText.length > 0 && (
                     <TouchableOpacity
                       onPress={() => setSearchText("")}
@@ -356,9 +515,12 @@ export default function CommunityScreen() {
                 </View>
               </View>
 
-              {!isSearchMode && (
-                <>
-                  {friends.length === 0 ? (
+              <View style={{ flex: 1 }}>
+                {/* Friends List - hidden when isSearchMode is true */}
+                <View
+                  style={!isSearchMode ? styles.visibleList : styles.hiddenList}
+                >
+                  {friends.length === 0 && !searchText ? (
                     <View style={styles.empty}>
                       <Text style={{ color: theme.colors.onBackground }}>
                         You have no friends yet.
@@ -366,11 +528,11 @@ export default function CommunityScreen() {
                     </View>
                   ) : (
                     <FlatList
-                      data={filteredFriends} // <--- Użyj przeliczonej listy
+                      data={filteredFriends}
                       keyExtractor={(item) => item.uid}
                       renderItem={({ item }) => (
                         <FriendListItem
-                          item={item} // item to teraz {uid, nickname}
+                          item={item}
                           activeFriendId={activeFriendId}
                           theme={theme}
                           onNavigateToProfile={navigateToProfile}
@@ -380,17 +542,20 @@ export default function CommunityScreen() {
                       )}
                     />
                   )}
-                </>
-              )}
-              {isSearchMode && (
-                <>
-                  {searchResults.length === 0 && searchText.length >= 3 ? (
-                    <View style={styles.noResults}>
-                      <Text style={{ color: theme.colors.onBackground }}>
-                        No users found.
-                      </Text>
+                </View>
+
+                {/* Search Results List - hidden when isSearchMode is false */}
+                <View
+                  style={isSearchMode ? styles.visibleList : styles.hiddenList}
+                >
+                  {isSearching ? (
+                    <View style={styles.loading}>
+                      <ActivityIndicator
+                        size="large"
+                        color={theme.colors.primary}
+                      />
                     </View>
-                  ) : (
+                  ) : searchResults.length > 0 ? (
                     <FlatList
                       data={searchResults}
                       keyExtractor={(item) => item.uid}
@@ -404,10 +569,31 @@ export default function CommunityScreen() {
                           onAddFriend={sendFriendRequest}
                         />
                       )}
+                      initialNumToRender={11}
+                      maxToRenderPerBatch={11}
+                      windowSize={11}
+                      removeClippedSubviews={true}
+                      getItemLayout={(data, index) => ({
+                        length: 60,
+                        offset: 60 * index,
+                        index,
+                      })}
                     />
+                  ) : searchAttempted && searchText.trim().length >= 3 ? (
+                    <View style={styles.noResults}>
+                      <Text style={{ color: theme.colors.onBackground }}>
+                        No users found with that nickname.
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={styles.empty}>
+                      <Text style={{ color: theme.colors.onBackground }}>
+                        Enter at least 3 characters to search for users.
+                      </Text>
+                    </View>
                   )}
-                </>
-              )}
+                </View>
+              </View>
             </View>
           </KeyboardAvoidingView>
         </SafeAreaView>
@@ -415,132 +601,3 @@ export default function CommunityScreen() {
     </View>
   );
 }
-
-// StyleSheet (bez zmian)
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 10,
-    paddingTop: 4,
-  },
-  keyboardAvoidingView: {
-    flex: 1,
-  },
-  searchAndToggleContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 10,
-  },
-  searchContainer: {
-    flex: 2.5,
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderRadius: 25,
-    paddingLeft: 40,
-    paddingRight: 40,
-    height: 45,
-  },
-  searchIcon: {
-    position: "absolute",
-    left: 16,
-  },
-  clearIcon: {
-    position: "absolute",
-    right: 16,
-  },
-  input: {
-    flex: 1,
-    fontSize: 13,
-  },
-  modeToggleContainer: {
-    flex: 1.1,
-    flexDirection: "row",
-    marginLeft: 5,
-  },
-  modeButton: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-  },
-  friendItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 11,
-    borderBottomWidth: 1,
-    borderRadius: 15,
-    marginBottom: 7,
-  },
-  friendInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginLeft: 4.8,
-  },
-  friendIcon: {
-    marginRight: 10,
-  },
-  removeButton: {
-    padding: 4,
-  },
-  addCircle: {
-    width: 27,
-    height: 27,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    marginRight: 10,
-  },
-  sentButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    left: 2.7,
-  },
-  friendButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    left: 8,
-  },
-  sentButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  searchItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    marginLeft: 4,
-  },
-  noResults: {
-    alignItems: "center",
-    marginTop: 20,
-  },
-  empty: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loading: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-});
