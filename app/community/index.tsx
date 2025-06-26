@@ -39,7 +39,7 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const DEBOUNCE_DELAY = 300;
+const DEBOUNCE_DELAY = 150;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
