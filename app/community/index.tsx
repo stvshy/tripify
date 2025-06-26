@@ -1,4 +1,11 @@
-import React, { useEffect, useState, useCallback, useRef, memo } from "react";
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  memo,
+  useMemo,
+} from "react";
 import {
   View,
   Text,
@@ -186,12 +193,16 @@ export default function CommunityScreen() {
   const router = useRouter();
   const theme = useTheme();
 
-  // useFocusEffect(
-  //   useCallback(() => {
-  //     listenForCommunityData();
-  //     return () => cleanup();
-  //   }, [listenForCommunityData, cleanup])
-  // );
+  const filteredFriends = useMemo(() => {
+    if (!searchText) {
+      return friends; // Jeśli nie ma tekstu, zwróć całą listę
+    }
+    return friends.filter((friend: Friendship) =>
+      friend && friend.nickname && typeof friend.nickname === "string"
+        ? friend.nickname.toLowerCase().includes(searchText.toLowerCase())
+        : false
+    );
+  }, [friends, searchText]);
 
   useEffect(() => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
@@ -355,17 +366,7 @@ export default function CommunityScreen() {
                     </View>
                   ) : (
                     <FlatList
-                      // NOWA WERSJA (odporna na błąd)
-                      data={friends.filter((friend: Friendship) =>
-                        friend &&
-                        friend.nickname &&
-                        typeof friend.nickname === "string"
-                          ? friend.nickname
-                              .toLowerCase()
-                              .includes(searchText.toLowerCase())
-                          : false
-                      )}
-                      // To również zacznie działać
+                      data={filteredFriends} // <--- Użyj przeliczonej listy
                       keyExtractor={(item) => item.uid}
                       renderItem={({ item }) => (
                         <FriendListItem

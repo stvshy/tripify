@@ -1,4 +1,5 @@
 // app/config/MapStateProvider.tsx
+
 import React, {
   createContext,
   useContext,
@@ -13,9 +14,10 @@ import {
   SharedValue,
   withSpring,
 } from "react-native-reanimated";
-import { doc, getDoc } from "firebase/firestore";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { auth, db } from "./firebaseConfig";
+
+// === KROK 1: Importujemy hooki z Twojego CountryContext ===
+// Zakładam, że plik nazywa się CountryContext.tsx i eksportuje ten hook.
+import { useCountries } from "./CountryContext";
 
 interface MapContextType {
   // Stan UI
@@ -31,7 +33,7 @@ interface MapContextType {
 const MapContext = createContext<MapContextType | null>(null);
 
 export const MapStateProvider = ({ children }: { children: ReactNode }) => {
-  // --- Stan UI (tak jak poprzednio) ---
+  // --- Stan UI (tak jak poprzednio, bez zmian) ---
   const scale = useSharedValue(1);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -43,50 +45,37 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
     translateY.value = withSpring(0, springConfig);
   }, [scale, translateX, translateY]);
 
-  // --- NOWOŚĆ: Stan Danych ---
+  // --- NOWA LOGIKA STANU DANYCH ---
+
+  // === KROK 2: Używamy hooka useCountries, aby uzyskać dostęp do danych w czasie rzeczywistym ===
+  const { visitedCountries } = useCountries();
+
+  // === KROK 3: Usuwamy stary, skomplikowany stan. Teraz jest prościej. ===
+  // Stan `isLoadingData` zależy teraz od tego, czy `visitedCountries` jest już dostępne.
+  // Używamy `useState` i `useEffect` do zarządzania stanem ładowania.
   const [selectedCountries, setSelectedCountries] = useState<string[] | null>(
     null
   );
   const [isLoadingData, setIsLoadingData] = useState(true);
-  const [isFetched, setIsFetched] = useState(false); // Flaga, by pobrać dane tylko raz
 
-  // --- NOWOŚĆ: Logika pobierania danych ---
+  // === KROK 4: Używamy useEffect do synchronizacji danych z CountryContext ===
+  // Ten hook uruchomi się przy pierwszym renderowaniu ORAZ za każdym razem,
+  // gdy `visitedCountries` z `CountryContext` się zmieni.
   useEffect(() => {
-    const fetchSelectedCountriesData = async (user: User) => {
-      // Pobieramy dane tylko raz
-      if (isFetched) return;
-
-      setIsLoadingData(true);
-      try {
-        const userDocRef = doc(db, "users", user.uid);
-        const userDoc = await getDoc(userDocRef);
-        const countries = userDoc.exists()
-          ? userDoc.data().countriesVisited || []
-          : [];
-        setSelectedCountries(countries);
-        setIsFetched(true); // Zaznaczamy, że dane zostały pobrane
-      } catch (error) {
-        console.error("MapStateProvider: Error fetching countries:", error);
-        setSelectedCountries([]);
-      } finally {
+    // Jeśli `visitedCountries` nie jest już pustą tablicą (domyślny stan),
+    // to znaczy, że `CountryContext` załadował dane z Firestore.
+    // Sprawdzamy też, czy nie jest `undefined`, na wszelki wypadek.
+    if (visitedCountries) {
+      setSelectedCountries(visitedCountries);
+      // Gdy tylko mamy dane, przestajemy pokazywać ładowanie.
+      if (isLoadingData) {
         setIsLoadingData(false);
       }
-    };
-
-    // Nasłuchujemy na zmiany stanu autentykacji, by pobrać dane, gdy user jest dostępny
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user && !isFetched) {
-        fetchSelectedCountriesData(user);
-      } else if (!user) {
-        // Opcjonalnie: resetuj stan, gdy użytkownik się wyloguje
-        setSelectedCountries(null);
-        setIsFetched(false);
-        setIsLoadingData(true);
-      }
-    });
-
-    return () => unsubscribe(); // Cleanup
-  }, [isFetched]); // Zależność od isFetched
+    }
+    // Jeśli `visitedCountries` to `null` lub `undefined`, możemy poczekać.
+    // Jeśli `CountryContext` nigdy nie zwróci danych (np. błąd),
+    // `isLoadingData` pozostanie `true`.
+  }, [visitedCountries, isLoadingData]); // Zależność od danych z CountryContext
 
   const value = useMemo(
     () => ({

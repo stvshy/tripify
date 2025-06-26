@@ -124,36 +124,20 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
         userId,
         "incomingFriendRequests"
       );
+      // communityStore.ts -> listenForCommunityData
+
       const unsubIncoming = onSnapshot(
         incomingCollectionRef,
-        async (snapshot) => {
-          if (snapshot.empty) {
-            set({ incomingRequests: [] });
-            return;
-          }
-          const senderUids = snapshot.docs.map((doc) => doc.data().senderUid);
-          const uidsToFetch = [...new Set(senderUids)]; // Unikalne UID
-
-          if (uidsToFetch.length === 0) {
-            set({ incomingRequests: [] });
-            return;
-          }
-
-          const q = query(
-            collection(db, "users"),
-            where("__name__", "in", uidsToFetch.slice(0, 30))
-          );
-          const userDocs = await getDocs(q);
-          const nicknames = new Map<string, string>();
-          userDocs.forEach((d) =>
-            nicknames.set(d.id, d.data().nickname || "Unknown")
-          );
-
-          const incomingList: IncomingRequest[] = snapshot.docs.map((d) => ({
-            id: d.id,
-            senderUid: d.data().senderUid,
-            senderNickname: nicknames.get(d.data().senderUid) || "Unknown",
-          }));
+        (snapshot) => {
+          // Usunęliśmy 'async'
+          const incomingList: IncomingRequest[] = snapshot.docs.map((d) => {
+            const data = d.data();
+            return {
+              id: d.id,
+              senderUid: data.senderUid,
+              senderNickname: data.senderNickname || "Unknown", // <--- Pobieramy bezpośrednio
+            };
+          });
           set({ incomingRequests: incomingList });
         },
         (error) => console.error("Error in incomingRequests listener:", error)
@@ -311,14 +295,26 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
       }
 
       try {
+        // ---- NOWA CZĘŚĆ: POBIERZ NICKNAME AKTUALNEGO UŻYTKOWNIKA ----
+        const currentUserDoc = await getDoc(doc(db, "users", currentUser.uid));
+        const currentUserNickname = currentUserDoc.data()?.nickname;
+
+        if (!currentUserNickname) {
+          Alert.alert("Error", "Your profile is incomplete.");
+          return;
+        }
+        // -----------------------------------------------------------------
+
         const batch = writeBatch(db);
 
-        // Operacja 1: Zapis w podkolekcji odbiorcy
         const incomingRequestRef = doc(
           collection(db, "users", receiverUid, "incomingFriendRequests")
         );
+
+        // ---- ZMIANA: Zapisz więcej danych w dokumencie zaproszenia ----
         batch.set(incomingRequestRef, {
           senderUid: currentUser.uid,
+          senderNickname: currentUserNickname, // <--- DODANE
           createdAt: serverTimestamp(),
         });
 

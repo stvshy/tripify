@@ -78,11 +78,11 @@ const Badge: React.FC<{ count: number }> = ({ count }) => {
 export default function TabLayout() {
   return (
     // 2. Owiń wszystko w MapStateProvider
-    <MapStateProvider>
-      <CountriesProvider>
+    <CountriesProvider>
+      <MapStateProvider>
         <TabLayoutContent />
-      </CountriesProvider>
-    </MapStateProvider>
+      </MapStateProvider>
+    </CountriesProvider>
   );
 }
 
@@ -409,6 +409,7 @@ const TabLayoutContent: React.FC = () => {
         <Tabs.Screen
           name="index"
           options={{
+            // unmountOnBlur: true,
             title: "",
             tabBarButton: (props) => (
               <CustomTabBarButton onPress={props.onPress}>

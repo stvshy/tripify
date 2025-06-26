@@ -567,10 +567,6 @@ const InteractiveMapComponent = forwardRef<
   );
   const SkiaVisibleCountries = React.memo(
     () => {
-      console.log(
-        "SkiaVisibleCountries re-render, isInteracting:",
-        isInteracting.value
-      ); // Do debugowania
       return (
         <>
           {skiaPaths.map((countryData) => {
@@ -613,7 +609,6 @@ const InteractiveMapComponent = forwardRef<
   ); // Twoja optymalizacja memo
   const SvgInvisibleTouchLayer = React.memo(
     () => {
-      console.log("SvgInvisibleTouchLayer re-render"); // Do debugowania
       return (
         <>
           {countries.map((country) => {
