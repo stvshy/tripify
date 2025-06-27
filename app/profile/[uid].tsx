@@ -18,6 +18,9 @@ import {
   Dimensions,
   Modal,
   TouchableWithoutFeedback,
+  FlatList,
+  FlexStyle,
+  NativeScrollEvent,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { db, auth } from "../config/firebaseConfig";
@@ -42,7 +45,7 @@ import RankingList from "../../components/RankingList";
 import { ThemeContext } from "../config/ThemeContext";
 import { useCommunityStore } from "../store/communityStore";
 import { useFocusEffect } from "expo-router";
-
+import { FlashList } from "@shopify/flash-list";
 interface Country {
   id: string;
   cca2: string;
@@ -63,6 +66,19 @@ interface RankingSlot {
   rank: number;
   country: Country | null;
 }
+
+const countriesMap = new Map<string, Country>();
+countriesData.countries.forEach((country) => {
+  countriesMap.set(country.id, {
+    ...country,
+    cca2: country.id,
+    flag: `https://flagcdn.com/w40/${country.id.toLowerCase()}.png`,
+    name: country.name || "Unknown",
+    class: country.class || "Unknown",
+    path: country.path || "Unknown",
+  });
+});
+
 const removeDuplicates = (countries: Country[]): Country[] => {
   const unique = new Map<string, Country>();
   countries.forEach((c) => {
@@ -72,47 +88,19 @@ const removeDuplicates = (countries: Country[]): Country[] => {
 };
 const generateUniqueId = () =>
   `rank-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-const ProfileRankingItem: React.FC<{ slot: RankingSlot }> = memo(({ slot }) => {
-  const theme = useTheme();
-  return (
-    <View
-      style={[
-        profileStyles.rankingItemContainer,
-        { backgroundColor: theme.colors.surface },
-      ]}
-    >
-      <Text style={[profileStyles.rank, { color: theme.colors.onSurface }]}>
-        {slot.rank}.
-      </Text>
-      {slot.country ? (
-        <>
-          {" "}
-          <CountryFlag
-            isoCode={slot.country.cca2}
-            size={20}
-            style={profileStyles.flag}
-          />{" "}
-          <Text
-            style={[
-              profileStyles.countryName,
-              { color: theme.colors.onSurface },
-            ]}
-          >
-            {slot.country.name}
-          </Text>{" "}
-        </>
-      ) : (
-        <Text
-          style={[profileStyles.countryName, { color: theme.colors.onSurface }]}
-        >
-          Unknown
-        </Text>
-      )}
-    </View>
-  );
-});
-// type FriendStatus = "none" | "sent" | "received" | "friend" | "checking";
+// ZMIANA 2: Definiujemy stałe dla renderowania przyrostowego
+const INITIAL_BATCH_SIZE = 40; // Ile krajów pokazać na start
+const SCROLL_BATCH_SIZE = 20; // Ile krajów dorenderować przy każdym scrollu
 
+// const estimateCountryWidth = (name: string): number => {
+//   const FLAG_WIDTH = 20;
+//   const PADDING_HORIZONTAL = 10 * 2;
+//   const MARGINS = 5 * 2;
+//   // Zmniejszamy mnożnik, aby algorytm był mniej ostrożny.
+//   // Możesz eksperymentować z tą wartością (np. 6.8, 7.2), aby znaleźć idealne dopasowanie.
+//   const TEXT_WIDTH = name.length * 7.0;
+//   return FLAG_WIDTH + PADDING_HORIZONTAL + MARGINS + TEXT_WIDTH;
+// };
 export default function ProfileScreen() {
   useFocusEffect(
     useCallback(() => {
@@ -148,7 +136,7 @@ export default function ProfileScreen() {
     removeFriend,
   } = useCommunityStore();
 
-  const isLoading = loadingProfile || isLoadingCommunity;
+  const isLoading = loadingProfile;
 
   // Sprawdzenie statusu znajomości (POPRAWIONE)
   const isFriend = useMemo(
@@ -167,16 +155,96 @@ export default function ProfileScreen() {
     () => incomingRequests.find((req) => req.senderUid === profileUid),
     [incomingRequests, profileUid]
   );
-  const mappedCountries: Country[] = useMemo(() => {
-    return countriesData.countries.map((country) => ({
-      ...country,
-      cca2: country.id,
-      flag: `https://flagcdn.com/w40/${country.id.toLowerCase()}.png`,
-      name: country.name || "Unknown",
-      class: country.class || "Unknown",
-      path: country.path || "Unknown",
-    }));
-  }, []);
+
+  const { width: screenWidth } = Dimensions.get("window");
+  const listPadding = 16 * 2; // Padding kontenera
+  const availableWidth = screenWidth - listPadding;
+
+  // const groupedCountries = useMemo(() => {
+  //   if (countriesVisited.length === 0) {
+  //     return [];
+  //   }
+
+  //   const rows: Country[][] = [];
+  //   let currentRow: Country[] = [];
+  //   let currentRowWidth = 0;
+
+  //   countriesVisited.forEach((country) => {
+  //     const countryWidth = estimateCountryWidth(country.name);
+
+  //     if (
+  //       currentRowWidth + countryWidth > availableWidth &&
+  //       currentRow.length > 0
+  //     ) {
+  //       rows.push(currentRow); // Zakończ obecny wiersz
+  //       currentRow = [country]; // Zacznij nowy wiersz
+  //       currentRowWidth = countryWidth;
+  //     } else {
+  //       currentRow.push(country); // Dodaj do obecnego wiersza
+  //       currentRowWidth += countryWidth;
+  //     }
+  //   });
+
+  //   if (currentRow.length > 0) {
+  //     rows.push(currentRow); // Dodaj ostatni, niepełny wiersz
+  //   }
+
+  //   return rows;
+  // }, [countriesVisited, availableWidth]); // Przelicz tylko, gdy zmienią się kraje lub szerokość ekranu
+  const [renderedCount, setRenderedCount] = useState(INITIAL_BATCH_SIZE);
+
+  // ZMIANA 4: Handler do obsługi przewijania
+  const handleScroll = useCallback(
+    (event: NativeScrollEvent) => {
+      const { layoutMeasurement, contentOffset, contentSize } = event;
+      const paddingToEnd = 200; // Bufor
+
+      if (
+        layoutMeasurement.height + contentOffset.y >=
+          contentSize.height - paddingToEnd &&
+        renderedCount < countriesVisited.length
+      ) {
+        setRenderedCount((prevCount) =>
+          Math.min(prevCount + SCROLL_BATCH_SIZE, countriesVisited.length)
+        );
+      }
+    },
+    [renderedCount, countriesVisited.length]
+  );
+  // ZMIANA #2: Stwórz `renderItem` dla FlashList, który renderuje cały wiersz
+  // const renderRow = useCallback(
+  //   ({ item: row }: { item: Country[] }) => {
+  //     // Zawsze wyrównujemy do lewej. To wygląda naturalnie i ukrywa niedoskonałości pakowania.
+  //     return (
+  //       <View style={profileStyles.visitedRow}>
+  //         {row.map((country) => (
+  //           <View
+  //             key={country.id}
+  //             style={[
+  //               profileStyles.visitedItemContainer,
+  //               { backgroundColor: isDarkTheme ? "#262626" : "#f0f0f0" },
+  //             ]}
+  //           >
+  //             <CountryFlag
+  //               isoCode={country.cca2}
+  //               size={20}
+  //               style={profileStyles.flag}
+  //             />
+  //             <Text
+  //               style={[
+  //                 profileStyles.visitedItemText,
+  //                 { color: theme.colors.onSurface },
+  //               ]}
+  //             >
+  //               {country.name}
+  //             </Text>
+  //           </View>
+  //         ))}
+  //       </View>
+  //     );
+  //   },
+  //   [isDarkTheme, theme.colors.onSurface]
+  // );
   useEffect(() => {
     if (!profileUid) {
       setLoadingProfile(false);
@@ -199,18 +267,19 @@ export default function ProfileScreen() {
         const rankingFiltered = rankingRaw.filter((code) =>
           visitedCodes.includes(code)
         );
-        setRankingSlots(
-          rankingFiltered.map((cca2, idx) => ({
-            id: generateUniqueId(),
-            rank: idx + 1,
-            country: mappedCountries.find((c) => c.cca2 === cca2) || null,
-          }))
-        );
-        setCountriesVisited(
-          removeDuplicates(
-            mappedCountries.filter((c) => visitedCodes.includes(c.cca2))
-          )
-        );
+        const newRankingSlots = rankingFiltered.map((cca2, idx) => ({
+          id: generateUniqueId(),
+          rank: idx + 1,
+          country: countriesMap.get(cca2) || null,
+        }));
+
+        const newCountriesVisited = Array.from(new Set(visitedCodes)) // Usuwanie duplikatów
+          .map((code) => countriesMap.get(code))
+          .filter((country): country is Country => country !== undefined); // Filtrowanie undefined i typowanie
+
+        setRankingSlots(newRankingSlots);
+        setCountriesVisited(newCountriesVisited);
+
         setUserProfile({
           uid: snap.id,
           nickname: data.nickname || "Unknown",
@@ -226,8 +295,42 @@ export default function ProfileScreen() {
       }
     );
     return () => unsubscribe();
-  }, [profileUid, mappedCountries]);
+  }, [profileUid]);
+  // const [listContainerWidth, setListContainerWidth] = useState(0);
 
+  // Oblicz liczbę kolumn na podstawie zmierzonej szerokości
+
+  // Callback do `onLayout`, który ustawi szerokość w stanie
+  // const onListLayout = useCallback(
+  //   (event: { nativeEvent: { layout: { width: any } } }) => {
+  //     const { width } = event.nativeEvent.layout;
+  //     setListContainerWidth(width);
+  //   },
+  //   []
+  // ); // Pusty dependency array, bo funkcja się nie zmienia
+
+  // const renderVisitedCountry = useCallback(
+  //   ({ item }: { item: Country }) => (
+  //     <View
+  //       style={[
+  //         profileStyles.visitedItemContainer, // Użyj nowego stylu
+  //         { backgroundColor: isDarkTheme ? "#262626" : "#f0f0f0" },
+  //       ]}
+  //     >
+  //       <CountryFlag isoCode={item.cca2} size={20} style={profileStyles.flag} />
+  //       <Text
+  //         style={[
+  //           profileStyles.visitedItemText,
+  //           { color: theme.colors.onSurface },
+  //         ]}
+  //         numberOfLines={1}
+  //       >
+  //         {item.name}
+  //       </Text>
+  //     </View>
+  //   ),
+  //   [isDarkTheme, theme.colors.onSurface]
+  // );
   // --- Handlers (POPRAWIONE) ---
   const handleAdd = () => {
     if (userProfile) {
@@ -318,17 +421,107 @@ export default function ProfileScreen() {
       </View>
     );
   }
+  const renderFriendshipButtons = () => {
+    // --- OPTYMALIZACJA 4: Oddzielne renderowanie przycisków ---
+    // Jeśli dane o znajomych się jeszcze ładują, pokazujemy placeholder.
+    if (isLoadingCommunity) {
+      return (
+        <View
+          style={[
+            profileStyles.addFriendButton,
+            { backgroundColor: theme.colors.surfaceVariant },
+          ]}
+        >
+          <ActivityIndicator size="small" color={theme.colors.primary} />
+        </View>
+      );
+    }
 
+    if (hasReceivedRequest) {
+      return (
+        <View style={profileStyles.friendActionButtons}>
+          <TouchableOpacity
+            onPress={handleAccept}
+            style={[
+              profileStyles.acceptButton,
+              { backgroundColor: theme.colors.primary },
+            ]}
+          >
+            <Text style={profileStyles.buttonText}>Accept</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleDecline}
+            style={[
+              profileStyles.declineButton,
+              { backgroundColor: "rgba(116, 116, 116, 0.3)" },
+            ]}
+          >
+            <Text style={profileStyles.buttonText}>Decline</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (isFriend) {
+      return (
+        <TouchableOpacity
+          onPress={handleRemove}
+          style={[
+            profileStyles.addFriendButton,
+            {
+              backgroundColor: isDarkTheme
+                ? "rgba(171, 109, 197, 0.4)"
+                : "rgba(191, 115, 229, 0.43)",
+            },
+          ]}
+        >
+          <Text style={{ color: "#fff", fontSize: 14, fontWeight: "500" }}>
+            Friend
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+
+    if (hasSentRequest) {
+      return (
+        <TouchableOpacity
+          style={[
+            profileStyles.addFriendButton,
+            {
+              backgroundColor: isDarkTheme
+                ? "rgba(128, 128, 128, 0.4)"
+                : "rgba(204, 204, 204, 0.7)",
+            },
+          ]}
+          disabled={true}
+        >
+          <Text style={profileStyles.addFriendButtonText}>Sent</Text>
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <TouchableOpacity
+        onPress={handleAdd}
+        style={[
+          profileStyles.addFriendButton,
+          { backgroundColor: theme.colors.primary },
+        ]}
+      >
+        <Text style={profileStyles.addFriendButtonText}>Add</Text>
+      </TouchableOpacity>
+    );
+  };
   return (
+    // ZMIANA 5: Używamy onScroll w głównym ScrollView
     <ScrollView
       style={[
         profileStyles.container,
-        { backgroundColor: theme.colors.background, opacity: 1 },
+        { backgroundColor: theme.colors.background },
       ]}
-      contentContainerStyle={{
-        paddingBottom: 50,
-        backgroundColor: theme.colors.background,
-      }}
+      contentContainerStyle={{ paddingBottom: 50 }}
+      onScroll={({ nativeEvent }) => handleScroll(nativeEvent)}
+      scrollEventThrottle={16} // Optymalizacja - jak często event onScroll ma się odpalać
     >
       <View style={[profileStyles.header, { paddingTop: height * 0.02 }]}>
         <TouchableOpacity
@@ -473,7 +666,6 @@ export default function ProfileScreen() {
         </View>
         <RankingList rankingSlots={rankingSlots.slice(0, 5)} />
       </View>
-
       <View style={profileStyles.visitedContainer}>
         <View style={profileStyles.visitedHeader}>
           <Text
@@ -488,41 +680,40 @@ export default function ProfileScreen() {
             ({countriesVisited.length}/218)
           </Text>
         </View>
-        {countriesVisited.length === 0 ? (
-          <Text style={{ color: theme.colors.onBackground, marginLeft: 2 }}>
-            No visited countries.
-          </Text>
-        ) : (
-          <View style={profileStyles.visitedList}>
-            {countriesVisited.map((country) => (
-              <View
-                key={`visited-${country.id}`}
+        {/* ZMIANA 6: Renderujemy listę za pomocą .slice() i .map() wewnątrz View z flexWrap */}
+        <View style={profileStyles.visitedListContainer}>
+          {countriesVisited.slice(0, renderedCount).map((country) => (
+            <View
+              key={country.id}
+              style={[
+                profileStyles.visitedItemContainer,
+                { backgroundColor: isDarkTheme ? "#f0f0f015" : "#f0f0f0" },
+              ]}
+            >
+              <CountryFlag
+                isoCode={country.cca2}
+                size={20}
+                style={profileStyles.flag}
+              />
+              <Text
                 style={[
-                  profileStyles.visitedItemContainer,
-                  {
-                    backgroundColor: isDarkTheme ? "#262626" : "#f0f0f0",
-                  },
+                  profileStyles.visitedItemText,
+                  { color: theme.colors.onSurface },
                 ]}
               >
-                <CountryFlag
-                  isoCode={country.cca2}
-                  size={20}
-                  style={profileStyles.flag}
-                />
-                <Text
-                  style={[
-                    profileStyles.visitedItemText,
-                    {
-                      color: theme.colors.onSurface,
-                      marginLeft: 6,
-                    },
-                  ]}
-                >
-                  {country.name}
-                </Text>
-              </View>
-            ))}
-          </View>
+                {country.name}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Wskaźnik ładowania na końcu */}
+        {renderedCount < countriesVisited.length && (
+          <ActivityIndicator
+            size="small"
+            color={theme.colors.primary}
+            style={{ marginTop: 20 }}
+          />
         )}
       </View>
 
@@ -591,6 +782,13 @@ const profileStyles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: "600",
+  },
+  visitedListContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginLeft: -4, // Dostosowanie marginesów, aby uniknąć przesunięcia
+    // Nie potrzebujemy justowania - naturalny układ jest najlepszy
+    marginRight: -4,
   },
   userPanel: {
     alignItems: "center",
@@ -707,23 +905,31 @@ const profileStyles = StyleSheet.create({
     marginBottom: 10,
   },
   visitedList: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginLeft: -5,
-    marginRight: -5,
-    marginTop: -5,
+    // flexDirection: "row",
+    // flexWrap: "wrap",
+    marginLeft: -15,
+    marginRight: -8,
+    marginTop: -9,
   },
+  visitedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap", // Dodajemy flexWrap dla bezpieczeństwa, gdyby heurystyka zawiodła
+    marginBottom: 5,
+  },
+  // PRZYWRÓCONY STYL DLA POJEDYNCZEGO ELEMENTU
   visitedItemContainer: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 10,
+    paddingHorizontal: 12, // Trochę więcej miejsca w pigułce
     paddingVertical: 6,
-    margin: 5.4,
-    borderRadius: 8,
+    margin: 3.5, // Równy margines dookoła
+    borderRadius: 16,
   },
   visitedItemText: {
     fontSize: 14,
     fontWeight: "600",
+    marginLeft: 1,
   },
   flag: {
     width: 20,
