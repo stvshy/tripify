@@ -1,50 +1,62 @@
 // components/RankingList.tsx
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import CountryFlag from 'react-native-country-flag';
-import { useTheme } from 'react-native-paper';
+import React from "react";
+import { View, Text, StyleSheet } from "react-native";
+import CountryFlag from "react-native-country-flag";
+import { useTheme } from "react-native-paper";
 
-interface Country {
-  id: string;
-  cca2: string;
-  name: string;
-  flag: string;
-  class: string;
-  path: string;
-}
+// KROK 1: Importujemy typy z centralnego miejsca
+import { Country, RankingSlot } from "../types/sharedTypes";
+// Upewnij się, że ścieżka '../types/sharedTypes' jest poprawna!
 
-interface RankingSlot {
-  id: string;
-  rank: number;
-  country: Country | null;
-}
-
+// KROK 2: Definiujemy propsy komponentu, używając zaimportowanych typów
 interface RankingListProps {
   rankingSlots: RankingSlot[];
 }
 
+// KROK 3: Usuwamy lokalne definicje `interface Country` i `interface RankingSlot`
+// Nie są już tutaj potrzebne!
+
 const RankingList: React.FC<RankingListProps> = ({ rankingSlots }) => {
   const theme = useTheme();
-
   return (
     <View>
       {rankingSlots.length === 0 ? (
-        <Text style={{ color: theme.colors.onBackground }}>No ranking available.</Text>
+        <Text style={{ color: theme.colors.onBackground }}>
+          No ranking available.
+        </Text>
       ) : (
         rankingSlots.map((slot) => (
-          <View key={slot.id} style={[styles.rankingItemContainer, { backgroundColor: theme.colors.surface }]}>
+          <View
+            key={slot.id}
+            style={[
+              styles.rankingItemContainer,
+              { backgroundColor: theme.colors.surface },
+            ]}
+          >
             <Text style={[styles.rank, { color: theme.colors.onSurface }]}>
               {slot.rank}.
             </Text>
             {slot.country ? (
-                <>
-                <CountryFlag isoCode={slot.country.cca2} size={20} style={styles.flag} />
-                <Text style={[styles.countryName, { color: theme.colors.onSurface }]}>
-                  {'  '}{slot.country.name}
+              <>
+                <CountryFlag
+                  isoCode={slot.country.cca2}
+                  size={20}
+                  style={styles.flag}
+                />
+                <Text
+                  style={[
+                    styles.countryName,
+                    { color: theme.colors.onSurface },
+                  ]}
+                >
+                  {"  "}
+                  {slot.country.name}
                 </Text>
-                </>
+              </>
             ) : (
-              <Text style={[styles.countryName, { color: theme.colors.onSurface }]}>
+              <Text
+                style={[styles.countryName, { color: theme.colors.onSurface }]}
+              >
                 Unknown
               </Text>
             )}
@@ -57,18 +69,18 @@ const RankingList: React.FC<RankingListProps> = ({ rankingSlots }) => {
 
 const styles = StyleSheet.create({
   rankingItemContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 8,
     paddingHorizontal: 12,
     marginBottom: 8,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: "#ccc",
   },
   rank: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginRight: 8,
   },
   countryName: {

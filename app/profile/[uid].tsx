@@ -39,21 +39,15 @@ import {
 } from "firebase/firestore";
 import { useTheme, MD3DarkTheme, MD3LightTheme } from "react-native-paper"; // Added MD3DarkTheme, MD3LightTheme
 import { Ionicons } from "@expo/vector-icons";
-import countriesData from "../../assets/maps/countries.json";
+import countriesData from "../../assets/maps/countries_with_continents.json";
 import CountryFlag from "react-native-country-flag";
 import RankingList from "../../components/RankingList";
 import { ThemeContext } from "../config/ThemeContext";
 import { useCommunityStore } from "../store/communityStore";
 import { useFocusEffect } from "expo-router";
 import { FlashList } from "@shopify/flash-list";
-interface Country {
-  id: string;
-  cca2: string;
-  name: string;
-  flag: string;
-  class: string;
-  path: string;
-}
+import { Country, RankingSlot } from "../../types/sharedTypes";
+
 interface UserProfile {
   uid: string;
   nickname: string;
@@ -61,46 +55,47 @@ interface UserProfile {
   ranking: string[];
   countriesVisited: string[];
 }
-interface RankingSlot {
-  id: string;
-  rank: number;
-  country: Country | null;
-}
 
 const countriesMap = new Map<string, Country>();
 countriesData.countries.forEach((country) => {
   countriesMap.set(country.id, {
-    ...country,
+    id: country.id,
+    name: country.name || "Unknown",
     cca2: country.id,
     flag: `https://flagcdn.com/w40/${country.id.toLowerCase()}.png`,
-    name: country.name || "Unknown",
-    class: country.class || "Unknown",
+    class: country.class || null, // Poprawiona wartość domyślna
     path: country.path || "Unknown",
+    continent: country.continent || "Other", // <-- KLUCZOWA ZMIANA: Dodajemy kontynent
   });
 });
-
-const removeDuplicates = (countries: Country[]): Country[] => {
-  const unique = new Map<string, Country>();
-  countries.forEach((c) => {
-    unique.set(c.id, c);
-  });
-  return Array.from(unique.values());
+const continentColors = {
+  Europe: "#E6E6FA", // Lawendowy
+  Asia: "#DFF0D8", // Bladozielony
+  Africa: "#fcf4ca", // Waniliowy
+  "North America": "#D9EDF7", // Błękitny
+  "South America": "#F2DEDE", // Różany
+  Oceania: "#E0FFFF", // Jasny cyjan
+  Antarctica: "#FFFFFF",
+  Other: "#EAEAEA",
 };
+
+const darkContinentColors = {
+  Europe: "#4A4A6A",
+  Asia: "#425C3B",
+  Africa: "#665B31",
+  "North America": "#3E5666",
+  "South America": "#694141",
+  Oceania: "#3A6363",
+  Antarctica: "#333333",
+  Other: "#333333",
+};
+
 const generateUniqueId = () =>
   `rank-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 // ZMIANA 2: Definiujemy stałe dla renderowania przyrostowego
 const INITIAL_BATCH_SIZE = 40; // Ile krajów pokazać na start
 const SCROLL_BATCH_SIZE = 20; // Ile krajów dorenderować przy każdym scrollu
 
-// const estimateCountryWidth = (name: string): number => {
-//   const FLAG_WIDTH = 20;
-//   const PADDING_HORIZONTAL = 10 * 2;
-//   const MARGINS = 5 * 2;
-//   // Zmniejszamy mnożnik, aby algorytm był mniej ostrożny.
-//   // Możesz eksperymentować z tą wartością (np. 6.8, 7.2), aby znaleźć idealne dopasowanie.
-//   const TEXT_WIDTH = name.length * 7.0;
-//   return FLAG_WIDTH + PADDING_HORIZONTAL + MARGINS + TEXT_WIDTH;
-// };
 export default function ProfileScreen() {
   useFocusEffect(
     useCallback(() => {
@@ -159,7 +154,21 @@ export default function ProfileScreen() {
   const { width: screenWidth } = Dimensions.get("window");
   const listPadding = 16 * 2; // Padding kontenera
   const availableWidth = screenWidth - listPadding;
-
+  // Wewnątrz komponentu ProfileScreen
+  const groupedByContinent = useMemo(() => {
+    return countriesVisited.reduce(
+      (acc, country) => {
+        // `country.continent` pochodzi teraz z naszego nowego pliku!
+        const continent = country.continent || "Other";
+        if (!acc[continent]) {
+          acc[continent] = [];
+        }
+        acc[continent].push(country);
+        return acc;
+      },
+      {} as Record<string, any[]>
+    ); // Zmieniony typ na `any[]` dla prostoty
+  }, [countriesVisited]);
   // const groupedCountries = useMemo(() => {
   //   if (countriesVisited.length === 0) {
   //     return [];
@@ -666,6 +675,7 @@ export default function ProfileScreen() {
         </View>
         <RankingList rankingSlots={rankingSlots.slice(0, 5)} />
       </View>
+      {/* --- Visited Countries Section (nowa logika) --- */}
       <View style={profileStyles.visitedContainer}>
         <View style={profileStyles.visitedHeader}>
           <Text
@@ -680,32 +690,63 @@ export default function ProfileScreen() {
             ({countriesVisited.length}/218)
           </Text>
         </View>
-        {/* ZMIANA 6: Renderujemy listę za pomocą .slice() i .map() wewnątrz View z flexWrap */}
-        <View style={profileStyles.visitedListContainer}>
-          {countriesVisited.slice(0, renderedCount).map((country) => (
-            <View
-              key={country.id}
-              style={[
-                profileStyles.visitedItemContainer,
-                { backgroundColor: isDarkTheme ? "#f0f0f015" : "#f0f0f0" },
-              ]}
-            >
-              <CountryFlag
-                isoCode={country.cca2}
-                size={20}
-                style={profileStyles.flag}
-              />
-              <Text
-                style={[
-                  profileStyles.visitedItemText,
-                  { color: theme.colors.onSurface },
-                ]}
-              >
-                {country.name}
+
+        {/* Grupowanie po kontynentach */}
+        {Object.entries(groupedByContinent)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([continent, countriesInContinent]) => (
+            <View key={continent} style={profileStyles.continentSection}>
+              <Text style={profileStyles.continentTitle}>
+                <Text style={{ color: isDarkTheme ? "#e6b3ff" : "#a821b5" }}>
+                  {continent}
+                </Text>
+                <Text
+                  style={{
+                    color: "gray",
+                    fontSize: 14,
+                    fontWeight: "400",
+                  }}
+                >
+                  {" "}
+                  ({countriesInContinent.length})
+                </Text>
               </Text>
+              <View style={profileStyles.visitedListContainer}>
+                {countriesInContinent.slice(0, renderedCount).map((country) => (
+                  <TouchableOpacity
+                    key={country.id}
+                    onPress={() => router.push(`/country/${country.id}`)}
+                    style={[
+                      profileStyles.visitedItemContainer,
+                      {
+                        backgroundColor: isDarkTheme
+                          ? darkContinentColors[
+                              continent as keyof typeof darkContinentColors
+                            ] || "#333"
+                          : continentColors[
+                              continent as keyof typeof continentColors
+                            ] || "#f0f0f0",
+                      },
+                    ]}
+                  >
+                    <CountryFlag
+                      isoCode={country.cca2}
+                      size={20}
+                      style={profileStyles.flag}
+                    />
+                    <Text
+                      style={[
+                        profileStyles.visitedItemText,
+                        { color: theme.colors.onSurface },
+                      ]}
+                    >
+                      {country.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           ))}
-        </View>
 
         {/* Wskaźnik ładowania na końcu */}
         {renderedCount < countriesVisited.length && (
@@ -778,6 +819,16 @@ const profileStyles = StyleSheet.create({
   },
   headerButton: {
     padding: 8,
+  },
+  continentSection: { marginTop: 10 },
+  continentTitle: {
+    fontSize: 15,
+    fontWeight: "500",
+    marginBottom: 8,
+    marginLeft: 4,
+    // textTransform: "uppercase",
+    // letterSpacing: 1,
+    color: "pink",
   },
   headerTitle: {
     fontSize: 20,
@@ -898,6 +949,7 @@ const profileStyles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: -9,
   },
   visitedCount: {
     fontSize: 14,

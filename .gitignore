@@ -87,3 +87,4 @@ aapt2
 aapt
 components/InteractiveMapSkia.tsx
 firebase-debug.log
+assets/maps/add_continents.js
