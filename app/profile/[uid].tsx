@@ -48,9 +48,9 @@ countriesData.countries.forEach((country) => {
     name: country.name || "Unknown",
     cca2: country.id,
     flag: `https://flagcdn.com/w40/${country.id.toLowerCase()}.png`,
-    class: country.class || null, // Poprawiona wartość domyślna
+    class: country.class || null,
     path: country.path || "Unknown",
-    continent: country.continent || "Other", // <-- KLUCZOWA ZMIANA: Dodajemy kontynent
+    continent: country.continent || "Other",
   });
 });
 const continentColors = {
@@ -80,6 +80,9 @@ const generateUniqueId = () =>
 // ZMIANA 2: Definiujemy stałe dla renderowania przyrostowego
 const INITIAL_BATCH_SIZE = 40; // Ile krajów pokazać na start
 const SCROLL_BATCH_SIZE = 20; // Ile krajów dorenderować przy każdym scrollu
+type ListItem =
+  | { type: "header"; id: string; continent: string; count: number }
+  | { type: "countries_row"; id: string; countries: Country[] }; // Wiersz zawiera tablicę krajów
 
 export default function ProfileScreen() {
   useFocusEffect(
@@ -92,84 +95,7 @@ export default function ProfileScreen() {
       return () => cleanup(); // Sprzątaj, gdy ekran traci fokus
     }, [])
   );
-  const SectionSkeleton = ({
-    title,
-    type,
-  }: {
-    title: string;
-    type: "ranking" | "countries";
-  }) => {
-    const theme = useTheme();
-    const shimmerAnim = useRef(new Animated.Value(0)).current;
 
-    useEffect(() => {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(shimmerAnim, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(shimmerAnim, {
-            toValue: 0,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    }, []);
-
-    const animatedOpacity = shimmerAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0.3, 0.7],
-    });
-
-    return (
-      <View style={{ marginBottom: 25 }}>
-        <Text
-          style={[
-            profileStyles.sectionTitle,
-            { color: theme.colors.onBackground },
-          ]}
-        >
-          {title}
-        </Text>
-        {type === "ranking" ? (
-          <>
-            {[...Array(3)].map((_, i) => (
-              <Animated.View
-                key={i}
-                style={{
-                  width: "100%",
-                  height: 40,
-                  borderRadius: 8,
-                  marginBottom: 10,
-                  backgroundColor: theme.colors.surfaceVariant,
-                  opacity: animatedOpacity,
-                }}
-              />
-            ))}
-          </>
-        ) : (
-          <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-            {[...Array(6)].map((_, i) => (
-              <Animated.View
-                key={i}
-                style={{
-                  width: 100,
-                  height: 30,
-                  borderRadius: 16,
-                  margin: 4,
-                  backgroundColor: theme.colors.surfaceVariant,
-                  opacity: animatedOpacity,
-                }}
-              />
-            ))}
-          </View>
-        )}
-      </View>
-    );
-  };
   const { uid: profileUid } = useLocalSearchParams<{ uid: string }>();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>([]);
@@ -177,6 +103,7 @@ export default function ProfileScreen() {
   const [isLoadingProfile, setIsLoadingProfile] = useState(true); // Dla głównych danych
   const [isLoadingCountries, setIsLoadingCountries] = useState(true); // Dla listy krajów
   // const [loadingProfile, setLoadingProfile] = useState(true);
+  const [visitedCount, setVisitedCount] = useState(0);
   const theme = useTheme();
   const router = useRouter();
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
@@ -184,6 +111,7 @@ export default function ProfileScreen() {
   const [isRankingModalVisible, setIsRankingModalVisible] = useState(false);
   const currentUser = auth.currentUser;
   const [isScrolling, setIsScrolling] = useState(false);
+  const [listData, setListData] = useState<ListItem[]>([]);
   const handleCountryPress = useCallback(
     (countryId: string) => {
       router.push(`/country/${countryId}`);
@@ -268,8 +196,6 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (!profileUid) {
       setIsLoadingProfile(false);
-      setIsLoadingCountries(false);
-      setUserProfile(null);
       return;
     }
 
@@ -277,7 +203,8 @@ export default function ProfileScreen() {
     setIsLoadingCountries(true);
     setUserProfile(null);
     setRankingSlots([]);
-    setCountriesVisited([]);
+    setListData([]);
+    setVisitedCount(0);
 
     const userRef = doc(db, "users", profileUid);
     const unsubscribe = onSnapshot(
@@ -291,40 +218,71 @@ export default function ProfileScreen() {
         }
 
         const data = snap.data() as UserProfile;
-
-        // --- ETAP 1: SZYBKIE DANE ---
         const rankingRaw = data.ranking || [];
-        const visitedCodesForRanking = data.countriesVisited || [];
+        const visitedCodesRaw = data.countriesVisited || [];
+
+        // ETAP 1: Szybkie dane
         setUserProfile({
           uid: snap.id,
           nickname: data.nickname || "Unknown",
           email: data.email,
           ranking: rankingRaw,
-          countriesVisited: visitedCodesForRanking,
+          countriesVisited: visitedCodesRaw,
         });
         const rankingFiltered = rankingRaw.filter((code) =>
-          visitedCodesForRanking.includes(code)
+          visitedCodesRaw.includes(code)
         );
-        const newRankingSlots = rankingFiltered.map((cca2, idx) => ({
-          id: generateUniqueId(),
-          rank: idx + 1,
-          country: countriesMap.get(cca2) || null,
-        }));
-        setRankingSlots(newRankingSlots);
-
+        setRankingSlots(
+          rankingFiltered.map((cca2, idx) => ({
+            id: generateUniqueId(),
+            rank: idx + 1,
+            country: countriesMap.get(cca2) || null,
+          }))
+        );
         setIsLoadingProfile(false);
-        -setTimeout(() => {
-          // --- ETAP 2: CIĘŻKIE DANE (W TLE) ---
-          const visitedCodes = data.countriesVisited || [];
-          const newCountriesVisited = Array.from(new Set(visitedCodes))
+
+        // ETAP 2: Ciężkie dane (w tle)
+        setTimeout(() => {
+          const visitedCodesRaw = data.countriesVisited || [];
+          const newCountriesVisited = Array.from(new Set(visitedCodesRaw))
             .map((code) => countriesMap.get(code))
             .filter((c): c is Country => c !== undefined);
 
-          setCountriesVisited(newCountriesVisited);
+          setVisitedCount(newCountriesVisited.length);
 
-          // Dopiero teraz wyłączamy skeleton dla krajów
+          const groupedByContinent = newCountriesVisited.reduce(
+            (acc, country) => {
+              const continent = country.continent || "Other";
+              if (!acc[continent]) acc[continent] = [];
+              acc[continent].push(country);
+              return acc;
+            },
+            {} as Record<string, Country[]>
+          );
+
+          // KLUCZOWA ZMIANA 2: Nowy sposób tworzenia danych dla listy
+          const flatData: ListItem[] = [];
+          Object.entries(groupedByContinent)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .forEach(([continent, countriesInContinent]) => {
+              // 1. Dodaj nagłówek
+              flatData.push({
+                type: "header",
+                id: continent,
+                continent,
+                count: countriesInContinent.length,
+              });
+              // 2. Dodaj kraje JAKO JEDEN ELEMENT LISTY (wiersz)
+              flatData.push({
+                type: "countries_row",
+                id: `${continent}-row`,
+                countries: countriesInContinent,
+              });
+            });
+
+          setListData(flatData);
           setIsLoadingCountries(false);
-        }, 0); // Opóźnienie 0 wystarczy, by przenieść to do następnego cyklu pętli zdarzeń.
+        }, 0);
       },
       (error) => {
         console.error("Error fetching profile:", error);
@@ -336,7 +294,368 @@ export default function ProfileScreen() {
     return () => unsubscribe();
   }, [profileUid]);
 
-  // 1. Główny loader
+  // --- Komponenty do renderowania (renderItem, ListHeader, Skeleton) ---
+  const renderListItem = useCallback(
+    ({ item }: { item: ListItem }) => {
+      switch (item.type) {
+        case "header":
+          return (
+            <View style={profileStyles.continentSection}>
+              <Text style={profileStyles.continentTitle}>
+                <Text style={{ color: isDarkTheme ? "#e6b3ff" : "#a821b5" }}>
+                  {item.continent}
+                </Text>
+                <Text
+                  style={{ color: "gray", fontSize: 14, fontWeight: "400" }}
+                >
+                  {" "}
+                  ({item.count})
+                </Text>
+              </Text>
+            </View>
+          );
+        case "countries_row":
+          return (
+            <CountryPillRow
+              countries={item.countries}
+              onPress={handleCountryPress}
+            />
+          );
+        default:
+          return null;
+      }
+    },
+    [isDarkTheme, handleCountryPress]
+  );
+
+  // --- Handlers (POPRAWIONE) ---
+  const handleAdd = () => {
+    if (userProfile) {
+      sendFriendRequest(userProfile.uid, userProfile.nickname);
+    }
+  };
+
+  const handleRemove = () => {
+    if (profileUid) {
+      removeFriend(profileUid); // removeFriend oczekuje UID
+    }
+  };
+
+  const handleAccept = () => {
+    if (incomingRequestFromProfile) {
+      acceptFriendRequest(incomingRequestFromProfile);
+    }
+  };
+
+  const handleDecline = () => {
+    if (incomingRequestFromProfile) {
+      rejectFriendRequest(incomingRequestFromProfile.id);
+    }
+  };
+  const CountryPillRow = React.memo(
+    ({
+      countries,
+      onPress,
+    }: {
+      countries: Country[];
+      onPress: (id: string) => void;
+    }) => {
+      const { isDarkTheme } = useContext(ThemeContext);
+      return (
+        <View style={profileStyles.visitedListContainer}>
+          {countries.map((country) => {
+            const continent = country.continent || "Other";
+            const backgroundColor = isDarkTheme
+              ? darkContinentColors[
+                  continent as keyof typeof darkContinentColors
+                ] || "#333"
+              : continentColors[continent as keyof typeof continentColors] ||
+                "#f0f0f0";
+            return (
+              <CountryPill
+                key={country.id}
+                country={country}
+                onPress={onPress}
+                backgroundColor={backgroundColor}
+              />
+            );
+          })}
+        </View>
+      );
+    }
+  );
+  const SectionSkeleton = ({
+    title,
+    type,
+  }: {
+    title: string;
+    type: "ranking" | "countries";
+  }) => {
+    const theme = useTheme();
+    const shimmerAnim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(shimmerAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(shimmerAnim, {
+            toValue: 0,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }, []);
+
+    const animatedOpacity = shimmerAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.3, 0.7],
+    });
+
+    return (
+      <View style={{ marginBottom: 25 }}>
+        <Text
+          style={[
+            profileStyles.sectionTitle,
+            { color: theme.colors.onBackground },
+          ]}
+        >
+          {title}
+        </Text>
+        {type === "ranking" ? (
+          <>
+            {[...Array(3)].map((_, i) => (
+              <Animated.View
+                key={i}
+                style={{
+                  width: "100%",
+                  height: 40,
+                  borderRadius: 8,
+                  marginBottom: 10,
+                  backgroundColor: theme.colors.surfaceVariant,
+                  opacity: animatedOpacity,
+                }}
+              />
+            ))}
+          </>
+        ) : (
+          <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+            {[...Array(6)].map((_, i) => (
+              <Animated.View
+                key={i}
+                style={{
+                  width: 100,
+                  height: 30,
+                  borderRadius: 16,
+                  margin: 4,
+                  backgroundColor: theme.colors.surfaceVariant,
+                  opacity: animatedOpacity,
+                }}
+              />
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  };
+  const ListHeader = useCallback(
+    () => (
+      <>
+        <View style={[profileStyles.header, { paddingTop: height * 0.02 }]}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={[
+              profileStyles.headerButton,
+              { marginLeft: -11, marginRight: -1 },
+            ]}
+          >
+            <Ionicons
+              name="arrow-back"
+              size={26}
+              color={theme.colors.onBackground}
+            />
+          </TouchableOpacity>
+          <Text
+            style={[
+              profileStyles.headerTitle,
+              { color: theme.colors.onBackground },
+            ]}
+          >
+            Profile
+          </Text>
+          <TouchableOpacity
+            onPress={toggleTheme}
+            style={[profileStyles.headerButton, { marginRight: -7 }]}
+          >
+            <Ionicons
+              name={isDarkTheme ? "sunny" : "moon"}
+              size={24}
+              color={theme.colors.onBackground}
+            />
+          </TouchableOpacity>
+        </View>
+
+        <View style={profileStyles.userPanel}>
+          <Ionicons
+            name="person-circle"
+            size={100}
+            color={theme.colors.primary}
+          />
+          {userProfile && (
+            <>
+              <Text
+                style={[
+                  profileStyles.userName,
+                  { color: theme.colors.onBackground },
+                ]}
+              >
+                {userProfile.nickname}
+              </Text>
+              <Text style={[profileStyles.userEmail, { color: "gray" }]}>
+                {userProfile.email}
+              </Text>
+            </>
+          )}
+          {currentUser?.uid !== profileUid && userProfile && (
+            <>
+              {hasReceivedRequest ? (
+                <View style={profileStyles.friendActionButtons}>
+                  <TouchableOpacity
+                    onPress={handleAccept}
+                    style={[
+                      profileStyles.acceptButton,
+                      { backgroundColor: theme.colors.primary },
+                    ]}
+                  >
+                    <Text style={profileStyles.buttonText}>Accept</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleDecline}
+                    style={[
+                      profileStyles.declineButton,
+                      { backgroundColor: "rgba(116, 116, 116, 0.3)" },
+                    ]}
+                  >
+                    <Text style={profileStyles.buttonText}>Decline</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : isFriend ? (
+                <TouchableOpacity
+                  onPress={handleRemove}
+                  style={[
+                    profileStyles.addFriendButton,
+                    {
+                      backgroundColor: isDarkTheme
+                        ? "rgba(171, 109, 197, 0.4)"
+                        : "rgba(191, 115, 229, 0.43)",
+                    },
+                  ]}
+                >
+                  <Text
+                    style={{ color: "#fff", fontSize: 14, fontWeight: "500" }}
+                  >
+                    Friend
+                  </Text>
+                </TouchableOpacity>
+              ) : hasSentRequest ? (
+                <TouchableOpacity
+                  style={[
+                    profileStyles.addFriendButton,
+                    {
+                      backgroundColor: isDarkTheme
+                        ? "rgba(128, 128, 128, 0.4)"
+                        : "rgba(204, 204, 204, 0.7)",
+                    },
+                  ]}
+                  disabled={true}
+                >
+                  <Text style={profileStyles.addFriendButtonText}>Sent</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={handleAdd}
+                  style={[
+                    profileStyles.addFriendButton,
+                    { backgroundColor: theme.colors.primary },
+                  ]}
+                >
+                  <Text style={profileStyles.addFriendButtonText}>Add</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+        </View>
+
+        <View style={profileStyles.rankingContainer}>
+          <View style={profileStyles.rankingHeader}>
+            <Text
+              style={[
+                profileStyles.sectionTitle,
+                { color: theme.colors.onSurface },
+              ]}
+            >
+              Ranking
+            </Text>
+            <TouchableOpacity onPress={() => setIsRankingModalVisible(true)}>
+              <Text
+                style={[
+                  profileStyles.showAllRankingButton,
+                  { color: theme.colors.primary },
+                ]}
+              >
+                Show Full Ranking
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <RankingList rankingSlots={rankingSlots.slice(0, 5)} />
+        </View>
+
+        {isLoadingCountries ? (
+          <SectionSkeleton title="Visited Countries" type="countries" />
+        ) : (
+          <View style={profileStyles.visitedHeader}>
+            <Text
+              style={[
+                profileStyles.sectionTitle,
+                { color: theme.colors.onBackground },
+              ]}
+            >
+              Visited Countries
+            </Text>
+            <Text style={[profileStyles.visitedCount, { color: "gray" }]}>
+              ({visitedCount}/218)
+            </Text>
+          </View>
+        )}
+      </>
+    ),
+    [
+      userProfile,
+      isLoadingCountries,
+      rankingSlots,
+      theme,
+      isDarkTheme,
+      toggleTheme,
+      router,
+      height,
+      isFriend,
+      hasReceivedRequest,
+      hasSentRequest,
+      handleAccept,
+      handleDecline,
+      handleRemove,
+      handleAdd,
+      visitedCount,
+      setIsRankingModalVisible,
+      profileUid,
+      currentUser,
+    ]
+  );
+
   if (isLoadingProfile) {
     return (
       <View
@@ -349,8 +668,9 @@ export default function ProfileScreen() {
       </View>
     );
   }
-  // 2. Jeśli ładowanie zakończone, ale nie ma profilu (np. zły UID)
+
   if (!userProfile) {
+    // Zwróć widok "User not found" w całości
     return (
       <View
         style={[
@@ -402,257 +722,41 @@ export default function ProfileScreen() {
       </View>
     );
   }
-  // --- Handlers (POPRAWIONE) ---
-  const handleAdd = () => {
-    if (userProfile) {
-      sendFriendRequest(userProfile.uid, userProfile.nickname);
-    }
-  };
-
-  const handleRemove = () => {
-    if (profileUid) {
-      removeFriend(profileUid); // removeFriend oczekuje UID
-    }
-  };
-
-  const handleAccept = () => {
-    if (incomingRequestFromProfile) {
-      acceptFriendRequest(incomingRequestFromProfile);
-    }
-  };
-
-  const handleDecline = () => {
-    if (incomingRequestFromProfile) {
-      rejectFriendRequest(incomingRequestFromProfile.id);
-    }
-  };
 
   return (
-    <ScrollView
-      style={[
-        profileStyles.container,
-        { backgroundColor: theme.colors.background },
-      ]}
-      contentContainerStyle={{ paddingBottom: 50 }}
-      onScroll={({ nativeEvent }) => handleScroll(nativeEvent)}
-      scrollEventThrottle={16}
-      maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
-    >
-      {/* Header - bez zmian */}
-      <View style={[profileStyles.header, { paddingTop: height * 0.02 }]}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={[
-            profileStyles.headerButton,
-            { marginLeft: -11, marginRight: -1 },
-          ]}
-        >
-          <Ionicons
-            name="arrow-back"
-            size={26}
-            color={theme.colors.onBackground}
-          />
-        </TouchableOpacity>
-        <Text
-          style={[
-            profileStyles.headerTitle,
-            { color: theme.colors.onBackground },
-          ]}
-        >
-          Profile
-        </Text>
-        <TouchableOpacity
-          onPress={toggleTheme}
-          style={[profileStyles.headerButton, { marginRight: -7 }]}
-        >
-          <Ionicons
-            name={isDarkTheme ? "sunny" : "moon"}
-            size={24}
-            color={theme.colors.onBackground}
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* User Panel i Przyciski - bez zmian */}
-      <View style={profileStyles.userPanel}>
-        <Ionicons
-          name="person-circle"
-          size={100}
-          color={theme.colors.primary}
-        />
-        <Text
-          style={[profileStyles.userName, { color: theme.colors.onBackground }]}
-        >
-          {userProfile.nickname}
-        </Text>
-        <Text style={[profileStyles.userEmail, { color: "gray" }]}>
-          {userProfile.email}
-        </Text>
-        {auth.currentUser?.uid !== userProfile.uid && userProfile && (
-          <>
-            {hasReceivedRequest ? (
-              <View style={profileStyles.friendActionButtons}>
-                <TouchableOpacity
-                  onPress={handleAccept}
-                  style={[
-                    profileStyles.acceptButton,
-                    { backgroundColor: theme.colors.primary },
-                  ]}
-                >
-                  <Text style={profileStyles.buttonText}>Accept</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleDecline}
-                  style={[
-                    profileStyles.declineButton,
-                    { backgroundColor: "rgba(116, 116, 116, 0.3)" },
-                  ]}
-                >
-                  <Text style={profileStyles.buttonText}>Decline</Text>
-                </TouchableOpacity>
-              </View>
-            ) : isFriend ? (
-              <TouchableOpacity
-                onPress={handleRemove}
-                style={[
-                  profileStyles.addFriendButton,
-                  {
-                    backgroundColor: isDarkTheme
-                      ? "rgba(171, 109, 197, 0.4)"
-                      : "rgba(191, 115, 229, 0.43)",
-                  },
-                ]}
-              >
-                <Text
-                  style={{ color: "#fff", fontSize: 14, fontWeight: "500" }}
-                >
-                  Friend
-                </Text>
-              </TouchableOpacity>
-            ) : hasSentRequest ? (
-              <TouchableOpacity
-                style={[
-                  profileStyles.addFriendButton,
-                  {
-                    backgroundColor: isDarkTheme
-                      ? "rgba(128, 128, 128, 0.4)"
-                      : "rgba(204, 204, 204, 0.7)",
-                  },
-                ]}
-                disabled={true}
-              >
-                <Text style={profileStyles.addFriendButtonText}>Sent</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                onPress={handleAdd}
-                style={[
-                  profileStyles.addFriendButton,
-                  { backgroundColor: theme.colors.primary },
-                ]}
-              >
-                <Text style={profileStyles.addFriendButtonText}>Add</Text>
-              </TouchableOpacity>
-            )}
-          </>
-        )}
-      </View>
-
-      {/* Ranking Section - ze skeletonem */}
-      {false ? (
-        <SectionSkeleton title="Ranking" type="ranking" />
-      ) : (
-        <View style={profileStyles.rankingContainer}>
-          <View style={profileStyles.rankingHeader}>
-            <Text
-              style={[
-                profileStyles.sectionTitle,
-                { color: theme.colors.onSurface },
-              ]}
-            >
-              Ranking
-            </Text>
-            <TouchableOpacity onPress={() => setIsRankingModalVisible(true)}>
-              <Text
-                style={[
-                  profileStyles.showAllRankingButton,
-                  { color: theme.colors.primary },
-                ]}
-              >
-                Show Full Ranking
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <RankingList rankingSlots={rankingSlots.slice(0, 5)} />
-        </View>
-      )}
-      {/* Visited Countries Section - tutaj jest logika ze szkieletem */}
-      {isLoadingCountries ? (
-        <SectionSkeleton title="Visited Countries" type="countries" />
-      ) : (
-        <View style={profileStyles.visitedContainer}>
-          <View style={profileStyles.visitedHeader}>
-            <Text
-              style={[
-                profileStyles.sectionTitle,
-                { color: theme.colors.onBackground },
-              ]}
-            >
-              Visited Countries
-            </Text>
-            <Text style={[profileStyles.visitedCount, { color: "gray" }]}>
-              ({countriesVisited.length}/218)
-            </Text>
-          </View>
-          {Object.entries(groupedByContinent)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([continent, countriesInContinent]) => (
-              <View key={continent} style={profileStyles.continentSection}>
-                <Text style={profileStyles.continentTitle}>
-                  <Text style={{ color: isDarkTheme ? "#e6b3ff" : "#a821b5" }}>
-                    {continent}
-                  </Text>
-                  <Text
-                    style={{ color: "gray", fontSize: 14, fontWeight: "400" }}
-                  >
-                    {" "}
-                    ({countriesInContinent.length})
-                  </Text>
-                </Text>
-                <View style={profileStyles.visitedListContainer}>
-                  {countriesInContinent
-                    .slice(0, renderedCount)
-                    .map((country) => (
-                      <CountryPill
-                        key={country.id}
-                        country={country}
-                        onPress={handleCountryPress}
-                        backgroundColor={
-                          isDarkTheme
-                            ? darkContinentColors[
-                                continent as keyof typeof darkContinentColors
-                              ] || "#333"
-                            : continentColors[
-                                continent as keyof typeof continentColors
-                              ] || "#f0f0f0"
-                        }
-                      />
-                    ))}
-                </View>
-              </View>
-            ))}
-        </View>
-      )}
-      {/* Modal - bez zmian */}
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <FlashList
+        data={isLoadingCountries ? [] : listData}
+        renderItem={renderListItem}
+        keyExtractor={(item) => item.id}
+        estimatedItemSize={100} // Ustawiamy większą średnią, bo wiersze mogą być wysokie
+        ListHeaderComponent={ListHeader}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 50 }}
+        // KLUCZOWA ZMIANA 3: Mówimy FlashList, że elementy mają różne typy i wysokości
+        overrideItemLayout={(layout, item) => {
+          switch (item.type) {
+            case "header":
+              // Nagłówek jest niski
+              layout.size = 40;
+              break;
+            case "countries_row":
+              // Wysokość wiersza z krajami jest trudna do oszacowania, więc tu nie interweniujemy,
+              // FlashList sam sobie poradzi z dynamiczną wysokością.
+              // Można by tu wstawić bardziej skomplikowaną logikę estymującą wysokość
+              // na podstawie liczby krajów, ale domyślne zachowanie jest OK.
+              break;
+          }
+        }}
+      />
       <Modal
         visible={isRankingModalVisible}
         animationType="slide"
         transparent={true}
         onRequestClose={() => setIsRankingModalVisible(false)}
       >
-        {/* ... kod modala bez zmian ... */}
+        {/* Tu powinien być kod modala, jeśli go masz */}
       </Modal>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -812,7 +916,7 @@ const profileStyles = StyleSheet.create({
     // flexDirection: "row",
     // flexWrap: "wrap",
     marginLeft: -15,
-    marginRight: -8,
+    marginRight: -15,
     marginTop: -9,
   },
   visitedRow: {
