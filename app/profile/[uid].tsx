@@ -33,6 +33,7 @@ import { FlashList } from "@shopify/flash-list";
 import { Country, RankingSlot } from "../../types/sharedTypes";
 import CountryPill from "../../components/CountryPill";
 import ShineEntryView from "@/components/ShineEntryView";
+import { MotiView } from "moti";
 
 interface UserProfile {
   uid: string;
@@ -113,6 +114,8 @@ export default function ProfileScreen() {
   const currentUser = auth.currentUser;
   const [isScrolling, setIsScrolling] = useState(false);
   const [listData, setListData] = useState<ListItem[]>([]);
+  const timerId = React.useRef<NodeJS.Timeout | null>(null);
+  // const [isDataReadyForAnimation, setIsDataReadyForAnimation] = useState(false);
   const handleCountryPress = useCallback(
     (countryId: string) => {
       router.push(`/country/${countryId}`);
@@ -194,99 +197,96 @@ export default function ProfileScreen() {
     },
     [renderedCount, countriesVisited.length, isScrolling]
   );
-   useEffect(() => {
-        if (!profileUid) {
-            setIsLoadingProfile(false);
-            return;
+  useEffect(() => {
+    if (!profileUid) {
+      setIsLoadingProfile(false);
+      return;
+    }
+
+    // Reset stanów
+    setIsLoadingProfile(true);
+    setIsLoadingCountries(true); // Skeleton będzie widoczny
+    setListData([]); // Czyścimy dane listy
+
+    const userRef = doc(db, "users", profileUid);
+
+    const unsubscribe = onSnapshot(
+      userRef,
+      (snap) => {
+        if (!snap.exists() || !snap.data()) {
+          setUserProfile(null);
+          setIsLoadingProfile(false);
+          setIsLoadingCountries(false);
+          return;
         }
 
-        setIsLoadingProfile(true);
-        setIsLoadingCountries(true);
-        setListData([]); // Czyścimy dane z poprzedniego profilu
+        const data = snap.data() as UserProfile;
 
-        const userRef = doc(db, "users", profileUid);
-
-        const unsubscribe = onSnapshot(
-            userRef,
-            (snap) => {
-                // Krok 1: Sprawdzenie, czy dokument istnieje i ma dane
-                if (!snap.exists() || !snap.data()) {
-                    setUserProfile(null);
-                    setIsLoadingProfile(false);
-                    setIsLoadingCountries(false);
-                    return;
-                }
-
-                const data = snap.data() as UserProfile;
-
-                // Krok 2: Ustawienie podstawowych danych profilu
-                setUserProfile({
-                    uid: snap.id,
-                    nickname: data.nickname || "Unknown",
-                    email: data.email,
-                    ranking: data.ranking || [],
-                    countriesVisited: data.countriesVisited || [],
-                });
-
-                // Krok 3: Przetworzenie rankingu (zabezpieczone)
-                const rankingRaw = data.ranking || [];
-                const visitedCodesRaw = data.countriesVisited || []; // Teraz mamy pewność, że to tablica
-
-                const rankingFiltered = rankingRaw.filter((code) =>
-                    visitedCodesRaw.includes(code)
-                );
-
-                setRankingSlots(
-                    rankingFiltered.map((cca2, idx) => ({
-                        id: generateUniqueId(),
-                        rank: idx + 1,
-                        country: countriesMap.get(cca2) || null,
-                    }))
-                );
-                
-                // Główne dane załadowane, ukrywamy główny spinner
-                setIsLoadingProfile(false);
-
-                // Krok 4: Przetworzenie listy krajów dla animowanej listy
-                const newCountriesVisited = Array.from(new Set(visitedCodesRaw))
-                    .map((code) => countriesMap.get(code))
-                    .filter((c): c is Country => c !== undefined);
-
-                setVisitedCount(newCountriesVisited.length);
-
-                const groupedByContinent = newCountriesVisited.reduce(
-                    (acc, country) => {
-                        const continent = country.continent || "Other";
-                        if (!acc[continent]) acc[continent] = [];
-                        acc[continent].push(country);
-                        return acc;
-                    }, {} as Record<string, Country[]>);
-
-                const flatData: ListItem[] = [];
-                Object.entries(groupedByContinent)
-                    .sort(([a], [b]) => a.localeCompare(b))
-                    .forEach(([continent, countriesInContinent]) => {
-                        flatData.push({ type: "header", id: continent, continent, count: countriesInContinent.length });
-                        flatData.push({ type: "countries_row", id: `${continent}-row`, countries: countriesInContinent });
-                    });
-                
-                // Ustawiamy całą listę na raz i ukrywamy skeleton
-                setListData(flatData); 
-                setIsLoadingCountries(false);
-            },
-            (error) => {
-                console.error("Błąd podczas pobierania profilu:", error);
-                setIsLoadingProfile(false);
-                setIsLoadingCountries(false);
-            }
+        // KROK 1: Ustaw podstawowe dane i ranking
+        setUserProfile({
+          uid: snap.id,
+          nickname: data.nickname || "Unknown",
+          email: data.email,
+          ranking: data.ranking || [],
+          countriesVisited: data.countriesVisited || [],
+        });
+        const rankingRaw = data.ranking || [];
+        const visitedCodesRaw = data.countriesVisited || [];
+        const rankingFiltered = rankingRaw.filter((code) =>
+          visitedCodesRaw.includes(code)
+        );
+        setRankingSlots(
+          rankingFiltered.map((cca2, idx) => ({
+            id: generateUniqueId(),
+            rank: idx + 1,
+            country: countriesMap.get(cca2) || null,
+          }))
         );
 
-        return () => {
-          // Z logu wynika, że masz też store - upewnij się, że jego cleanup też tu jest, jeśli to konieczne
-          console.log("Cleanup: Unsubscribing from profile snapshot.");
-          unsubscribe();
-        } 
-    }, [profileUid]);
+        // KROK 2: Wyłącz główny loader. Pokazuje się nagłówek i skeleton.
+        setIsLoadingProfile(false);
+
+        // KROK 3: Użyj setTimeout, aby oddzielić przetwarzanie danych od renderowania skeletona.
+        setTimeout(() => {
+          const newCountriesVisited = Array.from(new Set(visitedCodesRaw))
+            .map((code) => countriesMap.get(code))
+            .filter((c): c is Country => c !== undefined);
+
+          setVisitedCount(newCountriesVisited.length);
+
+          const groupedByContinent = newCountriesVisited.reduce(
+            (acc, country) => {
+              const continent = country.continent || "Other";
+              if (!acc[continent]) acc[continent] = [];
+              acc[continent].push(country);
+              return acc;
+            }, {} as Record<string, Country[]>
+          );
+
+          const flatData: ListItem[] = [];
+          Object.entries(groupedByContinent)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .forEach(([continent, countriesInContinent]) => {
+              flatData.push({ type: "header", id: continent, continent, count: countriesInContinent.length });
+              flatData.push({ type: "countries_row", id: `${continent}-row`, countries: countriesInContinent });
+            });
+          
+          // KROK 4: Ustaw dane i wyłącz loader krajów w tym samym czasie.
+          // To spowoduje jeden re-render, który podmieni skeleton na listę.
+          setListData(flatData);
+          setIsLoadingCountries(false);
+        }, 50); // Minimalne opóźnienie (np. 50ms) może dodatkowo zapewnić, że skeleton się wyrenderuje przed ciężkimi obliczeniami.
+
+      },
+      (error) => {
+        console.error("Błąd podczas pobierania profilu:", error);
+        setIsLoadingProfile(false);
+        setIsLoadingCountries(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [profileUid]);
 
   // // Funkcja do przetwarzania krajów w partiach
   // const processCountriesInBatches = (visitedCodesRaw: string[]) => {
@@ -407,84 +407,94 @@ export default function ProfileScreen() {
       );
     }
   );
-  const SectionSkeleton = ({
-    title,
-    type,
-  }: {
-    title: string;
-    type: "ranking" | "countries";
-  }) => {
-    const theme = useTheme();
-    const shimmerAnim = useRef(new Animated.Value(0)).current;
+ const SectionSkeleton = ({ title, type }: { title: string; type: "ranking" | "countries" }) => {
+  const theme = useTheme();
 
-    useEffect(() => {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(shimmerAnim, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(shimmerAnim, {
-            toValue: 0,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    }, []);
-
-    const animatedOpacity = shimmerAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0.3, 0.7],
-    });
-
-    return (
-      <View style={{ marginBottom: 25 }}>
-        <Text
-          style={[
-            profileStyles.sectionTitle,
-            { color: theme.colors.onBackground },
-          ]}
-        >
-          {title}
-        </Text>
-        {type === "ranking" ? (
-          <>
+  return (
+    <View style={{ marginBottom: 25 }}>
+      <Text style={[profileStyles.sectionTitle, { color: theme.colors.onBackground }]}>
+        {title}
+      </Text>
+      {type === "ranking" ? (
+        <>
+          {[...Array(3)].map((_, i) => (
+            <MotiView
+              key={`rank-skeleton-${i}`}
+              from={{ opacity: 0.4 }}
+              animate={{ opacity: 0.8 }}
+              // POPRAWKA: Przekazujemy transition bezpośrednio
+              transition={{
+                type: 'timing',
+                duration: 800,
+                loop: true,
+                // @ts-expect-error Moti akceptuje 'mirror', ale typy TS tego nie wiedzą
+                repeatReverse: 'mirror',
+              }}
+              style={{
+                width: '100%',
+                height: 40,
+                borderRadius: 8,
+                marginBottom: 10,
+                backgroundColor: theme.colors.surfaceVariant,
+              }}
+            />
+          ))}
+        </>
+      ) : (
+        <View style={{ flexDirection: 'column' }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 4 }}>
             {[...Array(3)].map((_, i) => (
-              <Animated.View
-                key={i}
-                style={{
-                  width: "100%",
-                  height: 40,
-                  borderRadius: 8,
-                  marginBottom: 10,
-                  backgroundColor: theme.colors.surfaceVariant,
-                  opacity: animatedOpacity,
+              <MotiView
+                key={`country-skeleton-r1-${i}`}
+                from={{ opacity: 0.4 }}
+                animate={{ opacity: 0.8 }}
+                // POPRAWKA: Przekazujemy transition bezpośrednio
+                transition={{
+                  type: 'timing',
+                  duration: 800,
+                  loop: true,
+                  // @ts-expect-error Moti akceptuje 'mirror', ale typy TS tego nie wiedzą
+                  repeatReverse: 'mirror',
                 }}
-              />
-            ))}
-          </>
-        ) : (
-          <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-            {[...Array(6)].map((_, i) => (
-              <Animated.View
-                key={i}
                 style={{
-                  width: 100,
-                  height: 30,
-                  borderRadius: 16,
+                  width: 110,
+                  height: 22,
+                  borderRadius: 12,
                   margin: 4,
                   backgroundColor: theme.colors.surfaceVariant,
-                  opacity: animatedOpacity,
                 }}
               />
             ))}
           </View>
-        )}
-      </View>
-    );
-  };
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 4 }}>
+            {[...Array(4)].map((_, i) => (
+              <MotiView
+                key={`country-skeleton-r2-${i}`}
+                from={{ opacity: 0.4 }}
+                animate={{ opacity: 0.8 }}
+                // POPRAWKA: Przekazujemy transition bezpośrednio
+                transition={{
+                  type: 'timing',
+                  duration: 800,
+                  loop: true,
+                  // @ts-expect-error Moti akceptuje 'mirror', ale typy TS tego nie wiedzą
+                  repeatReverse: 'mirror',
+                }}
+                style={{
+                  width: 80,
+                  height: 22,
+                  borderRadius: 12,
+                  margin: 4,
+                  backgroundColor: theme.colors.surfaceVariant,
+                }}
+              />
+            ))}
+          </View>
+        </View>
+      )}
+    </View>
+  );
+};
   const ListHeader = useCallback(
     () => (
       <>
@@ -658,7 +668,6 @@ export default function ProfileScreen() {
     ),
     [
       userProfile,
-      isLoadingCountries,
       rankingSlots,
       theme,
       isDarkTheme,
@@ -749,25 +758,22 @@ export default function ProfileScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <FlashList
-        data={isLoadingCountries ? [] : listData}
+         data={listData} 
         renderItem={renderListItem}
         keyExtractor={(item) => item.id}
         estimatedItemSize={100} // Ustawiamy większą średnią, bo wiersze mogą być wysokie
         ListHeaderComponent={ListHeader}
+         ListFooterComponent={
+          isLoadingCountries ? (
+            // Nie musimy opakowywać w View, bo skeleton już jest View
+            <SectionSkeleton title="" type="countries" />
+          ) : null // Gdy ładowanie się skończy, nic nie pokazujemy
+        }
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 50 }}
         // KLUCZOWA ZMIANA 3: Mówimy FlashList, że elementy mają różne typy i wysokości
-        overrideItemLayout={(layout, item) => {
-          switch (item.type) {
-            case "header":
-              // Nagłówek jest niski
-              layout.size = 40;
-              break;
-            case "countries_row":
-              // Wysokość wiersza z krajami jest trudna do oszacowania, więc tu nie interweniujemy,
-              // FlashList sam sobie poradzi z dynamiczną wysokością.
-              // Można by tu wstawić bardziej skomplikowaną logikę estymującą wysokość
-              // na podstawie liczby krajów, ale domyślne zachowanie jest OK.
-              break;
+         overrideItemLayout={(layout, item) => {
+          if (item.type === "header") {
+            layout.size = 40;
           }
         }}
       />
