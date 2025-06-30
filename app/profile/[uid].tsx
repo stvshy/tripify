@@ -21,7 +21,7 @@ import {
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { db, auth } from "../config/firebaseConfig";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import { useTheme, MD3DarkTheme, MD3LightTheme } from "react-native-paper"; // Added MD3DarkTheme, MD3LightTheme
 import { Ionicons } from "@expo/vector-icons";
 import countriesData from "../../assets/maps/countries_with_continents.json";
@@ -32,6 +32,7 @@ import { useFocusEffect } from "expo-router";
 import { FlashList } from "@shopify/flash-list";
 import { Country, RankingSlot } from "../../types/sharedTypes";
 import CountryPill from "../../components/CountryPill";
+import ShineEntryView from "@/components/ShineEntryView";
 
 interface UserProfile {
   uid: string;
@@ -193,141 +194,163 @@ export default function ProfileScreen() {
     },
     [renderedCount, countriesVisited.length, isScrolling]
   );
-  useEffect(() => {
-    if (!profileUid) {
-      setIsLoadingProfile(false);
-      return;
-    }
-
-    setIsLoadingProfile(true);
-    setIsLoadingCountries(true);
-    setUserProfile(null);
-    setRankingSlots([]);
-    setListData([]);
-    setVisitedCount(0);
-
-    const userRef = doc(db, "users", profileUid);
-    const unsubscribe = onSnapshot(
-      userRef,
-      (snap) => {
-        if (!snap.exists()) {
-          setUserProfile(null);
-          setIsLoadingProfile(false);
-          setIsLoadingCountries(false);
-          return;
+   useEffect(() => {
+        if (!profileUid) {
+            setIsLoadingProfile(false);
+            return;
         }
 
-        const data = snap.data() as UserProfile;
-        const rankingRaw = data.ranking || [];
-        const visitedCodesRaw = data.countriesVisited || [];
+        setIsLoadingProfile(true);
+        setIsLoadingCountries(true);
+        setListData([]); // Czyścimy dane z poprzedniego profilu
 
-        // ETAP 1: Szybkie dane
-        setUserProfile({
-          uid: snap.id,
-          nickname: data.nickname || "Unknown",
-          email: data.email,
-          ranking: rankingRaw,
-          countriesVisited: visitedCodesRaw,
-        });
-        const rankingFiltered = rankingRaw.filter((code) =>
-          visitedCodesRaw.includes(code)
-        );
-        setRankingSlots(
-          rankingFiltered.map((cca2, idx) => ({
-            id: generateUniqueId(),
-            rank: idx + 1,
-            country: countriesMap.get(cca2) || null,
-          }))
-        );
-        setIsLoadingProfile(false);
+        const userRef = doc(db, "users", profileUid);
 
-        // ETAP 2: Ciężkie dane (w tle)
-        setTimeout(() => {
-          const visitedCodesRaw = data.countriesVisited || [];
-          const newCountriesVisited = Array.from(new Set(visitedCodesRaw))
-            .map((code) => countriesMap.get(code))
-            .filter((c): c is Country => c !== undefined);
+        const unsubscribe = onSnapshot(
+            userRef,
+            (snap) => {
+                // Krok 1: Sprawdzenie, czy dokument istnieje i ma dane
+                if (!snap.exists() || !snap.data()) {
+                    setUserProfile(null);
+                    setIsLoadingProfile(false);
+                    setIsLoadingCountries(false);
+                    return;
+                }
 
-          setVisitedCount(newCountriesVisited.length);
+                const data = snap.data() as UserProfile;
 
-          const groupedByContinent = newCountriesVisited.reduce(
-            (acc, country) => {
-              const continent = country.continent || "Other";
-              if (!acc[continent]) acc[continent] = [];
-              acc[continent].push(country);
-              return acc;
+                // Krok 2: Ustawienie podstawowych danych profilu
+                setUserProfile({
+                    uid: snap.id,
+                    nickname: data.nickname || "Unknown",
+                    email: data.email,
+                    ranking: data.ranking || [],
+                    countriesVisited: data.countriesVisited || [],
+                });
+
+                // Krok 3: Przetworzenie rankingu (zabezpieczone)
+                const rankingRaw = data.ranking || [];
+                const visitedCodesRaw = data.countriesVisited || []; // Teraz mamy pewność, że to tablica
+
+                const rankingFiltered = rankingRaw.filter((code) =>
+                    visitedCodesRaw.includes(code)
+                );
+
+                setRankingSlots(
+                    rankingFiltered.map((cca2, idx) => ({
+                        id: generateUniqueId(),
+                        rank: idx + 1,
+                        country: countriesMap.get(cca2) || null,
+                    }))
+                );
+                
+                // Główne dane załadowane, ukrywamy główny spinner
+                setIsLoadingProfile(false);
+
+                // Krok 4: Przetworzenie listy krajów dla animowanej listy
+                const newCountriesVisited = Array.from(new Set(visitedCodesRaw))
+                    .map((code) => countriesMap.get(code))
+                    .filter((c): c is Country => c !== undefined);
+
+                setVisitedCount(newCountriesVisited.length);
+
+                const groupedByContinent = newCountriesVisited.reduce(
+                    (acc, country) => {
+                        const continent = country.continent || "Other";
+                        if (!acc[continent]) acc[continent] = [];
+                        acc[continent].push(country);
+                        return acc;
+                    }, {} as Record<string, Country[]>);
+
+                const flatData: ListItem[] = [];
+                Object.entries(groupedByContinent)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .forEach(([continent, countriesInContinent]) => {
+                        flatData.push({ type: "header", id: continent, continent, count: countriesInContinent.length });
+                        flatData.push({ type: "countries_row", id: `${continent}-row`, countries: countriesInContinent });
+                    });
+                
+                // Ustawiamy całą listę na raz i ukrywamy skeleton
+                setListData(flatData); 
+                setIsLoadingCountries(false);
             },
-            {} as Record<string, Country[]>
-          );
+            (error) => {
+                console.error("Błąd podczas pobierania profilu:", error);
+                setIsLoadingProfile(false);
+                setIsLoadingCountries(false);
+            }
+        );
 
-          // KLUCZOWA ZMIANA 2: Nowy sposób tworzenia danych dla listy
-          const flatData: ListItem[] = [];
-          Object.entries(groupedByContinent)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .forEach(([continent, countriesInContinent]) => {
-              // 1. Dodaj nagłówek
-              flatData.push({
-                type: "header",
-                id: continent,
-                continent,
-                count: countriesInContinent.length,
-              });
-              // 2. Dodaj kraje JAKO JEDEN ELEMENT LISTY (wiersz)
-              flatData.push({
-                type: "countries_row",
-                id: `${continent}-row`,
-                countries: countriesInContinent,
-              });
-            });
+        return () => {
+          // Z logu wynika, że masz też store - upewnij się, że jego cleanup też tu jest, jeśli to konieczne
+          console.log("Cleanup: Unsubscribing from profile snapshot.");
+          unsubscribe();
+        } 
+    }, [profileUid]);
 
-          setListData(flatData);
-          setIsLoadingCountries(false);
-        }, 0);
-      },
-      (error) => {
-        console.error("Error fetching profile:", error);
-        setIsLoadingProfile(false);
-        setIsLoadingCountries(false);
-      }
-    );
+  // // Funkcja do przetwarzania krajów w partiach
+  // const processCountriesInBatches = (visitedCodesRaw: string[]) => {
+  //   const BATCH_SIZE = 50;
+  //   let processed = 0;
 
-    return () => unsubscribe();
-  }, [profileUid]);
+  //   const processBatch = () => {
+  //     const batch = visitedCodesRaw.slice(processed, processed + BATCH_SIZE);
+  //     const countries = batch
+  //       .map((code) => countriesMap.get(code))
+  //       .filter((c): c is Country => c !== undefined);
 
-  // --- Komponenty do renderowania (renderItem, ListHeader, Skeleton) ---
-  const renderListItem = useCallback(
-    ({ item }: { item: ListItem }) => {
-      switch (item.type) {
-        case "header":
-          return (
+  //     setCountriesVisited((prev) => [...prev, ...countries]);
+  //     processed += BATCH_SIZE;
+
+  //     if (processed < visitedCodesRaw.length) {
+  //       requestIdleCallback(processBatch);
+  //     } else {
+  //       setIsLoadingCountries(false);
+  //     }
+  //   };
+
+  //   processBatch();
+  // };
+  // // --- Komponenty do renderowania (renderItem, ListHeader, Skeleton) ---
+ const renderListItem = useCallback(
+  // Dodajemy 'index' do argumentów, FlashList go dostarcza
+  ({ item, index }: { item: ListItem; index: number }) => {
+    // Obliczamy opóźnienie na podstawie indeksu elementu w liście
+    const delay = index * 80; // 80ms opóźnienia na każdy kolejny element
+
+    switch (item.type) {
+      case "header":
+        return (
+          <ShineEntryView delay={delay}>
             <View style={profileStyles.continentSection}>
               <Text style={profileStyles.continentTitle}>
                 <Text style={{ color: isDarkTheme ? "#e6b3ff" : "#a821b5" }}>
                   {item.continent}
                 </Text>
-                <Text
-                  style={{ color: "gray", fontSize: 14, fontWeight: "400" }}
-                >
+                <Text style={{ color: "gray", fontSize: 14, fontWeight: "400" }}>
                   {" "}
                   ({item.count})
                 </Text>
               </Text>
             </View>
-          );
-        case "countries_row":
-          return (
+          </ShineEntryView>
+        );
+      case "countries_row":
+        return (
+          <ShineEntryView delay={delay}>
+            {/* Użyj oryginalnego, niemowanego komponentu CountryPillRow */}
             <CountryPillRow
               countries={item.countries}
               onPress={handleCountryPress}
             />
-          );
-        default:
-          return null;
-      }
-    },
-    [isDarkTheme, handleCountryPress]
-  );
-
+          </ShineEntryView>
+        );
+      default:
+        return null;
+    }
+  },
+  [handleCountryPress, isDarkTheme] // Dodaj isDarkTheme z powrotem do zależności
+);
   // --- Handlers (POPRAWIONE) ---
   const handleAdd = () => {
     if (userProfile) {
@@ -759,7 +782,96 @@ export default function ProfileScreen() {
     </View>
   );
 }
+const AnimatedCountryPillRow = React.memo(
+  ({
+    countries,
+    onPress,
+  }: {
+    countries: Country[];
+    onPress: (id: string) => void;
+  }) => {
+    const { isDarkTheme } = useContext(ThemeContext);
+    const fadeAnim = useRef(new Animated.Value(0)).current; // Wartość przezroczystości
+    const slideAnim = useRef(new Animated.Value(15)).current; // Wartość przesunięcia w osi Y
 
+    useEffect(() => {
+      // Start animacji po zamontowaniu komponentu
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 400, // Szybkość pojawiania się
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 300, // Szybkość przesuwania
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, []);
+
+    return (
+      <Animated.View
+        style={{
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        }}
+      >
+        <View style={profileStyles.visitedListContainer}>
+          {countries.map((country) => {
+            const continent = country.continent || "Other";
+            const backgroundColor = isDarkTheme
+              ? darkContinentColors[
+                  continent as keyof typeof darkContinentColors
+                ] || "#333"
+              : continentColors[continent as keyof typeof continentColors] ||
+                "#f0f0f0";
+            return (
+              <CountryPill
+                key={country.id}
+                country={country}
+                onPress={onPress}
+                backgroundColor={backgroundColor}
+              />
+            );
+          })}
+        </View>
+      </Animated.View>
+    );
+  }
+);
+
+// Komponent do animowania nagłówka kontynentu
+const AnimatedHeader = React.memo(
+  ({ continent, count }: { continent: string; count: number }) => {
+    const { isDarkTheme } = useContext(ThemeContext);
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }).start();
+    }, []);
+
+    return (
+      <Animated.View style={{ opacity: fadeAnim }}>
+        <View style={profileStyles.continentSection}>
+          <Text style={profileStyles.continentTitle}>
+            <Text style={{ color: isDarkTheme ? "#e6b3ff" : "#a821b5" }}>
+              {continent}
+            </Text>
+            <Text style={{ color: "gray", fontSize: 14, fontWeight: "400" }}>
+              {" "}
+              ({count})
+            </Text>
+          </Text>
+        </View>
+      </Animated.View>
+    );
+  }
+);
 const profileStyles = StyleSheet.create({
   container: {
     flex: 1,

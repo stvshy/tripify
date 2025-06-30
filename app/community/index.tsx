@@ -31,6 +31,8 @@ import {
   Friendship,
   OutgoingRequest,
 } from "../store/communityStore";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../config/firebaseConfig";
 
 if (
   Platform.OS === "android" &&
@@ -371,8 +373,15 @@ export default function CommunityScreen() {
     };
   }, [searchText, isSearchMode, searchUsers]);
 
+  // W welcome/index.tsx - zmodyfikuj navigateToProfile
   const navigateToProfile = useCallback(
-    (uid: string) => router.push(`/profile/${uid}`),
+    async (uid: string) => {
+      // Prefetch danych użytkownika przed nawigacją
+      const userRef = doc(db, "users", uid);
+      getDoc(userRef); // Rozpocznij pobieranie, ale nie czekaj
+
+      router.push(`/profile/${uid}`);
+    },
     [router]
   );
   const toggleMode = useCallback(() => {

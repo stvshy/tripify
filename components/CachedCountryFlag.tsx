@@ -8,6 +8,7 @@ interface CachedCountryFlagProps {
   size: number;
   style?: StyleProp<ImageStyle>; // ZMIANA: Z ViewStyle na ImageStyle
 }
+// Preload flag dla często używanych krajów
 
 const CachedCountryFlag = ({
   isoCode,
