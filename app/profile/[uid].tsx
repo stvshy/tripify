@@ -152,24 +152,70 @@ export default function ProfileScreen() {
     () => incomingRequests.find((req) => req.senderUid === profileUid),
     [incomingRequests, profileUid]
   );
+const SKELETON_DATA: ListItem[] = [
+  { type: "header", id: "skeleton-header-1", continent: "", count: 0 },
+  { type: "countries_row", id: "skeleton-row-1", countries: Array(6).fill(null) },
+  { type: "header", id: "skeleton-header-2", continent: "", count: 0 },
+  { type: "countries_row", id: "skeleton-row-2", countries: Array(4).fill(null) },
+  { type: "countries_row", id: "skeleton-row-3", countries: Array(5).fill(null) },
+  { type: "header", id: "skeleton-header-3", continent: "", count: 0 },
+  { type: "countries_row", id: "skeleton-row-4", countries: Array(3).fill(null) },
+];
 
-  const { width: screenWidth } = Dimensions.get("window");
-  const listPadding = 16 * 2; // Padding kontenera
-  // Wewnątrz komponentu ProfileScreen
-  const groupedByContinent = useMemo(() => {
-    return countriesVisited.reduce(
-      (acc, country) => {
-        // `country.continent` pochodzi teraz z naszego nowego pliku!
-        const continent = country.continent || "Other";
-        if (!acc[continent]) {
-          acc[continent] = [];
-        }
-        acc[continent].push(country);
-        return acc;
-      },
-      {} as Record<string, any[]>
-    ); // Zmieniony typ na `any[]` dla prostoty
-  }, [countriesVisited]);
+// NOWY KOMPONENT: Skeleton dla nagłówka kontynentu
+const SkeletonHeader = () => {
+  const theme = useTheme();
+  return (
+    <View style={profileStyles.continentSection}>
+        <MotiView
+            from={{ opacity: 0.4 }}
+            animate={{ opacity: 0.8 }}
+            transition={{ type: 'timing', duration: 800, loop: true, repeatReverse: true }}
+            style={{ 
+                width: '40%', 
+                height: 20, 
+                borderRadius: 8, 
+                backgroundColor: theme.colors.surfaceVariant,
+                marginBottom: 8,
+                marginLeft: 4
+            }}
+        />
+    </View>
+  );
+};
+
+// NOWY KOMPONENT: Skeleton dla jednego wiersza pigułek
+const SkeletonPillRow = ({ count }: { count: number }) => {
+    const theme = useTheme();
+    // Generujemy pigułki o losowej szerokości dla bardziej naturalnego wyglądu
+    const pills = useMemo(() => 
+        [...Array(count)].map((_, i) => ({
+            key: `skel-pill-${i}`,
+            width: 70 + Math.random() * 50, // Szerokość między 70 a 120
+        }))
+    , [count]);
+
+    return (
+        <View style={profileStyles.visitedListContainer}>
+            {pills.map(pill => (
+                <MotiView
+                    key={pill.key}
+                    from={{ opacity: 0.4 }}
+                    animate={{ opacity: 0.8 }}
+                    transition={{ type: 'timing', duration: 800, loop: true, repeatReverse: true }}
+                    style={{
+                        width: pill.width,
+                        height: 30,
+                        borderRadius: 16,
+                        margin: 4,
+                        backgroundColor: theme.colors.surfaceVariant,
+                    }}
+                />
+            ))}
+        </View>
+    );
+};
+
 
   const [renderedCount, setRenderedCount] = useState(INITIAL_BATCH_SIZE);
 
@@ -351,6 +397,17 @@ export default function ProfileScreen() {
   },
   [handleCountryPress, isDarkTheme] // Dodaj isDarkTheme z powrotem do zależności
 );
+const renderSkeletonItem = useCallback(({ item }: { item: ListItem }) => {
+    switch (item.type) {
+      case "header":
+        return <SkeletonHeader />;
+      case "countries_row":
+        // Przekazujemy liczbę "fałszywych" krajów do wyrenderowania
+        return <SkeletonPillRow count={item.countries.length} />;
+      default:
+        return null;
+    }
+  }, []);
   // --- Handlers (POPRAWIONE) ---
   const handleAdd = () => {
     if (userProfile) {
@@ -646,27 +703,26 @@ export default function ProfileScreen() {
           </View>
           <RankingList rankingSlots={rankingSlots.slice(0, 5)} />
         </View>
-
-        {isLoadingCountries ? (
-          <SectionSkeleton title="Visited Countries" type="countries" />
-        ) : (
-          <View style={profileStyles.visitedHeader}>
-            <Text
-              style={[
-                profileStyles.sectionTitle,
-                { color: theme.colors.onBackground },
-              ]}
-            >
-              Visited Countries
-            </Text>
+  <View style={profileStyles.visitedHeader}>
+          <Text
+            style={[
+              profileStyles.sectionTitle,
+              { color: theme.colors.onBackground },
+            ]}
+          >
+            Visited Countries
+          </Text>
+          {/* Pokaż liczbę dopiero gdy ładowanie się zakończy. */}
+          {!isLoadingCountries && visitedCount > 0 && (
             <Text style={[profileStyles.visitedCount, { color: "gray" }]}>
               ({visitedCount}/218)
             </Text>
-          </View>
-        )}
+          )}
+        </View>
       </>
     ),
     [
+      // Upewnij się, że zależności są poprawne.
       userProfile,
       rankingSlots,
       theme,
@@ -685,6 +741,7 @@ export default function ProfileScreen() {
       setIsRankingModalVisible,
       profileUid,
       currentUser,
+      isLoadingCountries, // <-- Ta zależność jest teraz potrzebna do ukrywania licznika.
     ]
   );
 
@@ -757,34 +814,35 @@ export default function ProfileScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <FlashList
-         data={listData} 
-        renderItem={renderListItem}
+        <FlashList
+        // Krok 1: Dynamicznie wybieramy źródło danych
+        data={isLoadingCountries ? SKELETON_DATA : listData}
+        
+        // Krok 2: Dynamicznie wybieramy funkcję renderującą
+        renderItem={isLoadingCountries ? renderSkeletonItem : renderListItem}
+        
         keyExtractor={(item) => item.id}
-        estimatedItemSize={100} // Ustawiamy większą średnią, bo wiersze mogą być wysokie
+        estimatedItemSize={100}
+        
+        // Nagłówek jest zawsze ten sam
         ListHeaderComponent={ListHeader}
-         ListFooterComponent={
-          isLoadingCountries ? (
-            // Nie musimy opakowywać w View, bo skeleton już jest View
-            <SectionSkeleton title="" type="countries" />
-          ) : null // Gdy ładowanie się skończy, nic nie pokazujemy
-        }
+        
+        // Wyłączamy animację przewijania dla skeletona, aby nie "skakał"
+        // Możemy też zostawić włączoną, kwestia gustu
+        scrollEnabled={!isLoadingCountries} 
+        
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 50 }}
-        // KLUCZOWA ZMIANA 3: Mówimy FlashList, że elementy mają różne typy i wysokości
-         overrideItemLayout={(layout, item) => {
+        
+        overrideItemLayout={(layout, item) => {
           if (item.type === "header") {
-            layout.size = 40;
+            // Możemy tu dodać bardziej precyzyjne estymacje
+            layout.size = 40; 
+          } else {
+            // Estymacja dla wiersza krajów
+            layout.size = 80; 
           }
         }}
       />
-      <Modal
-        visible={isRankingModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setIsRankingModalVisible(false)}
-      >
-        {/* Tu powinien być kod modala, jeśli go masz */}
-      </Modal>
     </View>
   );
 }
