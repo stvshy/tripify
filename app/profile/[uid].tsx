@@ -394,11 +394,13 @@ export default function ProfileScreen() {
       return;
     }
 
+    // KROK 1: Resetowanie stanu i włączenie głównego loadera przy zmianie profilu
     setIsLoadingProfile(true);
-    // UWAGA: Nie ustawiamy już isLoadingCountries na true tutaj.
-    // Skeleton będzie kontrolowany przez pustą listData.
-    setListData([]);
-    setUserProfile(null); // Resetuj profil przy zmianie UID
+    setUserProfile(null); // Czyścimy stary profil, aby nie mignął na chwilę
+    setListData([]); // Czyścimy dane listy krajów
+    setRankingSlots([]); // Czyścimy ranking
+    setVisitedCount(0);
+    // UWAGA: isLoadingCountries zostanie ustawione w callbacku onSnapshot
 
     const userRef = doc(db, "users", profileUid);
 
@@ -406,26 +408,29 @@ export default function ProfileScreen() {
       userRef,
       (snap) => {
         if (!snap.exists() || !snap.data()) {
+          console.log("User not found in Firestore.");
           setUserProfile(null);
           setIsLoadingProfile(false);
-          setIsLoadingCountries(false); // Upewnij się, że loader jest wyłączony
+          setIsLoadingCountries(false); // Upewnij się, że ten loader też jest wyłączony
           return;
         }
 
         const data = snap.data() as UserProfile;
+        const visitedCodes = data.countriesVisited || [];
+        const rankingRaw = data.ranking || [];
 
-        // KROK 1: Ustaw podstawowe dane i ranking (to jest szybkie)
+        // KROK 2: Ustaw szybkie dane (nagłówek, ranking)
+        // Te dane są potrzebne do natychmiastowego wyrenderowania górnej sekcji
         setUserProfile({
           uid: snap.id,
           nickname: data.nickname || "Unknown",
           email: data.email,
-          ranking: data.ranking || [],
-          countriesVisited: data.countriesVisited || [],
+          ranking: rankingRaw,
+          countriesVisited: visitedCodes,
         });
-        const rankingRaw = data.ranking || [];
-        const visitedCodesRaw = data.countriesVisited || [];
+
         const rankingFiltered = rankingRaw.filter((code) =>
-          visitedCodesRaw.includes(code)
+          visitedCodes.includes(code)
         );
         setRankingSlots(
           rankingFiltered.map((cca2, idx) => ({
@@ -434,38 +439,40 @@ export default function ProfileScreen() {
             country: countriesMap.get(cca2) || null,
           }))
         );
-        const topRankedCountries = rankingFiltered.slice(0, 10); // np. pierwsze 10
+
+        // Opcjonalne: Preload flag dla rankingu
+        const topRankedCountries = rankingFiltered.slice(0, 10);
         const urlsToPreload = topRankedCountries.map((isoCode) => ({
           uri: `https://flagcdn.com/w80/${isoCode.toLowerCase()}.png`,
         }));
-
-        // Uruchom preload w tle, nie blokuje to UI
         if (urlsToPreload.length > 0) {
           FastImage.preload(urlsToPreload);
         }
-        // KROK 2: Wyłącz główny loader. Nagłówek i skeleton się pojawią.
-        setIsLoadingProfile(false);
-        setIsLoadingCountries(true); // Włączamy skeleton TERAZ
 
-        // KROK 3: Uruchom asynchroniczne przetwarzanie krajów
-        const visitedCodes = data.countriesVisited || [];
+        // KROK 3: KLUCZOWA ZMIANA - Atomowe przełączenie loaderów
+        // Wyłączamy główny loader i WŁĄCZAMY szkielet dla listy krajów.
+        // To powoduje płynne przejście bez "pustego tła".
+        setIsLoadingProfile(false);
+        setIsLoadingCountries(true); // Włączamy szkielet TERAZ
+
+        // KROK 4: Uruchom asynchroniczne, "ciężkie" przetwarzanie listy krajów
         if (visitedCodes.length > 0) {
           processCountriesInBatches(
             visitedCodes,
             (progressData) => {
-              // Ta funkcja będzie wywoływana po każdej partii,
-              // aktualizując UI płynnie, bez blokowania.
+              // Ta funkcja jest wywoływana po każdej partii, płynnie budując listę w tle.
+              // W tym czasie użytkownik widzi już nagłówek i szkielet.
               setListData(progressData);
             },
             (finalData, totalCount) => {
-              // Przetwarzanie zakończone
+              // Przetwarzanie zakończone.
               setListData(finalData);
               setVisitedCount(totalCount);
-              setIsLoadingCountries(false); // Ukryj skeleton, pokaż finalną listę
+              setIsLoadingCountries(false); // Ukryj szkielet, pokaż finalną listę
             }
           );
         } else {
-          // Brak krajów do przetworzenia
+          // Jeśli użytkownik nie ma odwiedzonych krajów, od razu kończymy ładowanie.
           setListData([]);
           setVisitedCount(0);
           setIsLoadingCountries(false);
