@@ -269,7 +269,7 @@ export default function ProfileScreen() {
       () =>
         [...Array(count)].map((_, i) => ({
           key: `skel-pill-${i}`,
-          width: 70 + Math.random() * 50, // Szerokość między 70 a 120
+          width: 50 + Math.random() * 50, // Szerokość między 70 a 120
         })),
       [count]
     );
@@ -547,7 +547,7 @@ export default function ProfileScreen() {
       const { isDarkTheme } = useContext(ThemeContext);
       // ZMIANA: Definiujemy stały limit dla efektu "shine"
       const SHINE_LIMIT = 12;
-
+      const SHINE_STAGGER_DELAY = 38;
       return (
         <View style={profileStyles.visitedListContainer}>
           {countries.map((country, index) => {
@@ -559,10 +559,19 @@ export default function ProfileScreen() {
               : continentColors[continent as keyof typeof continentColors] ||
                 "#f0f0f0";
 
+            // Opóźnienie dla animacji wejścia pigułki (pozostaje bez zmian)
             const pillEntryDelay = animationDelay + index * 60;
-            const shineDelay = pillEntryDelay + 250;
 
-            // ZMIANA: Logika do włączenia efektu dla każdej pigułki osobno
+            // Stara logika obliczania opóźnienia dla "shine":
+            // const shineDelay = pillEntryDelay + 250;
+
+            // NOWA LOGIKA: Obliczamy opóźnienie dla "shine" niezależnie,
+            // używając naszej nowej stałej.
+            // Błysk na pierwszej pigułce w rzędzie zacznie się 250ms po starcie animacji rzędu.
+            const baseShineDelay = animationDelay + 250;
+            // Każdy kolejny błysk będzie opóźniony o SHINE_STAGGER_DELAY.
+            const shineDelay = baseShineDelay + index * SHINE_STAGGER_DELAY;
+
             const absolutePillIndex = startingPillIndex + index;
             const enableShine = absolutePillIndex < SHINE_LIMIT;
 
@@ -584,7 +593,6 @@ export default function ProfileScreen() {
                   backgroundColor={backgroundColor}
                 />
 
-                {/* Teraz warunek `enableShine` działa poprawnie dla każdej pigułki */}
                 {enableShine && <PillShineEffect initialDelay={shineDelay} />}
               </MotiView>
             );
@@ -738,7 +746,7 @@ export default function ProfileScreen() {
                   { color: theme.colors.primary },
                 ]}
               >
-                Show Full Ranking
+                Show Full
               </Text>
             </TouchableOpacity>
           </View>
