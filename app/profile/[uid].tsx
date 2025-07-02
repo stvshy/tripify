@@ -34,6 +34,8 @@ import { Country, RankingSlot } from "../../types/sharedTypes";
 import CountryPill from "../../components/CountryPill";
 import ShineEntryView from "@/components/ShineEntryView";
 import { MotiView } from "moti";
+import ShineText from "@/components/ShineText";
+import { LinearGradient } from "expo-linear-gradient";
 
 interface UserProfile {
   uid: string;
@@ -152,70 +154,97 @@ export default function ProfileScreen() {
     () => incomingRequests.find((req) => req.senderUid === profileUid),
     [incomingRequests, profileUid]
   );
-const SKELETON_DATA: ListItem[] = [
-  { type: "header", id: "skeleton-header-1", continent: "", count: 0 },
-  { type: "countries_row", id: "skeleton-row-1", countries: Array(6).fill(null) },
-  { type: "header", id: "skeleton-header-2", continent: "", count: 0 },
-  { type: "countries_row", id: "skeleton-row-2", countries: Array(4).fill(null) },
-  { type: "countries_row", id: "skeleton-row-3", countries: Array(5).fill(null) },
-  { type: "header", id: "skeleton-header-3", continent: "", count: 0 },
-  { type: "countries_row", id: "skeleton-row-4", countries: Array(3).fill(null) },
-];
+  const SKELETON_DATA: ListItem[] = [
+    { type: "header", id: "skeleton-header-1", continent: "", count: 0 },
+    {
+      type: "countries_row",
+      id: "skeleton-row-1",
+      countries: Array(6).fill(null),
+    },
+    { type: "header", id: "skeleton-header-2", continent: "", count: 0 },
+    {
+      type: "countries_row",
+      id: "skeleton-row-2",
+      countries: Array(4).fill(null),
+    },
+    {
+      type: "countries_row",
+      id: "skeleton-row-3",
+      countries: Array(5).fill(null),
+    },
+    { type: "header", id: "skeleton-header-3", continent: "", count: 0 },
+    {
+      type: "countries_row",
+      id: "skeleton-row-4",
+      countries: Array(3).fill(null),
+    },
+  ];
 
-// NOWY KOMPONENT: Skeleton dla nagłówka kontynentu
-const SkeletonHeader = () => {
-  const theme = useTheme();
-  return (
-    <View style={profileStyles.continentSection}>
+  // NOWY KOMPONENT: Skeleton dla nagłówka kontynentu
+  const SkeletonHeader = () => {
+    const theme = useTheme();
+    return (
+      <View style={profileStyles.continentSection}>
         <MotiView
-            from={{ opacity: 0.4 }}
-            animate={{ opacity: 0.8 }}
-            transition={{ type: 'timing', duration: 800, loop: true, repeatReverse: true }}
-            style={{ 
-                width: '40%', 
-                height: 20, 
-                borderRadius: 8, 
-                backgroundColor: theme.colors.surfaceVariant,
-                marginBottom: 8,
-                marginLeft: 4
-            }}
+          from={{ opacity: 0.4 }}
+          animate={{ opacity: 0.8 }}
+          transition={{
+            type: "timing",
+            duration: 800,
+            loop: true,
+            repeatReverse: true,
+          }}
+          style={{
+            width: "40%",
+            height: 20,
+            borderRadius: 8,
+            backgroundColor: theme.colors.surfaceVariant,
+            marginBottom: 8,
+            marginLeft: 4,
+          }}
         />
-    </View>
-  );
-};
+      </View>
+    );
+  };
 
-// NOWY KOMPONENT: Skeleton dla jednego wiersza pigułek
-const SkeletonPillRow = ({ count }: { count: number }) => {
+  // NOWY KOMPONENT: Skeleton dla jednego wiersza pigułek
+  const SkeletonPillRow = ({ count }: { count: number }) => {
     const theme = useTheme();
     // Generujemy pigułki o losowej szerokości dla bardziej naturalnego wyglądu
-    const pills = useMemo(() => 
+    const pills = useMemo(
+      () =>
         [...Array(count)].map((_, i) => ({
-            key: `skel-pill-${i}`,
-            width: 70 + Math.random() * 50, // Szerokość między 70 a 120
-        }))
-    , [count]);
+          key: `skel-pill-${i}`,
+          width: 70 + Math.random() * 50, // Szerokość między 70 a 120
+        })),
+      [count]
+    );
 
     return (
-        <View style={profileStyles.visitedListContainer}>
-            {pills.map(pill => (
-                <MotiView
-                    key={pill.key}
-                    from={{ opacity: 0.4 }}
-                    animate={{ opacity: 0.8 }}
-                    transition={{ type: 'timing', duration: 800, loop: true, repeatReverse: true }}
-                    style={{
-                        width: pill.width,
-                        height: 30,
-                        borderRadius: 16,
-                        margin: 4,
-                        backgroundColor: theme.colors.surfaceVariant,
-                    }}
-                />
-            ))}
-        </View>
+      <View style={profileStyles.visitedListContainer}>
+        {pills.map((pill) => (
+          <MotiView
+            key={pill.key}
+            from={{ opacity: 0.4 }}
+            animate={{ opacity: 0.8 }}
+            transition={{
+              type: "timing",
+              duration: 800,
+              loop: true,
+              repeatReverse: true,
+            }}
+            style={{
+              width: pill.width,
+              height: 30,
+              borderRadius: 16,
+              margin: 4,
+              backgroundColor: theme.colors.surfaceVariant,
+            }}
+          />
+        ))}
+      </View>
     );
-};
-
+  };
 
   const [renderedCount, setRenderedCount] = useState(INITIAL_BATCH_SIZE);
 
@@ -306,23 +335,32 @@ const SkeletonPillRow = ({ count }: { count: number }) => {
               if (!acc[continent]) acc[continent] = [];
               acc[continent].push(country);
               return acc;
-            }, {} as Record<string, Country[]>
+            },
+            {} as Record<string, Country[]>
           );
 
           const flatData: ListItem[] = [];
           Object.entries(groupedByContinent)
             .sort(([a], [b]) => a.localeCompare(b))
             .forEach(([continent, countriesInContinent]) => {
-              flatData.push({ type: "header", id: continent, continent, count: countriesInContinent.length });
-              flatData.push({ type: "countries_row", id: `${continent}-row`, countries: countriesInContinent });
+              flatData.push({
+                type: "header",
+                id: continent,
+                continent,
+                count: countriesInContinent.length,
+              });
+              flatData.push({
+                type: "countries_row",
+                id: `${continent}-row`,
+                countries: countriesInContinent,
+              });
             });
-          
+
           // KROK 4: Ustaw dane i wyłącz loader krajów w tym samym czasie.
           // To spowoduje jeden re-render, który podmieni skeleton na listę.
           setListData(flatData);
           setIsLoadingCountries(false);
         }, 50); // Minimalne opóźnienie (np. 50ms) może dodatkowo zapewnić, że skeleton się wyrenderuje przed ciężkimi obliczeniami.
-
       },
       (error) => {
         console.error("Błąd podczas pobierania profilu:", error);
@@ -358,46 +396,45 @@ const SkeletonPillRow = ({ count }: { count: number }) => {
   //   processBatch();
   // };
   // // --- Komponenty do renderowania (renderItem, ListHeader, Skeleton) ---
- const renderListItem = useCallback(
-  // Dodajemy 'index' do argumentów, FlashList go dostarcza
-  ({ item, index }: { item: ListItem; index: number }) => {
-    // Obliczamy opóźnienie na podstawie indeksu elementu w liście
-    const delay = index * 80; // 80ms opóźnienia na każdy kolejny element
+  const renderListItem = useCallback(
+    ({ item, index }: { item: ListItem; index: number }) => {
+      // Bazowe opóźnienie dla całej grupy (nagłówek + wiersz pigułek)
+      const delay = index * 100;
 
-    switch (item.type) {
-      case "header":
-        return (
-          <ShineEntryView delay={delay}>
+      switch (item.type) {
+        case "header":
+          return (
+            // Używamy ShineText do renderowania nagłówka
             <View style={profileStyles.continentSection}>
-              <Text style={profileStyles.continentTitle}>
+              <ShineText delay={delay} style={profileStyles.continentTitle}>
                 <Text style={{ color: isDarkTheme ? "#e6b3ff" : "#a821b5" }}>
                   {item.continent}
                 </Text>
-                <Text style={{ color: "gray", fontSize: 14, fontWeight: "400" }}>
+                <Text
+                  style={{ color: "gray", fontSize: 14, fontWeight: "400" }}
+                >
                   {" "}
                   ({item.count})
                 </Text>
-              </Text>
+              </ShineText>
             </View>
-          </ShineEntryView>
-        );
-      case "countries_row":
-        return (
-          <ShineEntryView delay={delay}>
-            {/* Użyj oryginalnego, niemowanego komponentu CountryPillRow */}
+          );
+        case "countries_row":
+          // Przekazujemy opóźnienie do CountryPillRow, aby mógł stworzyć kaskadę
+          return (
             <CountryPillRow
               countries={item.countries}
               onPress={handleCountryPress}
+              animationDelay={delay} // <-- Przekazujemy opóźnienie
             />
-          </ShineEntryView>
-        );
-      default:
-        return null;
-    }
-  },
-  [handleCountryPress, isDarkTheme] // Dodaj isDarkTheme z powrotem do zależności
-);
-const renderSkeletonItem = useCallback(({ item }: { item: ListItem }) => {
+          );
+        default:
+          return null;
+      }
+    },
+    [handleCountryPress, isDarkTheme]
+  );
+  const renderSkeletonItem = useCallback(({ item }: { item: ListItem }) => {
     switch (item.type) {
       case "header":
         return <SkeletonHeader />;
@@ -436,14 +473,20 @@ const renderSkeletonItem = useCallback(({ item }: { item: ListItem }) => {
     ({
       countries,
       onPress,
+      animationDelay = 0, // Przyjmujemy bazowe opóźnienie
     }: {
       countries: Country[];
       onPress: (id: string) => void;
+      animationDelay?: number; // Dodajemy prop
     }) => {
       const { isDarkTheme } = useContext(ThemeContext);
+      const shineColor = isDarkTheme
+        ? "rgba(255, 255, 255, 0.15)"
+        : "rgba(255, 255, 255, 0.4)";
+
       return (
         <View style={profileStyles.visitedListContainer}>
-          {countries.map((country) => {
+          {countries.map((country, index) => {
             const continent = country.continent || "Other";
             const backgroundColor = isDarkTheme
               ? darkContinentColors[
@@ -451,107 +494,52 @@ const renderSkeletonItem = useCallback(({ item }: { item: ListItem }) => {
                 ] || "#333"
               : continentColors[continent as keyof typeof continentColors] ||
                 "#f0f0f0";
+
+            // Obliczamy opóźnienie dla każdej pigułki, tworząc efekt kaskady
+            const pillDelay = animationDelay + index * 60;
+
             return (
-              <CountryPill
+              // Kontener Moti dla animacji wejścia i efektu shine
+              <MotiView
                 key={country.id}
-                country={country}
-                onPress={onPress}
-                backgroundColor={backgroundColor}
-              />
+                from={{ opacity: 0, transform: [{ scale: 0.8 }] }}
+                animate={{ opacity: 1, transform: [{ scale: 1 }] }}
+                transition={{ type: "timing", duration: 400, delay: pillDelay }}
+                // Ważne: styl do przycięcia odblasku
+                style={{ borderRadius: 16, overflow: "hidden", margin: 3.5 }}
+              >
+                <CountryPill
+                  country={country}
+                  onPress={onPress}
+                  backgroundColor={backgroundColor}
+                />
+                {/* Nakładka z odblaskiem */}
+                <MotiView
+                  from={{ translateX: -150 }} // Startuje z lewej strony pigułki
+                  animate={{ translateX: 150 }} // Kończy po prawej
+                  transition={{
+                    type: "timing",
+                    duration: 800,
+                    delay: pillDelay + 400,
+                    loop: false,
+                  }}
+                  style={StyleSheet.absoluteFillObject}
+                >
+                  <LinearGradient
+                    colors={["transparent", shineColor, "transparent"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={{ flex: 1, transform: [{ rotateZ: "20deg" }] }}
+                  />
+                </MotiView>
+              </MotiView>
             );
           })}
         </View>
       );
     }
   );
- const SectionSkeleton = ({ title, type }: { title: string; type: "ranking" | "countries" }) => {
-  const theme = useTheme();
 
-  return (
-    <View style={{ marginBottom: 25 }}>
-      <Text style={[profileStyles.sectionTitle, { color: theme.colors.onBackground }]}>
-        {title}
-      </Text>
-      {type === "ranking" ? (
-        <>
-          {[...Array(3)].map((_, i) => (
-            <MotiView
-              key={`rank-skeleton-${i}`}
-              from={{ opacity: 0.4 }}
-              animate={{ opacity: 0.8 }}
-              // POPRAWKA: Przekazujemy transition bezpośrednio
-              transition={{
-                type: 'timing',
-                duration: 800,
-                loop: true,
-                // @ts-expect-error Moti akceptuje 'mirror', ale typy TS tego nie wiedzą
-                repeatReverse: 'mirror',
-              }}
-              style={{
-                width: '100%',
-                height: 40,
-                borderRadius: 8,
-                marginBottom: 10,
-                backgroundColor: theme.colors.surfaceVariant,
-              }}
-            />
-          ))}
-        </>
-      ) : (
-        <View style={{ flexDirection: 'column' }}>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 4 }}>
-            {[...Array(3)].map((_, i) => (
-              <MotiView
-                key={`country-skeleton-r1-${i}`}
-                from={{ opacity: 0.4 }}
-                animate={{ opacity: 0.8 }}
-                // POPRAWKA: Przekazujemy transition bezpośrednio
-                transition={{
-                  type: 'timing',
-                  duration: 800,
-                  loop: true,
-                  // @ts-expect-error Moti akceptuje 'mirror', ale typy TS tego nie wiedzą
-                  repeatReverse: 'mirror',
-                }}
-                style={{
-                  width: 110,
-                  height: 22,
-                  borderRadius: 12,
-                  margin: 4,
-                  backgroundColor: theme.colors.surfaceVariant,
-                }}
-              />
-            ))}
-          </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 4 }}>
-            {[...Array(4)].map((_, i) => (
-              <MotiView
-                key={`country-skeleton-r2-${i}`}
-                from={{ opacity: 0.4 }}
-                animate={{ opacity: 0.8 }}
-                // POPRAWKA: Przekazujemy transition bezpośrednio
-                transition={{
-                  type: 'timing',
-                  duration: 800,
-                  loop: true,
-                  // @ts-expect-error Moti akceptuje 'mirror', ale typy TS tego nie wiedzą
-                  repeatReverse: 'mirror',
-                }}
-                style={{
-                  width: 80,
-                  height: 22,
-                  borderRadius: 12,
-                  margin: 4,
-                  backgroundColor: theme.colors.surfaceVariant,
-                }}
-              />
-            ))}
-          </View>
-        </View>
-      )}
-    </View>
-  );
-};
   const ListHeader = useCallback(
     () => (
       <>
@@ -703,7 +691,7 @@ const renderSkeletonItem = useCallback(({ item }: { item: ListItem }) => {
           </View>
           <RankingList rankingSlots={rankingSlots.slice(0, 5)} />
         </View>
-  <View style={profileStyles.visitedHeader}>
+        <View style={profileStyles.visitedHeader}>
           <Text
             style={[
               profileStyles.sectionTitle,
@@ -814,32 +802,26 @@ const renderSkeletonItem = useCallback(({ item }: { item: ListItem }) => {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-        <FlashList
+      <FlashList
         // Krok 1: Dynamicznie wybieramy źródło danych
         data={isLoadingCountries ? SKELETON_DATA : listData}
-        
         // Krok 2: Dynamicznie wybieramy funkcję renderującą
         renderItem={isLoadingCountries ? renderSkeletonItem : renderListItem}
-        
         keyExtractor={(item) => item.id}
         estimatedItemSize={100}
-        
         // Nagłówek jest zawsze ten sam
         ListHeaderComponent={ListHeader}
-        
         // Wyłączamy animację przewijania dla skeletona, aby nie "skakał"
         // Możemy też zostawić włączoną, kwestia gustu
-        scrollEnabled={!isLoadingCountries} 
-        
+        scrollEnabled={!isLoadingCountries}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 50 }}
-        
         overrideItemLayout={(layout, item) => {
           if (item.type === "header") {
             // Możemy tu dodać bardziej precyzyjne estymacje
-            layout.size = 40; 
+            layout.size = 40;
           } else {
             // Estymacja dla wiersza krajów
-            layout.size = 80; 
+            layout.size = 80;
           }
         }}
       />
@@ -1107,7 +1089,7 @@ const profileStyles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 12, // Trochę więcej miejsca w pigułce
     paddingVertical: 6,
-    margin: 3.5, // Równy margines dookoła
+    // margin: 3.5, // Równy margines dookoła
     borderRadius: 16,
   },
   visitedItemText: {

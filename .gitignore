@@ -88,3 +88,5 @@ aapt
 components/InteractiveMapSkia.tsx
 firebase-debug.log
 assets/maps/add_continents.js
+components/ShineView.tsx
+components/ShineOverlay.tsx
