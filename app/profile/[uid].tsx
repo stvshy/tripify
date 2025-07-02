@@ -36,6 +36,7 @@ import ShineEntryView from "@/components/ShineEntryView";
 import { MotiView } from "moti";
 import ShineText from "@/components/ShineText";
 import { LinearGradient } from "expo-linear-gradient";
+import FastImage from "@d11/react-native-fast-image";
 
 interface UserProfile {
   uid: string;
@@ -299,6 +300,66 @@ export default function ProfileScreen() {
       </View>
     );
   };
+  const processCountriesInBatches = (
+    countryCodes: string[],
+    onProgress: (data: ListItem[]) => void,
+    onDone: (finalData: ListItem[], totalCount: number) => void
+  ) => {
+    const BATCH_SIZE = 50; // Przetwarzaj 50 krajów na raz
+    let currentIndex = 0;
+    const groupedByContinent: Record<string, Country[]> = {};
+
+    const processNextBatch = () => {
+      const batchEnd = Math.min(currentIndex + BATCH_SIZE, countryCodes.length);
+      for (let i = currentIndex; i < batchEnd; i++) {
+        const code = countryCodes[i];
+        const country = countriesMap.get(code);
+        if (country) {
+          const continent = country.continent || "Other";
+          if (!groupedByContinent[continent]) {
+            groupedByContinent[continent] = [];
+          }
+          groupedByContinent[continent].push(country);
+        }
+      }
+
+      currentIndex = batchEnd;
+
+      // Po każdej partii, generujemy tymczasowe dane do wyświetlenia
+      // Dzięki temu użytkownik widzi, jak lista się "buduje"
+      const flatData: ListItem[] = [];
+      const sortedContinents = Object.keys(groupedByContinent).sort();
+      let cumulativePillCount = 0;
+      for (const continent of sortedContinents) {
+        const countriesInContinent = groupedByContinent[continent];
+        flatData.push({
+          type: "header",
+          id: continent,
+          continent,
+          count: countriesInContinent.length,
+        });
+        flatData.push({
+          type: "countries_row",
+          id: `${continent}-row`,
+          countries: countriesInContinent,
+          startingPillIndex: cumulativePillCount,
+        });
+        cumulativePillCount += countriesInContinent.length;
+      }
+      onProgress(flatData);
+
+      if (currentIndex < countryCodes.length) {
+        // Jeśli jest więcej danych, zaplanuj następną partię
+        requestAnimationFrame(processNextBatch);
+      } else {
+        // Koniec pracy
+        onDone(flatData, countryCodes.length);
+      }
+    };
+
+    // Rozpocznij przetwarzanie
+    requestAnimationFrame(processNextBatch);
+  };
 
   const [renderedCount, setRenderedCount] = useState(INITIAL_BATCH_SIZE);
 
@@ -326,16 +387,18 @@ export default function ProfileScreen() {
     },
     [renderedCount, countriesVisited.length, isScrolling]
   );
+
   useEffect(() => {
     if (!profileUid) {
       setIsLoadingProfile(false);
       return;
     }
 
-    // Reset stanów
     setIsLoadingProfile(true);
-    setIsLoadingCountries(true); // Skeleton będzie widoczny
-    setListData([]); // Czyścimy dane listy
+    // UWAGA: Nie ustawiamy już isLoadingCountries na true tutaj.
+    // Skeleton będzie kontrolowany przez pustą listData.
+    setListData([]);
+    setUserProfile(null); // Resetuj profil przy zmianie UID
 
     const userRef = doc(db, "users", profileUid);
 
@@ -345,13 +408,13 @@ export default function ProfileScreen() {
         if (!snap.exists() || !snap.data()) {
           setUserProfile(null);
           setIsLoadingProfile(false);
-          setIsLoadingCountries(false);
+          setIsLoadingCountries(false); // Upewnij się, że loader jest wyłączony
           return;
         }
 
         const data = snap.data() as UserProfile;
 
-        // KROK 1: Ustaw podstawowe dane i ranking
+        // KROK 1: Ustaw podstawowe dane i ranking (to jest szybkie)
         setUserProfile({
           uid: snap.id,
           nickname: data.nickname || "Unknown",
@@ -371,57 +434,42 @@ export default function ProfileScreen() {
             country: countriesMap.get(cca2) || null,
           }))
         );
+        const topRankedCountries = rankingFiltered.slice(0, 10); // np. pierwsze 10
+        const urlsToPreload = topRankedCountries.map((isoCode) => ({
+          uri: `https://flagcdn.com/w80/${isoCode.toLowerCase()}.png`,
+        }));
 
-        // KROK 2: Wyłącz główny loader. Pokazuje się nagłówek i skeleton.
+        // Uruchom preload w tle, nie blokuje to UI
+        if (urlsToPreload.length > 0) {
+          FastImage.preload(urlsToPreload);
+        }
+        // KROK 2: Wyłącz główny loader. Nagłówek i skeleton się pojawią.
         setIsLoadingProfile(false);
+        setIsLoadingCountries(true); // Włączamy skeleton TERAZ
 
-        const processingHandle = setTimeout(() => {
-          const groupedByContinent: Record<string, Country[]> = {};
-          const visitedCodesSet = new Set(visitedCodesRaw); // Używamy Set do szybkiego sprawdzania unikalności
-
-          // JEDNA PĘTLA DO WSZYSTKIEGO - to jest klucz do wydajności
-          for (const code of visitedCodesSet) {
-            const country = countriesMap.get(code);
-            if (country) {
-              const continent = country.continent || "Other";
-              if (!groupedByContinent[continent]) {
-                groupedByContinent[continent] = [];
-              }
-              groupedByContinent[continent].push(country);
+        // KROK 3: Uruchom asynchroniczne przetwarzanie krajów
+        const visitedCodes = data.countriesVisited || [];
+        if (visitedCodes.length > 0) {
+          processCountriesInBatches(
+            visitedCodes,
+            (progressData) => {
+              // Ta funkcja będzie wywoływana po każdej partii,
+              // aktualizując UI płynnie, bez blokowania.
+              setListData(progressData);
+            },
+            (finalData, totalCount) => {
+              // Przetwarzanie zakończone
+              setListData(finalData);
+              setVisitedCount(totalCount);
+              setIsLoadingCountries(false); // Ukryj skeleton, pokaż finalną listę
             }
-          }
-
-          const flatData: ListItem[] = [];
-          const sortedContinents = Object.keys(groupedByContinent).sort(
-            (a, b) => a.localeCompare(b)
           );
-
-          let cumulativePillCount = 0; // <-- ZMIANA: Inicjalizujemy licznik
-
-          for (const continent of sortedContinents) {
-            const countriesInContinent = groupedByContinent[continent];
-            flatData.push({
-              type: "header",
-              id: continent,
-              continent,
-              count: countriesInContinent.length,
-            });
-            flatData.push({
-              type: "countries_row",
-              id: `${continent}-row`,
-              countries: countriesInContinent,
-              startingPillIndex: cumulativePillCount, // <-- ZMIANA: Zapisujemy pozycję startową
-            });
-            cumulativePillCount += countriesInContinent.length; // <-- ZMIANA: Aktualizujemy licznik
-          }
-          // KROK 4: Ustaw dane i wyłącz loader krajów
-          setVisitedCount(visitedCodesSet.size);
-          setListData(flatData);
+        } else {
+          // Brak krajów do przetworzenia
+          setListData([]);
+          setVisitedCount(0);
           setIsLoadingCountries(false);
-        }, 32); // Użycie `0` daje JS "oddech" na wyrenderowanie skeletona przed ciężką pracą.
-
-        // Sprzątanie na wypadek odmontowania komponentu w trakcie
-        return () => clearTimeout(processingHandle);
+        }
       },
       (error) => {
         console.error("Błąd podczas pobierania profilu:", error);
