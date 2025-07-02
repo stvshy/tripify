@@ -86,7 +86,12 @@ const INITIAL_BATCH_SIZE = 40; // Ile krajów pokazać na start
 const SCROLL_BATCH_SIZE = 20; // Ile krajów dorenderować przy każdym scrollu
 type ListItem =
   | { type: "header"; id: string; continent: string; count: number }
-  | { type: "countries_row"; id: string; countries: Country[] }; // Wiersz zawiera tablicę krajów
+  | {
+      type: "countries_row";
+      id: string;
+      countries: Country[];
+      startingPillIndex: number; // <-- NOWE POLE
+    };
 
 export default function ProfileScreen() {
   useFocusEffect(
@@ -154,32 +159,37 @@ export default function ProfileScreen() {
     () => incomingRequests.find((req) => req.senderUid === profileUid),
     [incomingRequests, profileUid]
   );
+
+  // ZMIANA: Dodajemy brakujące pole 'startingPillIndex' do danych szkieletowych
   const SKELETON_DATA: ListItem[] = [
     { type: "header", id: "skeleton-header-1", continent: "", count: 0 },
     {
       type: "countries_row",
       id: "skeleton-row-1",
       countries: Array(6).fill(null),
+      startingPillIndex: 0, // <-- FIX
     },
     { type: "header", id: "skeleton-header-2", continent: "", count: 0 },
     {
       type: "countries_row",
       id: "skeleton-row-2",
       countries: Array(4).fill(null),
+      startingPillIndex: 0, // <-- FIX
     },
     {
       type: "countries_row",
       id: "skeleton-row-3",
       countries: Array(5).fill(null),
+      startingPillIndex: 0, // <-- FIX
     },
     { type: "header", id: "skeleton-header-3", continent: "", count: 0 },
     {
       type: "countries_row",
       id: "skeleton-row-4",
       countries: Array(3).fill(null),
+      startingPillIndex: 0, // <-- FIX
     },
   ];
-
   // NOWY KOMPONENT: Skeleton dla nagłówka kontynentu
   const SkeletonHeader = () => {
     const theme = useTheme();
@@ -206,6 +216,50 @@ export default function ProfileScreen() {
       </View>
     );
   };
+  const PillShineEffect = React.memo(
+    ({ initialDelay }: { initialDelay: number }) => {
+      const { isDarkTheme } = useContext(ThemeContext);
+      const shineColor = isDarkTheme
+        ? "rgba(255, 255, 255, 0.15)"
+        : "rgba(255, 255, 255, 0.4)";
+
+      // Nie ma już stanu ani useEffect! Komponent jest teraz znacznie lżejszy.
+      return (
+        <View
+          style={{
+            position: "absolute",
+            width: "95%",
+            height: "80%",
+            top: "10%",
+            left: "2.5%",
+            overflow: "hidden",
+            borderRadius: 12,
+          }}
+          pointerEvents="none"
+        >
+          <MotiView
+            style={{ width: "100%", height: "100%" }}
+            from={{ translateX: -120 }}
+            animate={{ translateX: 120 }}
+            transition={{
+              type: "timing",
+              duration: 1000,
+              delay: initialDelay, // Używamy opóźnienia bezpośrednio
+              loop: false,
+            }}
+          >
+            <LinearGradient
+              colors={["transparent", shineColor, "transparent"]}
+              locations={[0.4, 0.5, 0.6]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{ flex: 1, transform: [{ rotateZ: "20deg" }] }}
+            />
+          </MotiView>
+        </View>
+      );
+    }
+  );
 
   // NOWY KOMPONENT: Skeleton dla jednego wiersza pigułek
   const SkeletonPillRow = ({ count }: { count: number }) => {
@@ -236,7 +290,7 @@ export default function ProfileScreen() {
             style={{
               width: pill.width,
               height: 30,
-              borderRadius: 16,
+              borderRadius: 40,
               margin: 4,
               backgroundColor: theme.colors.surfaceVariant,
             }}
@@ -321,46 +375,53 @@ export default function ProfileScreen() {
         // KROK 2: Wyłącz główny loader. Pokazuje się nagłówek i skeleton.
         setIsLoadingProfile(false);
 
-        // KROK 3: Użyj setTimeout, aby oddzielić przetwarzanie danych od renderowania skeletona.
-        setTimeout(() => {
-          const newCountriesVisited = Array.from(new Set(visitedCodesRaw))
-            .map((code) => countriesMap.get(code))
-            .filter((c): c is Country => c !== undefined);
+        const processingHandle = setTimeout(() => {
+          const groupedByContinent: Record<string, Country[]> = {};
+          const visitedCodesSet = new Set(visitedCodesRaw); // Używamy Set do szybkiego sprawdzania unikalności
 
-          setVisitedCount(newCountriesVisited.length);
-
-          const groupedByContinent = newCountriesVisited.reduce(
-            (acc, country) => {
+          // JEDNA PĘTLA DO WSZYSTKIEGO - to jest klucz do wydajności
+          for (const code of visitedCodesSet) {
+            const country = countriesMap.get(code);
+            if (country) {
               const continent = country.continent || "Other";
-              if (!acc[continent]) acc[continent] = [];
-              acc[continent].push(country);
-              return acc;
-            },
-            {} as Record<string, Country[]>
-          );
+              if (!groupedByContinent[continent]) {
+                groupedByContinent[continent] = [];
+              }
+              groupedByContinent[continent].push(country);
+            }
+          }
 
           const flatData: ListItem[] = [];
-          Object.entries(groupedByContinent)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .forEach(([continent, countriesInContinent]) => {
-              flatData.push({
-                type: "header",
-                id: continent,
-                continent,
-                count: countriesInContinent.length,
-              });
-              flatData.push({
-                type: "countries_row",
-                id: `${continent}-row`,
-                countries: countriesInContinent,
-              });
-            });
+          const sortedContinents = Object.keys(groupedByContinent).sort(
+            (a, b) => a.localeCompare(b)
+          );
 
-          // KROK 4: Ustaw dane i wyłącz loader krajów w tym samym czasie.
-          // To spowoduje jeden re-render, który podmieni skeleton na listę.
+          let cumulativePillCount = 0; // <-- ZMIANA: Inicjalizujemy licznik
+
+          for (const continent of sortedContinents) {
+            const countriesInContinent = groupedByContinent[continent];
+            flatData.push({
+              type: "header",
+              id: continent,
+              continent,
+              count: countriesInContinent.length,
+            });
+            flatData.push({
+              type: "countries_row",
+              id: `${continent}-row`,
+              countries: countriesInContinent,
+              startingPillIndex: cumulativePillCount, // <-- ZMIANA: Zapisujemy pozycję startową
+            });
+            cumulativePillCount += countriesInContinent.length; // <-- ZMIANA: Aktualizujemy licznik
+          }
+          // KROK 4: Ustaw dane i wyłącz loader krajów
+          setVisitedCount(visitedCodesSet.size);
           setListData(flatData);
           setIsLoadingCountries(false);
-        }, 50); // Minimalne opóźnienie (np. 50ms) może dodatkowo zapewnić, że skeleton się wyrenderuje przed ciężkimi obliczeniami.
+        }, 32); // Użycie `0` daje JS "oddech" na wyrenderowanie skeletona przed ciężką pracą.
+
+        // Sprzątanie na wypadek odmontowania komponentu w trakcie
+        return () => clearTimeout(processingHandle);
       },
       (error) => {
         console.error("Błąd podczas pobierania profilu:", error);
@@ -398,13 +459,12 @@ export default function ProfileScreen() {
   // // --- Komponenty do renderowania (renderItem, ListHeader, Skeleton) ---
   const renderListItem = useCallback(
     ({ item, index }: { item: ListItem; index: number }) => {
-      // Bazowe opóźnienie dla całej grupy (nagłówek + wiersz pigułek)
       const delay = index * 100;
 
       switch (item.type) {
         case "header":
+          // Dla nagłówków nic się nie zmienia
           return (
-            // Używamy ShineText do renderowania nagłówka
             <View style={profileStyles.continentSection}>
               <ShineText delay={delay} style={profileStyles.continentTitle}>
                 <Text style={{ color: isDarkTheme ? "#e6b3ff" : "#a821b5" }}>
@@ -420,12 +480,13 @@ export default function ProfileScreen() {
             </View>
           );
         case "countries_row":
-          // Przekazujemy opóźnienie do CountryPillRow, aby mógł stworzyć kaskadę
           return (
             <CountryPillRow
               countries={item.countries}
               onPress={handleCountryPress}
-              animationDelay={delay} // <-- Przekazujemy opóźnienie
+              animationDelay={index * 100}
+              // ZMIANA: Przekazujemy indeks startowy zamiast prostego boolean
+              startingPillIndex={item.startingPillIndex}
             />
           );
         default:
@@ -473,16 +534,19 @@ export default function ProfileScreen() {
     ({
       countries,
       onPress,
-      animationDelay = 0, // Przyjmujemy bazowe opóźnienie
+      animationDelay = 0,
+      // ZMIANA: Zmieniamy `enableShine` na `startingPillIndex`
+      startingPillIndex = 0,
     }: {
       countries: Country[];
       onPress: (id: string) => void;
-      animationDelay?: number; // Dodajemy prop
+      animationDelay?: number;
+      // ZMIANA: Aktualizujemy typ propsów
+      startingPillIndex?: number;
     }) => {
       const { isDarkTheme } = useContext(ThemeContext);
-      const shineColor = isDarkTheme
-        ? "rgba(255, 255, 255, 0.15)"
-        : "rgba(255, 255, 255, 0.4)";
+      // ZMIANA: Definiujemy stały limit dla efektu "shine"
+      const SHINE_LIMIT = 12;
 
       return (
         <View style={profileStyles.visitedListContainer}>
@@ -495,17 +559,23 @@ export default function ProfileScreen() {
               : continentColors[continent as keyof typeof continentColors] ||
                 "#f0f0f0";
 
-            // Obliczamy opóźnienie dla każdej pigułki, tworząc efekt kaskady
-            const pillDelay = animationDelay + index * 60;
+            const pillEntryDelay = animationDelay + index * 60;
+            const shineDelay = pillEntryDelay + 250;
+
+            // ZMIANA: Logika do włączenia efektu dla każdej pigułki osobno
+            const absolutePillIndex = startingPillIndex + index;
+            const enableShine = absolutePillIndex < SHINE_LIMIT;
 
             return (
-              // Kontener Moti dla animacji wejścia i efektu shine
               <MotiView
                 key={country.id}
                 from={{ opacity: 0, transform: [{ scale: 0.8 }] }}
                 animate={{ opacity: 1, transform: [{ scale: 1 }] }}
-                transition={{ type: "timing", duration: 400, delay: pillDelay }}
-                // Ważne: styl do przycięcia odblasku
+                transition={{
+                  type: "timing",
+                  duration: 400,
+                  delay: pillEntryDelay,
+                }}
                 style={{ borderRadius: 16, overflow: "hidden", margin: 3.5 }}
               >
                 <CountryPill
@@ -513,25 +583,9 @@ export default function ProfileScreen() {
                   onPress={onPress}
                   backgroundColor={backgroundColor}
                 />
-                {/* Nakładka z odblaskiem */}
-                <MotiView
-                  from={{ translateX: -150 }} // Startuje z lewej strony pigułki
-                  animate={{ translateX: 150 }} // Kończy po prawej
-                  transition={{
-                    type: "timing",
-                    duration: 800,
-                    delay: pillDelay + 400,
-                    loop: false,
-                  }}
-                  style={StyleSheet.absoluteFillObject}
-                >
-                  <LinearGradient
-                    colors={["transparent", shineColor, "transparent"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={{ flex: 1, transform: [{ rotateZ: "20deg" }] }}
-                  />
-                </MotiView>
+
+                {/* Teraz warunek `enableShine` działa poprawnie dla każdej pigułki */}
+                {enableShine && <PillShineEffect initialDelay={shineDelay} />}
               </MotiView>
             );
           })}
@@ -539,7 +593,6 @@ export default function ProfileScreen() {
       );
     }
   );
-
   const ListHeader = useCallback(
     () => (
       <>
@@ -828,96 +881,7 @@ export default function ProfileScreen() {
     </View>
   );
 }
-const AnimatedCountryPillRow = React.memo(
-  ({
-    countries,
-    onPress,
-  }: {
-    countries: Country[];
-    onPress: (id: string) => void;
-  }) => {
-    const { isDarkTheme } = useContext(ThemeContext);
-    const fadeAnim = useRef(new Animated.Value(0)).current; // Wartość przezroczystości
-    const slideAnim = useRef(new Animated.Value(15)).current; // Wartość przesunięcia w osi Y
 
-    useEffect(() => {
-      // Start animacji po zamontowaniu komponentu
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 400, // Szybkość pojawiania się
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 300, // Szybkość przesuwania
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }, []);
-
-    return (
-      <Animated.View
-        style={{
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
-        }}
-      >
-        <View style={profileStyles.visitedListContainer}>
-          {countries.map((country) => {
-            const continent = country.continent || "Other";
-            const backgroundColor = isDarkTheme
-              ? darkContinentColors[
-                  continent as keyof typeof darkContinentColors
-                ] || "#333"
-              : continentColors[continent as keyof typeof continentColors] ||
-                "#f0f0f0";
-            return (
-              <CountryPill
-                key={country.id}
-                country={country}
-                onPress={onPress}
-                backgroundColor={backgroundColor}
-              />
-            );
-          })}
-        </View>
-      </Animated.View>
-    );
-  }
-);
-
-// Komponent do animowania nagłówka kontynentu
-const AnimatedHeader = React.memo(
-  ({ continent, count }: { continent: string; count: number }) => {
-    const { isDarkTheme } = useContext(ThemeContext);
-    const fadeAnim = useRef(new Animated.Value(0)).current;
-
-    useEffect(() => {
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }).start();
-    }, []);
-
-    return (
-      <Animated.View style={{ opacity: fadeAnim }}>
-        <View style={profileStyles.continentSection}>
-          <Text style={profileStyles.continentTitle}>
-            <Text style={{ color: isDarkTheme ? "#e6b3ff" : "#a821b5" }}>
-              {continent}
-            </Text>
-            <Text style={{ color: "gray", fontSize: 14, fontWeight: "400" }}>
-              {" "}
-              ({count})
-            </Text>
-          </Text>
-        </View>
-      </Animated.View>
-    );
-  }
-);
 const profileStyles = StyleSheet.create({
   container: {
     flex: 1,
