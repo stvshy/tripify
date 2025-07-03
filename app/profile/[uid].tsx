@@ -101,6 +101,219 @@ export default function ProfileScreen() {
       return () => cleanup(); // Sprzątaj, gdy ekran traci fokus
     }, [])
   );
+  // Komponent 1: Górny pasek nawigacyjny
+  const ProfileTopBar = React.memo(
+    ({
+      onBack,
+      onToggleTheme,
+      isDarkTheme,
+    }: {
+      onBack: () => void;
+      onToggleTheme: () => void;
+      isDarkTheme: boolean;
+    }) => {
+      const theme = useTheme();
+      console.log("Rendering: ProfileTopBar"); // Do debugowania, możesz potem usunąć
+      return (
+        <View
+          style={[
+            profileStyles.header,
+            { paddingTop: Dimensions.get("window").height * 0.02 },
+          ]}
+        >
+          <TouchableOpacity
+            onPress={onBack}
+            style={[
+              profileStyles.headerButton,
+              { marginLeft: -11, marginRight: -1 },
+            ]}
+          >
+            <Ionicons
+              name="arrow-back"
+              size={26}
+              color={theme.colors.onBackground}
+            />
+          </TouchableOpacity>
+          <Text
+            style={[
+              profileStyles.headerTitle,
+              { color: theme.colors.onBackground },
+            ]}
+          >
+            Profile
+          </Text>
+          <TouchableOpacity
+            onPress={onToggleTheme}
+            style={[profileStyles.headerButton, { marginRight: -7 }]}
+          >
+            <Ionicons
+              name={isDarkTheme ? "sunny" : "moon"}
+              size={24}
+              color={theme.colors.onBackground}
+            />
+          </TouchableOpacity>
+        </View>
+      );
+    }
+  );
+
+  // Komponent 2: Panel z informacjami o użytkowniku i przyciskami
+  const UserInfoPanel = React.memo(
+    ({
+      userProfile,
+      isFriend,
+      hasSentRequest,
+      hasReceivedRequest,
+      incomingRequestFromProfile,
+      handlers,
+    }: {
+      userProfile: UserProfile;
+      isFriend: boolean;
+      hasSentRequest: boolean;
+      hasReceivedRequest: boolean;
+      incomingRequestFromProfile: any; // Dostosuj typ, jeśli go masz
+      handlers: {
+        onAdd: () => void;
+        onRemove: () => void;
+        onAccept: () => void;
+        onDecline: () => void;
+      };
+    }) => {
+      const theme = useTheme();
+      const { isDarkTheme } = useContext(ThemeContext);
+      const currentUser = auth.currentUser;
+      console.log("Rendering: UserInfoPanel"); // Do debugowania, możesz potem usunąć
+
+      return (
+        <View style={profileStyles.userPanel}>
+          <Ionicons
+            name="person-circle"
+            size={100}
+            color={theme.colors.primary}
+          />
+          <Text
+            style={[
+              profileStyles.userName,
+              { color: theme.colors.onBackground },
+            ]}
+          >
+            {userProfile.nickname}
+          </Text>
+          <Text style={[profileStyles.userEmail, { color: "gray" }]}>
+            {userProfile.email}
+          </Text>
+
+          {currentUser?.uid !== userProfile.uid && (
+            <>
+              {hasReceivedRequest ? (
+                <View style={profileStyles.friendActionButtons}>
+                  <TouchableOpacity
+                    onPress={handlers.onAccept}
+                    style={[
+                      profileStyles.acceptButton,
+                      { backgroundColor: theme.colors.primary },
+                    ]}
+                  >
+                    <Text style={profileStyles.buttonText}>Accept</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handlers.onDecline}
+                    style={[
+                      profileStyles.declineButton,
+                      { backgroundColor: "rgba(116, 116, 116, 0.3)" },
+                    ]}
+                  >
+                    <Text style={profileStyles.buttonText}>Decline</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : isFriend ? (
+                <TouchableOpacity
+                  onPress={handlers.onRemove}
+                  style={[
+                    profileStyles.addFriendButton,
+                    {
+                      backgroundColor: isDarkTheme
+                        ? "rgba(171, 109, 197, 0.4)"
+                        : "rgba(191, 115, 229, 0.43)",
+                    },
+                  ]}
+                >
+                  <Text
+                    style={{ color: "#fff", fontSize: 14, fontWeight: "500" }}
+                  >
+                    Friend
+                  </Text>
+                </TouchableOpacity>
+              ) : hasSentRequest ? (
+                <TouchableOpacity
+                  style={[
+                    profileStyles.addFriendButton,
+                    {
+                      backgroundColor: isDarkTheme
+                        ? "rgba(128, 128, 128, 0.4)"
+                        : "rgba(204, 204, 204, 0.7)",
+                    },
+                  ]}
+                  disabled={true}
+                >
+                  <Text style={profileStyles.addFriendButtonText}>Sent</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={handlers.onAdd}
+                  style={[
+                    profileStyles.addFriendButton,
+                    { backgroundColor: theme.colors.primary },
+                  ]}
+                >
+                  <Text style={profileStyles.addFriendButtonText}>Add</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+        </View>
+      );
+    }
+  );
+
+  // Komponent 3: Podgląd rankingu
+  const RankingPreview = React.memo(
+    ({
+      rankingSlots,
+      onShowFull,
+    }: {
+      rankingSlots: RankingSlot[];
+      onShowFull: () => void;
+    }) => {
+      const theme = useTheme();
+      console.log("Rendering: RankingPreview"); // Do debugowania, możesz potem usunąć
+      return (
+        <View style={profileStyles.rankingContainer}>
+          <View style={profileStyles.rankingHeader}>
+            <Text
+              style={[
+                profileStyles.sectionTitle,
+                { color: theme.colors.onSurface },
+              ]}
+            >
+              Ranking
+            </Text>
+            <TouchableOpacity onPress={onShowFull}>
+              <Text
+                style={[
+                  profileStyles.showAllRankingButton,
+                  { color: theme.colors.primary },
+                ]}
+              >
+                Show Full
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <RankingList rankingSlots={rankingSlots.slice(0, 5)} />
+        </View>
+      );
+    }
+  );
 
   const { uid: profileUid } = useLocalSearchParams<{ uid: string }>();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -495,7 +708,7 @@ export default function ProfileScreen() {
             // Wyłączamy skeleton DOKŁADNIE w tym samym momencie co ustawiamy dane.
             setIsLoadingCountries(false);
           }
-        }, 50); // Dajemy 50ms buforu, aby mieć pewność, że skeleton się wyrenderuje. Można eksperymentować z wartością 0.
+        }, 20); // Dajemy 50ms buforu, aby mieć pewność, że skeleton się wyrenderuje. Można eksperymentować z wartością 0.
       },
       (error) => {
         console.error("Błąd profilu:", error);
@@ -668,158 +881,50 @@ export default function ProfileScreen() {
     },
     [handleCountryPress, isDarkTheme]
   );
+  const handleBack = useCallback(() => {
+    router.back();
+  }, [router]);
+
+  const handleShowFullRanking = useCallback(() => {
+    setIsRankingModalVisible(true);
+  }, []);
+
   const ListHeader = useCallback(
     () => (
       <>
-        <View style={[profileStyles.header, { paddingTop: height * 0.02 }]}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={[
-              profileStyles.headerButton,
-              { marginLeft: -11, marginRight: -1 },
-            ]}
-          >
-            <Ionicons
-              name="arrow-back"
-              size={26}
-              color={theme.colors.onBackground}
-            />
-          </TouchableOpacity>
-          <Text
-            style={[
-              profileStyles.headerTitle,
-              { color: theme.colors.onBackground },
-            ]}
-          >
-            Profile
-          </Text>
-          <TouchableOpacity
-            onPress={toggleTheme}
-            style={[profileStyles.headerButton, { marginRight: -7 }]}
-          >
-            <Ionicons
-              name={isDarkTheme ? "sunny" : "moon"}
-              size={24}
-              color={theme.colors.onBackground}
-            />
-          </TouchableOpacity>
-        </View>
+        {/* Komponent 1: Zawsze renderowany, zależy tylko od motywu i funkcji nawigacji */}
+        <ProfileTopBar
+          onBack={handleBack}
+          onToggleTheme={toggleTheme}
+          isDarkTheme={isDarkTheme}
+        />
 
-        <View style={profileStyles.userPanel}>
-          <Ionicons
-            name="person-circle"
-            size={100}
-            color={theme.colors.primary}
+        {/* Komponent 2: Renderowany tylko, gdy mamy profil, zależy od danych usera i statusu znajomych */}
+        {userProfile && (
+          <UserInfoPanel
+            userProfile={userProfile}
+            isFriend={isFriend}
+            hasSentRequest={hasSentRequest}
+            hasReceivedRequest={hasReceivedRequest}
+            incomingRequestFromProfile={incomingRequestFromProfile}
+            handlers={{
+              onAdd: handleAdd,
+              onRemove: handleRemove,
+              onAccept: handleAccept,
+              onDecline: handleDecline,
+            }}
           />
-          {userProfile && (
-            <>
-              <Text
-                style={[
-                  profileStyles.userName,
-                  { color: theme.colors.onBackground },
-                ]}
-              >
-                {userProfile.nickname}
-              </Text>
-              <Text style={[profileStyles.userEmail, { color: "gray" }]}>
-                {userProfile.email}
-              </Text>
-            </>
-          )}
-          {currentUser?.uid !== profileUid && userProfile && (
-            <>
-              {hasReceivedRequest ? (
-                <View style={profileStyles.friendActionButtons}>
-                  <TouchableOpacity
-                    onPress={handleAccept}
-                    style={[
-                      profileStyles.acceptButton,
-                      { backgroundColor: theme.colors.primary },
-                    ]}
-                  >
-                    <Text style={profileStyles.buttonText}>Accept</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={handleDecline}
-                    style={[
-                      profileStyles.declineButton,
-                      { backgroundColor: "rgba(116, 116, 116, 0.3)" },
-                    ]}
-                  >
-                    <Text style={profileStyles.buttonText}>Decline</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : isFriend ? (
-                <TouchableOpacity
-                  onPress={handleRemove}
-                  style={[
-                    profileStyles.addFriendButton,
-                    {
-                      backgroundColor: isDarkTheme
-                        ? "rgba(171, 109, 197, 0.4)"
-                        : "rgba(191, 115, 229, 0.43)",
-                    },
-                  ]}
-                >
-                  <Text
-                    style={{ color: "#fff", fontSize: 14, fontWeight: "500" }}
-                  >
-                    Friend
-                  </Text>
-                </TouchableOpacity>
-              ) : hasSentRequest ? (
-                <TouchableOpacity
-                  style={[
-                    profileStyles.addFriendButton,
-                    {
-                      backgroundColor: isDarkTheme
-                        ? "rgba(128, 128, 128, 0.4)"
-                        : "rgba(204, 204, 204, 0.7)",
-                    },
-                  ]}
-                  disabled={true}
-                >
-                  <Text style={profileStyles.addFriendButtonText}>Sent</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  onPress={handleAdd}
-                  style={[
-                    profileStyles.addFriendButton,
-                    { backgroundColor: theme.colors.primary },
-                  ]}
-                >
-                  <Text style={profileStyles.addFriendButtonText}>Add</Text>
-                </TouchableOpacity>
-              )}
-            </>
-          )}
-        </View>
+        )}
 
-        <View style={profileStyles.rankingContainer}>
-          <View style={profileStyles.rankingHeader}>
-            <Text
-              style={[
-                profileStyles.sectionTitle,
-                { color: theme.colors.onSurface },
-              ]}
-            >
-              Ranking
-            </Text>
-            {/* TUTAJ WRACA PRZYCISK OTWIERAJĄCY MODAL */}
-            <TouchableOpacity onPress={() => setIsRankingModalVisible(true)}>
-              <Text
-                style={[
-                  profileStyles.showAllRankingButton,
-                  { color: theme.colors.primary },
-                ]}
-              >
-                Show Full
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <RankingList rankingSlots={rankingSlots.slice(0, 5)} />
-        </View>
+        {/* Komponent 3: Zależy tylko od danych rankingu */}
+        <RankingPreview
+          rankingSlots={rankingSlots}
+          onShowFull={handleShowFullRanking}
+        />
+
+        {/* Ta część jest tak mała, że nie wymaga osobnego komponentu.
+            Zależy od isLoadingCountries i visitedCount, więc będzie się renderować
+            niezależnie od reszty nagłówka. */}
         <View style={profileStyles.visitedHeader}>
           <Text
             style={[
@@ -829,7 +934,6 @@ export default function ProfileScreen() {
           >
             Visited Countries
           </Text>
-          {/* Pokaż liczbę dopiero gdy ładowanie się zakończy. */}
           {!isLoadingCountries && visitedCount > 0 && (
             <Text style={[profileStyles.visitedCount, { color: "gray" }]}>
               ({visitedCount}/218)
@@ -839,26 +943,25 @@ export default function ProfileScreen() {
       </>
     ),
     [
-      // Upewnij się, że zależności są poprawne.
-      userProfile,
-      rankingSlots,
-      theme,
+      // NOWA, ZNACZNIE MNIEJSZA LISTA ZALEŻNOŚCI!
       isDarkTheme,
       toggleTheme,
-      router,
-      height,
+      handleBack,
+      userProfile,
       isFriend,
-      hasReceivedRequest,
       hasSentRequest,
+      hasReceivedRequest,
+      incomingRequestFromProfile,
+      handleAdd,
+      handleRemove,
       handleAccept,
       handleDecline,
-      handleRemove,
-      handleAdd,
+      rankingSlots,
+      handleShowFullRanking,
+      isLoadingCountries,
       visitedCount,
-      setIsRankingModalVisible,
-      profileUid,
-      currentUser,
-      isLoadingCountries, // <-- Ta zależność jest teraz potrzebna do ukrywania licznika.
+      theme.colors.onBackground, // Dodajemy kolory z motywu, jeśli są używane bezpośrednio w tym komponencie
+      theme.colors.onSurface,
     ]
   );
 
