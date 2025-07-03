@@ -16,6 +16,7 @@ import {
   Dimensions,
   Modal,
   NativeScrollEvent,
+  InteractionManager,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { db, auth } from "../config/firebaseConfig";
@@ -318,7 +319,7 @@ export default function ProfileScreen() {
   const { countriesMap, isLoading: isLoadingCountriesMap } = useCountryStore();
 
   const { uid: profileUid } = useLocalSearchParams<{ uid: string }>();
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  // const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>([]);
   const [countriesVisited, setCountriesVisited] = useState<Country[]>([]);
   const [isProfileLoading, setIsProfileLoading] = useState(true); // Dotyczy danych z Firestore
@@ -436,50 +437,50 @@ export default function ProfileScreen() {
       </View>
     );
   };
-  const PillShineEffect = React.memo(
-    ({ initialDelay }: { initialDelay: number }) => {
-      const { isDarkTheme } = useContext(ThemeContext);
-      const shineColor = isDarkTheme
-        ? "rgba(255, 255, 255, 0.15)"
-        : "rgba(255, 255, 255, 0.4)";
+  // const PillShineEffect = React.memo(
+  //   ({ initialDelay }: { initialDelay: number }) => {
+  //     const { isDarkTheme } = useContext(ThemeContext);
+  //     const shineColor = isDarkTheme
+  //       ? "rgba(255, 255, 255, 0.15)"
+  //       : "rgba(255, 255, 255, 0.4)";
 
-      // Nie ma już stanu ani useEffect! Komponent jest teraz znacznie lżejszy.
-      return (
-        <View
-          style={{
-            position: "absolute",
-            width: "95%",
-            height: "80%",
-            top: "10%",
-            left: "2.5%",
-            overflow: "hidden",
-            borderRadius: 12,
-          }}
-          pointerEvents="none"
-        >
-          <MotiView
-            style={{ width: "100%", height: "100%" }}
-            from={{ translateX: -120 }}
-            animate={{ translateX: 120 }}
-            transition={{
-              type: "timing",
-              duration: 1000,
-              delay: initialDelay, // Używamy opóźnienia bezpośrednio
-              loop: false,
-            }}
-          >
-            <LinearGradient
-              colors={["transparent", shineColor, "transparent"]}
-              locations={[0.4, 0.5, 0.6]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={{ flex: 1, transform: [{ rotateZ: "20deg" }] }}
-            />
-          </MotiView>
-        </View>
-      );
-    }
-  );
+  //     // Nie ma już stanu ani useEffect! Komponent jest teraz znacznie lżejszy.
+  //     return (
+  //       <View
+  //         style={{
+  //           position: "absolute",
+  //           width: "95%",
+  //           height: "80%",
+  //           top: "10%",
+  //           left: "2.5%",
+  //           overflow: "hidden",
+  //           borderRadius: 12,
+  //         }}
+  //         pointerEvents="none"
+  //       >
+  //         <MotiView
+  //           style={{ width: "100%", height: "100%" }}
+  //           from={{ translateX: -120 }}
+  //           animate={{ translateX: 120 }}
+  //           transition={{
+  //             type: "timing",
+  //             duration: 1000,
+  //             delay: initialDelay, // Używamy opóźnienia bezpośrednio
+  //             loop: false,
+  //           }}
+  //         >
+  //           <LinearGradient
+  //             colors={["transparent", shineColor, "transparent"]}
+  //             locations={[0.4, 0.5, 0.6]}
+  //             start={{ x: 0, y: 0 }}
+  //             end={{ x: 1, y: 0 }}
+  //             style={{ flex: 1, transform: [{ rotateZ: "20deg" }] }}
+  //           />
+  //         </MotiView>
+  //       </View>
+  //     );
+  //   }
+  // );
 
   // NOWY KOMPONENT: Skeleton dla jednego wiersza pigułek
   const SkeletonPillRow = ({ count }: { count: number }) => {
@@ -580,6 +581,11 @@ export default function ProfileScreen() {
   //   // Rozpocznij przetwarzanie
   //   requestAnimationFrame(processNextBatch);
   // };
+  type LoadingPhase = "initial" | "processing" | "done";
+  const [isLoading, setIsLoading] = useState(true);
+  const [rawUserProfile, setRawUserProfile] = useState<UserProfile | null>(
+    null
+  );
 
   const [renderedCount, setRenderedCount] = useState(INITIAL_BATCH_SIZE);
 
@@ -607,112 +613,110 @@ export default function ProfileScreen() {
     },
     [renderedCount, countriesVisited.length, isScrolling]
   );
+  // EFEKT 1: Pobieranie surowych danych z Firestore (działa równolegle z ładowaniem mapy krajów)
+  // EFEKT 1: Pobieranie surowych danych z Firestore (POPRAWIONY)
   useEffect(() => {
-    // Warunek wyjścia nr 1: Nie mamy UID profilu
     if (!profileUid) {
-      setIsProfileLoading(false);
-      setIsCountryListProcessing(false);
+      setIsLoading(false);
       return;
     }
 
-    // Warunek wyjścia nr 2: Mapa krajów jeszcze się nie załadowała
-    if (isLoadingCountriesMap || !countriesMap) {
-      // Nie robimy nic. Komponent pokaże loader, a ten useEffect uruchomi się ponownie,
-      // gdy `isLoadingCountriesMap` zmieni się na `false`.
-      return;
-    }
-
-    // Reset stanów na początku
-    setIsProfileLoading(true);
-    setIsCountryListProcessing(true);
-    setUserProfile(null);
-    setListData([]);
+    setIsLoading(true);
+    setRawUserProfile(null);
     setRankingSlots([]);
+    setListData([]);
     setVisitedCount(0);
 
     const userRef = doc(db, "users", profileUid);
     const unsubscribe = onSnapshot(
       userRef,
       (snap) => {
-        if (!snap.exists() || !snap.data()) {
-          setUserProfile(null);
-          setIsProfileLoading(false);
-          setIsCountryListProcessing(false);
-          return;
+        if (snap.exists()) {
+          // Mamy dane. Ustawiamy je i pozwalamy drugiemu efektowi przejąć pałeczkę.
+          // NIE wyłączamy tutaj loadera.
+          setRawUserProfile(snap.data() as UserProfile);
+        } else {
+          // Użytkownik NIE istnieje. To jest ostateczna decyzja.
+          // Wyłączamy loader i ustawiamy profil na null.
+          setRawUserProfile(null);
+          setIsLoading(false);
         }
-
-        const data = snap.data() as UserProfile;
-
-        // Krok 1: Ustaw "lekkie" dane i wyłącz główny loader
-        setUserProfile(data);
-        setIsProfileLoading(false); // <--- Główny loader profilu wyłączony. Ukaże się szkielet.
-
-        const visitedCodesRaw = data.countriesVisited || [];
-        const rankingRaw = data.ranking || [];
-
-        // Krok 2: Przetwarzanie ciężkich danych (ranking i lista krajów)
-        // TypeScript jest teraz zadowolony, bo wie, że `countriesMap` nie jest null.
-        const newRankingSlots = rankingRaw
-          .filter((code) => visitedCodesRaw.includes(code))
-          .map((cca2, idx) => ({
-            id: generateUniqueId(),
-            rank: idx + 1,
-            country: countriesMap.get(cca2) || null,
-          }));
-        setRankingSlots(newRankingSlots);
-
-        // Krok 3: Przygotuj dane do listy (ta logika jest OK)
-        const newCountriesVisited = Array.from(new Set(visitedCodesRaw))
-          .map((code) => countriesMap.get(code))
-          .filter((c): c is Country => c !== undefined);
-
-        const groupedByContinent = newCountriesVisited.reduce(
-          (acc, country) => {
-            const continent = country.continent || "Other";
-            if (!acc[continent]) acc[continent] = [];
-            acc[continent].push(country);
-            return acc;
-          },
-          {} as Record<string, Country[]>
-        );
-
-        let cumulativePillCount = 0;
-        const finalData: ListItem[] = [];
-        Object.entries(groupedByContinent)
-          .sort(([a], [b]) => a.localeCompare(b))
-          .forEach(([continent, countriesInContinent]) => {
-            finalData.push({
-              type: "header",
-              id: continent,
-              continent,
-              count: countriesInContinent.length,
-            });
-            finalData.push({
-              type: "countries_row",
-              id: `${continent}-row`,
-              countries: countriesInContinent,
-              startingPillIndex: cumulativePillCount,
-            });
-            cumulativePillCount += countriesInContinent.length;
-          });
-
-        // Krok 4: Użyj `setTimeout`, aby dać UI czas na oddech
-        setTimeout(() => {
-          setListData(finalData);
-          setVisitedCount(newCountriesVisited.length);
-          setIsCountryListProcessing(false); // Wyłącz szkielet
-        }, 50); // 50ms to bezpieczny bufor
       },
       (error) => {
         console.error("Błąd profilu:", error);
-        setIsProfileLoading(false);
-        setIsCountryListProcessing(false);
+        setRawUserProfile(null);
+        setIsLoading(false);
       }
     );
 
     return () => unsubscribe();
-  }, [profileUid, countriesMap, isLoadingCountriesMap]);
+  }, [profileUid]);
+  // EFEKT 2: Przetwarzanie danych. Uruchamia się, gdy mamy dane i mapę.
+  useEffect(() => {
+    // Jeśli nie mamy jeszcze surowych danych lub mapy, po prostu czekamy.
+    // Nie podejmujemy żadnych decyzji o stanie ładowania.
+    if (!rawUserProfile || !countriesMap) {
+      return;
+    }
 
+    // --- Ciężkie obliczenia (bez zmian) ---
+    const visitedCodesRaw = rawUserProfile.countriesVisited || [];
+    const rankingRaw = rawUserProfile.ranking || [];
+
+    const newRankingSlots = rankingRaw
+      .filter((code) => visitedCodesRaw.includes(code))
+      .map((cca2, idx) => ({
+        id: generateUniqueId(),
+        rank: idx + 1,
+        country: countriesMap.get(cca2) || null,
+      }));
+
+    const newCountriesVisited = Array.from(new Set(visitedCodesRaw))
+      .map((code) => countriesMap.get(code))
+      .filter((c): c is Country => c !== undefined);
+
+    const groupedByContinent = newCountriesVisited.reduce(
+      (acc, country) => {
+        const continent = country.continent || "Other";
+        if (!acc[continent]) acc[continent] = [];
+        acc[continent].push(country);
+        return acc;
+      },
+      {} as Record<string, Country[]>
+    );
+
+    let cumulativePillCount = 0;
+    const finalData: ListItem[] = [];
+    Object.entries(groupedByContinent)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .forEach(([continent, countriesInContinent]) => {
+        finalData.push({
+          type: "header",
+          id: continent,
+          continent,
+          count: countriesInContinent.length,
+        });
+        finalData.push({
+          type: "countries_row",
+          id: `${continent}-row`,
+          countries: countriesInContinent,
+          startingPillIndex: cumulativePillCount,
+        });
+        cumulativePillCount += countriesInContinent.length;
+      });
+
+    InteractionManager.runAfterInteractions(() => {
+      // Sprawdźmy na wszelki wypadek, czy profil się nie zmienił
+      if (profileUid === rawUserProfile.uid) {
+        setRankingSlots(newRankingSlots); // Załóżmy, że newRankingSlots jest tu obliczone
+        setListData(finalData);
+        setVisitedCount(newCountriesVisited.length); // Załóżmy, że newCountriesVisited jest tu obliczone
+
+        // Obliczenia zakończone, dane gotowe. TO JEST moment na wyłączenie loadera.
+        setIsLoading(false);
+      }
+    });
+  }, [rawUserProfile, countriesMap, profileUid]);
   const renderSkeletonItem = useCallback(({ item }: { item: ListItem }) => {
     switch (item.type) {
       case "header":
@@ -726,11 +730,11 @@ export default function ProfileScreen() {
   }, []);
   // --- Handlers (POPRAWIONE) ---
   const handleAdd = () => {
-    if (userProfile) {
-      sendFriendRequest(userProfile.uid, userProfile.nickname);
+    if (rawUserProfile) {
+      // Zmieniono z userProfile
+      sendFriendRequest(rawUserProfile.uid, rawUserProfile.nickname);
     }
   };
-
   const handleRemove = () => {
     if (profileUid) {
       removeFriend(profileUid); // removeFriend oczekuje UID
@@ -885,17 +889,14 @@ export default function ProfileScreen() {
   const ListHeader = useCallback(
     () => (
       <>
-        {/* Komponent 1: Zawsze renderowany, zależy tylko od motywu i funkcji nawigacji */}
         <ProfileTopBar
           onBack={handleBack}
           onToggleTheme={toggleTheme}
           isDarkTheme={isDarkTheme}
         />
-
-        {/* Komponent 2: Renderowany tylko, gdy mamy profil, zależy od danych usera i statusu znajomych */}
-        {userProfile && (
+        {rawUserProfile && ( // Zmieniono z userProfile
           <UserInfoPanel
-            userProfile={userProfile}
+            userProfile={rawUserProfile} // Przekazujemy `rawUserProfile`
             isFriend={isFriend}
             hasSentRequest={hasSentRequest}
             hasReceivedRequest={hasReceivedRequest}
@@ -908,16 +909,10 @@ export default function ProfileScreen() {
             }}
           />
         )}
-
-        {/* Komponent 3: Zależy tylko od danych rankingu */}
         <RankingPreview
           rankingSlots={rankingSlots}
           onShowFull={handleShowFullRanking}
         />
-
-        {/* Ta część jest tak mała, że nie wymaga osobnego komponentu.
-            Zależy od isLoadingCountries i visitedCount, więc będzie się renderować
-            niezależnie od reszty nagłówka. */}
         <View style={profileStyles.visitedHeader}>
           <Text
             style={[
@@ -927,7 +922,7 @@ export default function ProfileScreen() {
           >
             Visited Countries
           </Text>
-          {!isLoadingCountriesMap && visitedCount > 0 && (
+          {!isCountryListProcessing && visitedCount > 0 && (
             <Text style={[profileStyles.visitedCount, { color: "gray" }]}>
               ({visitedCount}/218)
             </Text>
@@ -936,29 +931,26 @@ export default function ProfileScreen() {
       </>
     ),
     [
-      // NOWA, ZNACZNIE MNIEJSZA LISTA ZALEŻNOŚCI!
-      isDarkTheme,
-      toggleTheme,
-      handleBack,
-      userProfile,
+      rawUserProfile, // Zmieniono z userProfile
       isFriend,
       hasSentRequest,
       hasReceivedRequest,
       incomingRequestFromProfile,
+      rankingSlots,
+      isCountryListProcessing,
+      visitedCount,
+      isDarkTheme,
+      handleBack,
+      toggleTheme,
+      // Handlery są stabilne dzięki useCallback, można je dodać dla pewności
       handleAdd,
       handleRemove,
       handleAccept,
       handleDecline,
-      rankingSlots,
-      handleShowFullRanking,
-      isCountryListProcessing,
-      visitedCount,
-      theme.colors.onBackground, // Dodajemy kolory z motywu, jeśli są używane bezpośrednio w tym komponencie
-      theme.colors.onSurface,
     ]
   );
-
-  if (isProfileLoading || isLoadingCountriesMap) {
+  // Pokaż główny loader, jeśli mapa krajów się wczytuje LUB jesteśmy w fazie 'initial'
+  if (isLoading || isLoadingCountriesMap) {
     return (
       <View
         style={[
@@ -970,88 +962,59 @@ export default function ProfileScreen() {
       </View>
     );
   }
-
-  if (!userProfile) {
-    // Zwróć widok "User not found" w całości
+  if (!isLoading && !isLoadingCountriesMap && !rawUserProfile) {
     return (
       <View
         style={[
           profileStyles.container,
-          { backgroundColor: theme.colors.background, alignItems: "center" },
+          { backgroundColor: theme.colors.background },
         ]}
       >
-        <View
-          style={[
-            profileStyles.header,
-            { paddingTop: height * 0.02, width: "100%" },
-          ]}
+        <ProfileTopBar
+          onBack={handleBack}
+          onToggleTheme={toggleTheme}
+          isDarkTheme={isDarkTheme}
+        />
+        <Text
+          style={{
+            color: theme.colors.onBackground,
+            marginTop: 20,
+            textAlign: "center",
+          }}
         >
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={[
-              profileStyles.headerButton,
-              { marginLeft: -11, marginRight: -1 },
-            ]}
-          >
-            <Ionicons
-              name="arrow-back"
-              size={26}
-              color={theme.colors.onBackground}
-            />
-          </TouchableOpacity>
-          <Text
-            style={[
-              profileStyles.headerTitle,
-              { color: theme.colors.onBackground },
-            ]}
-          >
-            Profile
-          </Text>
-          <TouchableOpacity
-            onPress={toggleTheme}
-            style={[profileStyles.headerButton, { marginRight: -7 }]}
-          >
-            <Ionicons
-              name={isDarkTheme ? "sunny" : "moon"}
-              size={24}
-              color={theme.colors.onBackground}
-            />
-          </TouchableOpacity>
-        </View>
-        <Text style={{ color: theme.colors.onBackground, marginTop: 20 }}>
           User not found.
         </Text>
       </View>
     );
   }
 
+  // Krok 2: Renderuj główny widok z warunkową zawartością
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <FlashList
-        data={isCountryListProcessing ? SKELETON_DATA : listData}
-        renderItem={
-          isCountryListProcessing ? renderSkeletonItem : renderListItem
-        }
-        keyExtractor={(item) => item.id}
-        estimatedItemSize={100}
-        ListHeaderComponent={ListHeader}
-        extraData={isDarkTheme} // i inne
-        scrollEnabled={!isCountryListProcessing}
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingTop: 16,
-          paddingBottom: 50,
-        }}
-        overrideItemLayout={(layout, item) => {
-          if (item.type === "header") {
-            // Możemy tu dodać bardziej precyzyjne estymacje
-            layout.size = 40;
-          } else {
-            // Estymacja dla wiersza krajów
-            layout.size = 80;
-          }
-        }}
-      />
+      {/* Jeśli którykolwiek proces ładowania jest aktywny, pokazujemy loader */}
+      {isLoading || isLoadingCountriesMap ? (
+        <View style={profileStyles.loading}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+        </View>
+      ) : (
+        // W przeciwnym razie (ładowanie zakończone) pokazujemy FlashList
+        <FlashList
+          data={listData}
+          renderItem={renderListItem}
+          keyExtractor={(item) => item.id}
+          estimatedItemSize={100}
+          ListHeaderComponent={ListHeader}
+          extraData={{ isDarkTheme }}
+          scrollEnabled={true}
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 16,
+            paddingBottom: 50,
+          }}
+        />
+      )}
+
+      {/* Modal pozostaje bez zmian, ale renderuje się poza główną logiką warunkową */}
       <Modal
         visible={isRankingModalVisible}
         animationType="slide"
