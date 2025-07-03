@@ -18,6 +18,7 @@ import {
   Modal,
   NativeScrollEvent,
   Animated,
+  InteractionManager,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { db, auth } from "../config/firebaseConfig";
@@ -37,6 +38,7 @@ import { MotiView } from "moti";
 import ShineText from "@/components/ShineText";
 import { LinearGradient } from "expo-linear-gradient";
 import FastImage from "@d11/react-native-fast-image";
+import ShineMask from "@/components/ShineMask";
 
 interface UserProfile {
   uid: string;
@@ -161,36 +163,44 @@ export default function ProfileScreen() {
     [incomingRequests, profileUid]
   );
 
-  // ZMIANA: Dodajemy brakujące pole 'startingPillIndex' do danych szkieletowych
-  const SKELETON_DATA: ListItem[] = [
-    { type: "header", id: "skeleton-header-1", continent: "", count: 0 },
-    {
-      type: "countries_row",
-      id: "skeleton-row-1",
-      countries: Array(6).fill(null),
-      startingPillIndex: 0, // <-- FIX
-    },
-    { type: "header", id: "skeleton-header-2", continent: "", count: 0 },
-    {
-      type: "countries_row",
-      id: "skeleton-row-2",
-      countries: Array(4).fill(null),
-      startingPillIndex: 0, // <-- FIX
-    },
-    {
-      type: "countries_row",
-      id: "skeleton-row-3",
-      countries: Array(5).fill(null),
-      startingPillIndex: 0, // <-- FIX
-    },
-    { type: "header", id: "skeleton-header-3", continent: "", count: 0 },
-    {
-      type: "countries_row",
-      id: "skeleton-row-4",
-      countries: Array(3).fill(null),
-      startingPillIndex: 0, // <-- FIX
-    },
-  ];
+  // --- Dane dla Skeletona (twoja wersja, jest poprawna) ---
+  const SKELETON_DATA: ListItem[] = useMemo(
+    () => [
+      {
+        type: "header",
+        id: "skeleton-header-1",
+        continent: "",
+        count: 0,
+        startingPillIndex: 0,
+      },
+      {
+        type: "countries_row",
+        id: "skeleton-row-1",
+        countries: Array(6).fill(null),
+        startingPillIndex: 0,
+      },
+      {
+        type: "header",
+        id: "skeleton-header-2",
+        continent: "",
+        count: 0,
+        startingPillIndex: 0,
+      },
+      {
+        type: "countries_row",
+        id: "skeleton-row-2",
+        countries: Array(4).fill(null),
+        startingPillIndex: 0,
+      },
+      {
+        type: "countries_row",
+        id: "skeleton-row-3",
+        countries: Array(5).fill(null),
+        startingPillIndex: 0,
+      },
+    ],
+    []
+  );
   // NOWY KOMPONENT: Skeleton dla nagłówka kontynentu
   const SkeletonHeader = () => {
     const theme = useTheme();
@@ -394,13 +404,13 @@ export default function ProfileScreen() {
       return;
     }
 
-    // KROK 1: Resetowanie stanu i włączenie głównego loadera przy zmianie profilu
+    // KROK 1: Reset stanu
     setIsLoadingProfile(true);
-    setUserProfile(null); // Czyścimy stary profil, aby nie mignął na chwilę
-    setListData([]); // Czyścimy dane listy krajów
-    setRankingSlots([]); // Czyścimy ranking
+    setIsLoadingCountries(true); // Włączamy skeleton
+    setUserProfile(null);
+    setListData([]); // Czyścimy stare dane
+    setRankingSlots([]);
     setVisitedCount(0);
-    // UWAGA: isLoadingCountries zostanie ustawione w callbacku onSnapshot
 
     const userRef = doc(db, "users", profileUid);
 
@@ -408,29 +418,27 @@ export default function ProfileScreen() {
       userRef,
       (snap) => {
         if (!snap.exists() || !snap.data()) {
-          console.log("User not found in Firestore.");
           setUserProfile(null);
           setIsLoadingProfile(false);
-          setIsLoadingCountries(false); // Upewnij się, że ten loader też jest wyłączony
+          setIsLoadingCountries(false);
           return;
         }
 
         const data = snap.data() as UserProfile;
-        const visitedCodes = data.countriesVisited || [];
-        const rankingRaw = data.ranking || [];
 
-        // KROK 2: Ustaw szybkie dane (nagłówek, ranking)
-        // Te dane są potrzebne do natychmiastowego wyrenderowania górnej sekcji
+        // KROK 2: Ustaw "lekkie" dane
         setUserProfile({
           uid: snap.id,
           nickname: data.nickname || "Unknown",
           email: data.email,
-          ranking: rankingRaw,
-          countriesVisited: visitedCodes,
+          ranking: data.ranking || [],
+          countriesVisited: data.countriesVisited || [],
         });
 
+        const visitedCodesRaw = data.countriesVisited || [];
+        const rankingRaw = data.ranking || [];
         const rankingFiltered = rankingRaw.filter((code) =>
-          visitedCodes.includes(code)
+          visitedCodesRaw.includes(code)
         );
         setRankingSlots(
           rankingFiltered.map((cca2, idx) => ({
@@ -440,46 +448,63 @@ export default function ProfileScreen() {
           }))
         );
 
-        // Opcjonalne: Preload flag dla rankingu
-        const topRankedCountries = rankingFiltered.slice(0, 10);
-        const urlsToPreload = topRankedCountries.map((isoCode) => ({
-          uri: `https://flagcdn.com/w80/${isoCode.toLowerCase()}.png`,
-        }));
-        if (urlsToPreload.length > 0) {
-          FastImage.preload(urlsToPreload);
-        }
-
-        // KROK 3: KLUCZOWA ZMIANA - Atomowe przełączenie loaderów
-        // Wyłączamy główny loader i WŁĄCZAMY szkielet dla listy krajów.
-        // To powoduje płynne przejście bez "pustego tła".
+        // KROK 3: Wyłącz główny loader. Skeleton jest teraz widoczny.
         setIsLoadingProfile(false);
-        setIsLoadingCountries(true); // Włączamy szkielet TERAZ
 
-        // KROK 4: Uruchom asynchroniczne, "ciężkie" przetwarzanie listy krajów
-        if (visitedCodes.length > 0) {
-          processCountriesInBatches(
-            visitedCodes,
-            (progressData) => {
-              // Ta funkcja jest wywoływana po każdej partii, płynnie budując listę w tle.
-              // W tym czasie użytkownik widzi już nagłówek i szkielet.
-              setListData(progressData);
-            },
-            (finalData, totalCount) => {
-              // Przetwarzanie zakończone.
-              setListData(finalData);
-              setVisitedCount(totalCount);
-              setIsLoadingCountries(false); // Ukryj szkielet, pokaż finalną listę
-            }
-          );
-        } else {
-          // Jeśli użytkownik nie ma odwiedzonych krajów, od razu kończymy ładowanie.
-          setListData([]);
-          setVisitedCount(0);
-          setIsLoadingCountries(false);
-        }
+        // --- NOWA, KLUCZOWA LOGIKA ---
+        // Przygotowujemy dane do listy, ale jeszcze ich NIE USTAWIAMY w stanie.
+        const newCountriesVisited = Array.from(new Set(visitedCodesRaw))
+          .map((code) => countriesMap.get(code))
+          .filter((c): c is Country => c !== undefined);
+
+        const groupedByContinent = newCountriesVisited.reduce(
+          (acc, country) => {
+            const continent = country.continent || "Other";
+            if (!acc[continent]) acc[continent] = [];
+            acc[continent].push(country);
+            return acc;
+          },
+          {} as Record<string, Country[]>
+        );
+
+        let cumulativePillCount = 0;
+        const finalData: ListItem[] = [];
+        Object.entries(groupedByContinent)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .forEach(([continent, countriesInContinent]) => {
+            finalData.push({
+              type: "header",
+              id: continent,
+              continent,
+              count: countriesInContinent.length,
+            });
+            finalData.push({
+              type: "countries_row",
+              id: `${continent}-row`,
+              countries: countriesInContinent,
+              startingPillIndex: cumulativePillCount,
+            });
+            cumulativePillCount += countriesInContinent.length;
+          });
+
+        // KROK 4: Użyj setTimeout(..., 0), aby ustawić dane w następnej klatce.
+        // To daje Reactowi czas na dokończenie renderowania skeletona,
+        // zanim dostanie ciężką listę do przetworzenia.
+        setTimeout(() => {
+          if (newCountriesVisited.length === 0) {
+            setListData([]);
+            setVisitedCount(0);
+            setIsLoadingCountries(false);
+          } else {
+            setListData(finalData);
+            setVisitedCount(newCountriesVisited.length);
+            // Wyłączamy skeleton DOKŁADNIE w tym samym momencie co ustawiamy dane.
+            setIsLoadingCountries(false);
+          }
+        }, 50); // Dajemy 50ms buforu, aby mieć pewność, że skeleton się wyrenderuje. Można eksperymentować z wartością 0.
       },
       (error) => {
-        console.error("Błąd podczas pobierania profilu:", error);
+        console.error("Błąd profilu:", error);
         setIsLoadingProfile(false);
         setIsLoadingCountries(false);
       }
@@ -487,7 +512,6 @@ export default function ProfileScreen() {
 
     return () => unsubscribe();
   }, [profileUid]);
-
   // // Funkcja do przetwarzania krajów w partiach
   // const processCountriesInBatches = (visitedCodesRaw: string[]) => {
   //   const BATCH_SIZE = 50;
@@ -512,44 +536,44 @@ export default function ProfileScreen() {
   //   processBatch();
   // };
   // // --- Komponenty do renderowania (renderItem, ListHeader, Skeleton) ---
-  const renderListItem = useCallback(
-    ({ item, index }: { item: ListItem; index: number }) => {
-      const delay = index * 100;
+  // const renderListItem = useCallback(
+  //   ({ item, index }: { item: ListItem; index: number }) => {
+  //     const delay = index * 100;
 
-      switch (item.type) {
-        case "header":
-          // Dla nagłówków nic się nie zmienia
-          return (
-            <View style={profileStyles.continentSection}>
-              <ShineText delay={delay} style={profileStyles.continentTitle}>
-                <Text style={{ color: isDarkTheme ? "#e6b3ff" : "#a821b5" }}>
-                  {item.continent}
-                </Text>
-                <Text
-                  style={{ color: "gray", fontSize: 14, fontWeight: "400" }}
-                >
-                  {" "}
-                  ({item.count})
-                </Text>
-              </ShineText>
-            </View>
-          );
-        case "countries_row":
-          return (
-            <CountryPillRow
-              countries={item.countries}
-              onPress={handleCountryPress}
-              animationDelay={index * 100}
-              // ZMIANA: Przekazujemy indeks startowy zamiast prostego boolean
-              startingPillIndex={item.startingPillIndex}
-            />
-          );
-        default:
-          return null;
-      }
-    },
-    [handleCountryPress, isDarkTheme]
-  );
+  //     switch (item.type) {
+  //       case "header":
+  //         // Dla nagłówków nic się nie zmienia
+  //         return (
+  //           <View style={profileStyles.continentSection}>
+  //             <ShineText delay={delay} style={profileStyles.continentTitle}>
+  //               <Text style={{ color: isDarkTheme ? "#e6b3ff" : "#a821b5" }}>
+  //                 {item.continent}
+  //               </Text>
+  //               <Text
+  //                 style={{ color: "gray", fontSize: 14, fontWeight: "400" }}
+  //               >
+  //                 {" "}
+  //                 ({item.count})
+  //               </Text>
+  //             </ShineText>
+  //           </View>
+  //         );
+  //       case "countries_row":
+  //         return (
+  //           <CountryPillRow
+  //             countries={item.countries}
+  //             onPress={handleCountryPress}
+  //             animationDelay={index * 100}
+  //             // ZMIANA: Przekazujemy indeks startowy zamiast prostego boolean
+  //             startingPillIndex={item.startingPillIndex}
+  //           />
+  //         );
+  //       default:
+  //         return null;
+  //     }
+  //   },
+  //   [handleCountryPress, isDarkTheme]
+  // );
   const renderSkeletonItem = useCallback(({ item }: { item: ListItem }) => {
     switch (item.type) {
       case "header":
@@ -589,20 +613,16 @@ export default function ProfileScreen() {
     ({
       countries,
       onPress,
-      animationDelay = 0,
-      // ZMIANA: Zmieniamy `enableShine` na `startingPillIndex`
-      startingPillIndex = 0,
+      startingPillIndex,
     }: {
       countries: Country[];
       onPress: (id: string) => void;
-      animationDelay?: number;
-      // ZMIANA: Aktualizujemy typ propsów
-      startingPillIndex?: number;
+      startingPillIndex: number;
     }) => {
       const { isDarkTheme } = useContext(ThemeContext);
-      // ZMIANA: Definiujemy stały limit dla efektu "shine"
-      const SHINE_LIMIT = 12;
-      const SHINE_STAGGER_DELAY = 38;
+      const SHINE_LIMIT = 15; // Błysk tylko dla pierwszych 15 pigułek na całej liście
+      const SHINE_STAGGER = 50; // opóźnienie 50ms między błyskami
+
       return (
         <View style={profileStyles.visitedListContainer}>
           {countries.map((country, index) => {
@@ -614,47 +634,95 @@ export default function ProfileScreen() {
               : continentColors[continent as keyof typeof continentColors] ||
                 "#f0f0f0";
 
-            // Opóźnienie dla animacji wejścia pigułki (pozostaje bez zmian)
-            const pillEntryDelay = animationDelay + index * 60;
-
-            // Stara logika obliczania opóźnienia dla "shine":
-            // const shineDelay = pillEntryDelay + 250;
-
-            // NOWA LOGIKA: Obliczamy opóźnienie dla "shine" niezależnie,
-            // używając naszej nowej stałej.
-            // Błysk na pierwszej pigułce w rzędzie zacznie się 250ms po starcie animacji rzędu.
-            const baseShineDelay = animationDelay + 250;
-            // Każdy kolejny błysk będzie opóźniony o SHINE_STAGGER_DELAY.
-            const shineDelay = baseShineDelay + index * SHINE_STAGGER_DELAY;
-
             const absolutePillIndex = startingPillIndex + index;
             const enableShine = absolutePillIndex < SHINE_LIMIT;
 
-            return (
-              <MotiView
-                key={country.id}
-                from={{ opacity: 0, transform: [{ scale: 0.8 }] }}
-                animate={{ opacity: 1, transform: [{ scale: 1 }] }}
-                transition={{
-                  type: "timing",
-                  duration: 400,
-                  delay: pillEntryDelay,
-                }}
-                style={{ borderRadius: 16, overflow: "hidden", margin: 3.5 }}
-              >
-                <CountryPill
-                  country={country}
-                  onPress={onPress}
-                  backgroundColor={backgroundColor}
-                />
+            // Bazowy komponent pigułki, bez animacji wejścia
+            const pill = (
+              <CountryPill
+                country={country}
+                onPress={onPress}
+                backgroundColor={backgroundColor}
+              />
+            );
 
-                {enableShine && <PillShineEffect initialDelay={shineDelay} />}
-              </MotiView>
+            return (
+              <View key={country.id}>
+                {enableShine ? (
+                  // Dla pierwszych pigułek: owijamy je w ShineMask
+                  <ShineMask
+                    // Opóźnienie błysku zależy od globalnego indeksu pigułki
+                    delay={500 + absolutePillIndex * SHINE_STAGGER}
+                  >
+                    {pill}
+                  </ShineMask>
+                ) : (
+                  // Dla reszty pigułek: renderujemy je bezpośrednio
+                  pill
+                )}
+              </View>
             );
           })}
         </View>
       );
     }
+  );
+  // W pliku app/profile/[uid].tsx
+
+  // ZASTĄP renderListItem tą wersją:
+  const renderListItem = useCallback(
+    ({ item, index }: { item: ListItem; index: number }) => {
+      const delay = index * 80; // Kaskadowe opóźnienie dla animacji wejścia
+
+      switch (item.type) {
+        case "header":
+          // Tekst nagłówka do owinięcia
+          const headerText = (
+            <Text style={profileStyles.continentTitle}>
+              <Text style={{ color: isDarkTheme ? "#e6b3ff" : "#a821b5" }}>
+                {item.continent}
+              </Text>
+              <Text style={{ color: "gray", fontSize: 14, fontWeight: "400" }}>
+                {" "}
+                ({item.count})
+              </Text>
+            </Text>
+          );
+
+          return (
+            // 1. Animacja wejścia dla całego bloku
+            <MotiView
+              from={{ opacity: 0, translateY: 10 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: "timing", duration: 400, delay }}
+              style={profileStyles.continentSection}
+            >
+              {/* 2. Dodatkowy, nałożony efekt shine */}
+              <ShineMask delay={delay + 400}>{headerText}</ShineMask>
+            </MotiView>
+          );
+
+        case "countries_row":
+          return (
+            // 1. Animacja wejścia dla całego wiersza pigułek
+            <MotiView
+              from={{ opacity: 0, translateY: 10 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: "timing", duration: 400, delay }}
+            >
+              {/* 2. Przekazujemy wiersz, który wewnątrz sam zdecyduje, gdzie dodać shine */}
+              <CountryPillRow
+                countries={item.countries}
+                onPress={handleCountryPress}
+                startingPillIndex={item.startingPillIndex}
+              />
+            </MotiView>
+          );
+        default:
+          return null;
+      }
+    },
+    [handleCountryPress, isDarkTheme]
   );
   const ListHeader = useCallback(
     () => (
