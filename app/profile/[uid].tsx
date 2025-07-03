@@ -334,6 +334,7 @@ export default function ProfileScreen() {
   const currentUser = auth.currentUser;
   const [isScrolling, setIsScrolling] = useState(false);
   const [listData, setListData] = useState<ListItem[]>([]);
+
   const timerId = React.useRef<NodeJS.Timeout | null>(null);
   // const [isDataReadyForAnimation, setIsDataReadyForAnimation] = useState(false);
   const handleCountryPress = useCallback(
@@ -617,14 +618,15 @@ export default function ProfileScreen() {
   // EFEKT 1: Pobieranie surowych danych z Firestore (POPRAWIONY)
   useEffect(() => {
     if (!profileUid) {
-      setIsLoading(false);
+      setIsLoading(false); // Jeśli nie ma UID, od razu kończymy
       return;
     }
 
+    // Resetuj stany przy zmianie profilu
     setIsLoading(true);
     setRawUserProfile(null);
-    setRankingSlots([]);
     setListData([]);
+    setRankingSlots([]);
     setVisitedCount(0);
 
     const userRef = doc(db, "users", profileUid);
@@ -632,91 +634,97 @@ export default function ProfileScreen() {
       userRef,
       (snap) => {
         if (snap.exists()) {
-          // Mamy dane. Ustawiamy je i pozwalamy drugiemu efektowi przejąć pałeczkę.
-          // NIE wyłączamy tutaj loadera.
+          // Mamy surowe dane. Ustawiamy je i pozwalamy drugiemu efektowi przejąć pracę.
+          // WAŻNE: NIE wyłączamy tutaj loadera!
           setRawUserProfile(snap.data() as UserProfile);
         } else {
-          // Użytkownik NIE istnieje. To jest ostateczna decyzja.
-          // Wyłączamy loader i ustawiamy profil na null.
+          // Użytkownik nie istnieje. To jest ostateczna informacja.
+          console.log("User not found in Firestore.");
           setRawUserProfile(null);
-          setIsLoading(false);
+          setIsLoading(false); // Teraz możemy wyłączyć loader.
         }
       },
       (error) => {
-        console.error("Błąd profilu:", error);
+        console.error("Błąd pobierania profilu:", error);
         setRawUserProfile(null);
-        setIsLoading(false);
+        setIsLoading(false); // Wyłączamy loader w razie błędu.
       }
     );
 
     return () => unsubscribe();
   }, [profileUid]);
-  // EFEKT 2: Przetwarzanie danych. Uruchamia się, gdy mamy dane i mapę.
+
+  // EFEKT 2: Przetwarza dane. Uruchamia się, gdy mamy surowe dane i mapę krajów.
+  // To jest serce optymalizacji!
   useEffect(() => {
-    // Jeśli nie mamy jeszcze surowych danych lub mapy, po prostu czekamy.
-    // Nie podejmujemy żadnych decyzji o stanie ładowania.
-    if (!rawUserProfile || !countriesMap) {
+    // Czekamy, aż oba źródła danych będą gotowe
+    if (!rawUserProfile || isLoadingCountriesMap) {
       return;
     }
 
-    // --- Ciężkie obliczenia (bez zmian) ---
-    const visitedCodesRaw = rawUserProfile.countriesVisited || [];
-    const rankingRaw = rawUserProfile.ranking || [];
-
-    const newRankingSlots = rankingRaw
-      .filter((code) => visitedCodesRaw.includes(code))
-      .map((cca2, idx) => ({
-        id: generateUniqueId(),
-        rank: idx + 1,
-        country: countriesMap.get(cca2) || null,
-      }));
-
-    const newCountriesVisited = Array.from(new Set(visitedCodesRaw))
-      .map((code) => countriesMap.get(code))
-      .filter((c): c is Country => c !== undefined);
-
-    const groupedByContinent = newCountriesVisited.reduce(
-      (acc, country) => {
-        const continent = country.continent || "Other";
-        if (!acc[continent]) acc[continent] = [];
-        acc[continent].push(country);
-        return acc;
-      },
-      {} as Record<string, Country[]>
-    );
-
-    let cumulativePillCount = 0;
-    const finalData: ListItem[] = [];
-    Object.entries(groupedByContinent)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .forEach(([continent, countriesInContinent]) => {
-        finalData.push({
-          type: "header",
-          id: continent,
-          continent,
-          count: countriesInContinent.length,
-        });
-        finalData.push({
-          type: "countries_row",
-          id: `${continent}-row`,
-          countries: countriesInContinent,
-          startingPillIndex: cumulativePillCount,
-        });
-        cumulativePillCount += countriesInContinent.length;
-      });
-
+    // Uruchamiamy ciężkie obliczenia PO tym, jak UI jest stabilne
     InteractionManager.runAfterInteractions(() => {
-      // Sprawdźmy na wszelki wypadek, czy profil się nie zmienił
-      if (profileUid === rawUserProfile.uid) {
-        setRankingSlots(newRankingSlots); // Załóżmy, że newRankingSlots jest tu obliczone
-        setListData(finalData);
-        setVisitedCount(newCountriesVisited.length); // Załóżmy, że newCountriesVisited jest tu obliczone
+      // Sprawdzamy, czy dane wciąż dotyczą tego samego profilu (na wypadek szybkiej zmiany)
+      if (profileUid !== rawUserProfile.uid) return;
 
-        // Obliczenia zakończone, dane gotowe. TO JEST moment na wyłączenie loadera.
-        setIsLoading(false);
-      }
+      // --- Ciężkie obliczenia (logika skopiowana z Twojego kodu) ---
+      const visitedCodesRaw = rawUserProfile.countriesVisited || [];
+      const rankingRaw = rawUserProfile.ranking || [];
+
+      // Przetwarzanie rankingu
+      const newRankingSlots = rankingRaw
+        .filter((code) => visitedCodesRaw.includes(code))
+        .map((cca2, idx) => ({
+          id: generateUniqueId(),
+          rank: idx + 1,
+          country: countriesMap ? countriesMap.get(cca2) || null : null,
+        }));
+
+      // Przetwarzanie odwiedzonych krajów
+      const newCountriesVisited = Array.from(new Set(visitedCodesRaw))
+        .map((code) => (countriesMap ? countriesMap.get(code) : undefined))
+        .filter((c): c is Country => c !== undefined);
+
+      // Grupowanie po kontynentach
+      const groupedByContinent = newCountriesVisited.reduce(
+        (acc, country) => {
+          const continent = country.continent || "Other";
+          if (!acc[continent]) acc[continent] = [];
+          acc[continent].push(country);
+          return acc;
+        },
+        {} as Record<string, Country[]>
+      );
+
+      // Tworzenie finalnej struktury danych dla FlashList
+      let cumulativePillCount = 0;
+      const finalData: ListItem[] = [];
+      Object.entries(groupedByContinent)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .forEach(([continent, countriesInContinent]) => {
+          finalData.push({
+            type: "header",
+            id: continent,
+            continent,
+            count: countriesInContinent.length,
+          });
+          finalData.push({
+            type: "countries_row",
+            id: `${continent}-row`,
+            countries: countriesInContinent,
+            startingPillIndex: cumulativePillCount,
+          });
+          cumulativePillCount += countriesInContinent.length;
+        });
+
+      // --- Aktualizacja stanu ---
+      // Ustawiamy wszystkie dane na raz i WTEDY wyłączamy loader.
+      setRankingSlots(newRankingSlots);
+      setListData(finalData);
+      setVisitedCount(newCountriesVisited.length);
+      setIsLoading(false); // To jest kluczowy moment!
     });
-  }, [rawUserProfile, countriesMap, profileUid]);
+  }, [rawUserProfile, isLoadingCountriesMap, countriesMap, profileUid]);
   const renderSkeletonItem = useCallback(({ item }: { item: ListItem }) => {
     switch (item.type) {
       case "header":
@@ -756,16 +764,16 @@ export default function ProfileScreen() {
     ({
       countries,
       onPress,
-      startingPillIndex,
+      startingPillIndex, // Indeks pierwszej pigułki w tym wierszu
     }: {
       countries: Country[];
       onPress: (id: string) => void;
       startingPillIndex: number;
     }) => {
       const { isDarkTheme } = useContext(ThemeContext);
-      const theme = useTheme(); // Potrzebujemy dostępu do theme
-      const SHINE_LIMIT = 15;
-      const SHINE_STAGGER = 50;
+      const theme = useTheme();
+      const SHINE_LIMIT = 15; // Stosuj efekt tylko dla pierwszych 15 pigułek
+      const SHINE_STAGGER = 50; // Opóźnienie między kolejnymi animacjami
 
       return (
         <View style={profileStyles.visitedListContainer}>
@@ -778,22 +786,22 @@ export default function ProfileScreen() {
               : continentColors[continent as keyof typeof continentColors] ||
                 "#f0f0f0";
 
+            // Obliczamy absolutny indeks pigułki na całej liście
             const absolutePillIndex = startingPillIndex + index;
             const enableShine = absolutePillIndex < SHINE_LIMIT;
 
-            // Bazowy komponent pigułki, zrekonstruowany wg starej wersji
             const pill = (
               <TouchableOpacity
                 onPress={() => onPress(country.id)}
                 style={[
-                  profileStyles.visitedItemContainer, // Używamy starych, poprawnych stylów
+                  profileStyles.visitedItemContainer,
                   { backgroundColor },
                 ]}
               >
                 <CountryFlag
                   isoCode={country.cca2}
                   size={20}
-                  style={profileStyles.flag} // Używamy stylów flagi
+                  style={profileStyles.flag}
                 />
                 <Text
                   style={[
@@ -809,10 +817,12 @@ export default function ProfileScreen() {
             return (
               <View key={country.id}>
                 {enableShine ? (
+                  // Używamy ShineMask tylko jeśli warunek jest spełniony
                   <ShineMask delay={500 + absolutePillIndex * SHINE_STAGGER}>
                     {pill}
                   </ShineMask>
                 ) : (
+                  // W przeciwnym razie renderujemy samą pigułkę
                   pill
                 )}
               </View>
@@ -894,9 +904,10 @@ export default function ProfileScreen() {
           onToggleTheme={toggleTheme}
           isDarkTheme={isDarkTheme}
         />
-        {rawUserProfile && ( // Zmieniono z userProfile
+        {/* WAŻNA ZMIANA: Renderuj panel tylko gdy mamy surowe dane */}
+        {rawUserProfile && (
           <UserInfoPanel
-            userProfile={rawUserProfile} // Przekazujemy `rawUserProfile`
+            userProfile={rawUserProfile} // Używamy surowych danych
             isFriend={isFriend}
             hasSentRequest={hasSentRequest}
             hasReceivedRequest={hasReceivedRequest}
@@ -962,7 +973,9 @@ export default function ProfileScreen() {
       </View>
     );
   }
-  if (!isLoading && !isLoadingCountriesMap && !rawUserProfile) {
+
+  // Jeśli ładowanie zakończone, ale nie znaleziono użytkownika.
+  if (!rawUserProfile) {
     return (
       <View
         style={[
@@ -988,31 +1001,31 @@ export default function ProfileScreen() {
     );
   }
 
-  // Krok 2: Renderuj główny widok z warunkową zawartością
+  // Jeśli wszystko jest gotowe, renderuj listę.
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      {/* Jeśli którykolwiek proces ładowania jest aktywny, pokazujemy loader */}
-      {isLoading || isLoadingCountriesMap ? (
-        <View style={profileStyles.loading}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-        </View>
-      ) : (
-        // W przeciwnym razie (ładowanie zakończone) pokazujemy FlashList
-        <FlashList
-          data={listData}
-          renderItem={renderListItem}
-          keyExtractor={(item) => item.id}
-          estimatedItemSize={100}
-          ListHeaderComponent={ListHeader}
-          extraData={{ isDarkTheme }}
-          scrollEnabled={true}
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            paddingTop: 16,
-            paddingBottom: 50,
-          }}
-        />
-      )}
+      <FlashList
+        data={listData}
+        renderItem={renderListItem}
+        keyExtractor={(item) => item.id}
+        estimatedItemSize={100} // Dostosuj, jeśli wiesz, że elementy są wyższe/niższe
+        ListHeaderComponent={ListHeader}
+        extraData={{ isDarkTheme }} // Ważne dla re-renderowania przy zmianie motywu
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingTop: 16,
+          paddingBottom: 50,
+        }}
+        overrideItemLayout={(layout, item) => {
+          if (item.type === "header") {
+            // Możemy tu dodać bardziej precyzyjne estymacje
+            layout.size = 10;
+          } else {
+            // Estymacja dla wiersza krajów
+            layout.size = 40;
+          }
+        }}
+      />
 
       {/* Modal pozostaje bez zmian, ale renderuje się poza główną logiką warunkową */}
       <Modal
