@@ -39,6 +39,7 @@ import ShineText from "@/components/ShineText";
 import { LinearGradient } from "expo-linear-gradient";
 import FastImage from "@d11/react-native-fast-image";
 import ShineMask from "@/components/ShineMask";
+import CountryFlag from "react-native-country-flag";
 
 interface UserProfile {
   uid: string;
@@ -620,8 +621,9 @@ export default function ProfileScreen() {
       startingPillIndex: number;
     }) => {
       const { isDarkTheme } = useContext(ThemeContext);
-      const SHINE_LIMIT = 15; // Błysk tylko dla pierwszych 15 pigułek na całej liście
-      const SHINE_STAGGER = 50; // opóźnienie 50ms między błyskami
+      const theme = useTheme(); // Potrzebujemy dostępu do theme
+      const SHINE_LIMIT = 15;
+      const SHINE_STAGGER = 50;
 
       return (
         <View style={profileStyles.visitedListContainer}>
@@ -637,27 +639,38 @@ export default function ProfileScreen() {
             const absolutePillIndex = startingPillIndex + index;
             const enableShine = absolutePillIndex < SHINE_LIMIT;
 
-            // Bazowy komponent pigułki, bez animacji wejścia
+            // Bazowy komponent pigułki, zrekonstruowany wg starej wersji
             const pill = (
-              <CountryPill
-                country={country}
-                onPress={onPress}
-                backgroundColor={backgroundColor}
-              />
+              <TouchableOpacity
+                onPress={() => onPress(country.id)}
+                style={[
+                  profileStyles.visitedItemContainer, // Używamy starych, poprawnych stylów
+                  { backgroundColor },
+                ]}
+              >
+                <CountryFlag
+                  isoCode={country.cca2}
+                  size={20}
+                  style={profileStyles.flag} // Używamy stylów flagi
+                />
+                <Text
+                  style={[
+                    profileStyles.visitedItemText,
+                    { color: theme.colors.onSurface },
+                  ]}
+                >
+                  {country.name}
+                </Text>
+              </TouchableOpacity>
             );
 
             return (
               <View key={country.id}>
                 {enableShine ? (
-                  // Dla pierwszych pigułek: owijamy je w ShineMask
-                  <ShineMask
-                    // Opóźnienie błysku zależy od globalnego indeksu pigułki
-                    delay={500 + absolutePillIndex * SHINE_STAGGER}
-                  >
+                  <ShineMask delay={500 + absolutePillIndex * SHINE_STAGGER}>
                     {pill}
                   </ShineMask>
                 ) : (
-                  // Dla reszty pigułek: renderujemy je bezpośrednio
                   pill
                 )}
               </View>
@@ -667,7 +680,6 @@ export default function ProfileScreen() {
       );
     }
   );
-  // W pliku app/profile/[uid].tsx
 
   // ZASTĄP renderListItem tą wersją:
   const renderListItem = useCallback(
@@ -862,6 +874,7 @@ export default function ProfileScreen() {
             >
               Ranking
             </Text>
+            {/* TUTAJ WRACA PRZYCISK OTWIERAJĄCY MODAL */}
             <TouchableOpacity onPress={() => setIsRankingModalVisible(true)}>
               <Text
                 style={[
@@ -998,7 +1011,11 @@ export default function ProfileScreen() {
         // Wyłączamy animację przewijania dla skeletona, aby nie "skakał"
         // Możemy też zostawić włączoną, kwestia gustu
         scrollEnabled={!isLoadingCountries}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 50 }}
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingTop: 16,
+          paddingBottom: 50,
+        }}
         overrideItemLayout={(layout, item) => {
           if (item.type === "header") {
             // Możemy tu dodać bardziej precyzyjne estymacje
@@ -1009,6 +1026,46 @@ export default function ProfileScreen() {
           }
         }}
       />
+      <Modal
+        visible={isRankingModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setIsRankingModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }}
+          activeOpacity={1}
+          onPressOut={() => setIsRankingModalVisible(false)}
+        >
+          <View
+            style={[
+              modalStyles.modalContent,
+              { backgroundColor: theme.colors.background },
+            ]}
+          >
+            <View style={modalStyles.modalHeader}>
+              <Text
+                style={[
+                  modalStyles.modalTitle,
+                  { color: theme.colors.onBackground },
+                ]}
+              >
+                Full Ranking
+              </Text>
+              <TouchableOpacity onPress={() => setIsRankingModalVisible(false)}>
+                <Ionicons
+                  name="close"
+                  size={24}
+                  color={theme.colors.onBackground}
+                />
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={modalStyles.modalScrollContent}>
+              <RankingList rankingSlots={rankingSlots} />
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -1184,7 +1241,8 @@ const profileStyles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 12, // Trochę więcej miejsca w pigułce
     paddingVertical: 6,
-    // margin: 3.5, // Równy margines dookoła
+    marginVertical: 3.5,
+    marginHorizontal: 3,
     borderRadius: 16,
   },
   visitedItemText: {
@@ -1197,5 +1255,35 @@ const profileStyles = StyleSheet.create({
     height: 15,
     borderRadius: 2,
     marginRight: 6,
+  },
+});
+
+const modalStyles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalContent: {
+    position: "absolute",
+    bottom: 0,
+    height: "90%",
+    width: "100%",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    marginBottom: 10,
+  },
+  modalScrollContent: {
+    paddingBottom: 20,
   },
 });
