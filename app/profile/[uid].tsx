@@ -1010,6 +1010,7 @@ export default function ProfileScreen() {
         ListHeaderComponent={ListHeader}
         // Wyłączamy animację przewijania dla skeletona, aby nie "skakał"
         // Możemy też zostawić włączoną, kwestia gustu
+        extraData={isDarkTheme}
         scrollEnabled={!isLoadingCountries}
         contentContainerStyle={{
           paddingHorizontal: 16,
@@ -1095,7 +1096,7 @@ const profileStyles = StyleSheet.create({
     fontWeight: "500",
     marginBottom: 8,
     marginLeft: 4,
-    color: "pink",
+    // color: "pink",
   },
   headerTitle: {
     fontSize: 20,
