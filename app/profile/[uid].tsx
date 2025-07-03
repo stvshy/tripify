@@ -5,7 +5,6 @@ import React, {
   useMemo,
   useCallback,
   useContext,
-  useRef,
 } from "react";
 import {
   View,
@@ -17,8 +16,6 @@ import {
   Dimensions,
   Modal,
   NativeScrollEvent,
-  Animated,
-  InteractionManager,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { db, auth } from "../config/firebaseConfig";
@@ -32,12 +29,8 @@ import { useCommunityStore } from "../store/communityStore";
 import { useFocusEffect } from "expo-router";
 import { FlashList } from "@shopify/flash-list";
 import { Country, RankingSlot } from "../../types/sharedTypes";
-import CountryPill from "../../components/CountryPill";
-import ShineEntryView from "@/components/ShineEntryView";
 import { MotiView } from "moti";
-import ShineText from "@/components/ShineText";
 import { LinearGradient } from "expo-linear-gradient";
-import FastImage from "@d11/react-native-fast-image";
 import ShineMask from "@/components/ShineMask";
 import CountryFlag from "react-native-country-flag";
 
@@ -513,68 +506,7 @@ export default function ProfileScreen() {
 
     return () => unsubscribe();
   }, [profileUid]);
-  // // Funkcja do przetwarzania krajów w partiach
-  // const processCountriesInBatches = (visitedCodesRaw: string[]) => {
-  //   const BATCH_SIZE = 50;
-  //   let processed = 0;
 
-  //   const processBatch = () => {
-  //     const batch = visitedCodesRaw.slice(processed, processed + BATCH_SIZE);
-  //     const countries = batch
-  //       .map((code) => countriesMap.get(code))
-  //       .filter((c): c is Country => c !== undefined);
-
-  //     setCountriesVisited((prev) => [...prev, ...countries]);
-  //     processed += BATCH_SIZE;
-
-  //     if (processed < visitedCodesRaw.length) {
-  //       requestIdleCallback(processBatch);
-  //     } else {
-  //       setIsLoadingCountries(false);
-  //     }
-  //   };
-
-  //   processBatch();
-  // };
-  // // --- Komponenty do renderowania (renderItem, ListHeader, Skeleton) ---
-  // const renderListItem = useCallback(
-  //   ({ item, index }: { item: ListItem; index: number }) => {
-  //     const delay = index * 100;
-
-  //     switch (item.type) {
-  //       case "header":
-  //         // Dla nagłówków nic się nie zmienia
-  //         return (
-  //           <View style={profileStyles.continentSection}>
-  //             <ShineText delay={delay} style={profileStyles.continentTitle}>
-  //               <Text style={{ color: isDarkTheme ? "#e6b3ff" : "#a821b5" }}>
-  //                 {item.continent}
-  //               </Text>
-  //               <Text
-  //                 style={{ color: "gray", fontSize: 14, fontWeight: "400" }}
-  //               >
-  //                 {" "}
-  //                 ({item.count})
-  //               </Text>
-  //             </ShineText>
-  //           </View>
-  //         );
-  //       case "countries_row":
-  //         return (
-  //           <CountryPillRow
-  //             countries={item.countries}
-  //             onPress={handleCountryPress}
-  //             animationDelay={index * 100}
-  //             // ZMIANA: Przekazujemy indeks startowy zamiast prostego boolean
-  //             startingPillIndex={item.startingPillIndex}
-  //           />
-  //         );
-  //       default:
-  //         return null;
-  //     }
-  //   },
-  //   [handleCountryPress, isDarkTheme]
-  // );
   const renderSkeletonItem = useCallback(({ item }: { item: ListItem }) => {
     switch (item.type) {
       case "header":
