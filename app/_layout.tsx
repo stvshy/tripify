@@ -27,7 +27,7 @@ import FastImage from "@d11/react-native-fast-image";
 import { useAuthStore, UserProfileData } from "./store/authStore";
 import { User as FirebaseUser } from "firebase/auth"; // Zmień alias lub użyj User bezpośrednio
 import { useCommunityStore } from "./store/communityStore";
-
+import { useCountryStore } from "./store/countryStore";
 ExpoSplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
@@ -78,6 +78,12 @@ export default function RootLayout() {
 
   const { listenForCommunityData, cleanup: cleanupCommunity } =
     useCommunityStore();
+  useEffect(() => {
+    console.log("RootLayout: Initializing countries data...");
+    // Używamy getState() - nie potrzebujemy rerenderować RootLayout,
+    // gdy dane będą gotowe. Store sam poinformuje komponenty, które go subskrybują.
+    useCountryStore.getState().initializeCountries();
+  }, []);
   useEffect(() => {
     fetchAndCacheBackgrounds();
   }, []);

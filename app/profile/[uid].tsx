@@ -33,27 +33,241 @@ import { MotiView } from "moti";
 import { LinearGradient } from "expo-linear-gradient";
 import ShineMask from "@/components/ShineMask";
 import CountryFlag from "react-native-country-flag";
+import { useCountryStore } from "../store/countryStore";
 
 interface UserProfile {
   uid: string;
   nickname: string;
-  email?: string;
   ranking: string[];
   countriesVisited: string[];
 }
 
-const countriesMap = new Map<string, Country>();
-countriesData.countries.forEach((country) => {
-  countriesMap.set(country.id, {
-    id: country.id,
-    name: country.name || "Unknown",
-    cca2: country.id,
-    flag: `https://flagcdn.com/w40/${country.id.toLowerCase()}.png`,
-    class: country.class || null,
-    path: country.path || "Unknown",
-    continent: country.continent || "Other",
-  });
-});
+// Przenieś to poza komponent jako singleton
+// const getCountriesMap = (() => {
+//   let countriesMapCache: Map<any, any> | null = null;
+
+//   return () => {
+//     if (!countriesMapCache) {
+//       countriesMapCache = new Map();
+//       countriesData.countries.forEach((country) => {
+//         countriesMapCache!.set(country.id, {
+//           id: country.id,
+//           name: country.name || "Unknown",
+//           cca2: country.id,
+//           continent: country.continent || "Other",
+//         });
+//       });
+//     }
+//     return countriesMapCache;
+//   };
+// })();
+// Komponent 1: Górny pasek nawigacyjny
+const ProfileTopBar = React.memo(
+  ({
+    onBack,
+    onToggleTheme,
+    isDarkTheme,
+  }: {
+    onBack: () => void;
+    onToggleTheme: () => void;
+    isDarkTheme: boolean;
+  }) => {
+    const theme = useTheme();
+    return (
+      <View
+        style={[
+          profileStyles.header,
+          { paddingTop: Dimensions.get("window").height * 0.02 },
+        ]}
+      >
+        <TouchableOpacity
+          onPress={onBack}
+          style={[
+            profileStyles.headerButton,
+            { marginLeft: -11, marginRight: -1 },
+          ]}
+        >
+          <Ionicons
+            name="arrow-back"
+            size={26}
+            color={theme.colors.onBackground}
+          />
+        </TouchableOpacity>
+        <Text
+          style={[
+            profileStyles.headerTitle,
+            { color: theme.colors.onBackground },
+          ]}
+        >
+          Profile
+        </Text>
+        <TouchableOpacity
+          onPress={onToggleTheme}
+          style={[profileStyles.headerButton, { marginRight: -7 }]}
+        >
+          <Ionicons
+            name={isDarkTheme ? "sunny" : "moon"}
+            size={24}
+            color={theme.colors.onBackground}
+          />
+        </TouchableOpacity>
+      </View>
+    );
+  }
+);
+
+// Komponent 2: Panel z informacjami o użytkowniku i przyciskami
+const UserInfoPanel = React.memo(
+  ({
+    userProfile,
+    isFriend,
+    hasSentRequest,
+    hasReceivedRequest,
+    incomingRequestFromProfile,
+    handlers,
+  }: {
+    userProfile: UserProfile;
+    isFriend: boolean;
+    hasSentRequest: boolean;
+    hasReceivedRequest: boolean;
+    incomingRequestFromProfile: any; // Dostosuj typ, jeśli go masz
+    handlers: {
+      onAdd: () => void;
+      onRemove: () => void;
+      onAccept: () => void;
+      onDecline: () => void;
+    };
+  }) => {
+    const theme = useTheme();
+    const { isDarkTheme } = useContext(ThemeContext);
+    const currentUser = auth.currentUser;
+
+    return (
+      <View style={profileStyles.userPanel}>
+        <Ionicons
+          name="person-circle"
+          size={100}
+          color={theme.colors.primary}
+        />
+        <Text
+          style={[profileStyles.userName, { color: theme.colors.onBackground }]}
+        >
+          {userProfile.nickname}
+        </Text>
+
+        {currentUser?.uid !== userProfile.uid && (
+          <>
+            {hasReceivedRequest ? (
+              <View style={profileStyles.friendActionButtons}>
+                <TouchableOpacity
+                  onPress={handlers.onAccept}
+                  style={[
+                    profileStyles.acceptButton,
+                    { backgroundColor: theme.colors.primary },
+                  ]}
+                >
+                  <Text style={profileStyles.buttonText}>Accept</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handlers.onDecline}
+                  style={[
+                    profileStyles.declineButton,
+                    { backgroundColor: "rgba(116, 116, 116, 0.3)" },
+                  ]}
+                >
+                  <Text style={profileStyles.buttonText}>Decline</Text>
+                </TouchableOpacity>
+              </View>
+            ) : isFriend ? (
+              <TouchableOpacity
+                onPress={handlers.onRemove}
+                style={[
+                  profileStyles.addFriendButton,
+                  {
+                    backgroundColor: isDarkTheme
+                      ? "rgba(171, 109, 197, 0.4)"
+                      : "rgba(191, 115, 229, 0.43)",
+                  },
+                ]}
+              >
+                <Text
+                  style={{ color: "#fff", fontSize: 14, fontWeight: "500" }}
+                >
+                  Friend
+                </Text>
+              </TouchableOpacity>
+            ) : hasSentRequest ? (
+              <TouchableOpacity
+                style={[
+                  profileStyles.addFriendButton,
+                  {
+                    backgroundColor: isDarkTheme
+                      ? "rgba(128, 128, 128, 0.4)"
+                      : "rgba(204, 204, 204, 0.7)",
+                  },
+                ]}
+                disabled={true}
+              >
+                <Text style={profileStyles.addFriendButtonText}>Sent</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={handlers.onAdd}
+                style={[
+                  profileStyles.addFriendButton,
+                  { backgroundColor: theme.colors.primary },
+                ]}
+              >
+                <Text style={profileStyles.addFriendButtonText}>Add</Text>
+              </TouchableOpacity>
+            )}
+          </>
+        )}
+      </View>
+    );
+  }
+);
+
+// Komponent 3: Podgląd rankingu
+const RankingPreview = React.memo(
+  ({
+    rankingSlots,
+    onShowFull,
+  }: {
+    rankingSlots: RankingSlot[];
+    onShowFull: () => void;
+  }) => {
+    const theme = useTheme();
+    return (
+      <View style={profileStyles.rankingContainer}>
+        <View style={profileStyles.rankingHeader}>
+          <Text
+            style={[
+              profileStyles.sectionTitle,
+              { color: theme.colors.onSurface },
+            ]}
+          >
+            Ranking
+          </Text>
+          <TouchableOpacity onPress={onShowFull}>
+            <Text
+              style={[
+                profileStyles.showAllRankingButton,
+                { color: theme.colors.primary },
+              ]}
+            >
+              Show Full
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <RankingList rankingSlots={rankingSlots.slice(0, 5)} />
+      </View>
+    );
+  }
+);
+
+// // W komponencie użyj:
+// const countriesMap = getCountriesMap();
 const continentColors = {
   Europe: "#E6E6FA", // Lawendowy
   Asia: "#DFF0D8", // Bladozielony
@@ -101,226 +315,14 @@ export default function ProfileScreen() {
       return () => cleanup(); // Sprzątaj, gdy ekran traci fokus
     }, [])
   );
-  // Komponent 1: Górny pasek nawigacyjny
-  const ProfileTopBar = React.memo(
-    ({
-      onBack,
-      onToggleTheme,
-      isDarkTheme,
-    }: {
-      onBack: () => void;
-      onToggleTheme: () => void;
-      isDarkTheme: boolean;
-    }) => {
-      const theme = useTheme();
-      console.log("Rendering: ProfileTopBar"); // Do debugowania, możesz potem usunąć
-      return (
-        <View
-          style={[
-            profileStyles.header,
-            { paddingTop: Dimensions.get("window").height * 0.02 },
-          ]}
-        >
-          <TouchableOpacity
-            onPress={onBack}
-            style={[
-              profileStyles.headerButton,
-              { marginLeft: -11, marginRight: -1 },
-            ]}
-          >
-            <Ionicons
-              name="arrow-back"
-              size={26}
-              color={theme.colors.onBackground}
-            />
-          </TouchableOpacity>
-          <Text
-            style={[
-              profileStyles.headerTitle,
-              { color: theme.colors.onBackground },
-            ]}
-          >
-            Profile
-          </Text>
-          <TouchableOpacity
-            onPress={onToggleTheme}
-            style={[profileStyles.headerButton, { marginRight: -7 }]}
-          >
-            <Ionicons
-              name={isDarkTheme ? "sunny" : "moon"}
-              size={24}
-              color={theme.colors.onBackground}
-            />
-          </TouchableOpacity>
-        </View>
-      );
-    }
-  );
-
-  // Komponent 2: Panel z informacjami o użytkowniku i przyciskami
-  const UserInfoPanel = React.memo(
-    ({
-      userProfile,
-      isFriend,
-      hasSentRequest,
-      hasReceivedRequest,
-      incomingRequestFromProfile,
-      handlers,
-    }: {
-      userProfile: UserProfile;
-      isFriend: boolean;
-      hasSentRequest: boolean;
-      hasReceivedRequest: boolean;
-      incomingRequestFromProfile: any; // Dostosuj typ, jeśli go masz
-      handlers: {
-        onAdd: () => void;
-        onRemove: () => void;
-        onAccept: () => void;
-        onDecline: () => void;
-      };
-    }) => {
-      const theme = useTheme();
-      const { isDarkTheme } = useContext(ThemeContext);
-      const currentUser = auth.currentUser;
-      console.log("Rendering: UserInfoPanel"); // Do debugowania, możesz potem usunąć
-
-      return (
-        <View style={profileStyles.userPanel}>
-          <Ionicons
-            name="person-circle"
-            size={100}
-            color={theme.colors.primary}
-          />
-          <Text
-            style={[
-              profileStyles.userName,
-              { color: theme.colors.onBackground },
-            ]}
-          >
-            {userProfile.nickname}
-          </Text>
-          <Text style={[profileStyles.userEmail, { color: "gray" }]}>
-            {userProfile.email}
-          </Text>
-
-          {currentUser?.uid !== userProfile.uid && (
-            <>
-              {hasReceivedRequest ? (
-                <View style={profileStyles.friendActionButtons}>
-                  <TouchableOpacity
-                    onPress={handlers.onAccept}
-                    style={[
-                      profileStyles.acceptButton,
-                      { backgroundColor: theme.colors.primary },
-                    ]}
-                  >
-                    <Text style={profileStyles.buttonText}>Accept</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={handlers.onDecline}
-                    style={[
-                      profileStyles.declineButton,
-                      { backgroundColor: "rgba(116, 116, 116, 0.3)" },
-                    ]}
-                  >
-                    <Text style={profileStyles.buttonText}>Decline</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : isFriend ? (
-                <TouchableOpacity
-                  onPress={handlers.onRemove}
-                  style={[
-                    profileStyles.addFriendButton,
-                    {
-                      backgroundColor: isDarkTheme
-                        ? "rgba(171, 109, 197, 0.4)"
-                        : "rgba(191, 115, 229, 0.43)",
-                    },
-                  ]}
-                >
-                  <Text
-                    style={{ color: "#fff", fontSize: 14, fontWeight: "500" }}
-                  >
-                    Friend
-                  </Text>
-                </TouchableOpacity>
-              ) : hasSentRequest ? (
-                <TouchableOpacity
-                  style={[
-                    profileStyles.addFriendButton,
-                    {
-                      backgroundColor: isDarkTheme
-                        ? "rgba(128, 128, 128, 0.4)"
-                        : "rgba(204, 204, 204, 0.7)",
-                    },
-                  ]}
-                  disabled={true}
-                >
-                  <Text style={profileStyles.addFriendButtonText}>Sent</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  onPress={handlers.onAdd}
-                  style={[
-                    profileStyles.addFriendButton,
-                    { backgroundColor: theme.colors.primary },
-                  ]}
-                >
-                  <Text style={profileStyles.addFriendButtonText}>Add</Text>
-                </TouchableOpacity>
-              )}
-            </>
-          )}
-        </View>
-      );
-    }
-  );
-
-  // Komponent 3: Podgląd rankingu
-  const RankingPreview = React.memo(
-    ({
-      rankingSlots,
-      onShowFull,
-    }: {
-      rankingSlots: RankingSlot[];
-      onShowFull: () => void;
-    }) => {
-      const theme = useTheme();
-      console.log("Rendering: RankingPreview"); // Do debugowania, możesz potem usunąć
-      return (
-        <View style={profileStyles.rankingContainer}>
-          <View style={profileStyles.rankingHeader}>
-            <Text
-              style={[
-                profileStyles.sectionTitle,
-                { color: theme.colors.onSurface },
-              ]}
-            >
-              Ranking
-            </Text>
-            <TouchableOpacity onPress={onShowFull}>
-              <Text
-                style={[
-                  profileStyles.showAllRankingButton,
-                  { color: theme.colors.primary },
-                ]}
-              >
-                Show Full
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <RankingList rankingSlots={rankingSlots.slice(0, 5)} />
-        </View>
-      );
-    }
-  );
+  const { countriesMap, isLoading: isLoadingCountriesMap } = useCountryStore();
 
   const { uid: profileUid } = useLocalSearchParams<{ uid: string }>();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>([]);
   const [countriesVisited, setCountriesVisited] = useState<Country[]>([]);
-  const [isLoadingProfile, setIsLoadingProfile] = useState(true); // Dla głównych danych
-  const [isLoadingCountries, setIsLoadingCountries] = useState(true); // Dla listy krajów
+  const [isProfileLoading, setIsProfileLoading] = useState(true); // Dotyczy danych z Firestore
+  const [isCountryListProcessing, setIsCountryListProcessing] = useState(true); // Dotyczy przetwarzania listy krajów
   // const [loadingProfile, setLoadingProfile] = useState(true);
   const [visitedCount, setVisitedCount] = useState(0);
   const theme = useTheme();
@@ -517,66 +519,67 @@ export default function ProfileScreen() {
       </View>
     );
   };
-  const processCountriesInBatches = (
-    countryCodes: string[],
-    onProgress: (data: ListItem[]) => void,
-    onDone: (finalData: ListItem[], totalCount: number) => void
-  ) => {
-    const BATCH_SIZE = 50; // Przetwarzaj 50 krajów na raz
-    let currentIndex = 0;
-    const groupedByContinent: Record<string, Country[]> = {};
+  // const processCountriesInBatches = (
+  //   countryCodes: string[],
+  //   onProgress: (progressData: ListItem[]) => void,
+  //   onDone: (finalData: ListItem[], totalCount: number) => void
+  // ) => {
+  //   const BATCH_SIZE = 50; // Przetwarzaj 50 krajów na raz
+  //   let currentIndex = 0;
+  //   const groupedByContinent: Record<string, Country[]> = {};
 
-    const processNextBatch = () => {
-      const batchEnd = Math.min(currentIndex + BATCH_SIZE, countryCodes.length);
-      for (let i = currentIndex; i < batchEnd; i++) {
-        const code = countryCodes[i];
-        const country = countriesMap.get(code);
-        if (country) {
-          const continent = country.continent || "Other";
-          if (!groupedByContinent[continent]) {
-            groupedByContinent[continent] = [];
-          }
-          groupedByContinent[continent].push(country);
-        }
-      }
+  //   const processNextBatch = () => {
+  //     const batchEnd = Math.min(currentIndex + BATCH_SIZE, countryCodes.length);
+  //     for (let i = currentIndex; i < batchEnd; i++) {
+  //       const code = countryCodes[i];
+  //       const country = countriesMap.get(code);
+  //       if (country) {
+  //         const continent = country.continent || "Other";
+  //         if (!groupedByContinent[continent]) {
+  //           groupedByContinent[continent] = [];
+  //         }
+  //         groupedByContinent[continent].push(country);
+  //       }
+  //     }
 
-      currentIndex = batchEnd;
+  //     currentIndex = batchEnd;
 
-      // Po każdej partii, generujemy tymczasowe dane do wyświetlenia
-      // Dzięki temu użytkownik widzi, jak lista się "buduje"
-      const flatData: ListItem[] = [];
-      const sortedContinents = Object.keys(groupedByContinent).sort();
-      let cumulativePillCount = 0;
-      for (const continent of sortedContinents) {
-        const countriesInContinent = groupedByContinent[continent];
-        flatData.push({
-          type: "header",
-          id: continent,
-          continent,
-          count: countriesInContinent.length,
-        });
-        flatData.push({
-          type: "countries_row",
-          id: `${continent}-row`,
-          countries: countriesInContinent,
-          startingPillIndex: cumulativePillCount,
-        });
-        cumulativePillCount += countriesInContinent.length;
-      }
-      onProgress(flatData);
+  //     // Po każdej partii generujemy tymczasowe dane do wyświetlenia
+  //     // Dzięki temu użytkownik widzi, jak lista się "buduje"
+  //     const flatData: ListItem[] = [];
+  //     const sortedContinents = Object.keys(groupedByContinent).sort();
+  //     let cumulativePillCount = 0;
 
-      if (currentIndex < countryCodes.length) {
-        // Jeśli jest więcej danych, zaplanuj następną partię
-        requestAnimationFrame(processNextBatch);
-      } else {
-        // Koniec pracy
-        onDone(flatData, countryCodes.length);
-      }
-    };
+  //     for (const continent of sortedContinents) {
+  //       const countriesInContinent = groupedByContinent[continent];
+  //       flatData.push({
+  //         type: "header",
+  //         id: continent,
+  //         continent,
+  //         count: countriesInContinent.length,
+  //       });
+  //       flatData.push({
+  //         type: "countries_row",
+  //         id: `${continent}-row`,
+  //         countries: countriesInContinent,
+  //         startingPillIndex: cumulativePillCount,
+  //       });
+  //       cumulativePillCount += countriesInContinent.length;
+  //     }
+  //     onProgress(flatData); // Aktualizuj UI z postępem
 
-    // Rozpocznij przetwarzanie
-    requestAnimationFrame(processNextBatch);
-  };
+  //     if (currentIndex < countryCodes.length) {
+  //       // Jeśli jest więcej danych, zaplanuj następną partię w kolejnej klatce
+  //       requestAnimationFrame(processNextBatch);
+  //     } else {
+  //       // Koniec pracy
+  //       onDone(flatData, countryCodes.length);
+  //     }
+  //   };
+
+  //   // Rozpocznij przetwarzanie
+  //   requestAnimationFrame(processNextBatch);
+  // };
 
   const [renderedCount, setRenderedCount] = useState(INITIAL_BATCH_SIZE);
 
@@ -604,62 +607,61 @@ export default function ProfileScreen() {
     },
     [renderedCount, countriesVisited.length, isScrolling]
   );
-
   useEffect(() => {
+    // Warunek wyjścia nr 1: Nie mamy UID profilu
     if (!profileUid) {
-      setIsLoadingProfile(false);
+      setIsProfileLoading(false);
+      setIsCountryListProcessing(false);
       return;
     }
 
-    // KROK 1: Reset stanu
-    setIsLoadingProfile(true);
-    setIsLoadingCountries(true); // Włączamy skeleton
+    // Warunek wyjścia nr 2: Mapa krajów jeszcze się nie załadowała
+    if (isLoadingCountriesMap || !countriesMap) {
+      // Nie robimy nic. Komponent pokaże loader, a ten useEffect uruchomi się ponownie,
+      // gdy `isLoadingCountriesMap` zmieni się na `false`.
+      return;
+    }
+
+    // Reset stanów na początku
+    setIsProfileLoading(true);
+    setIsCountryListProcessing(true);
     setUserProfile(null);
-    setListData([]); // Czyścimy stare dane
+    setListData([]);
     setRankingSlots([]);
     setVisitedCount(0);
 
     const userRef = doc(db, "users", profileUid);
-
     const unsubscribe = onSnapshot(
       userRef,
       (snap) => {
         if (!snap.exists() || !snap.data()) {
           setUserProfile(null);
-          setIsLoadingProfile(false);
-          setIsLoadingCountries(false);
+          setIsProfileLoading(false);
+          setIsCountryListProcessing(false);
           return;
         }
 
         const data = snap.data() as UserProfile;
 
-        // KROK 2: Ustaw "lekkie" dane
-        setUserProfile({
-          uid: snap.id,
-          nickname: data.nickname || "Unknown",
-          email: data.email,
-          ranking: data.ranking || [],
-          countriesVisited: data.countriesVisited || [],
-        });
+        // Krok 1: Ustaw "lekkie" dane i wyłącz główny loader
+        setUserProfile(data);
+        setIsProfileLoading(false); // <--- Główny loader profilu wyłączony. Ukaże się szkielet.
 
         const visitedCodesRaw = data.countriesVisited || [];
         const rankingRaw = data.ranking || [];
-        const rankingFiltered = rankingRaw.filter((code) =>
-          visitedCodesRaw.includes(code)
-        );
-        setRankingSlots(
-          rankingFiltered.map((cca2, idx) => ({
+
+        // Krok 2: Przetwarzanie ciężkich danych (ranking i lista krajów)
+        // TypeScript jest teraz zadowolony, bo wie, że `countriesMap` nie jest null.
+        const newRankingSlots = rankingRaw
+          .filter((code) => visitedCodesRaw.includes(code))
+          .map((cca2, idx) => ({
             id: generateUniqueId(),
             rank: idx + 1,
             country: countriesMap.get(cca2) || null,
-          }))
-        );
+          }));
+        setRankingSlots(newRankingSlots);
 
-        // KROK 3: Wyłącz główny loader. Skeleton jest teraz widoczny.
-        setIsLoadingProfile(false);
-
-        // --- NOWA, KLUCZOWA LOGIKA ---
-        // Przygotowujemy dane do listy, ale jeszcze ich NIE USTAWIAMY w stanie.
+        // Krok 3: Przygotuj dane do listy (ta logika jest OK)
         const newCountriesVisited = Array.from(new Set(visitedCodesRaw))
           .map((code) => countriesMap.get(code))
           .filter((c): c is Country => c !== undefined);
@@ -694,31 +696,22 @@ export default function ProfileScreen() {
             cumulativePillCount += countriesInContinent.length;
           });
 
-        // KROK 4: Użyj setTimeout(..., 0), aby ustawić dane w następnej klatce.
-        // To daje Reactowi czas na dokończenie renderowania skeletona,
-        // zanim dostanie ciężką listę do przetworzenia.
+        // Krok 4: Użyj `setTimeout`, aby dać UI czas na oddech
         setTimeout(() => {
-          if (newCountriesVisited.length === 0) {
-            setListData([]);
-            setVisitedCount(0);
-            setIsLoadingCountries(false);
-          } else {
-            setListData(finalData);
-            setVisitedCount(newCountriesVisited.length);
-            // Wyłączamy skeleton DOKŁADNIE w tym samym momencie co ustawiamy dane.
-            setIsLoadingCountries(false);
-          }
-        }, 20); // Dajemy 50ms buforu, aby mieć pewność, że skeleton się wyrenderuje. Można eksperymentować z wartością 0.
+          setListData(finalData);
+          setVisitedCount(newCountriesVisited.length);
+          setIsCountryListProcessing(false); // Wyłącz szkielet
+        }, 50); // 50ms to bezpieczny bufor
       },
       (error) => {
         console.error("Błąd profilu:", error);
-        setIsLoadingProfile(false);
-        setIsLoadingCountries(false);
+        setIsProfileLoading(false);
+        setIsCountryListProcessing(false);
       }
     );
 
     return () => unsubscribe();
-  }, [profileUid]);
+  }, [profileUid, countriesMap, isLoadingCountriesMap]);
 
   const renderSkeletonItem = useCallback(({ item }: { item: ListItem }) => {
     switch (item.type) {
@@ -934,7 +927,7 @@ export default function ProfileScreen() {
           >
             Visited Countries
           </Text>
-          {!isLoadingCountries && visitedCount > 0 && (
+          {!isLoadingCountriesMap && visitedCount > 0 && (
             <Text style={[profileStyles.visitedCount, { color: "gray" }]}>
               ({visitedCount}/218)
             </Text>
@@ -958,14 +951,14 @@ export default function ProfileScreen() {
       handleDecline,
       rankingSlots,
       handleShowFullRanking,
-      isLoadingCountries,
+      isCountryListProcessing,
       visitedCount,
       theme.colors.onBackground, // Dodajemy kolory z motywu, jeśli są używane bezpośrednio w tym komponencie
       theme.colors.onSurface,
     ]
   );
 
-  if (isLoadingProfile) {
+  if (isProfileLoading || isLoadingCountriesMap) {
     return (
       <View
         style={[
@@ -1035,18 +1028,15 @@ export default function ProfileScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <FlashList
-        // Krok 1: Dynamicznie wybieramy źródło danych
-        data={isLoadingCountries ? SKELETON_DATA : listData}
-        // Krok 2: Dynamicznie wybieramy funkcję renderującą
-        renderItem={isLoadingCountries ? renderSkeletonItem : renderListItem}
+        data={isCountryListProcessing ? SKELETON_DATA : listData}
+        renderItem={
+          isCountryListProcessing ? renderSkeletonItem : renderListItem
+        }
         keyExtractor={(item) => item.id}
         estimatedItemSize={100}
-        // Nagłówek jest zawsze ten sam
         ListHeaderComponent={ListHeader}
-        // Wyłączamy animację przewijania dla skeletona, aby nie "skakał"
-        // Możemy też zostawić włączoną, kwestia gustu
-        extraData={isDarkTheme}
-        scrollEnabled={!isLoadingCountries}
+        extraData={isDarkTheme} // i inne
+        scrollEnabled={!isCountryListProcessing}
         contentContainerStyle={{
           paddingHorizontal: 16,
           paddingTop: 16,
@@ -1149,14 +1139,9 @@ const profileStyles = StyleSheet.create({
   },
   userName: {
     marginTop: -2,
+    marginBottom: 7,
     fontSize: 18,
     fontWeight: "500",
-  },
-  userEmail: {
-    marginTop: 3,
-    fontSize: 12,
-    color: "gray",
-    marginBottom: 6,
   },
   friendActionButtons: {
     flexDirection: "row",
