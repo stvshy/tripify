@@ -720,6 +720,7 @@ export default function ProfileScreen() {
       // --- Aktualizacja stanu ---
       // Ustawiamy wszystkie dane na raz i WTEDY wyłączamy loader.
       setRankingSlots(newRankingSlots);
+      setCountriesVisited(newCountriesVisited);
       setListData(finalData);
       setVisitedCount(newCountriesVisited.length);
       setIsLoading(false); // To jest kluczowy moment!
@@ -933,11 +934,9 @@ export default function ProfileScreen() {
           >
             Visited Countries
           </Text>
-          {!isCountryListProcessing && visitedCount > 0 && (
-            <Text style={[profileStyles.visitedCount, { color: "gray" }]}>
-              ({visitedCount}/218)
-            </Text>
-          )}
+          <Text style={[profileStyles.visitedCount, { color: "gray" }]}>
+            ({countriesVisited.length}/218)
+          </Text>
         </View>
       </>
     ),
@@ -961,7 +960,7 @@ export default function ProfileScreen() {
     ]
   );
   // Pokaż główny loader, jeśli mapa krajów się wczytuje LUB jesteśmy w fazie 'initial'
-  if (isLoading || isLoadingCountriesMap) {
+  if (isLoading) {
     return (
       <View
         style={[
@@ -1005,12 +1004,12 @@ export default function ProfileScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <FlashList
-        data={listData}
-        renderItem={renderListItem}
+        data={listData.length > 0 ? listData : SKELETON_DATA}
+        renderItem={listData.length > 0 ? renderListItem : renderSkeletonItem}
         keyExtractor={(item) => item.id}
         estimatedItemSize={100} // Dostosuj, jeśli wiesz, że elementy są wyższe/niższe
         ListHeaderComponent={ListHeader}
-        extraData={{ isDarkTheme }} // Ważne dla re-renderowania przy zmianie motywu
+        extraData={{ isDarkTheme, isDataReady: listData.length > 0 }}
         contentContainerStyle={{
           paddingHorizontal: 16,
           paddingTop: 16,
