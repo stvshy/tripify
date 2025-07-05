@@ -303,11 +303,13 @@ export default function ProfileScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
-
+  const [screenPhase, setScreenPhase] = useState<"loading" | "presenting">(
+    "loading"
+  );
   const [isRankingModalVisible, setIsRankingModalVisible] = useState(false);
 
   const [listData, setListData] = useState<ListItem[]>([]);
-  const [isProcessingList, setIsProcessingList] = useState(true); // Loader dla danych listy
+  // const [isProcessingList, setIsProcessingList] = useState(true); // Loader dla danych listy
 
   const handleCountryPress = useCallback(
     (countryId: string) => {
@@ -347,7 +349,7 @@ export default function ProfileScreen() {
   );
 
   type LoadingPhase = "initial" | "processing" | "done";
-  const [isLoading, setIsLoading] = useState(true);
+  // const [isLoading, setIsLoading] = useState(true);
   const [rawUserProfile, setRawUserProfile] = useState<UserProfile | null>(
     null
   );
@@ -355,12 +357,12 @@ export default function ProfileScreen() {
   // EFEKT 1: Pobieranie surowych danych z Firestore (działa równolegle z ładowaniem mapy krajów)
   useEffect(() => {
     if (!profileUid) {
-      setIsLoading(false);
+      setScreenPhase("presenting");
       return;
     }
 
-    setIsLoading(true);
-    setIsProcessingList(true); // Resetuj też stan listy przy zmianie profilu
+    // Resetuj stan tylko przy zmianie profilu
+    setScreenPhase("loading");
     setRawUserProfile(null);
     setListData([]);
     setRankingSlots([]);
@@ -370,95 +372,84 @@ export default function ProfileScreen() {
     const unsubscribe = onSnapshot(
       userRef,
       (snap) => {
-        if (snap.exists()) {
-          setRawUserProfile(snap.data() as UserProfile);
-        } else {
-          setRawUserProfile(null);
+        // Używamy `getState`, aby pobrać najnowszą wersję mapy bez dodawania jej do zależności.
+        // To przerywa pętlę renderowania.
+        const currentCountriesMap = useCountryStore.getState().countriesMap;
+
+        // Jeśli nie mamy snapshota lub mapy krajów, czekamy.
+        if (!snap.exists() || !currentCountriesMap) {
+          if (!snap.exists()) {
+            setRawUserProfile(null);
+            setScreenPhase("presenting"); // Użytkownik nie istnieje, kończymy ładowanie
+          }
+          return; // Czekamy na dane...
         }
-        setIsLoading(false); // Wyłącz główny loader
+
+        const data = snap.data() as UserProfile;
+        setRawUserProfile(data);
+
+        // --- Logika przetwarzania ---
+        const visitedCodesRaw = data.countriesVisited || [];
+        const rankingRaw = data.ranking || [];
+
+        const newRankingSlots = rankingRaw
+          .filter((code) => visitedCodesRaw.includes(code))
+          .map((cca2, idx) => ({
+            id: generateUniqueId(),
+            rank: idx + 1,
+            // Używamy `currentCountriesMap`, która na 100% istnieje w tym miejscu
+            country: currentCountriesMap.get(cca2) || null,
+          }));
+
+        const newCountriesVisited = Array.from(new Set(visitedCodesRaw))
+          .map((code) => currentCountriesMap.get(code))
+          .filter((c): c is Country => c !== undefined);
+
+        const groupedByContinent = newCountriesVisited.reduce(
+          (acc, country) => {
+            const continent = country.continent || "Other";
+            if (!acc[continent]) acc[continent] = [];
+            acc[continent].push(country);
+            return acc;
+          },
+          {} as Record<string, Country[]>
+        );
+
+        let cumulativePillCount = 0;
+        const finalData: ListItem[] = [];
+        Object.entries(groupedByContinent)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .forEach(([continent, countriesInContinent]) => {
+            finalData.push({
+              type: "header",
+              id: continent,
+              continent,
+              count: countriesInContinent.length,
+            });
+            finalData.push({
+              type: "countries_row",
+              id: `${continent}-row`,
+              countries: countriesInContinent,
+              startingPillIndex: cumulativePillCount,
+            });
+            cumulativePillCount += countriesInContinent.length;
+          });
+
+        setRankingSlots(newRankingSlots);
+        setListData(finalData);
+        setVisitedCount(newCountriesVisited.length);
+
+        setScreenPhase("presenting");
       },
       (error) => {
         console.error("Błąd pobierania profilu:", error);
         setRawUserProfile(null);
-        setIsLoading(false); // Wyłącz główny loader w razie błędu
+        setScreenPhase("presenting");
       }
     );
 
     return () => unsubscribe();
-  }, [profileUid]);
-
-  // EFEKT 2: Przetwarza dane dla listy i zarządza loaderem listy
-  useEffect(() => {
-    // Czeka na oba źródła danych
-    if (!rawUserProfile || isLoadingCountriesMap) {
-      // Jeśli profilu nie ma, kończymy przetwarzanie
-      if (!isLoading && !rawUserProfile) {
-        setIsProcessingList(false);
-      }
-      return;
-    }
-
-    // --- (logika przetwarzania danych - bez zmian) ---
-    const visitedCodesRaw = rawUserProfile.countriesVisited || [];
-    const rankingRaw = rawUserProfile.ranking || [];
-    const newRankingSlots = rankingRaw
-      .filter((code) => visitedCodesRaw.includes(code))
-      .map((cca2, idx) => ({
-        id: generateUniqueId(),
-        rank: idx + 1,
-        country: countriesMap ? countriesMap.get(cca2) || null : null,
-      }));
-
-    // Przetwarzanie odwiedzonych krajów
-    const newCountriesVisited = Array.from(new Set(visitedCodesRaw))
-      .map((code) => (countriesMap ? countriesMap.get(code) : undefined))
-      .filter((c): c is Country => c !== undefined);
-
-    // Grupowanie po kontynentach
-    const groupedByContinent = newCountriesVisited.reduce(
-      (acc, country) => {
-        const continent = country.continent || "Other";
-        if (!acc[continent]) acc[continent] = [];
-        acc[continent].push(country);
-        return acc;
-      },
-      {} as Record<string, Country[]>
-    );
-
-    // Tworzenie finalnej struktury danych dla FlashList
-    let cumulativePillCount = 0;
-    const finalData: ListItem[] = [];
-    Object.entries(groupedByContinent)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .forEach(([continent, countriesInContinent]) => {
-        finalData.push({
-          type: "header",
-          id: continent,
-          continent,
-          count: countriesInContinent.length,
-        });
-        finalData.push({
-          type: "countries_row",
-          id: `${continent}-row`,
-          countries: countriesInContinent,
-          startingPillIndex: cumulativePillCount,
-        });
-        cumulativePillCount += countriesInContinent.length;
-      });
-
-    // Aktualizacja stanu
-    setRankingSlots(newRankingSlots);
-
-    setListData(finalData);
-    setVisitedCount(newCountriesVisited.length);
-    setIsProcessingList(false);
-  }, [
-    rawUserProfile,
-    isLoadingCountriesMap,
-    countriesMap,
-    profileUid,
-    isLoading,
-  ]);
+  }, [profileUid]); // ZALEŻY TYLKO OD `profileUid`!
 
   // --- Handlers (POPRAWIONE) ---
   const handleAdd = () => {
@@ -683,21 +674,21 @@ export default function ProfileScreen() {
     ]
   );
   // Pokaż główny loader, jeśli mapa krajów się wczytuje LUB jesteśmy w fazie 'initial'
-  if (isLoading || isProcessingList) {
-    return (
-      <View
-        style={[
-          profileStyles.loading,
-          { backgroundColor: theme.colors.background },
-        ]}
-      >
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
-    );
-  }
+  // if (isLoading || isProcessingList) {
+  //   return (
+  //     <View
+  //       style={[
+  //         profileStyles.loading,
+  //         { backgroundColor: theme.colors.background },
+  //       ]}
+  //     >
+  //       <ActivityIndicator size="large" color={theme.colors.primary} />
+  //     </View>
+  //   );
+  // }
 
   // Jeśli ładowanie zakończone, ale nie znaleziono użytkownika.
-  if (!rawUserProfile) {
+  if (screenPhase === "presenting" && !rawUserProfile) {
     return (
       <View
         style={[
@@ -723,35 +714,52 @@ export default function ProfileScreen() {
     );
   }
 
-  // Jeśli wszystko jest gotowe, renderuj listę.
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <FlashList
-        // ZMIANA: Zawsze przekazujemy gotowe dane, bez warunków
-        data={listData}
-        renderItem={renderListItem}
-        keyExtractor={(item) => item.id}
-        estimatedItemSize={100}
-        ListHeaderComponent={ListHeader}
-        // ZMIANA: Usuwamy loader ze stopki, bo jest już niepotrzebny
-        ListFooterComponent={null}
-        // ZMIANA: `isProcessingList` nie jest już potrzebne w extraData
-        extraData={{ isDarkTheme }}
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingTop: 16,
-          paddingBottom: 50,
-        }}
-        overrideItemLayout={(layout, item) => {
-          if (item.type === "header") {
-            // Możemy tu dodać bardziej precyzyjne estymacje
-            layout.size = 10;
-          } else {
-            // Estymacja dla wiersza krajów
-            layout.size = 40;
-          }
-        }}
-      />
+      {/* 
+        Lista jest renderowana tylko gdy jesteśmy w fazie 'presenting'.
+        Jej własne animacje wejścia (MotiView w renderItem) zajmą się pojawieniem.
+      */}
+      {screenPhase === "presenting" && (
+        <FlashList
+          data={listData}
+          renderItem={renderListItem}
+          keyExtractor={(item) => item.id}
+          estimatedItemSize={100}
+          ListHeaderComponent={ListHeader}
+          extraData={{ isDarkTheme }} // isProcessingList już nie jest potrzebne
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 16,
+            paddingBottom: 50,
+          }}
+          overrideItemLayout={(layout, item) => {
+            if (item.type === "header") {
+              layout.size = 10;
+            } else {
+              layout.size = 40;
+            }
+          }}
+        />
+      )}
+
+      {/* 
+        Nakładka z wskaźnikiem ładowania. Jest NAD listą.
+        Animujemy jej zniknięcie, gdy faza zmienia się na 'presenting'.
+      */}
+      <MotiView
+        style={[
+          styles.loadingOverlay,
+          { backgroundColor: theme.colors.background },
+        ]}
+        from={{ opacity: 1 }}
+        animate={{ opacity: screenPhase === "loading" ? 1 : 0 }}
+        transition={{ type: "timing", duration: 300 }}
+        // Ważne: gdy jest przezroczysta, nie może blokować dotyku
+        pointerEvents={screenPhase === "loading" ? "auto" : "none"}
+      >
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </MotiView>
 
       {/* Modal pozostaje bez zmian */}
       <Modal
@@ -797,6 +805,14 @@ export default function ProfileScreen() {
     </View>
   );
 }
+const styles = StyleSheet.create({
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10, // Upewnij się, że jest na wierzchu
+  },
+});
 
 const profileStyles = StyleSheet.create({
   container: {
