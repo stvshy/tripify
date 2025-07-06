@@ -5,6 +5,7 @@ import React, {
   useMemo,
   useCallback,
   useContext,
+  useRef,
 } from "react";
 import {
   View,
@@ -295,7 +296,7 @@ export default function ProfileScreen() {
   const { uid: profileUid } = useLocalSearchParams<{ uid: string }>();
 
   const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>([]);
-
+  const modalRankingData = useRef<RankingSlot[]>([]);
   const [visitedCount, setVisitedCount] = useState(0);
   const theme = useTheme();
   const router = useRouter();
@@ -306,7 +307,7 @@ export default function ProfileScreen() {
     "loading"
   );
   const [isRankingModalVisible, setIsRankingModalVisible] = useState(false);
-
+  const [canRenderModalContent, setCanRenderModalContent] = useState(false);
   const [listData, setListData] = useState<ListItem[]>([]);
   // const [isProcessingList, setIsProcessingList] = useState(true); // Loader dla danych listy
 
@@ -355,18 +356,16 @@ export default function ProfileScreen() {
   useEffect(() => {
     const backAction = () => {
       if (isRankingModalVisible) {
-        setIsRankingModalVisible(false);
-        return true; // Zapobiega domyślnej akcji (np. wyjściu z aplikacji)
+        handleCloseFullRanking();
+        return true;
       }
-      return false; // Pozwala na domyślną akcję, jeśli modal jest zamknięty
+      return false;
     };
 
     const backHandler = BackHandler.addEventListener(
       "hardwareBackPress",
       backAction
     );
-
-    // Sprzątanie po odmontowaniu komponentu
     return () => backHandler.remove();
   }, [isRankingModalVisible]);
   // EFEKT 1: Pobieranie surowych danych z Firestore (działa równolegle z ładowaniem mapy krajów)
@@ -625,8 +624,16 @@ export default function ProfileScreen() {
   }, [router]);
 
   const handleShowFullRanking = useCallback(() => {
+    // Kiedy chcemy pokazać modal:
+    // 1. Zapisz aktualne dane do refa.
+    modalRankingData.current = rankingSlots;
+    // 2. Ustaw widoczność na true.
     setIsRankingModalVisible(true);
-  }, []);
+  }, [rankingSlots]); // Zależność od rankingSlots, aby ref miał zawsze aktualne dane
+
+  const handleCloseFullRanking = () => {
+    setIsRankingModalVisible(false);
+  };
 
   const ListHeader = useCallback(
     () => (
@@ -766,30 +773,31 @@ export default function ProfileScreen() {
       <AnimatePresence>
         {isRankingModalVisible && (
           <MotiView
-            from={{ translateY: height }}
-            animate={{ translateY: 0 }}
-            exit={{ translateY: height }}
-            // =======================================================
-            // ---> ZAKTUALIZUJ TEN BLOK TRANSITION <---
-            // =======================================================
-            transition={{
-              type: "spring",
-              stiffness: 300, // Sztywność sprężyny (większa wartość = szybszy ruch)
-              damping: 30, // Tłumienie (większa wartość = mniejsze "odbicie" na końcu)
-            }}
-            style={[
-              modalStyles.fullScreenModalContainer,
-              { backgroundColor: theme.colors.background },
-            ]}
+            from={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ type: "timing", duration: 250 }}
+            style={modalStyles.overlay} // Nowy styl dla tła
           >
-            {/* Używamy paddingu z insets, aby treść nie wchodziła pod status bar */}
-            <View
-              style={{
-                flex: 1,
-                paddingTop: insets.top,
-                paddingBottom: insets.bottom,
+            <MotiView
+              from={{ translateY: height }}
+              animate={{ translateY: 0 }}
+              exit={{ translateY: height }}
+              transition={{
+                type: "spring",
+                stiffness: 350, // Można podkręcić dla szybszej animacji
+                damping: 35,
               }}
+              style={[
+                modalStyles.modalContentContainer, // Nowy styl dla kontenera
+                {
+                  backgroundColor: theme.colors.background,
+                  paddingTop: insets.top,
+                  paddingBottom: insets.bottom,
+                },
+              ]}
             >
+              {/* === TREŚĆ MODALA === */}
               <View style={modalStyles.modalHeader}>
                 <Text
                   style={[
@@ -799,9 +807,7 @@ export default function ProfileScreen() {
                 >
                   Full Ranking
                 </Text>
-                <TouchableOpacity
-                  onPress={() => setIsRankingModalVisible(false)}
-                >
+                <TouchableOpacity onPress={handleCloseFullRanking}>
                   <Ionicons
                     name="close"
                     size={26}
@@ -809,18 +815,15 @@ export default function ProfileScreen() {
                   />
                 </TouchableOpacity>
               </View>
-              {/* Używamy FlashList zamiast ScrollView dla lepszej wydajności */}
+
               <FlashList
-                data={rankingSlots}
-                renderItem={({ item }) => (
-                  // Wykorzystujemy istniejący komponent, ale wewnątrz FlashList
-                  <RankingList rankingSlots={[item]} />
-                )}
+                data={modalRankingData.current} // Użyj danych z refa!
+                renderItem={({ item }) => <RankingList rankingSlots={[item]} />}
                 keyExtractor={(item) => item.id}
-                estimatedItemSize={50} // Dostosuj do wysokości pojedynczego elementu rankingu
+                estimatedItemSize={50}
                 contentContainerStyle={modalStyles.modalScrollContent}
               />
-            </View>
+            </MotiView>
           </MotiView>
         )}
       </AnimatePresence>
@@ -1020,37 +1023,34 @@ const profileStyles = StyleSheet.create({
 });
 
 const modalStyles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    justifyContent: "flex-end", // Wyrównuje zawartość do dołu
+    zIndex: 50,
   },
-  fullScreenModalContainer: {
-    ...StyleSheet.absoluteFillObject, // To rozciąga widok na cały ekran
-    zIndex: 50, // Upewnij się, że jest na samej górze
-  },
-  modalContent: {
-    position: "absolute",
-    bottom: 0,
-    height: "90%",
+  // Nowy styl dla głównego, wysuwanego kontenera
+  modalContentContainer: {
+    height: "92%", // Wysokość modala
     width: "100%",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    padding: 16,
+    overflow: "hidden", // Ważne dla border-radius
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
-    paddingHorizontal: 16,
+    padding: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(0,0,0,0.1)",
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: "600",
-    marginBottom: 10,
   },
   modalScrollContent: {
-    paddingBottom: 20,
     paddingHorizontal: 16,
+    paddingBottom: 20,
   },
 });
