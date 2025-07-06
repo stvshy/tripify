@@ -308,9 +308,9 @@ export default function ProfileScreen() {
   const { height } = Dimensions.get("window");
   const insets = useSafeAreaInsets();
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
-  const [screenPhase, setScreenPhase] = useState<"loading" | "presenting">(
-    "loading"
-  );
+  const [screenPhase, setScreenPhase] = useState<
+    "loading" | "presenting" | "error"
+  >("loading");
   const [isRankingModalVisible, setIsRankingModalVisible] = useState(false);
   const [canRenderModalContent, setCanRenderModalContent] = useState(false);
   const [listData, setListData] = useState<ListItem[]>([]);
@@ -395,9 +395,9 @@ export default function ProfileScreen() {
       (snap) => {
         const currentCountriesMap = useCountryStore.getState().countriesMap;
 
+        // ▼▼▼ ZMIEŃ TEN BLOK ▼▼▼
         if (!snap.exists() || !currentCountriesMap) {
-          setRawUserProfile(null);
-          setScreenPhase("presenting");
+          setScreenPhase("error"); // <--- Zamiast setRawUserProfile(null) i setScreenPhase('presenting')
           setIsListProcessing(false);
           return;
         }
@@ -422,11 +422,13 @@ export default function ProfileScreen() {
 
         // ▼▼▼ ETAP 2: ODROCZONE PRZETWARZANIE LISTY KRAJÓW (ciężkie dane) ▼▼▼
         // Używamy setTimeout, aby UI zdążyło się wyrenderować z rankingiem, zanim zaczniemy "ciężką" pracę.
-        setTimeout(() => {
+        const processVisitedCountriesIncrementally = async () => {
           const visitedCodesRaw = data.countriesVisited || [];
           const newCountriesVisited = Array.from(new Set(visitedCodesRaw))
             .map((code) => currentCountriesMap.get(code))
             .filter((c): c is Country => c !== undefined);
+
+          setVisitedCount(newCountriesVisited.length);
 
           const groupedByContinent = newCountriesVisited.reduce(
             (acc, country) => {
@@ -438,37 +440,43 @@ export default function ProfileScreen() {
             {} as Record<string, Country[]>
           );
 
+          const sortedContinents = Object.entries(groupedByContinent).sort(
+            ([a], [b]) => a.localeCompare(b)
+          );
+
           let cumulativePillCount = 0;
-          const finalData: ListItem[] = [];
-          Object.entries(groupedByContinent)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .forEach(([continent, countriesInContinent]) => {
-              finalData.push({
-                type: "header",
-                id: continent,
-                continent,
-                count: countriesInContinent.length,
-              });
-              finalData.push({
-                type: "countries_row",
-                id: `${continent}-row`,
-                countries: countriesInContinent,
-                startingPillIndex: cumulativePillCount,
-              });
-              cumulativePillCount += countriesInContinent.length;
-            });
+          for (const [continent, countriesInContinent] of sortedContinents) {
+            const newHeader: ListItem = {
+              type: "header",
+              id: continent,
+              continent,
+              count: countriesInContinent.length,
+            };
+            const newRow: ListItem = {
+              type: "countries_row",
+              id: `${continent}-row`,
+              countries: countriesInContinent,
+              startingPillIndex: cumulativePillCount,
+            };
 
-          setListData(finalData);
-          setVisitedCount(newCountriesVisited.length);
+            // Używamy callback formy setState, aby zawsze bazować na najnowszym stanie listy
+            setListData((currentList) => [...currentList, newHeader, newRow]);
+            cumulativePillCount += countriesInContinent.length;
 
-          // Krok 3: Zakończ przetwarzanie listy. Mały loader zniknie.
+            // Dajemy UI chwilę na "oddech" i wyrenderowanie dodanego kontynentu
+            await new Promise((resolve) => setTimeout(resolve, 16)); // ~1 klatka przy 60fps
+          }
+
+          // Krok 3: Zakończ przetwarzanie listy, gdy pętla się skończy
           setIsListProcessing(false);
-        }, 50); // Małe opóźnienie (50ms) wystarczy, aby nie blokować wątku UI.
+        };
+
+        processVisitedCountriesIncrementally(); // Małe opóźnienie (50ms) wystarczy, aby nie blokować wątku UI.
       },
       (error) => {
         console.error("Błąd pobierania profilu:", error);
-        setRawUserProfile(null);
-        setScreenPhase("presenting");
+        // ▼▼▼ ZMIEŃ TEN BLOK ▼▼▼
+        setScreenPhase("error"); // <--- Użyj stanu 'error' także tutaj
         setIsListProcessing(false);
       }
     );
@@ -718,17 +726,21 @@ export default function ProfileScreen() {
       </View>
     );
   }, [isListProcessing, theme.colors.primary]);
+  if (screenPhase === "loading") {
+    return (
+      <View
+        style={[
+          profileStyles.loading,
+          { backgroundColor: theme.colors.background },
+        ]}
+      >
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
 
-  // Jeśli ładowanie podstawowych danych nie jest zakończone
-  // if (screenPhase === "loading") {
-  //   return (
-  //     <View style={[profileStyles.loading, { backgroundColor: theme.colors.background }]}>
-  //       <ActivityIndicator size="large" color={theme.colors.primary} />
-  //     </View>
-  //   );
-  // }
-  // Jeśli ładowanie zakończone, ale nie znaleziono użytkownika.
-  if (!rawUserProfile) {
+  // Krok 2: Obsługa błędu lub braku użytkownika
+  if (screenPhase === "error") {
     return (
       <View
         style={[
@@ -768,7 +780,7 @@ export default function ProfileScreen() {
         estimatedItemSize={100}
         removeClippedSubviews={true} // DODAJ
         ListHeaderComponent={ListHeader}
-        ListFooterComponent={ListLoader}
+        ListEmptyComponent={ListLoader}
         extraData={{ isDarkTheme }} // isProcessingList już nie jest potrzebne
         contentContainerStyle={{
           paddingHorizontal: 16,
@@ -789,7 +801,7 @@ export default function ProfileScreen() {
         Nakładka z wskaźnikiem ładowania. Jest NAD listą.
         Animujemy jej zniknięcie, gdy faza zmienia się na 'presenting'.
       */}
-      {screenPhase === "loading" && (
+      {/* {screenPhase === "loading" && (
         <View
           style={[
             styles.loadingOverlay,
@@ -798,7 +810,7 @@ export default function ProfileScreen() {
         >
           <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
-      )}
+      )} */}
       {/* Modal pozostaje bez zmian */}
       <AnimatePresence>
         {isRankingModalVisible && (
