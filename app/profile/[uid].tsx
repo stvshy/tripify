@@ -18,10 +18,9 @@ import {
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { db, auth } from "../config/firebaseConfig";
-import { doc, getDoc, onSnapshot } from "firebase/firestore";
-import { useTheme, MD3DarkTheme, MD3LightTheme } from "react-native-paper"; // Added MD3DarkTheme, MD3LightTheme
+import { doc, onSnapshot } from "firebase/firestore";
+import { useTheme } from "react-native-paper"; // Added MD3DarkTheme, MD3LightTheme
 import { Ionicons } from "@expo/vector-icons";
-import countriesData from "../../assets/maps/countries_with_continents.json";
 import RankingList from "../../components/RankingList";
 import { ThemeContext } from "../config/ThemeContext";
 import { useCommunityStore } from "../store/communityStore";
@@ -29,7 +28,6 @@ import { useFocusEffect } from "expo-router";
 import { FlashList } from "@shopify/flash-list";
 import { Country, RankingSlot } from "../../types/sharedTypes";
 import { MotiView } from "moti";
-import { LinearGradient } from "expo-linear-gradient";
 import ShineMask from "@/components/ShineMask";
 import CountryFlag from "react-native-country-flag";
 import { useCountryStore } from "../store/countryStore";
@@ -271,8 +269,7 @@ const darkContinentColors = {
 const generateUniqueId = () =>
   `rank-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 // ZMIANA 2: Definiujemy stałe dla renderowania przyrostowego
-const INITIAL_BATCH_SIZE = 40; // Ile krajów pokazać na start
-const SCROLL_BATCH_SIZE = 20; // Ile krajów dorenderować przy każdym scrollu
+
 type ListItem =
   | { type: "header"; id: string; continent: string; count: number }
   | {
@@ -293,7 +290,6 @@ export default function ProfileScreen() {
       return () => cleanup(); // Sprzątaj, gdy ekran traci fokus
     }, [])
   );
-  const { countriesMap, isLoading: isLoadingCountriesMap } = useCountryStore();
 
   const { uid: profileUid } = useLocalSearchParams<{ uid: string }>();
 
@@ -371,6 +367,7 @@ export default function ProfileScreen() {
     const userRef = doc(db, "users", profileUid);
     const unsubscribe = onSnapshot(
       userRef,
+      { includeMetadataChanges: false },
       (snap) => {
         // Używamy `getState`, aby pobrać najnowszą wersję mapy bez dodawania jej do zależności.
         // To przerywa pętlę renderowania.
@@ -475,6 +472,7 @@ export default function ProfileScreen() {
       rejectFriendRequest(incomingRequestFromProfile.id);
     }
   };
+
   const CountryPillRow = React.memo(
     ({
       countries,
@@ -673,19 +671,6 @@ export default function ProfileScreen() {
       handleDecline,
     ]
   );
-  // Pokaż główny loader, jeśli mapa krajów się wczytuje LUB jesteśmy w fazie 'initial'
-  // if (isLoading || isProcessingList) {
-  //   return (
-  //     <View
-  //       style={[
-  //         profileStyles.loading,
-  //         { backgroundColor: theme.colors.background },
-  //       ]}
-  //     >
-  //       <ActivityIndicator size="large" color={theme.colors.primary} />
-  //     </View>
-  //   );
-  // }
 
   // Jeśli ładowanie zakończone, ale nie znaleziono użytkownika.
   if (screenPhase === "presenting" && !rawUserProfile) {
@@ -726,6 +711,7 @@ export default function ProfileScreen() {
           renderItem={renderListItem}
           keyExtractor={(item) => item.id}
           estimatedItemSize={100}
+          removeClippedSubviews={true} // DODAJ
           ListHeaderComponent={ListHeader}
           extraData={{ isDarkTheme }} // isProcessingList już nie jest potrzebne
           contentContainerStyle={{
@@ -747,20 +733,16 @@ export default function ProfileScreen() {
         Nakładka z wskaźnikiem ładowania. Jest NAD listą.
         Animujemy jej zniknięcie, gdy faza zmienia się na 'presenting'.
       */}
-      <MotiView
-        style={[
-          styles.loadingOverlay,
-          { backgroundColor: theme.colors.background },
-        ]}
-        from={{ opacity: 1 }}
-        animate={{ opacity: screenPhase === "loading" ? 1 : 0 }}
-        transition={{ type: "timing", duration: 300 }}
-        // Ważne: gdy jest przezroczysta, nie może blokować dotyku
-        pointerEvents={screenPhase === "loading" ? "auto" : "none"}
-      >
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </MotiView>
-
+      {screenPhase === "loading" && (
+        <View
+          style={[
+            styles.loadingOverlay,
+            { backgroundColor: theme.colors.background },
+          ]}
+        >
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+        </View>
+      )}
       {/* Modal pozostaje bez zmian */}
       <Modal
         visible={isRankingModalVisible}
