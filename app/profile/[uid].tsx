@@ -382,7 +382,7 @@ export default function ProfileScreen() {
 
     // Krok 1: Resetuj stany
     setScreenPhase("loading");
-    // setIsListProcessing(true);
+    setIsListProcessing(true);
     setRawUserProfile(null);
     setListData([]);
     setRankingSlots([]);
@@ -397,7 +397,7 @@ export default function ProfileScreen() {
 
         if (!snap.exists() || !currentCountriesMap) {
           setScreenPhase("error");
-          // setIsListProcessing(false);
+          setIsListProcessing(false);
           return;
         }
 
@@ -462,12 +462,12 @@ export default function ProfileScreen() {
           // 2. Ustawiamy stany TYLKO RAZ z finalnymi danymi.
           setVisitedCount(newCountriesVisited.length);
           setListData(finalData); // <--- Kluczowa zmiana: jedno wywołanie!
-          // setIsListProcessing(false);
+          setIsListProcessing(false);
         }, 100); // Dajemy trochę więcej czasu (np. 100ms), aby mieć pewność, że UI jest w pełni responsywny.
       },
       (error) => {
         setScreenPhase("error");
-        // setIsListProcessing(false);
+        setIsListProcessing(false);
       }
     );
 
@@ -673,17 +673,27 @@ export default function ProfileScreen() {
           onCountryPress={handleCountryPress}
         />
         <View style={profileStyles.visitedHeader}>
-          <Text
-            style={[
-              profileStyles.sectionTitle,
-              { color: theme.colors.onBackground },
-            ]}
-          >
-            Visited Countries
-          </Text>
-          {/* ZMIANA: Używamy stanu visitedCount, który jest aktualizowany poprawnie */}
+          <View style={profileStyles.visitedHeaderTitleContainer}>
+            <Text
+              style={[
+                profileStyles.sectionTitle,
+                { color: theme.colors.onBackground, marginBottom: 0 }, // Usuwamy margines dolny
+              ]}
+            >
+              Visited Countries
+            </Text>
+            {/* Wskaźnik ładowania, widoczny tylko podczas przetwarzania listy */}
+            {isListProcessing && (
+              <ActivityIndicator
+                style={{ marginLeft: 8 }}
+                size="small"
+                color={theme.colors.primary}
+              />
+            )}
+          </View>
           <Text style={[profileStyles.visitedCount, { color: "gray" }]}>
-            ({visitedCount}/218)
+            {/* Pokaż licznik dopiero gdy lista jest gotowa, lub pusty placeholder */}
+            {!isListProcessing ? `(${visitedCount}/218)` : "(...)"}
           </Text>
         </View>
       </>
@@ -705,6 +715,7 @@ export default function ProfileScreen() {
       handleAccept,
       handleDecline,
       handleCountryPress,
+      isListProcessing,
     ]
   );
   // const ListLoader = useCallback(() => {
@@ -894,6 +905,10 @@ const profileStyles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 20,
+  },
+  visitedHeaderTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   headerButton: {
     padding: 8,
