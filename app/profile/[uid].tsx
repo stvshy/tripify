@@ -594,27 +594,23 @@ export default function ProfileScreen() {
           );
 
           return (
-            // 1. Animacja wejścia dla całego bloku
             <MotiView
-              from={{ opacity: 0, translateY: 10 }}
+              from={{ opacity: 0, translateY: -15 }} // ZMIANA 1
               animate={{ opacity: 1, translateY: 0 }}
               transition={{ type: "timing", duration: 400, delay }}
               style={profileStyles.continentSection}
             >
-              {/* 2. Dodatkowy, nałożony efekt shine */}
               <ShineMask delay={delay + 400}>{headerText}</ShineMask>
             </MotiView>
           );
 
         case "countries_row":
           return (
-            // 1. Animacja wejścia dla całego wiersza pigułek
             <MotiView
-              from={{ opacity: 0, translateY: 10 }}
+              from={{ opacity: 0, translateY: -15 }} // ZMIANA 2
               animate={{ opacity: 1, translateY: 0 }}
               transition={{ type: "timing", duration: 400, delay }}
             >
-              {/* 2. Przekazujemy wiersz, który wewnątrz sam zdecyduje, gdzie dodać shine */}
               <CountryPillRow
                 countries={item.countries}
                 onPress={handleCountryPress}
