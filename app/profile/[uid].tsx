@@ -785,15 +785,15 @@ export default function ProfileScreen() {
               exit={{ translateY: height }}
               transition={{
                 type: "spring",
-                stiffness: 350, // Można podkręcić dla szybszej animacji
-                damping: 35,
+                stiffness: 400, // Wysoka sztywność dla szybkiej reakcji
+                damping: 40, // Wysokie tłumienie, aby zapobiec "odbijaniu" i zapewnić gładkie zatrzymanie
+                mass: 1.2, // Lekkie zwiększenie "masy" dla bardziej "solidnego" odczucia
               }}
               style={[
-                modalStyles.modalContentContainer, // Nowy styl dla kontenera
+                modalStyles.modalContentContainer,
                 {
                   backgroundColor: theme.colors.background,
-                  paddingTop: insets.top,
-                  paddingBottom: insets.bottom,
+                  // Nie potrzebujemy paddingu tutaj, bo jest w stylach
                 },
               ]}
             >
@@ -807,7 +807,10 @@ export default function ProfileScreen() {
                 >
                   Full Ranking
                 </Text>
-                <TouchableOpacity onPress={handleCloseFullRanking}>
+                <TouchableOpacity
+                  onPress={handleCloseFullRanking}
+                  style={{ marginRight: -5 }}
+                >
                   <Ionicons
                     name="close"
                     size={26}
@@ -1031,7 +1034,7 @@ const modalStyles = StyleSheet.create({
   },
   // Nowy styl dla głównego, wysuwanego kontenera
   modalContentContainer: {
-    height: "92%", // Wysokość modala
+    height: "95%", // Wysokość modala
     width: "100%",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
@@ -1041,7 +1044,9 @@ const modalStyles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
+    paddingHorizontal: 19, // Odstęp po bokach
+    paddingBottom: 16, // Odstęp na dole (ważne, aby oddzielić od listy)
+    paddingTop: 16, // Zmniejszony odstęp na górze (dostosuj wg uznania)
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "rgba(0,0,0,0.1)",
   },
@@ -1050,7 +1055,7 @@ const modalStyles = StyleSheet.create({
     fontWeight: "600",
   },
   modalScrollContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 16.5,
     paddingBottom: 20,
   },
 });
