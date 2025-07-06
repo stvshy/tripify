@@ -790,7 +790,7 @@ export default function ProfileScreen() {
         removeClippedSubviews={true} // DODAJ
         ListHeaderComponent={ListHeader}
         // ListEmptyComponent={ListLoader}
-        // extraData={{ isDarkTheme }} // isProcessingList już nie jest potrzebne
+        extraData={{ isDarkTheme }}
         contentContainerStyle={{
           paddingHorizontal: 16,
           paddingTop: 16,
@@ -804,22 +804,6 @@ export default function ProfileScreen() {
           }
         }}
       />
-      {/* )} */}
-
-      {/* 
-        Nakładka z wskaźnikiem ładowania. Jest NAD listą.
-        Animujemy jej zniknięcie, gdy faza zmienia się na 'presenting'.
-      */}
-      {/* {screenPhase === "loading" && (
-        <View
-          style={[
-            styles.loadingOverlay,
-            { backgroundColor: theme.colors.background },
-          ]}
-        >
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-        </View>
-      )} */}
       {/* Modal pozostaje bez zmian */}
       <AnimatePresence>
         {isRankingModalVisible && (
