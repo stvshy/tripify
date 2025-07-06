@@ -33,6 +33,7 @@ import ShineMask from "@/components/ShineMask";
 import CountryFlag from "react-native-country-flag";
 import { useCountryStore } from "../store/countryStore";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import VisitedCountriesSkeleton from "@/components/VisitedCountriesSkeleton";
 
 interface UserProfile {
   uid: string;
@@ -682,22 +683,26 @@ export default function ProfileScreen() {
             Visited Countries
           </Text>
 
-          {/* Kontener na wskaźnik lub licznik, umieszczony tuż obok tytułu */}
+          {/* Kontener, w którym ActivityIndicator zamieni się na licznik */}
           <View style={profileStyles.indicatorOrCountContainer}>
             {isListProcessing ? (
+              // Pokaż mały wskaźnik, gdy lista się przetwarza
               <ActivityIndicator
-                size="small" // Zostawiamy 'small' jako bazę
+                size="small"
                 color={theme.colors.primary}
-                // Dodajemy styl, aby go zmniejszyć
-                style={{ transform: [{ scale: 0.8 }] }}
+                style={{ transform: [{ scale: 0.8 }] }} // Nasz niestandardowy, mniejszy rozmiar
               />
             ) : (
+              // Pokaż licznik, gdy lista jest gotowa
               <Text style={[profileStyles.visitedCount, { color: "gray" }]}>
                 ({visitedCount})
               </Text>
             )}
           </View>
         </View>
+
+        {/* Warunkowo renderuj szkielet, gdy lista się przetwarza */}
+        {isListProcessing && <VisitedCountriesSkeleton />}
       </>
     ),
     [
