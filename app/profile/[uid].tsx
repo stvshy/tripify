@@ -14,7 +14,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
-  Modal,
+  BackHandler,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { db, auth } from "../config/firebaseConfig";
@@ -27,10 +27,11 @@ import { useCommunityStore } from "../store/communityStore";
 import { useFocusEffect } from "expo-router";
 import { FlashList } from "@shopify/flash-list";
 import { Country, RankingSlot } from "../../types/sharedTypes";
-import { MotiView } from "moti";
+import { MotiView, AnimatePresence } from "moti";
 import ShineMask from "@/components/ShineMask";
 import CountryFlag from "react-native-country-flag";
 import { useCountryStore } from "../store/countryStore";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface UserProfile {
   uid: string;
@@ -298,6 +299,8 @@ export default function ProfileScreen() {
   const [visitedCount, setVisitedCount] = useState(0);
   const theme = useTheme();
   const router = useRouter();
+  const { height } = Dimensions.get("window");
+  const insets = useSafeAreaInsets();
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
   const [screenPhase, setScreenPhase] = useState<"loading" | "presenting">(
     "loading"
@@ -349,7 +352,23 @@ export default function ProfileScreen() {
   const [rawUserProfile, setRawUserProfile] = useState<UserProfile | null>(
     null
   );
+  useEffect(() => {
+    const backAction = () => {
+      if (isRankingModalVisible) {
+        setIsRankingModalVisible(false);
+        return true; // Zapobiega domyślnej akcji (np. wyjściu z aplikacji)
+      }
+      return false; // Pozwala na domyślną akcję, jeśli modal jest zamknięty
+    };
 
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      backAction
+    );
+
+    // Sprzątanie po odmontowaniu komponentu
+    return () => backHandler.remove();
+  }, [isRankingModalVisible]);
   // EFEKT 1: Pobieranie surowych danych z Firestore (działa równolegle z ładowaniem mapy krajów)
   useEffect(() => {
     if (!profileUid) {
@@ -744,46 +763,67 @@ export default function ProfileScreen() {
         </View>
       )}
       {/* Modal pozostaje bez zmian */}
-      <Modal
-        visible={isRankingModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setIsRankingModalVisible(false)}
-      >
-        <TouchableOpacity
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }}
-          activeOpacity={1}
-          onPressOut={() => setIsRankingModalVisible(false)}
-        >
-          <View
+      <AnimatePresence>
+        {isRankingModalVisible && (
+          <MotiView
+            from={{ translateY: height }}
+            animate={{ translateY: 0 }}
+            exit={{ translateY: height }}
+            // =======================================================
+            // ---> ZAKTUALIZUJ TEN BLOK TRANSITION <---
+            // =======================================================
+            transition={{
+              type: "spring",
+              stiffness: 300, // Sztywność sprężyny (większa wartość = szybszy ruch)
+              damping: 30, // Tłumienie (większa wartość = mniejsze "odbicie" na końcu)
+            }}
             style={[
-              modalStyles.modalContent,
+              modalStyles.fullScreenModalContainer,
               { backgroundColor: theme.colors.background },
             ]}
           >
-            <View style={modalStyles.modalHeader}>
-              <Text
-                style={[
-                  modalStyles.modalTitle,
-                  { color: theme.colors.onBackground },
-                ]}
-              >
-                Full Ranking
-              </Text>
-              <TouchableOpacity onPress={() => setIsRankingModalVisible(false)}>
-                <Ionicons
-                  name="close"
-                  size={24}
-                  color={theme.colors.onBackground}
-                />
-              </TouchableOpacity>
+            {/* Używamy paddingu z insets, aby treść nie wchodziła pod status bar */}
+            <View
+              style={{
+                flex: 1,
+                paddingTop: insets.top,
+                paddingBottom: insets.bottom,
+              }}
+            >
+              <View style={modalStyles.modalHeader}>
+                <Text
+                  style={[
+                    modalStyles.modalTitle,
+                    { color: theme.colors.onBackground },
+                  ]}
+                >
+                  Full Ranking
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setIsRankingModalVisible(false)}
+                >
+                  <Ionicons
+                    name="close"
+                    size={26}
+                    color={theme.colors.onBackground}
+                  />
+                </TouchableOpacity>
+              </View>
+              {/* Używamy FlashList zamiast ScrollView dla lepszej wydajności */}
+              <FlashList
+                data={rankingSlots}
+                renderItem={({ item }) => (
+                  // Wykorzystujemy istniejący komponent, ale wewnątrz FlashList
+                  <RankingList rankingSlots={[item]} />
+                )}
+                keyExtractor={(item) => item.id}
+                estimatedItemSize={50} // Dostosuj do wysokości pojedynczego elementu rankingu
+                contentContainerStyle={modalStyles.modalScrollContent}
+              />
             </View>
-            <ScrollView contentContainerStyle={modalStyles.modalScrollContent}>
-              <RankingList rankingSlots={rankingSlots} />
-            </ScrollView>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+          </MotiView>
+        )}
+      </AnimatePresence>
     </View>
   );
 }
@@ -984,6 +1024,10 @@ const modalStyles = StyleSheet.create({
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
   },
+  fullScreenModalContainer: {
+    ...StyleSheet.absoluteFillObject, // To rozciąga widok na cały ekran
+    zIndex: 50, // Upewnij się, że jest na samej górze
+  },
   modalContent: {
     position: "absolute",
     bottom: 0,
@@ -998,6 +1042,7 @@ const modalStyles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 10,
+    paddingHorizontal: 16,
   },
   modalTitle: {
     fontSize: 20,
@@ -1006,5 +1051,6 @@ const modalStyles = StyleSheet.create({
   },
   modalScrollContent: {
     paddingBottom: 20,
+    paddingHorizontal: 16,
   },
 });

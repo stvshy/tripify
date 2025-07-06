@@ -30,6 +30,37 @@ import { useCommunityStore } from "./store/communityStore";
 import { useCountryStore } from "./store/countryStore";
 ExpoSplashScreen.preventAutoHideAsync();
 
+function AppNavigator({ initialRouteName }: { initialRouteName: string }) {
+  const theme = useTheme(); // Używamy hooka, aby pobrać motyw
+
+  return (
+    <Stack
+      initialRouteName={initialRouteName}
+      screenOptions={{
+        headerShown: false,
+        // === KLUCZOWA ZMIANA ===
+        // Ustawiamy kolor tła bezpośrednio tutaj!
+        contentStyle: { backgroundColor: theme.colors.background },
+        presentation: "card",
+        animation: "ios",
+        gestureEnabled: true,
+        gestureDirection: "horizontal",
+      }}
+    >
+      {/* Skopiuj wszystkie ekrany ze swojego oryginalnego Stack'a */}
+      <Stack.Screen name="welcome/index" options={{ animation: "fade" }} />
+      <Stack.Screen name="setNickname/index" />
+      <Stack.Screen name="chooseCountries/index" />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="(registration)" />
+      <Stack.Screen name="forgotPassword/index" />
+      <Stack.Screen name="login/index" />
+      {/* Możesz też dodać ekran profilu, jeśli chcesz mieć nad nim specyficzną kontrolę */}
+      <Stack.Screen name="profile/[uid]" />
+    </Stack>
+  );
+}
+
 const queryClient = new QueryClient();
 const CACHED_URLS_KEY = "cachedSplashBackgroundUrls";
 const SPLASH_BACKGROUNDS_PATH = "splash_backgrounds";
@@ -52,13 +83,19 @@ const fetchAndCacheBackgrounds = async () => {
 };
 
 export default function RootLayout() {
-  const {
-    isLoadingAuth,
-    setFirebaseUser,
-    setUserProfile,
-    setIsLoadingAuth,
-    setErrorAuth,
-  } = useAuthStore();
+  const isLoadingAuth = useAuthStore((state) => state.isLoadingAuth);
+
+  // AKCJE (funkcje) pobieramy pojedynczo, używając selektorów.
+  // To gwarantuje, że ich referencje będą stabilne.
+  const setFirebaseUser = useAuthStore((state) => state.setFirebaseUser);
+  const setUserProfile = useAuthStore((state) => state.setUserProfile);
+  const setIsLoadingAuth = useAuthStore((state) => state.setIsLoadingAuth);
+  const setErrorAuth = useAuthStore((state) => state.setErrorAuth); // Jeśli używasz
+
+  const listenForCommunityData = useCommunityStore(
+    (state) => state.listenForCommunityData
+  );
+  const cleanupCommunity = useCommunityStore((state) => state.cleanup);
   const [fontsLoaded, fontError] = useFonts({
     "PlusJakartaSans-Bold": require("../assets/fonts/PlusJakartaSans-Bold.ttf"),
     "DMSans-Bold": require("../assets/fonts/DMSans-Bold.ttf"),
@@ -76,8 +113,6 @@ export default function RootLayout() {
   const [initialRouteName, setInitialRouteName] = useState<string | null>(null);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
 
-  const { listenForCommunityData, cleanup: cleanupCommunity } =
-    useCommunityStore();
   useEffect(() => {
     console.log("RootLayout: Initializing countries data...");
     // Używamy getState() - nie potrzebujemy rerenderować RootLayout,
@@ -87,14 +122,11 @@ export default function RootLayout() {
   useEffect(() => {
     fetchAndCacheBackgrounds();
   }, []);
-
   useEffect(() => {
-    // Czekamy na załadowanie fontów, to jest poprawne.
     if (!fontsLoaded && !fontError) {
       return;
     }
 
-    // Funkcja pomocnicza do finalizowania, bez zmian.
     const finalizePreparation = (route: string) => {
       setInitialRouteName(route);
       setIsLoadingAuth(false);
@@ -166,7 +198,17 @@ export default function RootLayout() {
       unsubscribeAuth();
       cleanupCommunity();
     };
-  }, [fontsLoaded, fontError]);
+  }, [
+    // === NOWA, POPRAWNA TABLICA ZALEŻNOŚCI ===
+    fontsLoaded,
+    fontError,
+    // Dodajemy stabilne funkcje, które pobraliśmy
+    setFirebaseUser,
+    setUserProfile,
+    setIsLoadingAuth,
+    listenForCommunityData,
+    cleanupCommunity,
+  ]);
 
   useEffect(() => {
     if (fontsLoaded && isNavigationReady) {
@@ -199,40 +241,9 @@ export default function RootLayout() {
           <ThemeProvider>
             <ThemedStatusBarAndNavBar tooltipVisible={false} />
             <QueryClientProvider client={queryClient}>
-              <ThemedBackgroundWrapper>
-                {initialRouteName && (
-                  <Stack // Ten <Stack> jest głównym nawigatorem
-                    initialRouteName={initialRouteName}
-                    screenOptions={{
-                      headerShown: false,
-                      contentStyle: { backgroundColor: "transparent" },
-                      presentation: "card",
-                      animation: "ios", // Domyślny slide dla innych przejść
-                      gestureEnabled: true,
-                      gestureDirection: "horizontal",
-                    }}
-                  >
-                    {/* Definiujemy ekrany wewnątrz tego Stacka */}
-                    <Stack.Screen
-                      name="welcome/index"
-                      options={{
-                        animation: "fade",
-                      }}
-                    />
-                    <Stack.Screen name="setNickname/index" />
-                    <Stack.Screen name="chooseCountries/index" />
-                    <Stack.Screen name="(tabs)" />
-                    <Stack.Screen name="(registration)" />
-                    <Stack.Screen name="forgotPassword/index" />
-                    <Stack.Screen name="login/index" />
-                    {/* Dodaj tutaj inne Stack.Screen dla tras najwyższego poziomu,
-                        jeśli chcesz dla nich ustawić specyficzne opcje lub
-                        jawnie je zadeklarować. Pamiętaj o poprawnych nazwach
-                        zgodnych z tym, co widzi Expo Router (np. "nazwaFolderu/index").
-                    */}
-                  </Stack>
-                )}
-              </ThemedBackgroundWrapper>
+              {initialRouteName && (
+                <AppNavigator initialRouteName={initialRouteName} />
+              )}
             </QueryClientProvider>
           </ThemeProvider>
         </DraxProvider>
