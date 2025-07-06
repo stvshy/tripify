@@ -213,9 +213,11 @@ const RankingPreview = React.memo(
   ({
     rankingSlots,
     onShowFull,
+    onCountryPress,
   }: {
     rankingSlots: RankingSlot[];
     onShowFull: () => void;
+    onCountryPress: (countryId: string) => void;
   }) => {
     const theme = useTheme();
     return (
@@ -240,7 +242,10 @@ const RankingPreview = React.memo(
             </Text>
           </TouchableOpacity>
         </View>
-        <RankingList rankingSlots={rankingSlots.slice(0, 5)} />
+        <RankingList
+          rankingSlots={rankingSlots.slice(0, 5)}
+          onCountryPress={onCountryPress}
+        />
       </View>
     );
   }
@@ -662,6 +667,7 @@ export default function ProfileScreen() {
         <RankingPreview
           rankingSlots={rankingSlots}
           onShowFull={handleShowFullRanking}
+          onCountryPress={handleCountryPress}
         />
         <View style={profileStyles.visitedHeader}>
           <Text
@@ -695,6 +701,7 @@ export default function ProfileScreen() {
       handleRemove,
       handleAccept,
       handleDecline,
+      handleCountryPress,
     ]
   );
 
@@ -821,7 +828,12 @@ export default function ProfileScreen() {
 
               <FlashList
                 data={modalRankingData.current} // Użyj danych z refa!
-                renderItem={({ item }) => <RankingList rankingSlots={[item]} />}
+                renderItem={({ item }) => (
+                  <RankingList
+                    rankingSlots={[item]}
+                    onCountryPress={handleCountryPress} // <-- DODAJ TO
+                  />
+                )}
                 keyExtractor={(item) => item.id}
                 estimatedItemSize={50}
                 contentContainerStyle={modalStyles.modalScrollContent}

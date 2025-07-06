@@ -1,6 +1,6 @@
 // components/RankingList.tsx
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import CountryFlag from "react-native-country-flag";
 import { useTheme } from "react-native-paper";
 
@@ -11,12 +11,16 @@ import { Country, RankingSlot } from "../types/sharedTypes";
 // KROK 2: Definiujemy propsy komponentu, używając zaimportowanych typów
 interface RankingListProps {
   rankingSlots: RankingSlot[];
+  onCountryPress?: (countryId: string) => void;
 }
 
 // KROK 3: Usuwamy lokalne definicje `interface Country` i `interface RankingSlot`
 // Nie są już tutaj potrzebne!
 
-const RankingList: React.FC<RankingListProps> = ({ rankingSlots }) => {
+const RankingList: React.FC<RankingListProps> = ({
+  rankingSlots,
+  onCountryPress, // Pobieramy nową funkcję
+}) => {
   const theme = useTheme();
   return (
     <View>
@@ -26,13 +30,23 @@ const RankingList: React.FC<RankingListProps> = ({ rankingSlots }) => {
         </Text>
       ) : (
         rankingSlots.map((slot) => (
-          <View
+          // ZMIANA: Zamieniamy View na TouchableOpacity
+          <TouchableOpacity
             key={slot.id}
             style={[
               styles.rankingItemContainer,
               { backgroundColor: theme.colors.surface },
             ]}
+            // ZMIANA: Dodajemy logikę obsługi kliknięcia
+            onPress={() =>
+              onCountryPress && slot.country && onCountryPress(slot.country.id)
+            }
+            // ZMIANA: Wyłączamy klikanie, jeśli funkcja nie została przekazana
+            disabled={!onCountryPress}
+            // ZMIANA: Zmieniamy wizualny efekt kliknięcia (lub jego brak)
+            activeOpacity={onCountryPress ? 0.7 : 1.0}
           >
+            {/* CAŁA ZAWARTOŚĆ PONIŻEJJ POZOSTAJE BEZ ZMIAN */}
             <Text style={[styles.rank, { color: theme.colors.onSurface }]}>
               {slot.rank}.
             </Text>
@@ -60,7 +74,7 @@ const RankingList: React.FC<RankingListProps> = ({ rankingSlots }) => {
                 Unknown
               </Text>
             )}
-          </View>
+          </TouchableOpacity>
         ))
       )}
     </View>
