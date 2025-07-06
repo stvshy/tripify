@@ -376,16 +376,16 @@ export default function ProfileScreen() {
   // EFEKT 1: Pobieranie surowych danych z Firestore (działa równolegle z ładowaniem mapy krajów)
   useEffect(() => {
     if (!profileUid) {
-      setScreenPhase("presenting");
+      setScreenPhase("error"); // Zmiana z poprzedniej iteracji
       return;
     }
 
-    // Krok 1: Zresetuj stany przed załadowaniem nowego profilu
+    // Krok 1: Resetuj stany
     setScreenPhase("loading");
-    setIsListProcessing(true);
+    // setIsListProcessing(true);
     setRawUserProfile(null);
     setListData([]);
-    setRankingSlots([]); // WAŻNE: Resetuj też ranking!
+    setRankingSlots([]);
     setVisitedCount(0);
 
     const userRef = doc(db, "users", profileUid);
@@ -395,19 +395,18 @@ export default function ProfileScreen() {
       (snap) => {
         const currentCountriesMap = useCountryStore.getState().countriesMap;
 
-        // ▼▼▼ ZMIEŃ TEN BLOK ▼▼▼
         if (!snap.exists() || !currentCountriesMap) {
-          setScreenPhase("error"); // <--- Zamiast setRawUserProfile(null) i setScreenPhase('presenting')
-          setIsListProcessing(false);
+          setScreenPhase("error");
+          // setIsListProcessing(false);
           return;
         }
 
         const data = snap.data() as UserProfile;
         setRawUserProfile(data);
 
-        // ▼▼▼ ETAP 1: BŁYSKAWICZNE PRZETWARZANIE RANKINGU (lekkie dane) ▼▼▼
+        // ETAP 1: Błyskawiczne przetwarzanie rankingu
         const rankingRaw = data.ranking || [];
-        const visitedForRanking = data.countriesVisited || []; // Potrzebne do filtrowania rankingu
+        const visitedForRanking = data.countriesVisited || [];
         const newRankingSlots = rankingRaw
           .filter((code) => visitedForRanking.includes(code))
           .map((cca2, idx) => ({
@@ -417,18 +416,18 @@ export default function ProfileScreen() {
           }));
         setRankingSlots(newRankingSlots);
 
-        // Krok 2: Zakończ główną fazę ładowania. Nagłówek i ranking są gotowe do pokazania!
         setScreenPhase("presenting");
 
-        // ▼▼▼ ETAP 2: ODROCZONE PRZETWARZANIE LISTY KRAJÓW (ciężkie dane) ▼▼▼
-        // Używamy setTimeout, aby UI zdążyło się wyrenderować z rankingiem, zanim zaczniemy "ciężką" pracę.
-        const processVisitedCountriesIncrementally = async () => {
+        // ▼▼▼ ZASTĄP PĘTLĘ `processVisitedCountriesIncrementally` TĄ PROSTSZĄ LOGIKĄ ▼▼▼
+
+        // ETAP 2: PRZYGOTOWANIE DANYCH LISTY W TLE
+        // Robimy to w setTimeout, aby nie blokować renderowania nagłówka i rankingu.
+        setTimeout(() => {
+          // 1. Przetwarzamy CAŁĄ listę w pamięci - to jest szybkie.
           const visitedCodesRaw = data.countriesVisited || [];
           const newCountriesVisited = Array.from(new Set(visitedCodesRaw))
             .map((code) => currentCountriesMap.get(code))
             .filter((c): c is Country => c !== undefined);
-
-          setVisitedCount(newCountriesVisited.length);
 
           const groupedByContinent = newCountriesVisited.reduce(
             (acc, country) => {
@@ -440,44 +439,35 @@ export default function ProfileScreen() {
             {} as Record<string, Country[]>
           );
 
-          const sortedContinents = Object.entries(groupedByContinent).sort(
-            ([a], [b]) => a.localeCompare(b)
-          );
-
           let cumulativePillCount = 0;
-          for (const [continent, countriesInContinent] of sortedContinents) {
-            const newHeader: ListItem = {
-              type: "header",
-              id: continent,
-              continent,
-              count: countriesInContinent.length,
-            };
-            const newRow: ListItem = {
-              type: "countries_row",
-              id: `${continent}-row`,
-              countries: countriesInContinent,
-              startingPillIndex: cumulativePillCount,
-            };
+          const finalData: ListItem[] = [];
+          Object.entries(groupedByContinent)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .forEach(([continent, countriesInContinent]) => {
+              finalData.push({
+                type: "header",
+                id: continent,
+                continent,
+                count: countriesInContinent.length,
+              });
+              finalData.push({
+                type: "countries_row",
+                id: `${continent}-row`,
+                countries: countriesInContinent,
+                startingPillIndex: cumulativePillCount,
+              });
+              cumulativePillCount += countriesInContinent.length;
+            });
 
-            // Używamy callback formy setState, aby zawsze bazować na najnowszym stanie listy
-            setListData((currentList) => [...currentList, newHeader, newRow]);
-            cumulativePillCount += countriesInContinent.length;
-
-            // Dajemy UI chwilę na "oddech" i wyrenderowanie dodanego kontynentu
-            await new Promise((resolve) => setTimeout(resolve, 16)); // ~1 klatka przy 60fps
-          }
-
-          // Krok 3: Zakończ przetwarzanie listy, gdy pętla się skończy
-          setIsListProcessing(false);
-        };
-
-        processVisitedCountriesIncrementally(); // Małe opóźnienie (50ms) wystarczy, aby nie blokować wątku UI.
+          // 2. Ustawiamy stany TYLKO RAZ z finalnymi danymi.
+          setVisitedCount(newCountriesVisited.length);
+          setListData(finalData); // <--- Kluczowa zmiana: jedno wywołanie!
+          // setIsListProcessing(false);
+        }, 100); // Dajemy trochę więcej czasu (np. 100ms), aby mieć pewność, że UI jest w pełni responsywny.
       },
       (error) => {
-        console.error("Błąd pobierania profilu:", error);
-        // ▼▼▼ ZMIEŃ TEN BLOK ▼▼▼
-        setScreenPhase("error"); // <--- Użyj stanu 'error' także tutaj
-        setIsListProcessing(false);
+        setScreenPhase("error");
+        // setIsListProcessing(false);
       }
     );
 
@@ -717,15 +707,15 @@ export default function ProfileScreen() {
       handleCountryPress,
     ]
   );
-  const ListLoader = useCallback(() => {
-    if (!isListProcessing) return null; // Nie pokazuj nic, jeśli lista jest gotowa
+  // const ListLoader = useCallback(() => {
+  //   if (!isListProcessing) return null; // Nie pokazuj nic, jeśli lista jest gotowa
 
-    return (
-      <View style={{ padding: 40, alignItems: "center" }}>
-        <ActivityIndicator size="small" color={theme.colors.primary} />
-      </View>
-    );
-  }, [isListProcessing, theme.colors.primary]);
+  //   return (
+  //     <View style={{ padding: 40, alignItems: "center" }}>
+  //       <ActivityIndicator size="small" color={theme.colors.primary} />
+  //     </View>
+  //   );
+  // }, [isListProcessing, theme.colors.primary]);
   if (screenPhase === "loading") {
     return (
       <View
@@ -780,8 +770,8 @@ export default function ProfileScreen() {
         estimatedItemSize={100}
         removeClippedSubviews={true} // DODAJ
         ListHeaderComponent={ListHeader}
-        ListEmptyComponent={ListLoader}
-        extraData={{ isDarkTheme }} // isProcessingList już nie jest potrzebne
+        // ListEmptyComponent={ListLoader}
+        // extraData={{ isDarkTheme }} // isProcessingList już nie jest potrzebne
         contentContainerStyle={{
           paddingHorizontal: 16,
           paddingTop: 16,
