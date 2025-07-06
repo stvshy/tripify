@@ -673,28 +673,30 @@ export default function ProfileScreen() {
           onCountryPress={handleCountryPress}
         />
         <View style={profileStyles.visitedHeader}>
-          <View style={profileStyles.visitedHeaderTitleContainer}>
-            <Text
-              style={[
-                profileStyles.sectionTitle,
-                { color: theme.colors.onBackground, marginBottom: 0 }, // Usuwamy margines dolny
-              ]}
-            >
-              Visited Countries
-            </Text>
-            {/* Wskaźnik ładowania, widoczny tylko podczas przetwarzania listy */}
-            {isListProcessing && (
+          <Text
+            style={[
+              profileStyles.sectionTitle,
+              { color: theme.colors.onBackground },
+            ]}
+          >
+            Visited Countries
+          </Text>
+
+          {/* Kontener na wskaźnik lub licznik, umieszczony tuż obok tytułu */}
+          <View style={profileStyles.indicatorOrCountContainer}>
+            {isListProcessing ? (
               <ActivityIndicator
-                style={{ marginLeft: 8 }}
-                size="small"
+                size="small" // Zostawiamy 'small' jako bazę
                 color={theme.colors.primary}
+                // Dodajemy styl, aby go zmniejszyć
+                style={{ transform: [{ scale: 0.8 }] }}
               />
+            ) : (
+              <Text style={[profileStyles.visitedCount, { color: "gray" }]}>
+                ({visitedCount})
+              </Text>
             )}
           </View>
-          <Text style={[profileStyles.visitedCount, { color: "gray" }]}>
-            {/* Pokaż licznik dopiero gdy lista jest gotowa, lub pusty placeholder */}
-            {!isListProcessing ? `(${visitedCount}/218)` : "(...)"}
-          </Text>
         </View>
       </>
     ),
@@ -716,6 +718,7 @@ export default function ProfileScreen() {
       handleDecline,
       handleCountryPress,
       isListProcessing,
+      theme,
     ]
   );
   // const ListLoader = useCallback(() => {
@@ -913,6 +916,11 @@ const profileStyles = StyleSheet.create({
   headerButton: {
     padding: 8,
   },
+  indicatorOrCountContainer: {
+    // Ten styl umieszcza wskaźnik/licznik obok tytułu z małym odstępem
+    marginLeft: 8,
+    marginBottom: 10, // Dopasowujemy do marginesu sectionTitle, aby wszystko było w jednej linii
+  },
   continentSection: { marginTop: 10 },
   continentTitle: {
     fontSize: 15,
@@ -1032,14 +1040,15 @@ const profileStyles = StyleSheet.create({
   },
   visitedHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    // justifyContent: "space-between",
     alignItems: "center",
     marginBottom: -9,
   },
   visitedCount: {
-    fontSize: 14,
+    fontSize: 14.5,
     color: "gray",
-    marginBottom: 10,
+    marginLeft: -4,
+    // marginBottom: 10,
   },
   visitedList: {
     // flexDirection: "row",
