@@ -252,17 +252,6 @@ export default function RootLayout() {
   );
 }
 
-// Helper component do aplikowania tła z motywu
-function ThemedBackgroundWrapper({ children }: { children: React.ReactNode }) {
-  const theme = useTheme();
-
-  return (
-    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      {children}
-    </View>
-  );
-}
-
 // Komponent do stylizacji paska statusu i nawigacji
 function ThemedStatusBarAndNavBar({
   tooltipVisible,
