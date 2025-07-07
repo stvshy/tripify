@@ -538,7 +538,7 @@ export default function ProfileScreen() {
       visible: true,
       title: "Cancel Request",
       message: "Are you sure you want to cancel the friend request?",
-      confirmText: "Yes, Cancel",
+      confirmText: "Yes",
       isDestructive: false,
       onConfirm: () => {
         cancelOutgoingRequest(outgoingRequestToProfile.receiverUid);

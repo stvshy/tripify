@@ -19,7 +19,7 @@ interface ConfirmationModalProps {
   onConfirm: () => void;
   confirmText?: string;
   cancelText?: string;
-  isDestructive?: boolean; // Opcja dla przycisków "niebezpiecznych", np. usuwania
+  isDestructive?: boolean;
 }
 
 const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
@@ -43,7 +43,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
       transparent={true}
       visible={visible}
       animationType="fade"
-      onRequestClose={onCancel} // Umożliwia zamknięcie modala przyciskiem "wstecz" na Androidzie
+      onRequestClose={onCancel}
     >
       <View style={styles.overlay}>
         <View
@@ -60,8 +60,17 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
           </Text>
 
           <View style={styles.buttonContainer}>
+            {/* --- ZMIANA: Przycisk Anulowania (Outline) --- */}
             <TouchableOpacity
-              style={[styles.button, styles.cancelButton]}
+              style={[
+                styles.button,
+                styles.cancelButton,
+                {
+                  // Dodajemy ramkę w kolorze primary
+                  borderColor: theme.colors.primary,
+                  borderWidth: 1.5,
+                },
+              ]}
               onPress={onCancel}
             >
               <Text
@@ -70,6 +79,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                 {cancelText}
               </Text>
             </TouchableOpacity>
+            {/* --------------------------------------------- */}
 
             <TouchableOpacity
               style={[
@@ -111,39 +121,41 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   title: {
-    fontSize: 22,
+    fontSize: 20.5,
     fontWeight: "600",
     marginBottom: 12,
     textAlign: "center",
   },
   message: {
-    fontSize: 16,
+    fontSize: 15.5,
     textAlign: "center",
-    marginBottom: 24,
+    marginBottom: 20.5,
     lineHeight: 22,
   },
   buttonContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "space-evenly", // Zmienione na space-evenly dla lepszego rozłożenia
     width: "100%",
   },
   button: {
-    borderRadius: 20,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    minWidth: 100,
+    // Bazowe style zapewniają, że oba przyciski mają te same wymiary
+    borderRadius: 40,
+    paddingVertical: 8.8,
+    paddingHorizontal: 15,
+    minWidth: 103, // Zwiększono minWidth dla lepszego wyglądu
     alignItems: "center",
     justifyContent: "center",
-    marginHorizontal: 8,
+    // marginHorizontal: 8, // Usunięte, bo używamy space-evenly w kontenerze
   },
   cancelButton: {
+    // Zapewnia przezroczyste tło
     backgroundColor: "transparent",
   },
   confirmButton: {
     elevation: 2,
   },
   buttonText: {
-    fontSize: 16,
+    fontSize: 15.5,
     fontWeight: "bold",
   },
 });
