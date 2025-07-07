@@ -464,7 +464,7 @@ export default function ProfileScreen() {
           setVisitedCount(newCountriesVisited.length);
           setListData(finalData); // <--- Kluczowa zmiana: jedno wywołanie!
           setIsListProcessing(false);
-        }, 100); // Dajemy trochę więcej czasu (np. 100ms), aby mieć pewność, że UI jest w pełni responsywny.
+        }, 150); // Dajemy trochę więcej czasu (np. 100ms), aby mieć pewność, że UI jest w pełni responsywny.
       },
       (error) => {
         setScreenPhase("error");
@@ -574,13 +574,16 @@ export default function ProfileScreen() {
   );
 
   // ZASTĄP renderListItem tą wersją:
+  // app/profile/[uid].tsx
+
+  // ZASTĄP LUB ZWERYFIKUJ ISTNIEJĄCĄ FUNKCJĘ renderListItem
   const renderListItem = useCallback(
     ({ item, index }: { item: ListItem; index: number }) => {
-      const delay = index * 80; // Kaskadowe opóźnienie dla animacji wejścia
+      // Opóźnienie rośnie wraz z indeksem, co tworzy kaskadowy efekt od góry do dołu.
+      const delay = index * 80;
 
       switch (item.type) {
         case "header":
-          // Tekst nagłówka do owinięcia
           const headerText = (
             <Text style={profileStyles.continentTitle}>
               <Text style={{ color: isDarkTheme ? "#e6b3ff" : "#a821b5" }}>
@@ -595,7 +598,8 @@ export default function ProfileScreen() {
 
           return (
             <MotiView
-              from={{ opacity: 0, translateY: -15 }} // ZMIANA 1
+              // ZMIANA: Zaczynamy animację z przesunięciem w górę (ujemny translateY)
+              from={{ opacity: 0, translateY: -20 }}
               animate={{ opacity: 1, translateY: 0 }}
               transition={{ type: "timing", duration: 400, delay }}
               style={profileStyles.continentSection}
@@ -607,7 +611,8 @@ export default function ProfileScreen() {
         case "countries_row":
           return (
             <MotiView
-              from={{ opacity: 0, translateY: -15 }} // ZMIANA 2
+              // ZMIANA: Tutaj również zaczynamy z przesunięciem w górę
+              from={{ opacity: 0, translateY: -20 }}
               animate={{ opacity: 1, translateY: 0 }}
               transition={{ type: "timing", duration: 400, delay }}
             >
@@ -779,14 +784,13 @@ export default function ProfileScreen() {
       */}
       {/* {screenPhase === "presenting" && ( */}
       <FlashList
-        data={listData}
+        data={!isListProcessing ? listData : []} // ZMIANA 1: Podaj dane tylko gdy nie ma przetwarzania
         renderItem={renderListItem}
         keyExtractor={(item) => item.id}
         estimatedItemSize={100}
-        removeClippedSubviews={true} // DODAJ
         ListHeaderComponent={ListHeader}
-        // ListEmptyComponent={ListLoader}
-        extraData={{ isDarkTheme }}
+        // Upewnij się, że extraData zawiera isListProcessing, aby FlashList wiedziała, że ma się zaktualizować
+        extraData={{ isDarkTheme, isListProcessing }}
         contentContainerStyle={{
           paddingHorizontal: 16,
           paddingTop: 16,
