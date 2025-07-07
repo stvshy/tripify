@@ -106,6 +106,7 @@ const UserInfoPanel = React.memo(
     hasReceivedRequest,
     incomingRequestFromProfile,
     handlers,
+    isLoading,
   }: {
     userProfile: UserProfile;
     isFriend: boolean;
@@ -118,6 +119,7 @@ const UserInfoPanel = React.memo(
       onAccept: () => void;
       onDecline: () => void;
     };
+    isLoading: boolean;
   }) => {
     const theme = useTheme();
     const { isDarkTheme } = useContext(ThemeContext);
@@ -138,69 +140,85 @@ const UserInfoPanel = React.memo(
 
         {currentUser?.uid !== userProfile.uid && (
           <>
-            {hasReceivedRequest ? (
-              <View style={profileStyles.friendActionButtons}>
-                <TouchableOpacity
-                  onPress={handlers.onAccept}
-                  style={[
-                    profileStyles.acceptButton,
-                    { backgroundColor: theme.colors.primary },
-                  ]}
-                >
-                  <Text style={profileStyles.buttonText}>Accept</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handlers.onDecline}
-                  style={[
-                    profileStyles.declineButton,
-                    { backgroundColor: "rgba(116, 116, 116, 0.3)" },
-                  ]}
-                >
-                  <Text style={profileStyles.buttonText}>Decline</Text>
-                </TouchableOpacity>
+            {/* OWIŃ BLOK PRZYCISKÓW W WARUNEK */}
+            {isLoading ? (
+              // Gdy dane się ładują, pokaż wskaźnik lub pusty kontener
+              <View
+                style={[
+                  profileStyles.addFriendButton,
+                  { backgroundColor: "transparent" },
+                ]}
+              >
+                <ActivityIndicator color={theme.colors.primary} />
               </View>
-            ) : isFriend ? (
-              <TouchableOpacity
-                onPress={handlers.onRemove}
-                style={[
-                  profileStyles.addFriendButton,
-                  {
-                    backgroundColor: isDarkTheme
-                      ? "rgba(171, 109, 197, 0.4)"
-                      : "rgba(191, 115, 229, 0.43)",
-                  },
-                ]}
-              >
-                <Text
-                  style={{ color: "#fff", fontSize: 14, fontWeight: "500" }}
-                >
-                  Friend
-                </Text>
-              </TouchableOpacity>
-            ) : hasSentRequest ? (
-              <TouchableOpacity
-                style={[
-                  profileStyles.addFriendButton,
-                  {
-                    backgroundColor: isDarkTheme
-                      ? "rgba(128, 128, 128, 0.4)"
-                      : "rgba(204, 204, 204, 0.7)",
-                  },
-                ]}
-                disabled={true}
-              >
-                <Text style={profileStyles.addFriendButtonText}>Sent</Text>
-              </TouchableOpacity>
             ) : (
-              <TouchableOpacity
-                onPress={handlers.onAdd}
-                style={[
-                  profileStyles.addFriendButton,
-                  { backgroundColor: theme.colors.primary },
-                ]}
-              >
-                <Text style={profileStyles.addFriendButtonText}>Add</Text>
-              </TouchableOpacity>
+              // Gdy dane są załadowane, pokaż odpowiednie przyciski
+              <>
+                {hasReceivedRequest ? (
+                  <View style={profileStyles.friendActionButtons}>
+                    <TouchableOpacity
+                      onPress={handlers.onAccept}
+                      style={[
+                        profileStyles.acceptButton,
+                        { backgroundColor: theme.colors.primary },
+                      ]}
+                    >
+                      <Text style={profileStyles.buttonText}>Accept</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={handlers.onDecline}
+                      style={[
+                        profileStyles.declineButton,
+                        { backgroundColor: "rgba(116, 116, 116, 0.3)" },
+                      ]}
+                    >
+                      <Text style={profileStyles.buttonText}>Decline</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : isFriend ? (
+                  <TouchableOpacity
+                    onPress={handlers.onRemove}
+                    style={[
+                      profileStyles.addFriendButton,
+                      {
+                        backgroundColor: isDarkTheme
+                          ? "rgba(171, 109, 197, 0.4)"
+                          : "rgba(191, 115, 229, 0.43)",
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={{ color: "#fff", fontSize: 14, fontWeight: "500" }}
+                    >
+                      Friend
+                    </Text>
+                  </TouchableOpacity>
+                ) : hasSentRequest ? (
+                  <TouchableOpacity
+                    style={[
+                      profileStyles.addFriendButton,
+                      {
+                        backgroundColor: isDarkTheme
+                          ? "rgba(128, 128, 128, 0.4)"
+                          : "rgba(204, 204, 204, 0.7)",
+                      },
+                    ]}
+                    disabled={true}
+                  >
+                    <Text style={profileStyles.addFriendButtonText}>Sent</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    onPress={handlers.onAdd}
+                    style={[
+                      profileStyles.addFriendButton,
+                      { backgroundColor: theme.colors.primary },
+                    ]}
+                  >
+                    <Text style={profileStyles.addFriendButtonText}>Add</Text>
+                  </TouchableOpacity>
+                )}
+              </>
             )}
           </>
         )}
@@ -665,6 +683,7 @@ export default function ProfileScreen() {
               onAccept: handleAccept,
               onDecline: handleDecline,
             }}
+            isLoading={isLoadingCommunity} // <-- PRZEKAŻ STAN ŁADOWANIA
           />
         )}
         <RankingPreview

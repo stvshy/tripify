@@ -167,21 +167,21 @@ const CountryProfile = () => {
       setShowExtraInfo(true);
     }
   };
-  useFocusEffect(
-    useCallback(() => {
-      const onBackPress = () => {
-        router.back();
-        return true; // Wymuszamy natychmiastowy powrót
-      };
+  // useFocusEffect(
+  //   useCallback(() => {
+  //     const onBackPress = () => {
+  //       router.back();
+  //       return true; // Wymuszamy natychmiastowy powrót
+  //     };
 
-      const backHandler = BackHandler.addEventListener(
-        "hardwareBackPress",
-        onBackPress
-      );
+  //     const backHandler = BackHandler.addEventListener(
+  //       "hardwareBackPress",
+  //       onBackPress
+  //     );
 
-      return () => backHandler.remove();
-    }, [router])
-  );
+  //     return () => backHandler.remove();
+  //   }, [router])
+  // );
   useEffect(() => {
     if (auth.currentUser) {
       const userDocRef = doc(db, "users", auth.currentUser.uid);
