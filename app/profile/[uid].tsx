@@ -644,7 +644,6 @@ export default function ProfileScreen() {
   const handleCloseFullRanking = () => {
     setIsRankingModalVisible(false);
   };
-
   const ListHeader = useCallback(
     () => (
       <>
@@ -653,10 +652,9 @@ export default function ProfileScreen() {
           onToggleTheme={toggleTheme}
           isDarkTheme={isDarkTheme}
         />
-        {/* WAŻNA ZMIANA: Renderuj panel tylko gdy mamy surowe dane */}
         {rawUserProfile && (
           <UserInfoPanel
-            userProfile={rawUserProfile} // Używamy surowych danych
+            userProfile={rawUserProfile}
             isFriend={isFriend}
             hasSentRequest={hasSentRequest}
             hasReceivedRequest={hasReceivedRequest}
@@ -674,6 +672,9 @@ export default function ProfileScreen() {
           onShowFull={handleShowFullRanking}
           onCountryPress={handleCountryPress}
         />
+
+        {/* ZMIANA 1: Nagłówek sekcji jest teraz ZAWSZE widoczny. */}
+        {/* Nie ma tu już szkieletu! */}
         <View style={profileStyles.visitedHeader}>
           <Text
             style={[
@@ -684,26 +685,20 @@ export default function ProfileScreen() {
             Visited Countries
           </Text>
 
-          {/* Kontener, w którym ActivityIndicator zamieni się na licznik */}
           <View style={profileStyles.indicatorOrCountContainer}>
             {isListProcessing ? (
-              // Pokaż mały wskaźnik, gdy lista się przetwarza
               <ActivityIndicator
                 size="small"
                 color={theme.colors.primary}
-                style={{ transform: [{ scale: 0.8 }] }} // Nasz niestandardowy, mniejszy rozmiar
+                style={{ transform: [{ scale: 0.8 }] }}
               />
             ) : (
-              // Pokaż licznik, gdy lista jest gotowa
               <Text style={[profileStyles.visitedCount, { color: "gray" }]}>
                 ({visitedCount})
               </Text>
             )}
           </View>
         </View>
-
-        {/* Warunkowo renderuj szkielet, gdy lista się przetwarza */}
-        {isListProcessing && <VisitedCountriesSkeleton />}
       </>
     ),
     [
@@ -713,8 +708,7 @@ export default function ProfileScreen() {
       hasReceivedRequest,
       incomingRequestFromProfile,
       rankingSlots,
-      // usunięto isCountryListProcessing, bo już nie jest potrzebne tutaj
-      visitedCount, // Zmieniono z countriesVisited.length
+      visitedCount,
       isDarkTheme,
       handleBack,
       toggleTheme,
@@ -723,7 +717,8 @@ export default function ProfileScreen() {
       handleAccept,
       handleDecline,
       handleCountryPress,
-      isListProcessing,
+      handleShowFullRanking, // Dodaj tę zależność, jeśli jej brakowało
+      isListProcessing, // Ta zależność jest kluczowa dla ActivityIndicator
       theme,
     ]
   );
@@ -784,12 +779,18 @@ export default function ProfileScreen() {
       */}
       {/* {screenPhase === "presenting" && ( */}
       <FlashList
-        data={!isListProcessing ? listData : []} // ZMIANA 1: Podaj dane tylko gdy nie ma przetwarzania
+        // Gdy lista się przetwarza, przekazujemy pustą tablicę.
+        // Gdy jest gotowa, przekazujemy prawdziwe dane.
+        data={!isListProcessing ? listData : []}
         renderItem={renderListItem}
         keyExtractor={(item) => item.id}
         estimatedItemSize={100}
         ListHeaderComponent={ListHeader}
-        // Upewnij się, że extraData zawiera isListProcessing, aby FlashList wiedziała, że ma się zaktualizować
+        // ZMIANA 2: Używamy ListEmptyComponent do pokazania szkieletu.
+        // FlashList pokaże to, gdy `data` będzie pustą tablicą (czyli w trakcie ładowania).
+        // Gdy `data` się zapełni, FlashList sam podmieni szkielet na listę.
+        ListEmptyComponent={<VisitedCountriesSkeleton />}
+        // extraData jest ważne, aby FlashList wiedział o zmianach stanu
         extraData={{ isDarkTheme, isListProcessing }}
         contentContainerStyle={{
           paddingHorizontal: 16,
