@@ -8,6 +8,7 @@ import {
   Dimensions,
 } from "react-native";
 import { useTheme } from "react-native-paper";
+import { MotiView, AnimatePresence } from "moti";
 
 const { width } = Dimensions.get("window");
 
@@ -42,66 +43,95 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     <Modal
       transparent={true}
       visible={visible}
-      animationType="fade"
+      animationType="none"
       onRequestClose={onCancel}
+      statusBarTranslucent={true}
     >
-      <View style={styles.overlay}>
-        <View
-          style={[styles.content, { backgroundColor: theme.colors.surface }]}
-        >
-          <Text style={[styles.title, { color: theme.colors.onSurface }]}>
-            {title}
-          </Text>
-
-          <Text
-            style={[styles.message, { color: theme.colors.onSurfaceVariant }]}
+      <AnimatePresence>
+        {visible && (
+          <MotiView
+            style={styles.overlay}
+            from={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{
+              type: "timing",
+              duration: 230, // <--- ZMIANA: Skrócony czas dla tła
+            }}
           >
-            {message}
-          </Text>
-
-          <View style={styles.buttonContainer}>
-            {/* --- ZMIANA: Przycisk Anulowania (Outline) --- */}
-            <TouchableOpacity
+            {/* ZMIANA: Usunięto animację 'scale' i skrócono czas dla super płynnego 'fade' */}
+            <MotiView
               style={[
-                styles.button,
-                styles.cancelButton,
-                {
-                  // Dodajemy ramkę w kolorze primary
-                  borderColor: theme.colors.primary,
-                  borderWidth: 1.5,
-                },
+                styles.content,
+                { backgroundColor: theme.colors.surface },
               ]}
-              onPress={onCancel}
+              from={{ opacity: 0 }} // Tylko zanikanie, bez skalowania
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{
+                type: "timing",
+                duration: 170, // <--- ZMIANA: Bardzo krótki czas dla samego okna
+              }}
             >
-              <Text
-                style={[styles.buttonText, { color: theme.colors.primary }]}
-              >
-                {cancelText}
+              <Text style={[styles.title, { color: theme.colors.onSurface }]}>
+                {title}
               </Text>
-            </TouchableOpacity>
-            {/* --------------------------------------------- */}
 
-            <TouchableOpacity
-              style={[
-                styles.button,
-                styles.confirmButton,
-                { backgroundColor: confirmButtonColor },
-              ]}
-              onPress={onConfirm}
-            >
               <Text
-                style={[styles.buttonText, { color: theme.colors.onPrimary }]}
+                style={[
+                  styles.message,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
               >
-                {confirmText}
+                {message}
               </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
+
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.button,
+                    styles.cancelButton,
+                    {
+                      borderColor: theme.colors.primary,
+                      borderWidth: 1.5,
+                    },
+                  ]}
+                  onPress={onCancel}
+                >
+                  <Text
+                    style={[styles.buttonText, { color: theme.colors.primary }]}
+                  >
+                    {cancelText}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.button,
+                    styles.confirmButton,
+                    { backgroundColor: confirmButtonColor },
+                  ]}
+                  onPress={onConfirm}
+                >
+                  <Text
+                    style={[
+                      styles.buttonText,
+                      { color: theme.colors.onPrimary },
+                    ]}
+                  >
+                    {confirmText}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </MotiView>
+          </MotiView>
+        )}
+      </AnimatePresence>
     </Modal>
   );
 };
 
+// Style bez zmian
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
@@ -134,21 +164,18 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     flexDirection: "row",
-    justifyContent: "space-evenly", // Zmienione na space-evenly dla lepszego rozłożenia
+    justifyContent: "space-evenly",
     width: "100%",
   },
   button: {
-    // Bazowe style zapewniają, że oba przyciski mają te same wymiary
     borderRadius: 40,
     paddingVertical: 8.8,
     paddingHorizontal: 15,
-    minWidth: 103, // Zwiększono minWidth dla lepszego wyglądu
+    minWidth: 103,
     alignItems: "center",
     justifyContent: "center",
-    // marginHorizontal: 8, // Usunięte, bo używamy space-evenly w kontenerze
   },
   cancelButton: {
-    // Zapewnia przezroczyste tło
     backgroundColor: "transparent",
   },
   confirmButton: {
