@@ -12,10 +12,10 @@ import {
   Text,
   StyleSheet,
   ActivityIndicator,
-  ScrollView,
   TouchableOpacity,
   Dimensions,
   BackHandler,
+  Alert,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { db, auth } from "../config/firebaseConfig";
@@ -34,7 +34,7 @@ import CountryFlag from "react-native-country-flag";
 import { useCountryStore } from "../store/countryStore";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import VisitedCountriesSkeleton from "@/components/VisitedCountriesSkeleton";
-
+import ConfirmationModal from "../../components/ConfirmationModal";
 interface UserProfile {
   uid: string;
   nickname: string;
@@ -104,7 +104,6 @@ const UserInfoPanel = React.memo(
     isFriend,
     hasSentRequest,
     hasReceivedRequest,
-    incomingRequestFromProfile,
     handlers,
     isLoading,
   }: {
@@ -112,12 +111,12 @@ const UserInfoPanel = React.memo(
     isFriend: boolean;
     hasSentRequest: boolean;
     hasReceivedRequest: boolean;
-    incomingRequestFromProfile: any; // Dostosuj typ, jeśli go masz
     handlers: {
       onAdd: () => void;
       onRemove: () => void;
       onAccept: () => void;
       onDecline: () => void;
+      onCancelRequest: () => void;
     };
     isLoading: boolean;
   }) => {
@@ -194,7 +193,9 @@ const UserInfoPanel = React.memo(
                     </Text>
                   </TouchableOpacity>
                 ) : hasSentRequest ? (
+                  // ZMIANA: Modyfikacja przycisku "Sent"
                   <TouchableOpacity
+                    onPress={handlers.onCancelRequest} // Podpinamy nową funkcję
                     style={[
                       profileStyles.addFriendButton,
                       {
@@ -203,7 +204,7 @@ const UserInfoPanel = React.memo(
                           : "rgba(204, 204, 204, 0.7)",
                       },
                     ]}
-                    disabled={true}
+                    // disabled={true} // Usuwamy atrybut 'disabled', aby przycisk był klikalny
                   >
                     <Text style={profileStyles.addFriendButtonText}>Sent</Text>
                   </TouchableOpacity>
@@ -316,7 +317,14 @@ export default function ProfileScreen() {
       return () => cleanup(); // Sprzątaj, gdy ekran traci fokus
     }, [])
   );
-
+  const [modalState, setModalState] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+    confirmText: "Yes",
+    isDestructive: false,
+  });
   const { uid: profileUid } = useLocalSearchParams<{ uid: string }>();
   const [isListProcessing, setIsListProcessing] = useState(true);
   const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>([]);
@@ -350,13 +358,14 @@ export default function ProfileScreen() {
     rejectFriendRequest,
     sendFriendRequest,
     removeFriend,
+    cancelOutgoingRequest,
   } = useCommunityStore();
 
   // const isLoading = loadingProfile;
 
   // Sprawdzenie statusu znajomości (POPRAWIONE)
   const isFriend = useMemo(
-    () => friends.some((friend) => friend.uid === profileUid), // ZMIANA
+    () => friends.some((friend) => friend.uid === profileUid),
     [friends, profileUid]
   );
   const hasSentRequest = useMemo(
@@ -371,12 +380,14 @@ export default function ProfileScreen() {
     () => incomingRequests.find((req) => req.senderUid === profileUid),
     [incomingRequests, profileUid]
   );
-
-  type LoadingPhase = "initial" | "processing" | "done";
-  // const [isLoading, setIsLoading] = useState(true);
+  const outgoingRequestToProfile = useMemo(
+    () => outgoingRequests.find((req) => req.receiverUid === profileUid),
+    [outgoingRequests, profileUid]
+  );
   const [rawUserProfile, setRawUserProfile] = useState<UserProfile | null>(
     null
   );
+
   useEffect(() => {
     const backAction = () => {
       if (isRankingModalVisible) {
@@ -500,12 +511,41 @@ export default function ProfileScreen() {
       sendFriendRequest(rawUserProfile.uid, rawUserProfile.nickname);
     }
   };
-  const handleRemove = () => {
-    if (profileUid) {
-      removeFriend(profileUid); // removeFriend oczekuje UID
-    }
+  const handleCloseModal = () => {
+    setModalState({ ...modalState, visible: false });
   };
 
+  const handleRemove = () => {
+    if (!profileUid || !rawUserProfile) return;
+
+    setModalState({
+      visible: true,
+      title: "Remove Friend",
+      message: `Are you sure you want to remove ${rawUserProfile.nickname} from your friends?`,
+      confirmText: "Remove",
+      isDestructive: true, // Użyjemy czerwonego przycisku
+      onConfirm: () => {
+        removeFriend(profileUid);
+        handleCloseModal(); // Zamknij modal po potwierdzeniu
+      },
+    });
+  };
+
+  const handleCancelRequest = () => {
+    if (!outgoingRequestToProfile) return;
+
+    setModalState({
+      visible: true,
+      title: "Cancel Request",
+      message: "Are you sure you want to cancel the friend request?",
+      confirmText: "Yes, Cancel",
+      isDestructive: false,
+      onConfirm: () => {
+        cancelOutgoingRequest(outgoingRequestToProfile.receiverUid);
+        handleCloseModal(); // Zamknij modal po potwierdzeniu
+      },
+    });
+  };
   const handleAccept = () => {
     if (incomingRequestFromProfile) {
       acceptFriendRequest(incomingRequestFromProfile);
@@ -676,12 +716,13 @@ export default function ProfileScreen() {
             isFriend={isFriend}
             hasSentRequest={hasSentRequest}
             hasReceivedRequest={hasReceivedRequest}
-            incomingRequestFromProfile={incomingRequestFromProfile}
+            // incomingRequestFromProfile={incomingRequestFromProfile}
             handlers={{
               onAdd: handleAdd,
               onRemove: handleRemove,
               onAccept: handleAccept,
               onDecline: handleDecline,
+              onCancelRequest: handleCancelRequest,
             }}
             isLoading={isLoadingCommunity} // <-- PRZEKAŻ STAN ŁADOWANIA
           />
@@ -739,6 +780,7 @@ export default function ProfileScreen() {
       handleShowFullRanking, // Dodaj tę zależność, jeśli jej brakowało
       isListProcessing, // Ta zależność jest kluczowa dla ActivityIndicator
       theme,
+      handleCancelRequest,
     ]
   );
   // const ListLoader = useCallback(() => {
@@ -906,6 +948,15 @@ export default function ProfileScreen() {
           </MotiView>
         )}
       </AnimatePresence>
+      <ConfirmationModal
+        visible={modalState.visible}
+        title={modalState.title}
+        message={modalState.message}
+        onCancel={handleCloseModal}
+        onConfirm={modalState.onConfirm}
+        confirmText={modalState.confirmText}
+        isDestructive={modalState.isDestructive}
+      />
     </View>
   );
 }
