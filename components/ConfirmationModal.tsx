@@ -70,7 +70,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
               exit={{ opacity: 0 }}
               transition={{
                 type: "timing",
-                duration: 170, // <--- ZMIANA: Bardzo krótki czas dla samego okna
+                duration: 230, // <--- ZMIANA: Bardzo krótki czas dla samego okna
               }}
             >
               <Text style={[styles.title, { color: theme.colors.onSurface }]}>
@@ -178,9 +178,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     backgroundColor: "transparent",
   },
-  confirmButton: {
-    elevation: 2,
-  },
+  confirmButton: {},
   buttonText: {
     fontSize: 15.5,
     fontWeight: "bold",
