@@ -35,6 +35,7 @@ const FriendRequestItem: React.FC<{
   onReject: (id: string) => void;
 }> = ({ request, onAccept, onReject }) => {
   const theme = useTheme();
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const { senderUid, senderNickname, id } = request;
   return (
@@ -120,35 +121,41 @@ const OutgoingRequestItem: React.FC<{
 // --- Główny komponent ekranu ---
 export default function FriendRequestsScreen() {
   const theme = useTheme();
+  const isLoading = useCommunityStore((state) => state.isLoading);
+  const incomingRequests = useCommunityStore((state) => state.incomingRequests);
+  const outgoingRequests = useCommunityStore((state) => state.outgoingRequests);
+  const listenForCommunityData = useCommunityStore(
+    (state) => state.listenForCommunityData
+  );
+  const cleanup = useCommunityStore((state) => state.cleanup);
+  const acceptFriendRequest = useCommunityStore(
+    (state) => state.acceptFriendRequest
+  );
+  const rejectFriendRequest = useCommunityStore(
+    (state) => state.rejectFriendRequest
+  );
+  const cancelOutgoingRequest = useCommunityStore(
+    (state) => state.cancelOutgoingRequest
+  );
 
-  // NOWA CZĘŚĆ: Pobieramy wszystko, czego potrzebujemy, z jednego miejsca
-  const {
-    isLoading,
-    incomingRequests,
-    outgoingRequests,
-    // listenForCommunityData,
-    // cleanup,
-    acceptFriendRequest,
-    rejectFriendRequest,
-    cancelOutgoingRequest,
-  } = useCommunityStore();
-
-  // STARA CZĘŚĆ (UI): Logika animacji i panelu pozostaje praktycznie bez zmian
+  // STARA CZĘŚĆ (UI): bez zmian ...
   const screenHeight = Dimensions.get("window").height;
   const animatedValue = useRef(new Animated.Value(screenHeight)).current;
   const animatedValueRef = useRef(screenHeight);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      // Pobieramy funkcje ze store'u wewnątrz callbacka
-      const { listenForCommunityData, cleanup } = useCommunityStore.getState();
+  // --- POPRAWIONY useFocusEffect ---
+  // useFocusEffect(
+  //   useCallback(() => {
+  //     // Funkcje są już dostępne z hooków powyżej
+  //     listenForCommunityData(); // Uruchom nasłuchiwanie
 
-      listenForCommunityData(); // Uruchom nasłuchiwanie
-
-      return () => cleanup(); // Sprzątaj, gdy ekran traci fokus
-    }, [])
-  );
+  //     // Zwróć funkcję czyszczącą
+  //     return () => {
+  //       cleanup(); // Sprzątaj, gdy ekran traci fokus
+  //     };
+  //   }, [listenForCommunityData, cleanup]) // Dodajemy funkcje do tablicy zależności dla pewności
+  // );
 
   useEffect(() => {
     const listenerId = animatedValue.addListener(({ value }) => {

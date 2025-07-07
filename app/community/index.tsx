@@ -329,13 +329,13 @@ export default function CommunityScreen() {
   const router = useRouter();
   const theme = useTheme();
 
-  useFocusEffect(
-    useCallback(() => {
-      const { listenForCommunityData, cleanup } = useCommunityStore.getState();
-      listenForCommunityData();
-      return () => cleanup();
-    }, [])
-  );
+  // useFocusEffect(
+  //   useCallback(() => {
+  //     const { listenForCommunityData, cleanup } = useCommunityStore.getState();
+  //     listenForCommunityData();
+  //     return () => cleanup();
+  //   }, [])
+  // );
 
   const filteredFriends = useMemo(() => {
     if (!searchText) {

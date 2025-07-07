@@ -82,72 +82,114 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
     cleanup: () => {
       console.log("CommunityStore: Running cleanup, unsubscribing listeners.");
       get().unsubscribeListeners();
-      set(initialState); // Resetujemy do stanu początkowego
+      // set(initialState); // Resetujemy do stanu początkowego
     },
 
     listenForCommunityData: () => {
       const currentUser = auth.currentUser;
       if (!currentUser) {
-        set({ isLoading: false });
+        console.log("[DEBUG] No user found. Cleaning up.");
         get().cleanup();
+        set({ isLoading: false });
         return;
       }
 
+      console.log(
+        `[DEBUG] Starting listener setup for user: ${currentUser.uid}`
+      );
       get().unsubscribeListeners();
       const userId = currentUser.uid;
-      const unsubscribers: (() => void)[] = [];
       set({ isLoading: true });
 
-      const userDocRef = doc(db, "users", userId);
+      let userDocLoaded = false;
+      let incomingRequestsLoaded = false;
 
+      const checkLoadingComplete = () => {
+        console.log(
+          `[DEBUG] Checking loading status: userDocLoaded=${userDocLoaded}, incomingRequestsLoaded=${incomingRequestsLoaded}`
+        );
+        if (userDocLoaded && incomingRequestsLoaded) {
+          console.log(
+            "[DEBUG] Both listeners loaded. Setting isLoading to false."
+          );
+          set({ isLoading: false });
+        }
+      };
+
+      const unsubscribers: (() => void)[] = [];
+
+      // --- Listener 1: Dokument użytkownika ---
+      const userDocRef = doc(db, "users", userId);
+      console.log(
+        `[DEBUG] Attaching listener to user document: users/${userId}`
+      );
       const unsubUserDoc = onSnapshot(
         userDocRef,
         (snapshot) => {
+          console.log("[DEBUG] SUCCESS: User document snapshot received.");
           const userData = snapshot.exists() ? snapshot.data() : {};
           const friendsList: Friendship[] = userData.friends || [];
           const outgoingList: OutgoingRequest[] =
             userData.friendRequests?.outgoing || [];
+
           set({
             friends: friendsList,
             outgoingRequests: outgoingList,
-            isLoading: false,
           });
+
+          userDocLoaded = true;
+          checkLoadingComplete();
         },
         (error) => {
-          console.error("Error in userDoc listener:", error);
-          set({ isLoading: false });
+          console.error("[DEBUG] ERROR in userDoc listener:", error);
+          userDocLoaded = true; // Traktujemy błąd jako "zakończenie" ładowania
+          checkLoadingComplete();
         }
       );
       unsubscribers.push(unsubUserDoc);
 
+      // --- Listener 2: Podkolekcja z zaproszeniami ---
       const incomingCollectionRef = collection(
         db,
         "users",
         userId,
         "incomingFriendRequests"
       );
-      // communityStore.ts -> listenForCommunityData
-
+      console.log(
+        `[DEBUG] Attaching listener to subcollection: users/${userId}/incomingFriendRequests`
+      );
       const unsubIncoming = onSnapshot(
         incomingCollectionRef,
         (snapshot) => {
-          // Usunęliśmy 'async'
-          const incomingList: IncomingRequest[] = snapshot.docs.map((d) => {
-            const data = d.data();
-            return {
-              id: d.id,
-              senderUid: data.senderUid,
-              senderNickname: data.senderNickname || "Unknown", // <--- Pobieramy bezpośrednio
-            };
-          });
+          console.log(
+            `[DEBUG] SUCCESS: Incoming requests snapshot received. Found ${snapshot.docs.length} requests.`
+          );
+          const incomingList: IncomingRequest[] = snapshot.docs.map(
+            (d) =>
+              ({
+                id: d.id,
+                ...d.data(),
+              }) as IncomingRequest
+          );
+
           set({ incomingRequests: incomingList });
+
+          incomingRequestsLoaded = true;
+          checkLoadingComplete();
         },
-        (error) => console.error("Error in incomingRequests listener:", error)
+        (error) => {
+          console.error("[DEBUG] ERROR in incomingRequests listener:", error);
+          incomingRequestsLoaded = true; // Traktujemy błąd jako "zakończenie" ładowania
+          checkLoadingComplete();
+        }
       );
       unsubscribers.push(unsubIncoming);
 
       set({
-        unsubscribeListeners: () => unsubscribers.forEach((unsub) => unsub()),
+        unsubscribeListeners: () => {
+          console.log("[DEBUG] Cleaning up listeners.");
+          unsubscribers.forEach((unsub) => unsub());
+        },
       });
     },
     // ====================================================================

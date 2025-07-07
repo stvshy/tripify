@@ -1,23 +1,45 @@
 // app/community/_layout.tsx
-import React, { useContext } from "react";
-import { Stack } from "expo-router";
+import React, { useContext, useCallback } from "react";
+import { Stack, useFocusEffect } from "expo-router"; // Dodaj useFocusEffect
 import { useTheme, IconButton } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
-// Poprawiona ścieżka, jeśli ThemeContext jest w app/config
 import { ThemeContext } from "../config/ThemeContext";
 import { TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
+import { useCommunityStore } from "../store/communityStore"; // Importuj store
 
 export default function CommunityLayout() {
   const { toggleTheme, isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme();
   const router = useRouter();
 
+  // --- NOWA, KLUCZOWA CZĘŚĆ ---
+  // Pobierz funkcje ze store'u
+  const listenForCommunityData = useCommunityStore(
+    (state) => state.listenForCommunityData
+  );
+  const cleanup = useCommunityStore((state) => state.cleanup);
+
+  // Użyj useFocusEffect na poziomie całego layoutu
+  useFocusEffect(
+    useCallback(() => {
+      console.log("CommunityLayout FOCUSED - starting listeners.");
+      listenForCommunityData();
+
+      // Funkcja czyszcząca zostanie wywołana, gdy opuścisz całą sekcję Community
+      return () => {
+        console.log("CommunityLayout UNFOCUSED - cleaning up listeners.");
+        cleanup();
+      };
+    }, [listenForCommunityData, cleanup])
+  );
+  // -------------------------
+
   return (
-    // Ten View jest kluczowy. Upewnij się, że theme.colors.background jest nieprzezroczysty.
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <Stack
         screenOptions={{
+          // ... twoje opcje bez zmian
           headerStyle: {
             backgroundColor: theme.colors.surface,
           },
@@ -37,14 +59,10 @@ export default function CommunityLayout() {
               />
             </TouchableOpacity>
           ),
-          // contentStyle ustawia tło dla obszaru *wewnątrz* karty ekranu.
-          // To jest prawidłowe i powinno działać.
           contentStyle: {
             backgroundColor: theme.colors.background,
           },
           animation: "slide_from_right",
-          // Upewnijmy się, że nagłówek nie jest ustawiony na przezroczysty,
-          // co mogłoby wpłynąć na zachowanie karty. Domyślnie jest false.
           headerTransparent: false,
         }}
       >
