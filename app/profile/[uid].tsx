@@ -599,7 +599,7 @@ export default function ProfileScreen() {
           return (
             <MotiView
               // ZMIANA: Zaczynamy animację z przesunięciem w górę (ujemny translateY)
-              from={{ opacity: 0, translateY: -20 }}
+              from={{ opacity: 0, translateY: -13 }}
               animate={{ opacity: 1, translateY: 0 }}
               transition={{ type: "timing", duration: 400, delay }}
               style={profileStyles.continentSection}
@@ -612,7 +612,7 @@ export default function ProfileScreen() {
           return (
             <MotiView
               // ZMIANA: Tutaj również zaczynamy z przesunięciem w górę
-              from={{ opacity: 0, translateY: -20 }}
+              from={{ opacity: 0, translateY: -13 }}
               animate={{ opacity: 1, translateY: 0 }}
               transition={{ type: "timing", duration: 400, delay }}
             >
@@ -789,7 +789,23 @@ export default function ProfileScreen() {
         // ZMIANA 2: Używamy ListEmptyComponent do pokazania szkieletu.
         // FlashList pokaże to, gdy `data` będzie pustą tablicą (czyli w trakcie ładowania).
         // Gdy `data` się zapełni, FlashList sam podmieni szkielet na listę.
-        ListEmptyComponent={<VisitedCountriesSkeleton />}
+        ListEmptyComponent={
+          isListProcessing ? (
+            // Gdy ładujemy, pokazujemy szkielet
+            <VisitedCountriesSkeleton />
+          ) : (
+            // Gdy ładowanie skończone i lista jest pusta, pokazujemy komunikat
+            // stylizowany DOKŁADNIE tak, jak w RankingList.
+            <Text
+              style={{
+                color: theme.colors.onBackground,
+                marginTop: 8, // Drobny margines, aby oddzielić od nagłówka, tak jak w liście
+              }}
+            >
+              No countries visited yet.
+            </Text>
+          )
+        }
         // extraData jest ważne, aby FlashList wiedział o zmianach stanu
         extraData={{ isDarkTheme, isListProcessing }}
         contentContainerStyle={{
