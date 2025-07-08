@@ -245,7 +245,7 @@ interface SearchResultItemProps {
   item: User;
   theme: MD3Theme;
   isAlreadyFriend: boolean;
-  hasSentRequest: boolean;
+  hasSentRequestInitial: boolean;
   onNavigateToProfile: (uid: string) => void;
   onAddFriend: (uid: string, nickname: string) => void;
 }
@@ -254,14 +254,29 @@ const SearchResultItem: React.FC<SearchResultItemProps> = memo(
     item,
     theme,
     isAlreadyFriend,
-    hasSentRequest,
+    hasSentRequestInitial,
     onNavigateToProfile,
     onAddFriend,
   }) => {
+    const [requestSent, setRequestSent] = useState(hasSentRequestInitial);
+    useEffect(() => {
+      setRequestSent(hasSentRequestInitial);
+    }, [hasSentRequestInitial]);
+
+    const handlePressAdd = () => {
+      // 1. Wywołaj funkcję wysyłającą zaproszenie
+      onAddFriend(item.uid, item.nickname as string);
+      // 2. OPTYMISTYCZNIE i NATYCHMIAST zmień lokalny stan na `true`
+      setRequestSent(true);
+    };
+    // -------------------------
+
     let buttonContent,
       isDisabled = false,
       specificButtonStyle,
       buttonBackgroundColor = theme.colors.primary;
+
+    // Logika renderowania przycisku teraz używa stanu `requestSent`
     if (isAlreadyFriend) {
       specificButtonStyle = styles.friendButton;
       buttonBackgroundColor = theme.dark
@@ -273,7 +288,8 @@ const SearchResultItem: React.FC<SearchResultItemProps> = memo(
         </Text>
       );
       isDisabled = true;
-    } else if (hasSentRequest) {
+    } else if (requestSent) {
+      // <-- ZMIANA: używamy stanu lokalnego
       specificButtonStyle = styles.sentButton;
       buttonBackgroundColor = theme.dark
         ? "rgba(128, 128, 128, 0.4)"
@@ -284,6 +300,7 @@ const SearchResultItem: React.FC<SearchResultItemProps> = memo(
       specificButtonStyle = styles.addCircle;
       buttonContent = <Ionicons name="add" size={17} color="#fff" />;
     }
+
     return (
       <TouchableOpacity
         onPress={() => onNavigateToProfile(item.uid)}
@@ -293,7 +310,7 @@ const SearchResultItem: React.FC<SearchResultItemProps> = memo(
           {item.nickname}
         </Text>
         <TouchableOpacity
-          onPress={() => onAddFriend(item.uid, item.nickname)}
+          onPress={handlePressAdd} // <-- ZMIANA: używamy nowej funkcji
           style={[
             specificButtonStyle,
             { backgroundColor: buttonBackgroundColor },
@@ -323,19 +340,22 @@ export default function CommunityScreen() {
   const [searchText, setSearchText] = useState("");
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [activeFriendId, setActiveFriendId] = useState<string | null>(null);
-  const [isFocused, setIsFocused] = useState(false);
+  const [isFocused, setIsFocused] = useState(true);
   const [searchAttempted, setSearchAttempted] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
   const theme = useTheme();
 
-  // useFocusEffect(
-  //   useCallback(() => {
-  //     const { listenForCommunityData, cleanup } = useCommunityStore.getState();
-  //     listenForCommunityData();
-  //     return () => cleanup();
-  //   }, [])
-  // );
+  useFocusEffect(
+    useCallback(() => {
+      // Ta prosta zmiana stanu wymusi ponowne renderowanie komponentu
+      // za każdym razem, gdy ekran odzyska fokus.
+      setIsFocused(true);
+
+      // Funkcja czyszcząca
+      return () => setIsFocused(false);
+    }, [])
+  );
 
   const filteredFriends = useMemo(() => {
     if (!searchText) {
@@ -573,11 +593,12 @@ export default function CommunityScreen() {
                           item={item}
                           theme={theme}
                           isAlreadyFriend={isAlreadyFriend(item.uid)}
-                          hasSentRequest={hasSentRequest(item.uid)}
+                          hasSentRequestInitial={hasSentRequest(item.uid)}
                           onNavigateToProfile={navigateToProfile}
                           onAddFriend={sendFriendRequest}
                         />
                       )}
+                      extraData={{ friends, outgoingRequests }}
                       initialNumToRender={11}
                       maxToRenderPerBatch={11}
                       windowSize={11}
