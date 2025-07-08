@@ -22,10 +22,9 @@ import {
 } from "../store/communityStore";
 
 const ITEM_HEIGHT = 60;
-const PANEL_HEADER_HEIGHT = 41; // Ta wartość jest prawidłowa
+const PANEL_HEADER_HEIGHT = 41;
 
-// --- Komponenty potomne (Itemy listy) ---
-// ... (bez zmian, pozostają takie same) ...
+// --- Komponenty potomne (bez zmian) ---
 const FriendRequestItem: React.FC<{
   request: IncomingRequest;
   onAccept: (req: IncomingRequest) => void;
@@ -142,15 +141,12 @@ export default function FriendRequestsScreen() {
     return () => animatedValue.removeListener(listenerId);
   }, [animatedValue]);
 
-  // KLUCZOWA ZMIANA JEST TUTAJ
   const calculatePanelHeight = useCallback((): number => {
-    // Używamy zdefiniowanej na górze, prawidłowej stałej PANEL_HEADER_HEIGHT (45),
-    // zamiast błędnej wartości 80. To rozwiązuje problem nadmiarowego paddingu.
     const headerAndPaddingHeight = PANEL_HEADER_HEIGHT;
     const contentHeight =
       outgoingRequests.length * ITEM_HEIGHT + headerAndPaddingHeight;
     const maxPanelHeight = screenHeight * 0.8;
-    const minPanelHeight = 150; // Minimalna wysokość panelu
+    const minPanelHeight = 150;
 
     return Math.max(Math.min(contentHeight, maxPanelHeight), minPanelHeight);
   }, [outgoingRequests, screenHeight]);
@@ -183,21 +179,30 @@ export default function FriendRequestsScreen() {
       onMoveShouldSetPanResponder: (_, gestureState) =>
         Math.abs(gestureState.dy) > 10,
       onPanResponderMove: (_, gestureState) => {
-        const currentPanelHeight = calculatePanelHeight();
-        if (gestureState.dy < 0) {
-          const newValue = animatedValueRef.current + gestureState.dy;
-          const minValue = screenHeight - currentPanelHeight;
-          animatedValue.setValue(Math.max(newValue, minValue));
-        } else if (gestureState.dy > 0) {
-          const newValue = animatedValueRef.current + gestureState.dy;
-          animatedValue.setValue(newValue);
+        // Pozwala na przeciąganie tylko w dół z pozycji otwartej
+        if (gestureState.dy > 0) {
+          const openPosition = screenHeight - calculatePanelHeight();
+          animatedValue.setValue(openPosition + gestureState.dy);
         }
       },
+      // ✅✅✅ TUTAJ ZNAJDUJE SIĘ KLUCZOWA ZMIANA ✅✅✅
       onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dy < -50) openPanel();
-        else if (gestureState.dy > 50) closePanel();
-        else {
-          isPanelOpen ? openPanel() : closePanel();
+        const panelHeight = calculatePanelHeight();
+        const openPosition = screenHeight - panelHeight;
+        const currentPosition = animatedValueRef.current;
+
+        // Definiujemy próg zamknięcia. Jeśli panel jest przeciągnięty
+        // o więcej niż 40% swojej wysokości, zostanie zamknięty.
+        // Możesz eksperymentować z tą wartością (np. 0.3 dla 30%).
+        const closeThreshold = openPosition + panelHeight * 0.4;
+
+        // Jeśli panel został przeciągnięty poniżej progu LUB gest w dół
+        // był wystarczająco szybki (flick), zamykamy panel.
+        if (currentPosition > closeThreshold || gestureState.vy > 0.5) {
+          closePanel();
+        } else {
+          // W przeciwnym wypadku, wracamy do pozycji otwartej.
+          openPanel();
         }
       },
     })
@@ -277,8 +282,6 @@ export default function FriendRequestsScreen() {
               onCancel={cancelOutgoingRequest}
             />
           )}
-          // Ten atrybut nie jest już krytyczny po poprawieniu wysokości, ale
-          // jego pozostawienie jest dobrą praktyką, aby lista sama nie dodawała paddingu.
           contentContainerStyle={{ paddingBottom: 8 }}
         />
       </Animated.View>
@@ -349,7 +352,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     paddingHorizontal: 16,
     paddingTop: 16,
-    // Dodajemy mały padding na dole dla estetyki, ale wysokość jest już dobrze obliczona
     paddingBottom: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
