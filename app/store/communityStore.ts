@@ -245,7 +245,6 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
       }
 
       await batch.commit();
-      Alert.alert("Success", "Friend added!");
     },
 
     rejectFriendRequest: async (requestId: string) => {
@@ -259,7 +258,6 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
         requestId
       );
       await deleteDoc(requestRef);
-      Alert.alert("Rejected", "Friend request rejected.");
     },
 
     removeFriend: async (friendUid: string) => {
@@ -299,8 +297,6 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
             friends: updatedFriendUserFriends,
           });
         });
-
-        Alert.alert("Success", "Friend removed.");
       } catch (error) {
         console.error("Error removing friend with transaction:", error);
         Alert.alert("Error", "Could not remove friend.");
@@ -371,8 +367,6 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
           outgoingRequests: [...state.outgoingRequests, newOutgoingRequest],
         }));
         // ------------------------------------------------------------------
-
-        Alert.alert("Success", `Friend request sent to ${receiverNickname}.`);
       } catch (error) {
         console.error("Error sending friend request:", error);
         Alert.alert(
@@ -418,7 +412,6 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
         }
 
         await batch.commit();
-        Alert.alert("Canceled", "Friend request has been canceled.");
       } catch (error) {
         console.error("Error canceling outgoing request:", error);
         Alert.alert("Error", "Failed to cancel request.");
