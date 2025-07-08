@@ -355,18 +355,18 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
         });
 
         const currentUserRef = doc(db, "users", currentUser.uid);
-        const newOutgoingRequest = { receiverUid, receiverNickname }; // Tworzymy obiekt nowego zaproszenia
+        const newOutgoingRequest = { receiverUid, receiverNickname };
         batch.update(currentUserRef, {
           "friendRequests.outgoing": arrayUnion(newOutgoingRequest),
         });
 
-        await batch.commit(); // Wykonujemy operacje na bazie
+        await batch.commit();
 
-        // ----  NOWA, KLUCZOWA CZĘŚĆ: OPTYMISTYCZNA AKTUALIZACJA STANU ----
-        set((state) => ({
-          outgoingRequests: [...state.outgoingRequests, newOutgoingRequest],
-        }));
-        // ------------------------------------------------------------------
+        // ----  USUŃ TĘ CZĘŚĆ ----
+        // set((state) => ({
+        //   outgoingRequests: [...state.outgoingRequests, newOutgoingRequest],
+        // }));
+        // -------------------------
       } catch (error) {
         console.error("Error sending friend request:", error);
         Alert.alert(
