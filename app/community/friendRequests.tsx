@@ -15,18 +15,17 @@ import { useFocusEffect } from "@react-navigation/native";
 import { AntDesign, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
-// NOWA CZĘŚĆ: Importujemy wszystko z naszego centralnego store'u
 import {
   useCommunityStore,
   IncomingRequest,
   OutgoingRequest,
 } from "../store/communityStore";
 
-const ITEM_HEIGHT = 60; // Wysokość pojedynczego elementu listy
+const ITEM_HEIGHT = 60;
+const PANEL_HEADER_HEIGHT = 41; // Ta wartość jest prawidłowa
 
 // --- Komponenty potomne (Itemy listy) ---
-// Te komponenty są już wydajne, bo nie pobierają same danych.
-
+// ... (bez zmian, pozostają takie same) ...
 const FriendRequestItem: React.FC<{
   request: IncomingRequest;
   onAccept: (req: IncomingRequest) => void;
@@ -143,12 +142,17 @@ export default function FriendRequestsScreen() {
     return () => animatedValue.removeListener(listenerId);
   }, [animatedValue]);
 
+  // KLUCZOWA ZMIANA JEST TUTAJ
   const calculatePanelHeight = useCallback((): number => {
-    const headerAndPaddingHeight = 80; // Przybliżona wysokość nagłówka panelu i paddingów
+    // Używamy zdefiniowanej na górze, prawidłowej stałej PANEL_HEADER_HEIGHT (45),
+    // zamiast błędnej wartości 80. To rozwiązuje problem nadmiarowego paddingu.
+    const headerAndPaddingHeight = PANEL_HEADER_HEIGHT;
     const contentHeight =
       outgoingRequests.length * ITEM_HEIGHT + headerAndPaddingHeight;
     const maxPanelHeight = screenHeight * 0.8;
-    return Math.max(Math.min(contentHeight, maxPanelHeight), 150);
+    const minPanelHeight = 150; // Minimalna wysokość panelu
+
+    return Math.max(Math.min(contentHeight, maxPanelHeight), minPanelHeight);
   }, [outgoingRequests, screenHeight]);
 
   const openPanel = useCallback(() => {
@@ -211,7 +215,6 @@ export default function FriendRequestsScreen() {
     <View
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      {/* Lista przychodzących zaproszeń */}
       {incomingRequests.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={{ color: theme.colors.onBackground }}>
@@ -232,7 +235,6 @@ export default function FriendRequestsScreen() {
         />
       )}
 
-      {/* Przycisk do otwierania panelu */}
       <TouchableOpacity
         onPress={openPanel}
         style={[
@@ -249,7 +251,6 @@ export default function FriendRequestsScreen() {
         />
       </TouchableOpacity>
 
-      {/* Panel z wysłanymi zaproszeniami */}
       <Animated.View
         style={[
           styles.outgoingPanel,
@@ -276,8 +277,9 @@ export default function FriendRequestsScreen() {
               onCancel={cancelOutgoingRequest}
             />
           )}
-          // ZMIANA 2 (część 2/2): Zmniejszamy padding na dole listy do rozsądnej wartości.
-          contentContainerStyle={{ paddingBottom: 0 }}
+          // Ten atrybut nie jest już krytyczny po poprawieniu wysokości, ale
+          // jego pozostawienie jest dobrą praktyką, aby lista sama nie dodawała paddingu.
+          contentContainerStyle={{ paddingBottom: 8 }}
         />
       </Animated.View>
     </View>
@@ -287,12 +289,11 @@ export default function FriendRequestsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
   loading: { flex: 1, justifyContent: "center", alignItems: "center" },
-  // ZMIANA 1: Dodajemy paddingBottom, aby przesunąć tekst "No incoming..." lekko w górę.
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingBottom: 50, // Ta wartość "podniesie" tekst z idealnego środka
+    paddingBottom: 50,
   },
   requestItem: {
     paddingVertical: 15,
@@ -340,16 +341,16 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 13,
   },
-  // ZMIANA 2 (część 1/2): Zmieniamy `padding: 16` na bardziej szczegółowe wartości,
-  // aby uniknąć podwójnego paddingu na dole panelu.
   outgoingPanel: {
     position: "absolute",
     left: 0,
     right: 0,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingHorizontal: 16, // Padding tylko po bokach
-    paddingTop: 16, // Padding tylko na górze
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    // Dodajemy mały padding na dole dla estetyki, ale wysokość jest już dobrze obliczona
+    paddingBottom: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.3,
