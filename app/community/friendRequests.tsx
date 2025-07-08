@@ -1,5 +1,3 @@
-// app/community/friendRequests.tsx (WERSJA FINALNA - NOWA LOGIKA DANYCH + STARA LOGIKA UI)
-
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   View,
@@ -35,7 +33,6 @@ const FriendRequestItem: React.FC<{
   onReject: (id: string) => void;
 }> = ({ request, onAccept, onReject }) => {
   const theme = useTheme();
-  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const { senderUid, senderNickname, id } = request;
   return (
@@ -124,10 +121,6 @@ export default function FriendRequestsScreen() {
   const isLoading = useCommunityStore((state) => state.isLoading);
   const incomingRequests = useCommunityStore((state) => state.incomingRequests);
   const outgoingRequests = useCommunityStore((state) => state.outgoingRequests);
-  const listenForCommunityData = useCommunityStore(
-    (state) => state.listenForCommunityData
-  );
-  const cleanup = useCommunityStore((state) => state.cleanup);
   const acceptFriendRequest = useCommunityStore(
     (state) => state.acceptFriendRequest
   );
@@ -138,24 +131,10 @@ export default function FriendRequestsScreen() {
     (state) => state.cancelOutgoingRequest
   );
 
-  // STARA CZĘŚĆ (UI): bez zmian ...
   const screenHeight = Dimensions.get("window").height;
   const animatedValue = useRef(new Animated.Value(screenHeight)).current;
   const animatedValueRef = useRef(screenHeight);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
-
-  // --- POPRAWIONY useFocusEffect ---
-  // useFocusEffect(
-  //   useCallback(() => {
-  //     // Funkcje są już dostępne z hooków powyżej
-  //     listenForCommunityData(); // Uruchom nasłuchiwanie
-
-  //     // Zwróć funkcję czyszczącą
-  //     return () => {
-  //       cleanup(); // Sprzątaj, gdy ekran traci fokus
-  //     };
-  //   }, [listenForCommunityData, cleanup]) // Dodajemy funkcje do tablicy zależności dla pewności
-  // );
 
   useEffect(() => {
     const listenerId = animatedValue.addListener(({ value }) => {
@@ -165,9 +144,11 @@ export default function FriendRequestsScreen() {
   }, [animatedValue]);
 
   const calculatePanelHeight = useCallback((): number => {
-    const contentHeight = outgoingRequests.length * ITEM_HEIGHT + 80; // Paddingi etc.
+    const headerAndPaddingHeight = 80; // Przybliżona wysokość nagłówka panelu i paddingów
+    const contentHeight =
+      outgoingRequests.length * ITEM_HEIGHT + headerAndPaddingHeight;
     const maxPanelHeight = screenHeight * 0.8;
-    return Math.max(Math.min(contentHeight, maxPanelHeight), 150); // Minimalna wysokość panelu
+    return Math.max(Math.min(contentHeight, maxPanelHeight), 150);
   }, [outgoingRequests, screenHeight]);
 
   const openPanel = useCallback(() => {
@@ -200,12 +181,10 @@ export default function FriendRequestsScreen() {
       onPanResponderMove: (_, gestureState) => {
         const currentPanelHeight = calculatePanelHeight();
         if (gestureState.dy < 0) {
-          // Przesuwanie w górę
           const newValue = animatedValueRef.current + gestureState.dy;
           const minValue = screenHeight - currentPanelHeight;
           animatedValue.setValue(Math.max(newValue, minValue));
         } else if (gestureState.dy > 0) {
-          // Przesuwanie w dół
           const newValue = animatedValueRef.current + gestureState.dy;
           animatedValue.setValue(newValue);
         }
@@ -297,18 +276,24 @@ export default function FriendRequestsScreen() {
               onCancel={cancelOutgoingRequest}
             />
           )}
-          contentContainerStyle={{ paddingBottom: 40 }}
+          // ZMIANA 2 (część 2/2): Zmniejszamy padding na dole listy do rozsądnej wartości.
+          contentContainerStyle={{ paddingBottom: 0 }}
         />
       </Animated.View>
     </View>
   );
 }
 
-// Style - skopiowane z Twojego oryginalnego pliku dla spójności
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
   loading: { flex: 1, justifyContent: "center", alignItems: "center" },
-  emptyContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  // ZMIANA 1: Dodajemy paddingBottom, aby przesunąć tekst "No incoming..." lekko w górę.
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingBottom: 50, // Ta wartość "podniesie" tekst z idealnego środka
+  },
   requestItem: {
     paddingVertical: 15,
     paddingHorizontal: 10,
@@ -355,13 +340,16 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 13,
   },
+  // ZMIANA 2 (część 1/2): Zmieniamy `padding: 16` na bardziej szczegółowe wartości,
+  // aby uniknąć podwójnego paddingu na dole panelu.
   outgoingPanel: {
     position: "absolute",
     left: 0,
     right: 0,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    padding: 16,
+    paddingHorizontal: 16, // Padding tylko po bokach
+    paddingTop: 16, // Padding tylko na górze
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.3,
