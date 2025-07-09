@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from "react";
+import React, { useRef, useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -18,7 +18,7 @@ import {
   IncomingRequest,
   OutgoingRequest,
 } from "../store/communityStore";
-
+import ConfirmationModal from "../../components/ConfirmationModal";
 const screenHeight = Dimensions.get("window").height;
 const MAX_PANEL_HEIGHT = screenHeight * 0.7; // Panel zajmie maksymalnie 70% ekranu
 
@@ -77,14 +77,10 @@ const FriendRequestItem = ({
     </TouchableOpacity>
   );
 };
-const OutgoingRequestItem = ({
-  request,
-  onCancel,
-}: {
+const OutgoingRequestItem: React.FC<{
   request: OutgoingRequest;
-  onCancel: (receiverUid: string) => void;
-}) => {
-  /* ... ten komponent pozostaje bez zmian ... */
+  onCancel: (request: OutgoingRequest) => void; // Teraz przekazujemy cały obiekt
+}> = ({ request, onCancel }) => {
   const theme = useTheme();
   const router = useRouter();
   const { receiverUid, receiverNickname } = request;
@@ -106,7 +102,7 @@ const OutgoingRequestItem = ({
           </Text>
         </Text>
         <TouchableOpacity
-          onPress={() => onCancel(receiverUid)}
+          onPress={() => onCancel(request)} // Przekazujemy cały request do handlera
           style={[
             styles.iconButtonSend,
             { backgroundColor: "rgba(116, 116, 116, 0.3)" },
@@ -138,6 +134,32 @@ export default function FriendRequestsScreen() {
   // Animujemy tylko jedną wartość: pozycję Y panelu.
   // Zaczyna się "pod ekranem" (wartość = MAX_PANEL_HEIGHT) i animuje do 0 (widoczny).
   const panelTranslateY = useRef(new Animated.Value(MAX_PANEL_HEIGHT)).current;
+  const [modalState, setModalState] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+    confirmText: "Yes",
+    isDestructive: false,
+  });
+  const handleCloseModal = () => {
+    setModalState({ ...modalState, visible: false });
+  };
+
+  // Nowa funkcja do pokazywania modala potwierdzającego
+  const handleShowCancelModal = (request: OutgoingRequest) => {
+    setModalState({
+      visible: true,
+      title: "Cancel Request",
+      message: `Are you sure you want to cancel the friend request sent to ${request.receiverNickname}?`,
+      confirmText: "Yes",
+      isDestructive: false, // Używamy czerwonego przycisku dla jasności
+      onConfirm: () => {
+        cancelOutgoingRequest(request.receiverUid);
+        handleCloseModal(); // Zamknij modal po potwierdzeniu
+      },
+    });
+  };
 
   const openPanel = useCallback(() => {
     Animated.timing(panelTranslateY, {
@@ -257,7 +279,8 @@ export default function FriendRequestsScreen() {
           renderItem={({ item }) => (
             <OutgoingRequestItem
               request={item}
-              onCancel={cancelOutgoingRequest}
+              // ✅ ZMIANA 4: Podpinamy nową funkcję zamiast bezpośredniej akcji ze store'u
+              onCancel={handleShowCancelModal}
             />
           )}
           ListEmptyComponent={
@@ -270,6 +293,17 @@ export default function FriendRequestsScreen() {
           contentContainerStyle={{ paddingBottom: 8 }}
         />
       </Animated.View>
+
+      {/* ✅ ZMIANA 5: Renderujemy komponent modala na samym dole */}
+      <ConfirmationModal
+        visible={modalState.visible}
+        title={modalState.title}
+        message={modalState.message}
+        onCancel={handleCloseModal}
+        onConfirm={modalState.onConfirm}
+        confirmText={modalState.confirmText}
+        isDestructive={modalState.isDestructive}
+      />
     </View>
   );
 }
