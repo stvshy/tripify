@@ -306,8 +306,19 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
       if (!currentUser) return;
       const currentUid = currentUser.uid;
 
+      // KROK 1: Zapisz obecny stan, aby móc go przywrócić w razie błędu.
+      const { friends: originalFriends } = get();
+
+      // KROK 2: Przygotuj "optymistyczny" stan.
+      const optimisticFriends = originalFriends.filter(
+        (friend) => friend.uid !== friendUid
+      );
+
+      // KROK 3: NATYCHMIAST zaktualizuj UI nowym, optymistycznym stanem.
+      set({ friends: optimisticFriends });
+
+      // KROK 4: Wykonaj operację na serwerze w tle.
       try {
-        // Używamy transakcji, aby bezpiecznie odczytać i zapisać dane
         await runTransaction(db, async (transaction) => {
           const currentUserRef = doc(db, "users", currentUid);
           const friendUserRef = doc(db, "users", friendUid);
@@ -317,7 +328,7 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
           const friendUserDoc = await transaction.get(friendUserRef);
 
           if (!currentUserDoc.exists() || !friendUserDoc.exists()) {
-            throw "Jeden z dokumentów użytkownika nie istnieje.";
+            throw "One of the user documents does not exist.";
           }
 
           // Modyfikujemy listę znajomych dla bieżącego użytkownika
@@ -338,9 +349,19 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
             friends: updatedFriendUserFriends,
           });
         });
+        // Jeśli wszystko się udało, nie musimy nic robić. Stan UI jest już poprawny.
       } catch (error) {
-        console.error("Error removing friend with transaction:", error);
-        Alert.alert("Error", "Could not remove friend.");
+        // KROK 5: KATASTROFA! Operacja się nie powiodła. Przywróć UI.
+        console.error(
+          "Optimistic removeFriend failed, rolling back UI:",
+          error
+        );
+        Alert.alert(
+          "Error",
+          "Could not remove friend. The user has been added back to your list."
+        );
+        // Przywracamy zapisany wcześniej, oryginalny stan.
+        set({ friends: originalFriends });
       }
     },
 
