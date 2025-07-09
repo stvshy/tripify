@@ -51,16 +51,12 @@ interface CommunityActions {
   listenForCommunityData: () => void;
   cleanup: () => void;
   searchUsers: (text: string) => Promise<void>;
-  sendFriendRequest: (
-    receiverUid: string,
-    receiverNickname: string
-  ) => Promise<void>;
-  removeFriend: (friendUid: string) => Promise<void>;
+  sendFriendRequest: (receiverUid: string, receiverNickname: string) => void;
+  removeFriend: (friendUid: string) => void;
   acceptFriendRequest: (request: IncomingRequest) => void;
-  rejectFriendRequest: (requestId: string) => Promise<void>;
-  cancelOutgoingRequest: (receiverUid: string) => Promise<void>;
+  rejectFriendRequest: (requestId: string) => void;
+  cancelOutgoingRequest: (receiverUid: string) => void;
 }
-
 // --- STAN POCZĄTKOWY ---
 const initialState: CommunityState = {
   friends: [],
@@ -286,209 +282,244 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
       performDatabaseUpdate();
     },
 
-    rejectFriendRequest: async (requestId: string) => {
+    rejectFriendRequest: (requestId: string) => {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
-      const requestRef = doc(
-        db,
-        "users",
-        currentUser.uid,
-        "incomingFriendRequests",
-        requestId
+
+      // KROK 1: Zapisz stan
+      const originalIncomingRequests = get().incomingRequests;
+
+      // KROK 2: Stwórz stan optymistyczny
+      const optimisticIncomingRequests = originalIncomingRequests.filter(
+        (req) => req.id !== requestId
       );
-      await deleteDoc(requestRef);
+
+      // KROK 3: Aktualizuj UI
+      set({ incomingRequests: optimisticIncomingRequests });
+
+      // KROK 4: Operacja w tle
+      const performDatabaseUpdate = async () => {
+        try {
+          const requestRef = doc(
+            db,
+            "users",
+            currentUser.uid,
+            "incomingFriendRequests",
+            requestId
+          );
+          await deleteDoc(requestRef);
+        } catch (error) {
+          // KROK 5: Rollback
+          console.error(
+            "Optimistic rejectFriendRequest failed, rolling back UI:",
+            error
+          );
+          Alert.alert(
+            "Error",
+            "Could not reject the request. Please try again."
+          );
+          set({ incomingRequests: originalIncomingRequests });
+        }
+      };
+
+      performDatabaseUpdate();
     },
 
-    removeFriend: async (friendUid: string) => {
+    removeFriend: (friendUid: string) => {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
       const currentUid = currentUser.uid;
-
-      // KROK 1: Zapisz obecny stan, aby móc go przywrócić w razie błędu.
       const { friends: originalFriends } = get();
-
-      // KROK 2: Przygotuj "optymistyczny" stan.
       const optimisticFriends = originalFriends.filter(
         (friend) => friend.uid !== friendUid
       );
-
-      // KROK 3: NATYCHMIAST zaktualizuj UI nowym, optymistycznym stanem.
       set({ friends: optimisticFriends });
 
-      // KROK 4: Wykonaj operację na serwerze w tle.
-      try {
-        await runTransaction(db, async (transaction) => {
-          const currentUserRef = doc(db, "users", currentUid);
-          const friendUserRef = doc(db, "users", friendUid);
-
-          // Odczytujemy dokumenty WEWNĄTRZ transakcji
-          const currentUserDoc = await transaction.get(currentUserRef);
-          const friendUserDoc = await transaction.get(friendUserRef);
-
-          if (!currentUserDoc.exists() || !friendUserDoc.exists()) {
-            throw "One of the user documents does not exist.";
-          }
-
-          // Modyfikujemy listę znajomych dla bieżącego użytkownika
-          const currentUserFriends = currentUserDoc.data().friends || [];
-          const updatedCurrentUserFriends = currentUserFriends.filter(
-            (friend: Friendship) => friend.uid !== friendUid
-          );
-          transaction.update(currentUserRef, {
-            friends: updatedCurrentUserFriends,
+      const performDatabaseUpdate = async () => {
+        try {
+          await runTransaction(db, async (transaction) => {
+            const currentUserRef = doc(db, "users", currentUid);
+            const friendUserRef = doc(db, "users", friendUid);
+            const [currentUserDoc, friendUserDoc] = await Promise.all([
+              transaction.get(currentUserRef),
+              transaction.get(friendUserRef),
+            ]);
+            if (!currentUserDoc.exists() || !friendUserDoc.exists())
+              throw "User document not found.";
+            const updatedCurrentUserFriends = (
+              currentUserDoc.data().friends || []
+            ).filter((f: Friendship) => f.uid !== friendUid);
+            transaction.update(currentUserRef, {
+              friends: updatedCurrentUserFriends,
+            });
+            const updatedFriendUserFriends = (
+              friendUserDoc.data().friends || []
+            ).filter((f: Friendship) => f.uid !== currentUid);
+            transaction.update(friendUserRef, {
+              friends: updatedFriendUserFriends,
+            });
           });
-
-          // Modyfikujemy listę znajomych dla drugiego użytkownika
-          const friendUserFriends = friendUserDoc.data().friends || [];
-          const updatedFriendUserFriends = friendUserFriends.filter(
-            (friend: Friendship) => friend.uid !== currentUid
+        } catch (error) {
+          console.error(
+            "Optimistic removeFriend failed, rolling back UI:",
+            error
           );
-          transaction.update(friendUserRef, {
-            friends: updatedFriendUserFriends,
-          });
-        });
-        // Jeśli wszystko się udało, nie musimy nic robić. Stan UI jest już poprawny.
-      } catch (error) {
-        // KROK 5: KATASTROFA! Operacja się nie powiodła. Przywróć UI.
-        console.error(
-          "Optimistic removeFriend failed, rolling back UI:",
-          error
-        );
-        Alert.alert(
-          "Error",
-          "Could not remove friend. The user has been added back to your list."
-        );
-        // Przywracamy zapisany wcześniej, oryginalny stan.
-        set({ friends: originalFriends });
-      }
+          Alert.alert("Error", "Could not remove friend.");
+          set({ friends: originalFriends });
+        }
+      };
+      performDatabaseUpdate();
     },
 
     // app/store/communityStore.ts
 
-    // app/store/communityStore.ts
-
-    sendFriendRequest: async (
-      receiverUid: string,
-      receiverNickname: string
-    ) => {
+    sendFriendRequest: (receiverUid: string, receiverNickname: string) => {
       const currentUser = auth.currentUser;
       if (!currentUser) {
         Alert.alert("Error", "Not logged in.");
         return;
       }
 
-      // Bezpiecznik: nie wysyłaj zaproszenia do samego siebie
-      if (receiverUid === currentUser.uid) {
-        Alert.alert("Info", "You cannot send a friend request to yourself.");
+      // Sprawdzamy warunki wstępne
+      const { friends, outgoingRequests, incomingRequests } = get();
+      if (
+        receiverUid === currentUser.uid ||
+        friends.some((f) => f.uid === receiverUid) ||
+        outgoingRequests.some((r) => r.receiverUid === receiverUid) ||
+        incomingRequests.some((r) => r.senderUid === receiverUid)
+      ) {
+        // Cicha porażka lub alert, jeśli któryś warunek jest spełniony
+        console.log("Friend request condition not met, aborting.");
         return;
       }
 
-      // Bezpiecznik: sprawdź, czy już nie jesteście znajomymi lub czy zaproszenie nie wisi
-      const { friends, outgoingRequests } = get();
-      if (friends.some((friend) => friend.uid === receiverUid)) {
-        Alert.alert("Info", "This person is already your friend.");
-        return;
-      }
-      if (outgoingRequests.some((req) => req.receiverUid === receiverUid)) {
-        Alert.alert("Info", "You have already sent a request to this person.");
-        return;
-      }
+      // KROK 1: Zapisz obecny stan dla ewentualnego przywrócenia
+      const originalOutgoingRequests = get().outgoingRequests;
 
-      try {
-        const currentUserDoc = await getDoc(doc(db, "users", currentUser.uid));
-        const currentUserNickname = currentUserDoc.data()?.nickname;
+      // KROK 2: Przygotuj optymistyczny stan
+      const newOutgoingRequest: OutgoingRequest = {
+        receiverUid,
+        receiverNickname,
+      };
+      const optimisticOutgoingRequests = [
+        ...originalOutgoingRequests,
+        newOutgoingRequest,
+      ];
 
-        if (!currentUserNickname) {
-          Alert.alert("Error", "Your profile is incomplete.");
-          return;
+      // KROK 3: NATYCHMIAST zaktualizuj UI
+      set({ outgoingRequests: optimisticOutgoingRequests });
+
+      // KROK 4: Wykonaj operację w bazie danych w tle (fire-and-forget)
+      const performDatabaseUpdate = async () => {
+        try {
+          const currentUserDoc = await getDoc(
+            doc(db, "users", currentUser.uid)
+          );
+          const currentUserNickname = currentUserDoc.data()?.nickname;
+          if (!currentUserNickname)
+            throw new Error("Current user nickname not found.");
+
+          const batch = writeBatch(db);
+
+          const incomingRequestRef = doc(
+            collection(db, "users", receiverUid, "incomingFriendRequests")
+          );
+          batch.set(incomingRequestRef, {
+            senderUid: currentUser.uid,
+            senderNickname: currentUserNickname,
+            createdAt: serverTimestamp(),
+          });
+
+          const currentUserRef = doc(db, "users", currentUser.uid);
+          batch.update(currentUserRef, {
+            "friendRequests.outgoing": arrayUnion(newOutgoingRequest),
+          });
+
+          await batch.commit();
+          // Sukces! UI jest już poprawny.
+        } catch (error) {
+          // KROK 5: W razie błędu, cofnij zmianę w UI i poinformuj użytkownika
+          console.error(
+            "Optimistic sendFriendRequest failed, rolling back UI:",
+            error
+          );
+          Alert.alert(
+            "Error",
+            "Could not send friend request. Please try again."
+          );
+          set({ outgoingRequests: originalOutgoingRequests });
         }
+      };
 
-        const batch = writeBatch(db);
-
-        const incomingRequestRef = doc(
-          collection(db, "users", receiverUid, "incomingFriendRequests")
-        );
-        batch.set(incomingRequestRef, {
-          senderUid: currentUser.uid,
-          senderNickname: currentUserNickname,
-          createdAt: serverTimestamp(),
-        });
-
-        const currentUserRef = doc(db, "users", currentUser.uid);
-        const newOutgoingRequest = { receiverUid, receiverNickname };
-        batch.update(currentUserRef, {
-          "friendRequests.outgoing": arrayUnion(newOutgoingRequest),
-        });
-
-        await batch.commit();
-
-        // ----  USUŃ TĘ CZĘŚĆ ----
-        // set((state) => ({
-        //   outgoingRequests: [...state.outgoingRequests, newOutgoingRequest],
-        // }));
-        // -------------------------
-      } catch (error) {
-        console.error("Error sending friend request:", error);
-        Alert.alert(
-          "Error",
-          "Could not send friend request. Please try again."
-        );
-      }
+      performDatabaseUpdate(); // Uruchamiamy, ale nie czekamy na wynik
     },
-    cancelOutgoingRequest: async (receiverUid: string) => {
+
+    cancelOutgoingRequest: (receiverUid: string) => {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
 
-      const batch = writeBatch(db);
-      try {
-        // 1. Usuń zaproszenie z podkolekcji `incomingFriendRequests` odbiorcy
-        const incomingRequestsRef = collection(
-          db,
-          "users",
-          receiverUid,
-          "incomingFriendRequests"
-        );
-        const q = query(
-          incomingRequestsRef,
-          where("senderUid", "==", currentUser.uid)
-        );
-        const querySnapshot = await getDocs(q);
-        if (!querySnapshot.empty) {
-          batch.delete(querySnapshot.docs[0].ref);
-        }
+      // KROK 1: Zapisz obecny stan dla ewentualnego przywrócenia
+      const originalOutgoingRequests = get().outgoingRequests;
 
-        // 2. Odczytaj, przefiltruj i nadpisz tablicę `outgoing` u nadawcy
-        const currentUserRef = doc(db, "users", currentUser.uid);
-        const userDoc = await getDoc(currentUserRef);
-        if (userDoc.exists()) {
-          const outgoingRequests: OutgoingRequest[] =
-            userDoc.data().friendRequests?.outgoing || [];
-          const updatedOutgoing = outgoingRequests.filter(
-            (req) => req.receiverUid !== receiverUid
+      // KROK 2: Przygotuj optymistyczny stan (usuń zaproszenie z listy)
+      const optimisticOutgoingRequests = originalOutgoingRequests.filter(
+        (req) => req.receiverUid !== receiverUid
+      );
+
+      // KROK 3: NATYCHMIAST zaktualizuj UI
+      set({ outgoingRequests: optimisticOutgoingRequests });
+
+      // KROK 4: Wykonaj operację w bazie danych w tle
+      const performDatabaseUpdate = async () => {
+        try {
+          const batch = writeBatch(db);
+
+          // 1. Usuń zaproszenie z podkolekcji `incomingFriendRequests` odbiorcy
+          const incomingRequestsRef = collection(
+            db,
+            "users",
+            receiverUid,
+            "incomingFriendRequests"
           );
+          const q = query(
+            incomingRequestsRef,
+            where("senderUid", "==", currentUser.uid),
+            limit(1)
+          );
+          const querySnapshot = await getDocs(q);
+          if (!querySnapshot.empty) {
+            batch.delete(querySnapshot.docs[0].ref);
+          }
+
+          // 2. Zaktualizuj tablicę `outgoing` u nadawcy
+          const currentUserRef = doc(db, "users", currentUser.uid);
           batch.update(currentUserRef, {
-            "friendRequests.outgoing": updatedOutgoing,
+            "friendRequests.outgoing": optimisticOutgoingRequests,
           });
+
+          await batch.commit();
+        } catch (error) {
+          // KROK 5: W razie błędu, cofnij zmianę w UI
+          console.error(
+            "Optimistic cancelOutgoingRequest failed, rolling back UI:",
+            error
+          );
+          Alert.alert("Error", "Failed to cancel request. Please try again.");
+          set({ outgoingRequests: originalOutgoingRequests });
         }
+      };
 
-        await batch.commit();
-      } catch (error) {
-        console.error("Error canceling outgoing request:", error);
-        Alert.alert("Error", "Failed to cancel request.");
-      }
+      performDatabaseUpdate();
     },
-
+    // searchUsers pozostaje bez zmian (to jest operacja odczytu, więc musi być async)
     searchUsers: async (text: string) => {
       const currentUser = auth.currentUser;
       const trimmedText = text.trim();
-
       if (!currentUser || trimmedText.length < 3) {
         set({ searchResults: [], isSearching: false });
         return;
       }
-
       set({ isSearching: true });
-
       try {
         const usersRef = collection(db, "users");
         const q = query(
@@ -497,17 +528,15 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
           limit(20)
         );
         const querySnapshot = await getDocs(q);
-        const foundUsers: User[] = querySnapshot.docs
+        const foundUsers = querySnapshot.docs
           .map((doc) => ({
             uid: doc.id,
             nickname: doc.data().nickname as string,
           }))
           .filter((user) => user.uid !== currentUser.uid);
-
-        set({ searchResults: foundUsers, isSearching: false }); // POPRAWKA z isLoading na isSearching
+        set({ searchResults: foundUsers, isSearching: false });
       } catch (error) {
-        console.error("Błąd podczas wyszukiwania użytkowników:", error);
-        set({ searchResults: [], isSearching: false }); // POPRAWKA z isLoading na isSearching
+        set({ searchResults: [], isSearching: false });
       }
     },
   })

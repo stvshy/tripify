@@ -19,7 +19,7 @@ import {
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { db, auth } from "../config/firebaseConfig";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import { useTheme } from "react-native-paper"; // Added MD3DarkTheme, MD3LightTheme
 import { Ionicons } from "@expo/vector-icons";
 import RankingList from "../../components/RankingList";
@@ -329,6 +329,8 @@ export default function ProfileScreen() {
   const [isListProcessing, setIsListProcessing] = useState(true);
   const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>([]);
   const modalRankingData = useRef<RankingSlot[]>([]);
+  const prevCountriesVisitedRef = useRef<string[]>();
+  const prevRankingRef = useRef<string[]>();
   const [visitedCount, setVisitedCount] = useState(0);
   const theme = useTheme();
   const router = useRouter();
@@ -349,17 +351,23 @@ export default function ProfileScreen() {
     },
     [router]
   );
+  // WSTAW TO
+  // app/profile/[uid].tsx
+
+  // Krok 1: Selektywny odczyt stanu
+  const friends = useCommunityStore((state) => state.friends);
+  const incomingRequests = useCommunityStore((state) => state.incomingRequests);
+  const outgoingRequests = useCommunityStore((state) => state.outgoingRequests);
+  const isLoadingCommunity = useCommunityStore((state) => state.isLoading);
+
+  // Krok 2: Odczyt akcji. Te się nie zmieniają, więc nie powodują re-renderów.
   const {
-    friends,
-    incomingRequests,
-    outgoingRequests,
-    isLoading: isLoadingCommunity,
     acceptFriendRequest,
     rejectFriendRequest,
     sendFriendRequest,
     removeFriend,
     cancelOutgoingRequest,
-  } = useCommunityStore();
+  } = useCommunityStore.getState(); // Używamy .getState() do jednorazowego pobrania akcji
 
   // const isLoading = loadingProfile;
 
@@ -388,41 +396,29 @@ export default function ProfileScreen() {
     null
   );
 
-  useEffect(() => {
-    const backAction = () => {
-      if (isRankingModalVisible) {
-        handleCloseFullRanking();
-        return true;
-      }
-      return false;
-    };
+  // app/profile/[uid].tsx
 
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      backAction
-    );
-    return () => backHandler.remove();
-  }, [isRankingModalVisible]);
-  // EFEKT 1: Pobieranie surowych danych z Firestore (działa równolegle z ładowaniem mapy krajów)
+  // --- WSTAW TĘ WERSJĘ ---
   useEffect(() => {
     if (!profileUid) {
-      setScreenPhase("error"); // Zmiana z poprzedniej iteracji
+      setScreenPhase("error");
       return;
     }
 
-    // Krok 1: Resetuj stany
-    setScreenPhase("loading");
-    setIsListProcessing(true);
-    setRawUserProfile(null);
-    setListData([]);
-    setRankingSlots([]);
-    setVisitedCount(0);
+    // Funkcja do pobrania i przetworzenia danych
+    const fetchAndProcessProfile = async () => {
+      // Krok 1: Resetuj stany przed nowym pobraniem
+      setScreenPhase("loading");
+      setIsListProcessing(true);
+      setRawUserProfile(null);
+      setListData([]);
+      setRankingSlots([]);
+      setVisitedCount(0);
 
-    const userRef = doc(db, "users", profileUid);
-    const unsubscribe = onSnapshot(
-      userRef,
-      { includeMetadataChanges: false },
-      (snap) => {
+      try {
+        const userRef = doc(db, "users", profileUid);
+        const snap = await getDoc(userRef); // Używamy getDoc zamiast onSnapshot
+
         const currentCountriesMap = useCountryStore.getState().countriesMap;
 
         if (!snap.exists() || !currentCountriesMap) {
@@ -448,12 +444,9 @@ export default function ProfileScreen() {
 
         setScreenPhase("presenting");
 
-        // ▼▼▼ ZASTĄP PĘTLĘ `processVisitedCountriesIncrementally` TĄ PROSTSZĄ LOGIKĄ ▼▼▼
-
         // ETAP 2: PRZYGOTOWANIE DANYCH LISTY W TLE
-        // Robimy to w setTimeout, aby nie blokować renderowania nagłówka i rankingu.
+        // Używamy setTimeout, aby dać UI czas na oddech
         setTimeout(() => {
-          // 1. Przetwarzamy CAŁĄ listę w pamięci - to jest szybkie.
           const visitedCodesRaw = data.countriesVisited || [];
           const newCountriesVisited = Array.from(new Set(visitedCodesRaw))
             .map((code) => currentCountriesMap.get(code))
@@ -489,20 +482,22 @@ export default function ProfileScreen() {
               cumulativePillCount += countriesInContinent.length;
             });
 
-          // 2. Ustawiamy stany TYLKO RAZ z finalnymi danymi.
           setVisitedCount(newCountriesVisited.length);
-          setListData(finalData); // <--- Kluczowa zmiana: jedno wywołanie!
+          setListData(finalData);
           setIsListProcessing(false);
-        }, 150); // Dajemy trochę więcej czasu (np. 100ms), aby mieć pewność, że UI jest w pełni responsywny.
-      },
-      (error) => {
+        }, 150);
+      } catch (error) {
+        console.error("Error fetching profile data:", error);
         setScreenPhase("error");
         setIsListProcessing(false);
       }
-    );
+    };
 
-    return () => unsubscribe();
-  }, [profileUid]);
+    fetchAndProcessProfile();
+
+    // Ponieważ nie ma subskrypcji, funkcja czyszcząca jest pusta
+    return () => {};
+  }, [profileUid]); // Efekt uruchamia się tylko, gdy zmieni się UID profilu
 
   // --- Handlers (POPRAWIONE) ---
   const handleAdd = () => {
