@@ -201,50 +201,91 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
 
       const { id: requestId, senderUid, senderNickname } = request;
 
-      // Pobierz nick bieżącego użytkownika, by zapisać go u nowego znajomego
-      const currentUserDoc = await getDoc(doc(db, "users", currentUser.uid));
-      const currentUserNickname = currentUserDoc.data()?.nickname || "Unknown";
+      // KROK 1: Zapisz obecny stan, aby móc go przywrócić w razie błędu.
+      const { friends, incomingRequests } = get();
+      const originalState = { friends, incomingRequests };
 
-      const batch = writeBatch(db);
+      // KROK 2: Przygotuj "optymistyczny" stan.
+      // Zakładamy, że prośba zostanie zaakceptowana.
+      const newFriend: Friendship = {
+        uid: senderUid,
+        nickname: senderNickname,
+      };
 
-      // 1. Dodaj OBIEKTY {uid, nickname} do tablic `friends` obu użytkowników
-      const currentUserRef = doc(db, "users", currentUser.uid);
-      batch.update(currentUserRef, {
-        friends: arrayUnion({ uid: senderUid, nickname: senderNickname }),
-      });
-
-      const senderUserRef = doc(db, "users", senderUid);
-      batch.update(senderUserRef, {
-        friends: arrayUnion({
-          uid: currentUser.uid,
-          nickname: currentUserNickname,
-        }),
-      });
-
-      // 2. Usuń zaproszenie z podkolekcji `incomingFriendRequests`
-      const incomingRequestRef = doc(
-        db,
-        "users",
-        currentUser.uid,
-        "incomingFriendRequests",
-        requestId
+      const optimisticFriends = [...friends, newFriend];
+      const optimisticRequests = incomingRequests.filter(
+        (req) => req.id !== requestId
       );
-      batch.delete(incomingRequestRef);
 
-      // 3. Usuń zaproszenie z tablicy `outgoing` u nadawcy
-      const senderDoc = await getDoc(senderUserRef);
-      if (senderDoc.exists()) {
-        const senderData = senderDoc.data();
-        const outgoingRequests = senderData.friendRequests?.outgoing || [];
-        const updatedOutgoingRequests = outgoingRequests.filter(
-          (req: any) => req.receiverUid !== currentUser.uid
-        );
-        batch.update(senderUserRef, {
-          "friendRequests.outgoing": updatedOutgoingRequests,
+      // KROK 3: NATYCHMIAST zaktualizuj UI nowym, optymistycznym stanem.
+      // Nie pokazujemy już wskaźnika ładowania, bo zmiana jest "natychmiastowa".
+      set({
+        friends: optimisticFriends,
+        incomingRequests: optimisticRequests,
+        isLoading: false, // Upewniamy się, że nie ma loadera
+      });
+
+      // KROK 4: Wyślij żądanie do serwera w tle.
+      try {
+        const currentUserDoc = await getDoc(doc(db, "users", currentUser.uid));
+        const currentUserNickname =
+          currentUserDoc.data()?.nickname || "Unknown";
+
+        const batch = writeBatch(db);
+
+        // Logika zapisu do bazy danych pozostaje bez zmian
+        const currentUserRef = doc(db, "users", currentUser.uid);
+        batch.update(currentUserRef, {
+          friends: arrayUnion({ uid: senderUid, nickname: senderNickname }),
         });
-      }
 
-      await batch.commit();
+        const senderUserRef = doc(db, "users", senderUid);
+        batch.update(senderUserRef, {
+          friends: arrayUnion({
+            uid: currentUser.uid,
+            nickname: currentUserNickname,
+          }),
+        });
+
+        const incomingRequestRef = doc(
+          db,
+          "users",
+          currentUser.uid,
+          "incomingFriendRequests",
+          requestId
+        );
+        batch.delete(incomingRequestRef);
+
+        const senderDoc = await getDoc(senderUserRef);
+        if (senderDoc.exists()) {
+          const senderData = senderDoc.data();
+          const outgoingRequests = senderData.friendRequests?.outgoing || [];
+          const updatedOutgoingRequests = outgoingRequests.filter(
+            (req: { receiverUid: string }) =>
+              req.receiverUid !== currentUser.uid
+          );
+          batch.update(senderUserRef, {
+            "friendRequests.outgoing": updatedOutgoingRequests,
+          });
+        }
+
+        await batch.commit();
+
+        // Jeśli wszystko się udało, nie musimy nic robić.
+        // Stan UI jest już poprawny. Listener onSnapshot ewentualnie
+        // zsynchronizuje dane, ale użytkownik nie zauważy różnicy.
+      } catch (error) {
+        // KROK 5: KATASTROFA! Operacja na serwerze się nie powiodła.
+        // Musimy przywrócić UI do stanu sprzed kliknięcia.
+        console.error("Optimistic update failed, rolling back UI:", error);
+        Alert.alert(
+          "Error",
+          "Could not accept the friend request. Please try again."
+        );
+
+        // Przywracamy zapisany wcześniej, oryginalny stan.
+        set(originalState);
+      }
     },
 
     rejectFriendRequest: async (requestId: string) => {
