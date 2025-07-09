@@ -54,7 +54,7 @@ interface CommunityActions {
   sendFriendRequest: (receiverUid: string, receiverNickname: string) => void;
   removeFriend: (friendUid: string) => void;
   acceptFriendRequest: (request: IncomingRequest) => void;
-  rejectFriendRequest: (requestId: string) => void;
+  rejectFriendRequest: (request: IncomingRequest) => void;
   cancelOutgoingRequest: (receiverUid: string) => void;
 }
 // --- STAN POCZĄTKOWY ---
@@ -279,28 +279,70 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
       performDatabaseUpdate();
     },
 
-    rejectFriendRequest: (requestId: string) => {
+    rejectFriendRequest: (request: IncomingRequest) => {
+      // <<< ZMIANA: Przyjmuje cały obiekt
       const currentUser = auth.currentUser;
       if (!currentUser) return;
+
+      const { id: requestId, senderUid } = request; // <<< Pobieramy senderUid
+
+      // === OPTYMISTYCZNA AKTUALIZACJA ===
+
+      // 1. Zapisz stan oryginalny na wypadek błędu
       const originalIncomingRequests = get().incomingRequests;
+
+      // 2. Stwórz stan optymistyczny (usuń zaproszenie z naszej listy)
       const optimisticIncomingRequests = originalIncomingRequests.filter(
         (req) => req.id !== requestId
       );
 
-      set({ incomingRequests: optimisticIncomingRequests }); // Natychmiastowa aktualizacja UI
+      // 3. NATYCHMIAST zaktualizuj UI
+      set({ incomingRequests: optimisticIncomingRequests });
 
+      // === OPERACJA W TLE (FIRE-AND-FORGET) ===
       const performDatabaseUpdate = async () => {
         try {
-          await deleteDoc(
-            doc(
-              db,
-              "users",
-              currentUser.uid,
-              "incomingFriendRequests",
-              requestId
-            )
+          const batch = writeBatch(db);
+
+          // Krok 1: Usuń zaproszenie z naszej podkolekcji `incomingFriendRequests`
+          const requestRef = doc(
+            db,
+            "users",
+            currentUser.uid,
+            "incomingFriendRequests",
+            requestId
           );
+          batch.delete(requestRef);
+
+          // Krok 2: Usuń zaproszenie z tablicy `outgoing` u nadawcy (senderUid)
+          const senderRef = doc(db, "users", senderUid);
+
+          // Potrzebujemy pobrać aktualny dokument nadawcy, aby zmodyfikować jego tablicę.
+          // Robimy to w transakcji, aby uniknąć problemów współbieżności, ale dla uproszczenia
+          // możemy użyć `getDoc` przed `batch.update`.
+          const senderDoc = await getDoc(senderRef);
+          if (senderDoc.exists()) {
+            const senderData = senderDoc.data();
+            const outgoingRequests: OutgoingRequest[] =
+              senderData.friendRequests?.outgoing || [];
+
+            // Filtrujemy tablicę, usuwając zaproszenie wysłane do nas (currentUser.uid)
+            const updatedOutgoingRequests = outgoingRequests.filter(
+              (req) => req.receiverUid !== currentUser.uid
+            );
+
+            // Aktualizujemy pole w dokumencie nadawcy
+            batch.update(senderRef, {
+              "friendRequests.outgoing": updatedOutgoingRequests,
+            });
+          }
+
+          // Zatwierdź obie operacje atomowo
+          await batch.commit();
+
+          // Sukces! UI jest już w poprawnym stanie.
         } catch (error) {
+          // W razie błędu, cofnij zmianę w UI
           console.error(
             "Optimistic rejectFriendRequest failed, rolling back UI:",
             error
@@ -312,6 +354,7 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
           set({ incomingRequests: originalIncomingRequests }); // Rollback
         }
       };
+
       performDatabaseUpdate();
     },
     removeFriend: (friendUid: string) => {

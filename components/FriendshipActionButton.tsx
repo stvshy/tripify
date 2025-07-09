@@ -65,7 +65,10 @@ export const FriendshipActionButtons = ({
     if (incomingRequest) acceptFriendRequest(incomingRequest);
   };
   const handleDecline = () => {
-    if (incomingRequest) rejectFriendRequest(incomingRequest.id);
+    // Przekazujemy CAŁY obiekt zaproszenia. To kluczowe.
+    if (incomingRequest) {
+      rejectFriendRequest(incomingRequest);
+    }
   };
 
   const handleCloseModal = () =>

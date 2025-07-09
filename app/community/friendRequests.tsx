@@ -30,12 +30,12 @@ const FriendRequestItem = ({
 }: {
   request: IncomingRequest;
   onAccept: (request: IncomingRequest) => void;
-  onReject: (id: string) => void;
+  onReject: (request: IncomingRequest) => void;
 }) => {
   /* ... ten komponent pozostaje bez zmian ... */
   const theme = useTheme();
   const router = useRouter();
-  const { senderUid, senderNickname, id } = request;
+  const { senderUid, senderNickname } = request;
   return (
     <TouchableOpacity
       onPress={() => router.push(`/profile/${senderUid}`)}
@@ -64,7 +64,7 @@ const FriendRequestItem = ({
             <AntDesign name="check" size={16} color="#fff" />
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => onReject(id)}
+            onPress={() => onReject(request)}
             style={[
               styles.iconButton,
               { backgroundColor: "rgba(116, 116, 116, 0.3)", marginLeft: 6 },
