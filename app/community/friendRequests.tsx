@@ -267,7 +267,7 @@ export default function FriendRequestsScreen() {
               </Text>
             </View>
           }
-          contentContainerStyle={{ paddingBottom: 20 }}
+          contentContainerStyle={{ paddingBottom: 8 }}
         />
       </Animated.View>
     </View>
