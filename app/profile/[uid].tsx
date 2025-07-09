@@ -358,7 +358,7 @@ export default function ProfileScreen() {
   const friends = useCommunityStore((state) => state.friends);
   const incomingRequests = useCommunityStore((state) => state.incomingRequests);
   const outgoingRequests = useCommunityStore((state) => state.outgoingRequests);
-  const isLoadingCommunity = useCommunityStore((state) => state.isLoading);
+  // const isLoadingCommunity = useCommunityStore((state) => state.isLoading);
 
   // Krok 2: Odczyt akcji. Te się nie zmieniają, więc nie powodują re-renderów.
   const {
@@ -399,6 +399,9 @@ export default function ProfileScreen() {
   // app/profile/[uid].tsx
 
   // --- WSTAW TĘ WERSJĘ ---
+  // app/profile/[uid].tsx
+
+  // --- WSTAW TĘ NOWĄ, POPRAWIONĄ WERSJĘ useEffect ---
   useEffect(() => {
     if (!profileUid) {
       setScreenPhase("error");
@@ -409,7 +412,7 @@ export default function ProfileScreen() {
     const fetchAndProcessProfile = async () => {
       // Krok 1: Resetuj stany przed nowym pobraniem
       setScreenPhase("loading");
-      setIsListProcessing(true);
+      setIsListProcessing(true); // Loader dla listy krajów jest włączony
       setRawUserProfile(null);
       setListData([]);
       setRankingSlots([]);
@@ -417,7 +420,7 @@ export default function ProfileScreen() {
 
       try {
         const userRef = doc(db, "users", profileUid);
-        const snap = await getDoc(userRef); // Używamy getDoc zamiast onSnapshot
+        const snap = await getDoc(userRef);
 
         const currentCountriesMap = useCountryStore.getState().countriesMap;
 
@@ -430,7 +433,10 @@ export default function ProfileScreen() {
         const data = snap.data() as UserProfile;
         setRawUserProfile(data);
 
-        // ETAP 1: Błyskawiczne przetwarzanie rankingu
+        // ==========================================================
+        // ETAP 1: Błyskawiczne przetwarzanie lekkich danych (ranking)
+        // Robimy to NATYCHMIAST, bez setTimeout.
+        // ==========================================================
         const rankingRaw = data.ranking || [];
         const visitedForRanking = data.countriesVisited || [];
         const newRankingSlots = rankingRaw
@@ -440,12 +446,14 @@ export default function ProfileScreen() {
             rank: idx + 1,
             country: currentCountriesMap.get(cca2) || null,
           }));
-        setRankingSlots(newRankingSlots);
 
-        setScreenPhase("presenting");
+        setRankingSlots(newRankingSlots); // Ustaw dane rankingu od razu
+        setScreenPhase("presenting"); // Pokaż ekran z już załadowanym rankingiem
 
-        // ETAP 2: PRZYGOTOWANIE DANYCH LISTY W TLE
-        // Używamy setTimeout, aby dać UI czas na oddech
+        // ==========================================================
+        // ETAP 2: Odroczone przetwarzanie ciężkich danych (lista krajów)
+        // Używamy setTimeout, aby dać UI czas na oddech.
+        // ==========================================================
         setTimeout(() => {
           const visitedCodesRaw = data.countriesVisited || [];
           const newCountriesVisited = Array.from(new Set(visitedCodesRaw))
@@ -484,8 +492,8 @@ export default function ProfileScreen() {
 
           setVisitedCount(newCountriesVisited.length);
           setListData(finalData);
-          setIsListProcessing(false);
-        }, 150);
+          setIsListProcessing(false); // Wyłącz loader dla listy krajów
+        }, 150); // Minimalne opóźnienie (150ms) dla płynności
       } catch (error) {
         console.error("Error fetching profile data:", error);
         setScreenPhase("error");
@@ -498,7 +506,6 @@ export default function ProfileScreen() {
     // Ponieważ nie ma subskrypcji, funkcja czyszcząca jest pusta
     return () => {};
   }, [profileUid]); // Efekt uruchamia się tylko, gdy zmieni się UID profilu
-
   // --- Handlers (POPRAWIONE) ---
   const handleAdd = () => {
     if (rawUserProfile) {
@@ -719,7 +726,7 @@ export default function ProfileScreen() {
               onDecline: handleDecline,
               onCancelRequest: handleCancelRequest,
             }}
-            isLoading={isLoadingCommunity} // <-- PRZEKAŻ STAN ŁADOWANIA
+            isLoading={false} // <-- PRZEKAŻ STAN ŁADOWANIA
           />
         )}
         <RankingPreview

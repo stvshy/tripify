@@ -329,29 +329,45 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
       const currentUser = auth.currentUser;
       if (!currentUser) return;
       const currentUid = currentUser.uid;
+
+      // Krok 1: Zapisz stan oryginalny
       const { friends: originalFriends } = get();
+
+      // Krok 2: Stwórz stan optymistyczny
       const optimisticFriends = originalFriends.filter(
         (friend) => friend.uid !== friendUid
       );
+
+      // Krok 3: NATYCHMIAST zaktualizuj UI
       set({ friends: optimisticFriends });
 
+      // Krok 4: Operacja w tle (fire-and-forget)
       const performDatabaseUpdate = async () => {
         try {
+          // Użycie transakcji jest tutaj dobre, bo zapewnia spójność
           await runTransaction(db, async (transaction) => {
             const currentUserRef = doc(db, "users", currentUid);
             const friendUserRef = doc(db, "users", friendUid);
+
+            // Pobierz oba dokumenty w ramach transakcji
             const [currentUserDoc, friendUserDoc] = await Promise.all([
               transaction.get(currentUserRef),
               transaction.get(friendUserRef),
             ]);
-            if (!currentUserDoc.exists() || !friendUserDoc.exists())
-              throw "User document not found.";
+
+            if (!currentUserDoc.exists() || !friendUserDoc.exists()) {
+              throw new Error("User document not found.");
+            }
+
+            // Usuń przyjaciela z listy bieżącego użytkownika
             const updatedCurrentUserFriends = (
               currentUserDoc.data().friends || []
             ).filter((f: Friendship) => f.uid !== friendUid);
             transaction.update(currentUserRef, {
               friends: updatedCurrentUserFriends,
             });
+
+            // Usuń bieżącego użytkownika z listy przyjaciela
             const updatedFriendUserFriends = (
               friendUserDoc.data().friends || []
             ).filter((f: Friendship) => f.uid !== currentUid);
@@ -359,18 +375,20 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
               friends: updatedFriendUserFriends,
             });
           });
+          // Sukces - UI jest już w poprawnym stanie.
         } catch (error) {
+          // Krok 5: W razie błędu, cofnij zmianę w UI
           console.error(
             "Optimistic removeFriend failed, rolling back UI:",
             error
           );
-          Alert.alert("Error", "Could not remove friend.");
+          Alert.alert("Error", "Could not remove friend. Please try again.");
           set({ friends: originalFriends });
         }
       };
+
       performDatabaseUpdate();
     },
-
     // app/store/communityStore.ts
 
     sendFriendRequest: (receiverUid: string, receiverNickname: string) => {
