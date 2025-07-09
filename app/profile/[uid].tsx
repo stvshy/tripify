@@ -35,6 +35,7 @@ import { useCountryStore } from "../store/countryStore";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import VisitedCountriesSkeleton from "@/components/VisitedCountriesSkeleton";
 import ConfirmationModal from "../../components/ConfirmationModal";
+import { FriendshipActionButtons } from "@/components/FriendshipActionButton";
 interface UserProfile {
   uid: string;
   nickname: string;
@@ -99,27 +100,8 @@ const ProfileTopBar = React.memo(
 
 // Komponent 2: Panel z informacjami o użytkowniku i przyciskami
 const UserInfoPanel = React.memo(
-  ({
-    userProfile,
-    isFriend,
-    hasSentRequest,
-    hasReceivedRequest,
-    handlers,
-  }: {
-    userProfile: UserProfile;
-    isFriend: boolean;
-    hasSentRequest: boolean;
-    hasReceivedRequest: boolean;
-    handlers: {
-      onAdd: () => void;
-      onRemove: () => void;
-      onAccept: () => void;
-      onDecline: () => void;
-      onCancelRequest: () => void;
-    };
-  }) => {
+  ({ userProfile }: { userProfile: UserProfile }) => {
     const theme = useTheme();
-    const { isDarkTheme } = useContext(ThemeContext);
     const currentUser = auth.currentUser;
 
     return (
@@ -135,73 +117,12 @@ const UserInfoPanel = React.memo(
           {userProfile.nickname}
         </Text>
 
+        {/* Jeśli to nie jest profil zalogowanego użytkownika, pokaż przyciski */}
         {currentUser?.uid !== userProfile.uid && (
-          <>
-            {hasReceivedRequest ? (
-              <View style={profileStyles.friendActionButtons}>
-                <TouchableOpacity
-                  onPress={handlers.onAccept}
-                  style={[
-                    profileStyles.acceptButton,
-                    { backgroundColor: theme.colors.primary },
-                  ]}
-                >
-                  <Text style={profileStyles.buttonText}>Accept</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handlers.onDecline}
-                  style={[
-                    profileStyles.declineButton,
-                    { backgroundColor: "rgba(116, 116, 116, 0.3)" },
-                  ]}
-                >
-                  <Text style={profileStyles.buttonText}>Decline</Text>
-                </TouchableOpacity>
-              </View>
-            ) : isFriend ? (
-              <TouchableOpacity
-                onPress={handlers.onRemove}
-                style={[
-                  profileStyles.addFriendButton,
-                  {
-                    backgroundColor: isDarkTheme
-                      ? "rgba(171, 109, 197, 0.4)"
-                      : "rgba(191, 115, 229, 0.43)",
-                  },
-                ]}
-              >
-                <Text
-                  style={{ color: "#fff", fontSize: 14, fontWeight: "500" }}
-                >
-                  Friend
-                </Text>
-              </TouchableOpacity>
-            ) : hasSentRequest ? (
-              <TouchableOpacity
-                onPress={handlers.onCancelRequest}
-                style={[
-                  profileStyles.addFriendButton,
-                  {
-                    backgroundColor: isDarkTheme
-                      ? "rgba(128, 128, 128, 0.4)"
-                      : "rgba(204, 204, 204, 0.7)",
-                  },
-                ]}
-              >
-                <Text style={profileStyles.addFriendButtonText}>Sent</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                onPress={handlers.onAdd}
-                style={[
-                  profileStyles.addFriendButton,
-                  { backgroundColor: theme.colors.primary },
-                ]}
-              >
-                <Text style={profileStyles.addFriendButtonText}>Add</Text>
-              </TouchableOpacity>
-            )}
-          </>
+          <FriendshipActionButtons
+            profileUid={userProfile.uid}
+            profileNickname={userProfile.nickname}
+          />
         )}
       </View>
     );
@@ -335,43 +256,43 @@ export default function ProfileScreen() {
   // app/profile/[uid].tsx
 
   // Krok 1: Selektywny odczyt stanu
-  const friends = useCommunityStore((state) => state.friends);
-  const incomingRequests = useCommunityStore((state) => state.incomingRequests);
-  const outgoingRequests = useCommunityStore((state) => state.outgoingRequests);
+  // const friends = useCommunityStore((state) => state.friends);
+  // const incomingRequests = useCommunityStore((state) => state.incomingRequests);
+  // const outgoingRequests = useCommunityStore((state) => state.outgoingRequests);
   // const isLoadingCommunity = useCommunityStore((state) => state.isLoading);
 
   // Krok 2: Odczyt akcji. Te się nie zmieniają, więc nie powodują re-renderów.
-  const {
-    acceptFriendRequest,
-    rejectFriendRequest,
-    sendFriendRequest,
-    removeFriend,
-    cancelOutgoingRequest,
-  } = useCommunityStore.getState(); // Używamy .getState() do jednorazowego pobrania akcji
+  // const {
+  //   acceptFriendRequest,
+  //   rejectFriendRequest,
+  //   sendFriendRequest,
+  //   removeFriend,
+  //   cancelOutgoingRequest,
+  // } = useCommunityStore.getState(); // Używamy .getState() do jednorazowego pobrania akcji
 
   // const isLoading = loadingProfile;
 
-  // Sprawdzenie statusu znajomości (POPRAWIONE)
-  const isFriend = useMemo(
-    () => friends.some((friend) => friend.uid === profileUid),
-    [friends, profileUid]
-  );
-  const hasSentRequest = useMemo(
-    () => outgoingRequests.some((req) => req.receiverUid === profileUid),
-    [outgoingRequests, profileUid]
-  );
-  const hasReceivedRequest = useMemo(
-    () => incomingRequests.some((req) => req.senderUid === profileUid),
-    [incomingRequests, profileUid]
-  );
-  const incomingRequestFromProfile = useMemo(
-    () => incomingRequests.find((req) => req.senderUid === profileUid),
-    [incomingRequests, profileUid]
-  );
-  const outgoingRequestToProfile = useMemo(
-    () => outgoingRequests.find((req) => req.receiverUid === profileUid),
-    [outgoingRequests, profileUid]
-  );
+  // // Sprawdzenie statusu znajomości (POPRAWIONE)
+  // const isFriend = useMemo(
+  //   () => friends.some((friend) => friend.uid === profileUid),
+  //   [friends, profileUid]
+  // );
+  // const hasSentRequest = useMemo(
+  //   () => outgoingRequests.some((req) => req.receiverUid === profileUid),
+  //   [outgoingRequests, profileUid]
+  // );
+  // const hasReceivedRequest = useMemo(
+  //   () => incomingRequests.some((req) => req.senderUid === profileUid),
+  //   [incomingRequests, profileUid]
+  // );
+  // const incomingRequestFromProfile = useMemo(
+  //   () => incomingRequests.find((req) => req.senderUid === profileUid),
+  //   [incomingRequests, profileUid]
+  // );
+  // const outgoingRequestToProfile = useMemo(
+  //   () => outgoingRequests.find((req) => req.receiverUid === profileUid),
+  //   [outgoingRequests, profileUid]
+  // );
   const [rawUserProfile, setRawUserProfile] = useState<UserProfile | null>(
     null
   );
@@ -487,58 +408,59 @@ export default function ProfileScreen() {
     return () => {};
   }, [profileUid]); // Efekt uruchamia się tylko, gdy zmieni się UID profilu
   // --- Handlers (POPRAWIONE) ---
-  const handleAdd = () => {
-    if (rawUserProfile) {
-      // Zmieniono z userProfile
-      sendFriendRequest(rawUserProfile.uid, rawUserProfile.nickname);
-    }
-  };
+  // const handleAdd = () => {
+  //   if (rawUserProfile) {
+  //     // Zmieniono z userProfile
+  //     sendFriendRequest(rawUserProfile.uid, rawUserProfile.nickname);
+  //   }
+  // };
   const handleCloseModal = () => {
     setModalState({ ...modalState, visible: false });
   };
 
-  const handleRemove = () => {
-    if (!profileUid || !rawUserProfile) return;
+  // const handleRemove = () => {
+  //   if (!profileUid || !rawUserProfile) return;
 
-    setModalState({
-      visible: true,
-      title: "Remove Friend",
-      message: `Are you sure you want to remove ${rawUserProfile.nickname} from your friends?`,
-      confirmText: "Remove",
-      isDestructive: true, // Użyjemy czerwonego przycisku
-      onConfirm: () => {
-        removeFriend(profileUid);
-        handleCloseModal(); // Zamknij modal po potwierdzeniu
-      },
-    });
-  };
+  //   setModalState({
+  //     visible: true,
+  //     title: "Remove Friend",
+  //     message: `Are you sure you want to remove ${rawUserProfile.nickname} from your friends?`,
+  //     confirmText: "Remove",
+  //     isDestructive: true, // Użyjemy czerwonego przycisku
+  //     onConfirm: () => {
+  //       removeFriend(profileUid);
+  //       handleCloseModal(); // Zamknij modal po potwierdzeniu
+  //     },
+  //   });
+  // };
 
-  const handleCancelRequest = () => {
-    if (!outgoingRequestToProfile) return;
+  // const handleCancelRequest = () => {
+  //   if (!outgoingRequestToProfile) return;
 
-    setModalState({
-      visible: true,
-      title: "Cancel Request",
-      message: "Are you sure you want to cancel the friend request?",
-      confirmText: "Yes",
-      isDestructive: false,
-      onConfirm: () => {
-        cancelOutgoingRequest(outgoingRequestToProfile.receiverUid);
-        handleCloseModal(); // Zamknij modal po potwierdzeniu
-      },
-    });
-  };
-  const handleAccept = () => {
-    if (incomingRequestFromProfile) {
-      acceptFriendRequest(incomingRequestFromProfile);
-    }
-  };
+  //   setModalState({
+  //     visible: true,
+  //     title: "Cancel Request",
+  //     message: "Are you sure you want to cancel the friend request?",
+  //     confirmText: "Yes",
+  //     isDestructive: false,
+  //     onConfirm: () => {
+  //       cancelOutgoingRequest(outgoingRequestToProfile.receiverUid);
+  //       handleCloseModal(); // Zamknij modal po potwierdzeniu
+  //     },
+  //   });
+  // };
+  // const handleAccept = () => {
+  //   if (incomingRequestFromProfile) {
+  //     // Po prostu wywołaj akcję. Ona sama zajmie się resztą.
+  //     acceptFriendRequest(incomingRequestFromProfile);
+  //   }
+  // };
 
-  const handleDecline = () => {
-    if (incomingRequestFromProfile) {
-      rejectFriendRequest(incomingRequestFromProfile.id);
-    }
-  };
+  // const handleDecline = () => {
+  //   if (incomingRequestFromProfile) {
+  //     rejectFriendRequest(incomingRequestFromProfile.id);
+  //   }
+  // };
 
   const CountryPillRow = React.memo(
     ({
@@ -693,19 +615,8 @@ export default function ProfileScreen() {
           isDarkTheme={isDarkTheme}
         />
         {rawUserProfile && (
-          <UserInfoPanel
-            userProfile={rawUserProfile}
-            isFriend={isFriend}
-            hasSentRequest={hasSentRequest}
-            hasReceivedRequest={hasReceivedRequest}
-            handlers={{
-              onAdd: handleAdd,
-              onRemove: handleRemove,
-              onAccept: handleAccept,
-              onDecline: handleDecline,
-              onCancelRequest: handleCancelRequest,
-            }}
-          />
+          // Przekazujemy tylko dane profilu. Komponent sam zajmie się resztą.
+          <UserInfoPanel userProfile={rawUserProfile} />
         )}
         <RankingPreview
           rankingSlots={rankingSlots}
@@ -743,24 +654,15 @@ export default function ProfileScreen() {
     ),
     [
       rawUserProfile,
-      isFriend,
-      hasSentRequest,
-      hasReceivedRequest,
-      incomingRequestFromProfile,
       rankingSlots,
       visitedCount,
       isDarkTheme,
       handleBack,
       toggleTheme,
-      handleAdd,
-      handleRemove,
-      handleAccept,
-      handleDecline,
       handleCountryPress,
-      handleShowFullRanking, // Dodaj tę zależność, jeśli jej brakowało
-      isListProcessing, // Ta zależność jest kluczowa dla ActivityIndicator
+      handleShowFullRanking,
+      isListProcessing,
       theme,
-      handleCancelRequest,
     ]
   );
   // const ListLoader = useCallback(() => {
