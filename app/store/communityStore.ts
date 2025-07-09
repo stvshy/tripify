@@ -56,7 +56,7 @@ interface CommunityActions {
     receiverNickname: string
   ) => Promise<void>;
   removeFriend: (friendUid: string) => Promise<void>;
-  acceptFriendRequest: (request: IncomingRequest) => Promise<void>;
+  acceptFriendRequest: (request: IncomingRequest) => void;
   rejectFriendRequest: (requestId: string) => Promise<void>;
   cancelOutgoingRequest: (receiverUid: string) => Promise<void>;
 }
@@ -195,7 +195,8 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
     // ====================================================================
     // KROK 3: Akcje dostosowane do nowej, zdenormalizowanej struktury
     // ====================================================================
-    acceptFriendRequest: async (request: IncomingRequest) => {
+    acceptFriendRequest: (request: IncomingRequest) => {
+      // UWAGA: Brak `async`! Funkcja jest teraz synchroniczna.
       const currentUser = auth.currentUser;
       if (!currentUser) return;
 
@@ -206,86 +207,83 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
       const originalState = { friends, incomingRequests };
 
       // KROK 2: Przygotuj "optymistyczny" stan.
-      // Zakładamy, że prośba zostanie zaakceptowana.
       const newFriend: Friendship = {
         uid: senderUid,
         nickname: senderNickname,
       };
-
       const optimisticFriends = [...friends, newFriend];
       const optimisticRequests = incomingRequests.filter(
         (req) => req.id !== requestId
       );
 
-      // KROK 3: NATYCHMIAST zaktualizuj UI nowym, optymistycznym stanem.
-      // Nie pokazujemy już wskaźnika ładowania, bo zmiana jest "natychmiastowa".
+      // KROK 3: NATYCHMIAST zaktualizuj UI i ZAKOŃCZ DZIAŁANIE FUNKCJI.
       set({
         friends: optimisticFriends,
         incomingRequests: optimisticRequests,
-        isLoading: false, // Upewniamy się, że nie ma loadera
+        isLoading: false,
       });
 
-      // KROK 4: Wyślij żądanie do serwera w tle.
-      try {
-        const currentUserDoc = await getDoc(doc(db, "users", currentUser.uid));
-        const currentUserNickname =
-          currentUserDoc.data()?.nickname || "Unknown";
-
-        const batch = writeBatch(db);
-
-        // Logika zapisu do bazy danych pozostaje bez zmian
-        const currentUserRef = doc(db, "users", currentUser.uid);
-        batch.update(currentUserRef, {
-          friends: arrayUnion({ uid: senderUid, nickname: senderNickname }),
-        });
-
-        const senderUserRef = doc(db, "users", senderUid);
-        batch.update(senderUserRef, {
-          friends: arrayUnion({
-            uid: currentUser.uid,
-            nickname: currentUserNickname,
-          }),
-        });
-
-        const incomingRequestRef = doc(
-          db,
-          "users",
-          currentUser.uid,
-          "incomingFriendRequests",
-          requestId
-        );
-        batch.delete(incomingRequestRef);
-
-        const senderDoc = await getDoc(senderUserRef);
-        if (senderDoc.exists()) {
-          const senderData = senderDoc.data();
-          const outgoingRequests = senderData.friendRequests?.outgoing || [];
-          const updatedOutgoingRequests = outgoingRequests.filter(
-            (req: { receiverUid: string }) =>
-              req.receiverUid !== currentUser.uid
+      // KROK 4: Zdefiniuj i uruchom operację w bazie danych w tle (fire-and-forget).
+      const performDatabaseUpdate = async () => {
+        try {
+          const currentUserDoc = await getDoc(
+            doc(db, "users", currentUser.uid)
           );
-          batch.update(senderUserRef, {
-            "friendRequests.outgoing": updatedOutgoingRequests,
+          const currentUserNickname =
+            currentUserDoc.data()?.nickname || "Unknown";
+
+          const batch = writeBatch(db);
+
+          const currentUserRef = doc(db, "users", currentUser.uid);
+          batch.update(currentUserRef, {
+            friends: arrayUnion({ uid: senderUid, nickname: senderNickname }),
           });
+
+          const senderUserRef = doc(db, "users", senderUid);
+          batch.update(senderUserRef, {
+            friends: arrayUnion({
+              uid: currentUser.uid,
+              nickname: currentUserNickname,
+            }),
+          });
+
+          const incomingRequestRef = doc(
+            db,
+            "users",
+            currentUser.uid,
+            "incomingFriendRequests",
+            requestId
+          );
+          batch.delete(incomingRequestRef);
+
+          const senderDoc = await getDoc(senderUserRef);
+          if (senderDoc.exists()) {
+            const senderData = senderDoc.data();
+            const outgoingRequests = senderData.friendRequests?.outgoing || [];
+            const updatedOutgoingRequests = outgoingRequests.filter(
+              (req: { receiverUid: string }) =>
+                req.receiverUid !== currentUser.uid
+            );
+            batch.update(senderUserRef, {
+              "friendRequests.outgoing": updatedOutgoingRequests,
+            });
+          }
+
+          await batch.commit();
+          // Jeśli się uda, nic więcej nie robimy.
+        } catch (error) {
+          // KROK 5: W razie błędu, cofnij zmianę w UI.
+          console.error("Optimistic update failed, rolling back UI:", error);
+          Alert.alert(
+            "Error",
+            "Could not accept the friend request. Please try again."
+          );
+          set(originalState);
         }
+      };
 
-        await batch.commit();
-
-        // Jeśli wszystko się udało, nie musimy nic robić.
-        // Stan UI jest już poprawny. Listener onSnapshot ewentualnie
-        // zsynchronizuje dane, ale użytkownik nie zauważy różnicy.
-      } catch (error) {
-        // KROK 5: KATASTROFA! Operacja na serwerze się nie powiodła.
-        // Musimy przywrócić UI do stanu sprzed kliknięcia.
-        console.error("Optimistic update failed, rolling back UI:", error);
-        Alert.alert(
-          "Error",
-          "Could not accept the friend request. Please try again."
-        );
-
-        // Przywracamy zapisany wcześniej, oryginalny stan.
-        set(originalState);
-      }
+      // Uruchamiamy operację, ale na nią nie czekamy!
+      performDatabaseUpdate();
     },
 
     rejectFriendRequest: async (requestId: string) => {
