@@ -101,7 +101,7 @@ const OutgoingRequestItem = ({
       >
         <Text style={{ color: theme.colors.onBackground }}>
           Friend request sent to{" "}
-          <Text style={{ fontWeight: "500", color: "#9f7fc7" }}>
+          <Text style={{ fontWeight: "500", color: theme.colors.primary }}>
             {receiverNickname}
           </Text>
         </Text>
