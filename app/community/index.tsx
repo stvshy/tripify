@@ -307,7 +307,7 @@ const SearchResultItem: React.FC<SearchResultItemProps> = memo(
                 }}
               >
                 <Ionicons
-                  name="arrow-undo-outline"
+                  name="arrow-undo"
                   size={16}
                   color={theme.colors.primary}
                 />
