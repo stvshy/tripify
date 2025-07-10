@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
   },
   emptyListContainer: {
     // Dodatkowy styl dla pustej listy w panelu
-    height: 100,
+    height: 40,
     justifyContent: "center",
     alignItems: "center",
   },
