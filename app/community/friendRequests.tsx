@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 20,
     position: "absolute",
-    bottom: 20,
+    bottom: 15,
     alignSelf: "center", // Lepsze centrowanie
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
