@@ -735,7 +735,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginHorizontal: 11.8,
-    marginBottom: 15,
+    marginBottom: 13,
     marginTop: 10,
   },
   inputContainer: {
