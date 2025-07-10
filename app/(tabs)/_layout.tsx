@@ -109,19 +109,29 @@ function VisitedToggle() {
       onPress={onPress}
       style={{ flexDirection: "row", alignItems: "center", marginRight: 16 }}
     >
-      <MaterialCommunityIcons
+      {/* <MaterialCommunityIcons
         name={iconName}
         size={20}
         color={theme.colors.primary}
-      />
+      /> */}
       <Text
         style={{
-          marginLeft: 5,
+          marginRight: 7,
           color: theme.colors.onSurface,
+          fontSize: 14.5,
+          fontFamily: "Figtree-Regular",
         }}
       >
         {visitedCountriesCount}/{totalCountriesCount}
       </Text>
+      <MaterialCommunityIcons
+        name={iconName}
+        size={20}
+        color={theme.colors.primary}
+        style={{
+          marginRight: -2,
+        }}
+      />
     </Pressable>
   );
 }
