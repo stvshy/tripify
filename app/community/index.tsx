@@ -35,7 +35,7 @@ import {
 } from "../store/communityStore";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../config/firebaseConfig";
-
+import ConfirmationModal from "../../components/ConfirmationModal";
 if (
   Platform.OS === "android" &&
   UIManager.setLayoutAnimationEnabledExperimental
@@ -187,7 +187,7 @@ interface FriendListItemProps {
   theme: MD3Theme;
   onNavigateToProfile: (uid: string) => void;
   onSetActiveFriendId: (id: string | null) => void;
-  onRemoveFriend: (id: string) => void;
+  onRemoveFriend: (friend: Friendship) => void;
 }
 const FriendListItem: React.FC<FriendListItemProps> = memo(
   ({
@@ -234,10 +234,14 @@ const FriendListItem: React.FC<FriendListItemProps> = memo(
       </View>
       {activeFriendId === item.uid && ( // ZMIANA: item.id -> item.uid
         <TouchableOpacity
-          onPress={() => onRemoveFriend(item.uid)} // ZMIANA: item.id -> item.uid
+          onPress={() => onRemoveFriend(item)}
           style={styles.removeButton}
         >
-          <Ionicons name="close-circle" size={24} color="red" />
+          <Ionicons
+            name="close-circle"
+            size={24}
+            color={theme.colors.primary}
+          />
         </TouchableOpacity>
       )}
     </TouchableOpacity>
@@ -400,6 +404,14 @@ export default function CommunityScreen() {
   const router = useRouter();
   const theme = useTheme();
 
+  const [removalModal, setRemovalModal] = useState<{
+    visible: boolean;
+    friend: Friendship | null;
+  }>({
+    visible: false,
+    friend: null,
+  });
+
   useFocusEffect(
     useCallback(() => {
       // Ta prosta zmiana stanu wymusi ponowne renderowanie komponentu
@@ -479,15 +491,22 @@ export default function CommunityScreen() {
     (uid: string) => incomingRequests.some((req) => req.senderUid === uid),
     [incomingRequests]
   );
-  // if (isLoading) {
-  //   return (
-  //     <View
-  //       style={[styles.loading, { backgroundColor: theme.colors.background }]}
-  //     >
-  //       <ActivityIndicator size="large" color={theme.colors.primary} />
-  //     </View>
-  //   );
-  // }
+  const handleOpenRemoveModal = useCallback((friendToRemov: Friendship) => {
+    setRemovalModal({ visible: true, friend: friendToRemov });
+  }, []);
+
+  // ZMIANA: Handler zamykający modal
+  const handleCloseRemoveModal = () => {
+    setRemovalModal({ visible: false, friend: null });
+  };
+
+  // ZMIANA: Handler potwierdzający usunięcie, który wywołuje akcję ze store
+  const handleConfirmRemove = () => {
+    if (removalModal.friend) {
+      removeFriend(removalModal.friend.uid);
+    }
+    handleCloseRemoveModal(); // Zamknij modal po akcji
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
@@ -623,9 +642,10 @@ export default function CommunityScreen() {
                           theme={theme}
                           onNavigateToProfile={navigateToProfile}
                           onSetActiveFriendId={setActiveFriendId}
-                          onRemoveFriend={removeFriend}
+                          onRemoveFriend={handleOpenRemoveModal}
                         />
                       )}
+                      extraData={friends}
                     />
                   )}
                 </View>
@@ -690,6 +710,17 @@ export default function CommunityScreen() {
           </KeyboardAvoidingView>
         </SafeAreaView>
       </TouchableWithoutFeedback>
+      <ConfirmationModal
+        visible={removalModal.visible}
+        title="Remove Friend"
+        message={`Are you sure you want to remove ${
+          removalModal.friend?.nickname ?? "this user"
+        } from your friends?`}
+        onCancel={handleCloseRemoveModal}
+        onConfirm={handleConfirmRemove}
+        confirmText="Remove"
+        isDestructive={true} // `true` sprawi, że przycisk będzie "primary" (czerwony)
+      />
     </View>
   );
 }

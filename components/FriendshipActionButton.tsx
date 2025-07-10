@@ -155,7 +155,11 @@ export const FriendshipActionButtons = ({
           onPress={handleCancelRequest}
           style={[
             styles.actionButton,
-            { backgroundColor: "rgba(204, 204, 204, 0.7)" },
+            {
+              backgroundColor: theme.dark
+                ? "rgba(128, 128, 128, 0.4)"
+                : "rgba(204, 204, 204, 0.7)",
+            },
           ]}
         >
           <Text style={styles.addFriendButtonText}>Sent</Text>
