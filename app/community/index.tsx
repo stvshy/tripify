@@ -247,6 +247,7 @@ interface SearchResultItemProps {
   theme: MD3Theme;
   isAlreadyFriend: boolean;
   hasSentRequestInitial: boolean;
+  hasReceivedRequest: boolean;
   onNavigateToProfile: (uid: string) => void;
   onAddFriend: (uid: string, nickname: string) => void;
 }
@@ -256,6 +257,7 @@ const SearchResultItem: React.FC<SearchResultItemProps> = memo(
     theme,
     isAlreadyFriend,
     hasSentRequestInitial,
+    hasReceivedRequest,
     onNavigateToProfile,
     onAddFriend,
   }) => {
@@ -275,7 +277,8 @@ const SearchResultItem: React.FC<SearchResultItemProps> = memo(
     let buttonContent,
       isDisabled = false,
       specificButtonStyle,
-      buttonBackgroundColor = theme.colors.primary;
+      buttonBackgroundColor = theme.colors.primary,
+      onPressAction = handlePressAdd;
 
     // Logika renderowania przycisku teraz używa stanu `requestSent`
     if (isAlreadyFriend) {
@@ -289,16 +292,41 @@ const SearchResultItem: React.FC<SearchResultItemProps> = memo(
         </Text>
       );
       isDisabled = true;
+    } else if (hasReceivedRequest) {
+      // Użyjmy ikony zamiast tekstu
+      specificButtonStyle = styles.addCircle; // Styl taki sam jak przycisk "Add" dla spójności
+      buttonBackgroundColor = "transparent"; // Przezroczyste tło
+      // Dodajemy tylko obramowanie
+      specificButtonStyle = {
+        ...specificButtonStyle,
+        borderWidth: 1.5, // Można dać nieco grubsze obramowanie dla wyróżnienia
+        borderColor: theme.colors.primary,
+        marginRight: 10, // Dodajemy z powrotem, bo w friendButton nie ma
+      };
+      // Wybieramy ikonę
+      buttonContent = (
+        // Użyj ikony powiadomienia, np. dzwonka
+        <Ionicons
+          name="arrow-undo-outline"
+          size={15}
+          color={theme.colors.primary}
+        />
+        // lub ikony "mail"
+        // <Ionicons name="mail-unread-outline" size={15} color={theme.colors.primary} />
+      );
+      isDisabled = false;
+      onPressAction = () => onNavigateToProfile(item.uid);
     } else if (requestSent) {
-      // <-- ZMIANA: używamy stanu lokalnego
       specificButtonStyle = styles.sentButton;
       buttonBackgroundColor = theme.dark
         ? "rgba(128, 128, 128, 0.4)"
         : "rgba(204, 204, 204, 0.7)";
       buttonContent = <Text style={styles.sentButtonText}>Sent</Text>;
       isDisabled = true;
+      onPressAction = () => onNavigateToProfile(item.uid); // Wysłano -> nawiguj
     } else {
       specificButtonStyle = styles.addCircle;
+      buttonBackgroundColor = theme.colors.primary;
       buttonContent = <Ionicons name="add" size={17} color="#fff" />;
     }
 
@@ -311,7 +339,7 @@ const SearchResultItem: React.FC<SearchResultItemProps> = memo(
           {item.nickname}
         </Text>
         <TouchableOpacity
-          onPress={handlePressAdd} // <-- ZMIANA: używamy nowej funkcji
+          onPress={onPressAction} // <<< 4. UŻYJ ZMIENNEJ AKCJI
           style={[
             specificButtonStyle,
             { backgroundColor: buttonBackgroundColor },
@@ -332,7 +360,7 @@ export default function CommunityScreen() {
     outgoingRequests,
     searchResults,
     isSearching,
-    // listenForCommunityData,
+    incomingRequests,
     // cleanup,
     searchUsers,
     sendFriendRequest,
@@ -422,7 +450,10 @@ export default function CommunityScreen() {
     (uid: string) => outgoingRequests.some((req) => req.receiverUid === uid),
     [outgoingRequests]
   );
-
+  const hasReceivedRequest = useCallback(
+    (uid: string) => incomingRequests.some((req) => req.senderUid === uid),
+    [incomingRequests]
+  );
   // if (isLoading) {
   //   return (
   //     <View
@@ -595,11 +626,16 @@ export default function CommunityScreen() {
                           theme={theme}
                           isAlreadyFriend={isAlreadyFriend(item.uid)}
                           hasSentRequestInitial={hasSentRequest(item.uid)}
+                          hasReceivedRequest={hasReceivedRequest(item.uid)}
                           onNavigateToProfile={navigateToProfile}
                           onAddFriend={sendFriendRequest}
                         />
                       )}
-                      extraData={{ friends, outgoingRequests }}
+                      extraData={{
+                        friends,
+                        outgoingRequests,
+                        incomingRequests,
+                      }}
                       initialNumToRender={11}
                       maxToRenderPerBatch={11}
                       windowSize={11}
