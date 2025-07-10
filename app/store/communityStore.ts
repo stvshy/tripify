@@ -95,7 +95,17 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
       );
       get().unsubscribeListeners();
       const userId = currentUser.uid;
-      set({ isLoading: true });
+
+      const { friends, incomingRequests, outgoingRequests } = get();
+      if (
+        friends.length === 0 &&
+        incomingRequests.length === 0 &&
+        outgoingRequests.length === 0
+      ) {
+        set({ isLoading: true });
+      }
+
+      // set({ isLoading: true });
 
       let userDocLoaded = false;
       let incomingRequestsLoaded = false;
