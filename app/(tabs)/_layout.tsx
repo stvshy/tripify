@@ -67,9 +67,12 @@ const CustomTabBarButton: React.FC<BottomTabBarButtonProps> = ({
 
 // Badge component for displaying counts
 const Badge: React.FC<{ count: number }> = ({ count }) => {
+  const theme = useTheme();
   if (count <= 0) return null;
   return (
-    <View style={styles.badgeContainer}>
+    <View
+      style={[styles.badgeContainer, { backgroundColor: theme.colors.primary }]}
+    >
       <Text style={styles.badgeText}>{count}</Text>
     </View>
   );
@@ -512,7 +515,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: -6,
     top: -3,
-    backgroundColor: "#8A2BE2",
+    // backgroundColor: "#8A2BE2",
     borderRadius: 8,
     paddingHorizontal: 4,
     paddingVertical: 1,
