@@ -1,6 +1,13 @@
 // app/notes/index.tsx
 
-import React, { useContext, useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import React, {
+  useContext,
+  useEffect,
+  useState,
+  useMemo,
+  useCallback,
+  useRef,
+} from "react";
 import {
   View,
   Text,
@@ -20,22 +27,29 @@ import {
   TextInput,
   Modal,
   ScrollView,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { ThemeContext } from '../config/ThemeContext';
-import { useTheme, TextInput as PaperTextInput } from 'react-native-paper';
-import { collection, getDocs, deleteDoc, addDoc, doc, updateDoc } from 'firebase/firestore';
-import { db, auth } from '../config/firebaseConfig';
-import { Ionicons, FontAwesome, MaterialIcons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
-import CountryFlag from 'react-native-country-flag';
-import filteredCountriesData from '../../components/filteredCountries.json';
-import NoteItem from '@/components/NoteItem';
-import CountryItem from '@/components/CountryItem';
-import { Animated as AnimatedRN } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+} from "react-native";
+import { useRouter } from "expo-router";
+import { ThemeContext } from "../config/ThemeContext";
+import { useTheme, TextInput as PaperTextInput } from "react-native-paper";
+import {
+  collection,
+  getDocs,
+  deleteDoc,
+  addDoc,
+  doc,
+  updateDoc,
+} from "firebase/firestore";
+import { db, auth } from "../config/firebaseConfig";
+import { Ionicons, FontAwesome, MaterialIcons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
+import CountryFlag from "react-native-country-flag";
+import filteredCountriesData from "../../components/filteredCountries.json";
+import NoteItem from "@/components/NoteItem";
+import CountryItem from "@/components/CountryItem";
+import { Animated as AnimatedRN } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 // import MasonryList from 'react-native-masonry-list';
-import { writeBatch } from 'firebase/firestore';
+import { writeBatch } from "firebase/firestore";
 
 // Interface definitions
 interface Note {
@@ -63,22 +77,23 @@ export default function NotesScreen() {
   const router = useRouter();
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [selectedCountry, setSelectedCountry] = useState<string>('');
-  const [noteText, setNoteText] = useState<string>('');
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedCountry, setSelectedCountry] = useState<string>("");
+  const [noteText, setNoteText] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [isFocused, setIsFocused] = useState<boolean>(false);
   const [filteredCountries, setFilteredCountries] = useState<Country[]>([]);
   const [isModalVisible, setIsModalVisible] = useState<boolean>(false);
-  const [isModalInputFocused, setIsModalInputFocused] = useState<boolean>(false);
+  const [isModalInputFocused, setIsModalInputFocused] =
+    useState<boolean>(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState<boolean>(false); // Dodany stan
   const fadeAnim = useRef(new AnimatedRN.Value(1)).current;
   const scaleValue = useRef(new AnimatedRN.Value(1)).current;
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [isEditModalVisible, setIsEditModalVisible] = useState<boolean>(false);
-  const [editedNoteText, setEditedNoteText] = useState<string>('');
+  const [editedNoteText, setEditedNoteText] = useState<string>("");
   const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
 
-  const { height, width: deviceWidth } = Dimensions.get('window');
+  const { height, width: deviceWidth } = Dimensions.get("window");
   const deviceHeight = height; // Używamy deviceHeight w stylach
 
   // Stała wysokości elementu listy
@@ -115,7 +130,12 @@ export default function NotesScreen() {
     try {
       const currentUser = auth.currentUser;
       if (currentUser) {
-        const notesCollectionRef = collection(db, 'users', currentUser.uid, 'notes');
+        const notesCollectionRef = collection(
+          db,
+          "users",
+          currentUser.uid,
+          "notes"
+        );
         const notesSnapshot = await getDocs(notesCollectionRef);
         const notesList: Note[] = notesSnapshot.docs.map((doc) => ({
           id: doc.id,
@@ -125,14 +145,17 @@ export default function NotesScreen() {
         }));
         setNotes(removeDuplicateNotes(notesList));
       } else {
-        console.log('No current user.');
+        console.log("No current user.");
       }
     } catch (error: any) {
-      if (error.code === 'unavailable') {
-        Alert.alert('Offline', 'Unable to fetch notes. Check your internet connection.');
+      if (error.code === "unavailable") {
+        Alert.alert(
+          "Offline",
+          "Unable to fetch notes. Check your internet connection."
+        );
       } else {
-        console.error('Error fetching notes:', error);
-        Alert.alert('Error', 'Unable to fetch notes.');
+        console.error("Error fetching notes:", error);
+        Alert.alert("Error", "Unable to fetch notes.");
       }
     } finally {
       setLoading(false);
@@ -145,12 +168,18 @@ export default function NotesScreen() {
 
   // Nasłuchiwanie zdarzeń klawiatury
   useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
-      setIsKeyboardVisible(true);
-    });
-    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      setIsKeyboardVisible(false);
-    });
+    const keyboardDidShowListener = Keyboard.addListener(
+      "keyboardDidShow",
+      () => {
+        setIsKeyboardVisible(true);
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      "keyboardDidHide",
+      () => {
+        setIsKeyboardVisible(false);
+      }
+    );
 
     return () => {
       keyboardDidShowListener.remove();
@@ -161,28 +190,37 @@ export default function NotesScreen() {
   // Funkcja dodająca notatkę
   const handleAddNote = useCallback(async () => {
     if (!selectedCountry) {
-      Alert.alert('Error', 'Please select a country.');
+      Alert.alert("Error", "Please select a country.");
       return;
     }
     if (!noteText.trim()) {
-      Alert.alert('Error', 'Please enter a note.');
+      Alert.alert("Error", "Please enter a note.");
       return;
     }
     try {
       const currentUser = auth.currentUser;
       if (currentUser) {
-        const notesCollectionRef = collection(db, 'users', currentUser.uid, 'notes');
-        const newNote = { countryCca2: selectedCountry, noteText: noteText.trim(), createdAt: new Date() };
+        const notesCollectionRef = collection(
+          db,
+          "users",
+          currentUser.uid,
+          "notes"
+        );
+        const newNote = {
+          countryCca2: selectedCountry,
+          noteText: noteText.trim(),
+          createdAt: new Date(),
+        };
         const docRef = await addDoc(notesCollectionRef, newNote);
         setNotes((prevNotes) => [...prevNotes, { id: docRef.id, ...newNote }]);
-        setSelectedCountry('');
-        setNoteText('');
-        Alert.alert('Success', 'Note added successfully.');
+        setSelectedCountry("");
+        setNoteText("");
+        Alert.alert("Success", "Note added successfully.");
         setIsModalVisible(false); // Zamknij modal po dodaniu
       }
     } catch (error) {
-      console.error('Error adding note:', error);
-      Alert.alert('Error', 'Unable to add note.');
+      console.error("Error adding note:", error);
+      Alert.alert("Error", "Unable to add note.");
     }
   }, [selectedCountry, noteText]);
 
@@ -191,32 +229,32 @@ export default function NotesScreen() {
     try {
       const currentUser = auth.currentUser;
       if (currentUser) {
-        const noteDocRef = doc(db, 'users', currentUser.uid, 'notes', noteId);
+        const noteDocRef = doc(db, "users", currentUser.uid, "notes", noteId);
         await deleteDoc(noteDocRef);
         setNotes((prevNotes) => prevNotes.filter((note) => note.id !== noteId));
-        Alert.alert('Success', 'Note deleted successfully.');
+        Alert.alert("Success", "Note deleted successfully.");
       }
     } catch (error) {
-      console.error('Error deleting note:', error);
-      Alert.alert('Error', 'Unable to delete note.');
+      console.error("Error deleting note:", error);
+      Alert.alert("Error", "Unable to delete note.");
     }
   }, []);
 
   // Funkcja do obsługi wyboru kraju
   const handleSelectCountry = useCallback((countryCode: string) => {
     setSelectedCountry(countryCode);
-    setSearchQuery('');
+    setSearchQuery("");
     setFilteredCountries([]);
   }, []);
 
   // Filtrowanie krajów na podstawie zapytania wyszukiwania
   useEffect(() => {
-    console.log('Search Query:', searchQuery); // Debugowanie
+    console.log("Search Query:", searchQuery); // Debugowanie
     if (searchQuery.length > 1) {
       const filtered = mappedCountries.filter((country) =>
         country.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
-      console.log('Filtered countries:', filtered); // Debugowanie
+      console.log("Filtered countries:", filtered); // Debugowanie
       setFilteredCountries(filtered);
     } else {
       setFilteredCountries([]);
@@ -245,66 +283,65 @@ export default function NotesScreen() {
       }
     });
   };
-  
+
   const renderNoteItem = ({ item }: { item: Note }) => {
-      const country = mappedCountries.find((c) => c.cca2 === item.countryCca2);
-    
-      return (
-        <TouchableOpacity
-          style={[
-            styles.noteItem,
-            { backgroundColor: isDarkTheme ? '#1e1e1e' : '#f9f9f9' },
-            selectedNoteIds.includes(item.id) && { backgroundColor: isDarkTheme ? '#444' : '#ddd' }, // Highlight selected notes
-          ]}
-          onPress={() => {
-            if (selectedNoteIds.length > 0) {
-              handleSelectNote(item.id);
-            } else {
-              setSelectedNote(item);
-              setEditedNoteText(item.noteText);
-              setIsEditModalVisible(true);
-            }
-          }}
-          onLongPress={() => handleSelectNote(item.id)}
-        >
-          {/* Header */}
-          <View style={styles.noteHeader}>
-            {/* Flag and country name */}
-            <View style={styles.noteFlagContainer}>
-              {country && (
-                <CountryFlag
-                  isoCode={country.cca2}
-                  size={22}
-                  style={styles.countryFlag}
-                />
-              )}
-              <Text
-                style={[
-                  styles.noteCountryName,
-                  { color: isDarkTheme ? '#fff' : '#000' },
-                ]}
-                numberOfLines={2}
-              >
-                {country?.name || 'Unknown Country'}
-              </Text>
-            </View>
+    const country = mappedCountries.find((c) => c.cca2 === item.countryCca2);
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.noteItem,
+          { backgroundColor: isDarkTheme ? "#1e1e1e" : "#f9f9f9" },
+          selectedNoteIds.includes(item.id) && {
+            backgroundColor: isDarkTheme ? "#444" : "#ddd",
+          }, // Highlight selected notes
+        ]}
+        onPress={() => {
+          if (selectedNoteIds.length > 0) {
+            handleSelectNote(item.id);
+          } else {
+            setSelectedNote(item);
+            setEditedNoteText(item.noteText);
+            setIsEditModalVisible(true);
+          }
+        }}
+        onLongPress={() => handleSelectNote(item.id)}
+      >
+        {/* Header */}
+        <View style={styles.noteHeader}>
+          {/* Flag and country name */}
+          <View style={styles.noteFlagContainer}>
+            {country && (
+              <CountryFlag
+                isoCode={country.cca2}
+                size={22}
+                style={styles.countryFlag}
+              />
+            )}
+            <Text
+              style={[
+                styles.noteCountryName,
+                { color: isDarkTheme ? "#fff" : "#000" },
+              ]}
+              numberOfLines={2}
+            >
+              {country?.name || "Unknown Country"}
+            </Text>
           </View>
-    
-          {/* Note text */}
-          <Text
-            style={[
-              styles.noteText,
-              { color: isDarkTheme ? '#ffffff' : '#000000' },
-            ]}
-          >
-            {item.noteText}
-          </Text>
-        </TouchableOpacity>
-      );
-    };
-  
-  
-  
+        </View>
+
+        {/* Note text */}
+        <Text
+          style={[
+            styles.noteText,
+            { color: isDarkTheme ? "#ffffff" : "#000000" },
+          ]}
+        >
+          {item.noteText}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
   // Funkcja obsługująca przełączanie motywu z animacją
   const handleToggleTheme = useCallback(() => {
@@ -328,34 +365,42 @@ export default function NotesScreen() {
     if (!selectedNote) return;
 
     if (!editedNoteText.trim()) {
-      Alert.alert('Error', 'Please enter a note.');
+      Alert.alert("Error", "Please enter a note.");
       return;
     }
 
     try {
       const currentUser = auth.currentUser;
       if (currentUser) {
-        const noteDocRef = doc(db, 'users', currentUser.uid, 'notes', selectedNote.id);
+        const noteDocRef = doc(
+          db,
+          "users",
+          currentUser.uid,
+          "notes",
+          selectedNote.id
+        );
         await updateDoc(noteDocRef, { noteText: editedNoteText.trim() });
         setNotes((prevNotes) =>
           prevNotes.map((note) =>
-            note.id === selectedNote.id ? { ...note, noteText: editedNoteText.trim() } : note
+            note.id === selectedNote.id
+              ? { ...note, noteText: editedNoteText.trim() }
+              : note
           )
         );
-        Alert.alert('Success', 'Note updated successfully.');
+        Alert.alert("Success", "Note updated successfully.");
         setIsEditModalVisible(false);
         setSelectedNote(null);
-        setEditedNoteText('');
+        setEditedNoteText("");
       }
     } catch (error) {
-      console.error('Error updating note:', error);
-      Alert.alert('Error', 'Unable to update note.');
+      console.error("Error updating note:", error);
+      Alert.alert("Error", "Unable to update note.");
     }
   }, [editedNoteText, selectedNote]);
   const splitIntoColumns = (data: Note[]) => {
     const leftColumn: Note[] = [];
     const rightColumn: Note[] = [];
-  
+
     data.forEach((item, index) => {
       if (index % 2 === 0) {
         leftColumn.push(item);
@@ -363,10 +408,10 @@ export default function NotesScreen() {
         rightColumn.push(item);
       }
     });
-  
-    console.log('Left Column:', leftColumn);
-    console.log('Right Column:', rightColumn);
-  
+
+    console.log("Left Column:", leftColumn);
+    console.log("Right Column:", rightColumn);
+
     return { leftColumn, rightColumn };
   };
   const handleDeleteSelectedNotes = async () => {
@@ -375,7 +420,7 @@ export default function NotesScreen() {
       if (currentUser) {
         const batch = writeBatch(db);
         selectedNoteIds.forEach((noteId) => {
-          const noteDocRef = doc(db, 'users', currentUser.uid, 'notes', noteId);
+          const noteDocRef = doc(db, "users", currentUser.uid, "notes", noteId);
           batch.delete(noteDocRef);
         });
         await batch.commit();
@@ -383,336 +428,480 @@ export default function NotesScreen() {
           prevNotes.filter((note) => !selectedNoteIds.includes(note.id))
         );
         setSelectedNoteIds([]);
-        Alert.alert('Success', 'Selected notes deleted successfully.');
+        Alert.alert("Success", "Selected notes deleted successfully.");
       }
     } catch (error) {
-      console.error('Error deleting notes:', error);
-      Alert.alert('Error', 'Unable to delete selected notes.');
+      console.error("Error deleting notes:", error);
+      Alert.alert("Error", "Unable to delete selected notes.");
     }
   };
-  
-  console.log('Notes:', notes);
+
+  console.log("Notes:", notes);
   const { leftColumn, rightColumn } = splitIntoColumns(notes);
-  
+
   return (
     // <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-        >
-          {/* Header */}
-          <View style={[styles.header, { paddingTop: height * 0.03 }]}>
-            <TouchableOpacity onPress={() => router.back()} style={[styles.headerButton, { marginLeft: -19 }]}>
-              <Ionicons name="arrow-back" size={26} color={theme.colors.onBackground} />
-            </TouchableOpacity>
-            <Text style={[styles.headerTitle, { color: theme.colors.onBackground }]}>Notes</Text>
-            <TouchableOpacity onPress={handleToggleTheme} style={[styles.headerButton, { marginRight: -16 }]}>
-              <Ionicons name={isDarkTheme ? "sunny" : "moon"} size={24} color={theme.colors.onBackground} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Plus Button or Delete Button */}
-          <View style={styles.plusButtonContainer}>
-            {selectedNoteIds.length > 0 ? (
-              <TouchableOpacity
-                onPress={handleDeleteSelectedNotes}
-                style={[styles.plusButton, { backgroundColor: theme.colors.primary }]}
-              >
-                <Ionicons name="trash" size={23} color="#fff" />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                onPress={() => setIsModalVisible(true)}
-                style={[styles.plusButton, { backgroundColor: theme.colors.primary }]}
-              >
-                <Ionicons name="add" size={24} color="#fff" />
-              </TouchableOpacity>
-            )}
-          </View>
-
-
-          {/* Modal dodawania notatki */}
-          <Modal
-            visible={isModalVisible}
-            transparent
-            animationType="slide"
-            onRequestClose={() => setIsModalVisible(false)}
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        {/* Header */}
+        <View style={[styles.header, { paddingTop: height * 0.018 }]}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={[styles.headerButton, { marginLeft: -19 }]}
           >
-            <TouchableWithoutFeedback onPress={() => setIsModalVisible(false)}>
-              <BlurView intensity={50} tint={isDarkTheme ? 'dark' : 'light'} style={styles.blurView} />
-            </TouchableWithoutFeedback>
-            <KeyboardAvoidingView
-              style={styles.modalContainer}
-              behavior={Platform.OS === "ios" ? "padding" : "height"}
-              keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 20} // Dostosuj wartość w zależności od potrzeb
+            <Ionicons
+              name="arrow-back"
+              size={26}
+              color={theme.colors.onBackground}
+            />
+          </TouchableOpacity>
+          <Text
+            style={[styles.headerTitle, { color: theme.colors.onBackground }]}
+          >
+            Notes
+          </Text>
+          <TouchableOpacity
+            onPress={handleToggleTheme}
+            style={[styles.headerButton, { marginRight: -16 }]}
+          >
+            <Ionicons
+              name={isDarkTheme ? "sunny" : "moon"}
+              size={24}
+              color={theme.colors.onBackground}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Plus Button or Delete Button */}
+        <View style={styles.plusButtonContainer}>
+          {selectedNoteIds.length > 0 ? (
+            <TouchableOpacity
+              onPress={handleDeleteSelectedNotes}
+              style={[
+                styles.plusButton,
+                { backgroundColor: theme.colors.primary },
+              ]}
             >
-              <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                <View style={[
-                  styles.modalContent, 
-                  { 
+              <Ionicons name="trash" size={23} color="#fff" />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              onPress={() => setIsModalVisible(true)}
+              style={[
+                styles.plusButton,
+                { backgroundColor: theme.colors.primary },
+              ]}
+            >
+              <Ionicons name="add" size={24} color="#fff" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Modal dodawania notatki */}
+        <Modal
+          visible={isModalVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setIsModalVisible(false)}
+        >
+          <TouchableWithoutFeedback onPress={() => setIsModalVisible(false)}>
+            <BlurView
+              intensity={50}
+              tint={isDarkTheme ? "dark" : "light"}
+              style={styles.blurView}
+            />
+          </TouchableWithoutFeedback>
+          <KeyboardAvoidingView
+            style={styles.modalContainer}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 20} // Dostosuj wartość w zależności od potrzeb
+          >
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <View
+                style={[
+                  styles.modalContent,
+                  {
                     backgroundColor: theme.colors.surface,
-                    height: isKeyboardVisible ? deviceHeight * 0.81 : deviceHeight * 0.95, // Dynamiczna wysokość
-                  }
-                ]}>
-                  {/* Close Button */}
-                  <TouchableOpacity
-                    onPress={() => {
-                      console.log('Close button pressed');
-                      setIsModalVisible(false);
-                    }}
-                    style={styles.modalCloseButton}
+                    height: isKeyboardVisible
+                      ? deviceHeight * 0.81
+                      : deviceHeight * 0.95, // Dynamiczna wysokość
+                  },
+                ]}
+              >
+                {/* Close Button */}
+                <TouchableOpacity
+                  onPress={() => {
+                    console.log("Close button pressed");
+                    setIsModalVisible(false);
+                  }}
+                  style={styles.modalCloseButton}
+                >
+                  <Ionicons
+                    name="close"
+                    size={24}
+                    color={theme.colors.onSurface}
+                  />
+                </TouchableOpacity>
+
+                {/* Modal Header */}
+                <Text
+                  style={[
+                    styles.modalAddHeader,
+                    { color: theme.colors.onSurface, marginTop: -43 },
+                  ]}
+                >
+                  Add a Note
+                </Text>
+
+                {/* Formularz Dodawania Notatki */}
+                <View
+                  style={[
+                    styles.formContainer,
+                    { backgroundColor: theme.colors.surface },
+                  ]}
+                >
+                  {/* Pasek wyszukiwania kraju */}
+                  <View
+                    style={[
+                      styles.inputContainer,
+                      isModalInputFocused && styles.inputFocused,
+                    ]}
                   >
-                    <Ionicons name="close" size={24} color={theme.colors.onSurface} />
-                  </TouchableOpacity>
-
-                  {/* Modal Header */}
-                  <Text style={[styles.modalAddHeader, { color: theme.colors.onSurface, marginTop: -43 }]}>Add a Note</Text>
-
-                  {/* Formularz Dodawania Notatki */}
-                  <View style={[styles.formContainer, { backgroundColor: theme.colors.surface }]}>
-                    {/* Pasek wyszukiwania kraju */}
-                    <View style={[styles.inputContainer, isModalInputFocused && styles.inputFocused]}>
-                      <PaperTextInput
-                        label="Search Country"
-                        value={searchQuery}
-                        onChangeText={setSearchQuery}
-                        mode="flat"
-                        style={{
-                          flex: 1,
-                          paddingLeft: 10,
-                          height: 50,
-                          fontSize: 14,
-                          backgroundColor: 'transparent',
-                          borderRadius: 0,
-                          color: '#000',
-                        }}
-                        theme={{
-                          colors: {
-                            primary: isModalInputFocused ? theme.colors.primary : theme.colors.outline,
-                            background: 'transparent',
-                            text: theme.colors.onSurface,
-                          },
-                        }}
-                        underlineColor="transparent"
-                        left={
-                          <PaperTextInput.Icon
-                            icon={() => <FontAwesome name="search" size={20} color={isModalInputFocused ? theme.colors.primary : theme.colors.outline} />}
-                            style={styles.iconLeft}
-                          />
-                        }
-                        right={
-                          searchQuery ? (
-                            <PaperTextInput.Icon
-                              icon={() => <MaterialIcons name="close" size={17} color={theme.colors.outline} />}
-                              onPress={() => setSearchQuery('')}
+                    <PaperTextInput
+                      label="Search Country"
+                      value={searchQuery}
+                      onChangeText={setSearchQuery}
+                      mode="flat"
+                      style={{
+                        flex: 1,
+                        paddingLeft: 10,
+                        height: 50,
+                        fontSize: 14,
+                        backgroundColor: "transparent",
+                        borderRadius: 0,
+                        color: "#000",
+                      }}
+                      theme={{
+                        colors: {
+                          primary: isModalInputFocused
+                            ? theme.colors.primary
+                            : theme.colors.outline,
+                          background: "transparent",
+                          text: theme.colors.onSurface,
+                        },
+                      }}
+                      underlineColor="transparent"
+                      left={
+                        <PaperTextInput.Icon
+                          icon={() => (
+                            <FontAwesome
+                              name="search"
+                              size={20}
+                              color={
+                                isModalInputFocused
+                                  ? theme.colors.primary
+                                  : theme.colors.outline
+                              }
                             />
-                          ) : null
-                        }
-                        autoCapitalize="none"
-                        onFocus={() => {
-                          setIsModalInputFocused(true);
-                          fadeAnim.setValue(0);
-                        }}
-                        onBlur={() => {
-                          setIsModalInputFocused(false);
-                          AnimatedRN.timing(fadeAnim, {
-                            toValue: 1,
-                            duration: 300,
-                            useNativeDriver: true,
-                          }).start();
-                        }}
-                      />
-                    </View>
-
-                    {/* Lista wyników wyszukiwania */}
-                    {filteredCountries.length > 0 && (
-                      <View
-                        style={[
-                          styles.countriesListWrapper,
-                          { height: listHeight, backgroundColor: theme.colors.surface },
-                        ]}
-                      >
-                        <FlatList
-                          data={filteredCountries}
-                          keyExtractor={(item) => item.cca2}
-                          renderItem={renderCountryItem}
-                          scrollEnabled={filteredCountries.length > 2}
+                          )}
+                          style={styles.iconLeft}
                         />
-                        {filteredCountries.length > 2 && (
-                          <>
-                            {/* Gradient na górze */}
-                            <LinearGradient
-                              colors={[
-                                isDarkTheme ? 'rgba(30,30,30,1)' : 'rgba(255,255,255,1)', 
-                                isDarkTheme ? 'rgba(30,30,30,0)' : 'rgba(255,255,255,0)'
-                              ]}
-                              style={styles.topGradient}
-                              pointerEvents="none"
-                            />
-                            {/* Gradient na dole */}
-                            <LinearGradient
-                              colors={[
-                                isDarkTheme ? 'rgba(30,30,30,0)' : 'rgba(255,255,255,0)',
-                                isDarkTheme ? 'rgba(30,30,30,1)' : 'rgba(255,255,255,1)'
-                              ]}
-                              style={styles.bottomGradient}
-                              pointerEvents="none"
-                            />
-                          </>
-                        )}
-                      </View>
-                    )}
+                      }
+                      right={
+                        searchQuery ? (
+                          <PaperTextInput.Icon
+                            icon={() => (
+                              <MaterialIcons
+                                name="close"
+                                size={17}
+                                color={theme.colors.outline}
+                              />
+                            )}
+                            onPress={() => setSearchQuery("")}
+                          />
+                        ) : null
+                      }
+                      autoCapitalize="none"
+                      onFocus={() => {
+                        setIsModalInputFocused(true);
+                        fadeAnim.setValue(0);
+                      }}
+                      onBlur={() => {
+                        setIsModalInputFocused(false);
+                        AnimatedRN.timing(fadeAnim, {
+                          toValue: 1,
+                          duration: 300,
+                          useNativeDriver: true,
+                        }).start();
+                      }}
+                    />
+                  </View>
 
-                    {/* Wybrany kraj */}
-                    <Text style={[styles.formLabel, { color: theme.colors.onSurface }]}>Selected Country:</Text>
-                    <View style={styles.selectedCountryContainer}>
-                      {selectedCountry ? (
+                  {/* Lista wyników wyszukiwania */}
+                  {filteredCountries.length > 0 && (
+                    <View
+                      style={[
+                        styles.countriesListWrapper,
+                        {
+                          height: listHeight,
+                          backgroundColor: theme.colors.surface,
+                        },
+                      ]}
+                    >
+                      <FlatList
+                        data={filteredCountries}
+                        keyExtractor={(item) => item.cca2}
+                        renderItem={renderCountryItem}
+                        scrollEnabled={filteredCountries.length > 2}
+                      />
+                      {filteredCountries.length > 2 && (
                         <>
-                          <CountryFlag isoCode={selectedCountry} size={25} style={styles.selectedCountryFlag} />
-                          <Text style={{ color: theme.colors.onSurface, marginLeft: 5 }}>
-                            {mappedCountries.find(c => c.cca2 === selectedCountry)?.name || 'Unknown Country'}
-                          </Text>
+                          {/* Gradient na górze */}
+                          <LinearGradient
+                            colors={[
+                              isDarkTheme
+                                ? "rgba(30,30,30,1)"
+                                : "rgba(255,255,255,1)",
+                              isDarkTheme
+                                ? "rgba(30,30,30,0)"
+                                : "rgba(255,255,255,0)",
+                            ]}
+                            style={styles.topGradient}
+                            pointerEvents="none"
+                          />
+                          {/* Gradient na dole */}
+                          <LinearGradient
+                            colors={[
+                              isDarkTheme
+                                ? "rgba(30,30,30,0)"
+                                : "rgba(255,255,255,0)",
+                              isDarkTheme
+                                ? "rgba(30,30,30,1)"
+                                : "rgba(255,255,255,1)",
+                            ]}
+                            style={styles.bottomGradient}
+                            pointerEvents="none"
+                          />
                         </>
-                      ) : (
-                        <Text style={{ color: 'gray' }}>No country selected.</Text>
                       )}
                     </View>
+                  )}
 
-                    {/* Pole tekstowe na notatkę */}
-                    <View style={styles.textInputContainer}>
-                      <TextInput
-                        style={[
-                          styles.textInput,
-                          { color: theme.colors.onSurface, borderColor: theme.colors.onSurface, paddingTop: 10 },
-                        ]}
-                        placeholder="Enter your note"
-                        placeholderTextColor="gray"
-                        value={noteText}
-                        onChangeText={setNoteText}
-                        multiline
-                        scrollEnabled
-                        textAlignVertical="top"
-                      />
-                    </View>
-
-                    {/* Przycisk dodawania notatki */}
-                    <TouchableOpacity
-                      style={[styles.addButton, { backgroundColor: theme.colors.primary }]}
-                      onPress={handleAddNote}
-                    >
-                      <Text style={styles.addButtonText}>Add Note</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </TouchableWithoutFeedback>
-            </KeyboardAvoidingView>
-          </Modal>
-
-          {/* Modal edycji notatki */}
-          <Modal
-            visible={isEditModalVisible}
-            transparent
-            animationType="slide"
-            onRequestClose={() => setIsEditModalVisible(false)}
-          >
-            <TouchableWithoutFeedback onPress={() => setIsEditModalVisible(false)}>
-              <BlurView intensity={50} tint={isDarkTheme ? 'dark' : 'light'} style={styles.blurView} />
-            </TouchableWithoutFeedback>
-            <KeyboardAvoidingView
-              style={styles.modalContainer}
-              behavior={Platform.OS === "ios" ? "padding" : "height"}
-              keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 20}
-            >
-              <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                <View style={[
-                  styles.modalContent, 
-                  { 
-                    backgroundColor: theme.colors.surface,
-                    height: isKeyboardVisible ? deviceHeight * 0.81 : deviceHeight * 0.95,
-                  }
-                ]}>
-                  {/* Close Button */}
-                  <TouchableOpacity
-                    onPress={() => setIsEditModalVisible(false)}
-                    style={styles.modalCloseButton}
+                  {/* Wybrany kraj */}
+                  <Text
+                    style={[
+                      styles.formLabel,
+                      { color: theme.colors.onSurface },
+                    ]}
                   >
-                    <Ionicons name="close" size={24} color={theme.colors.onSurface} />
-                  </TouchableOpacity>
-
-                  {/* Modal Header */}
-                  <Text style={[styles.modalHeader, { color: theme.colors.onSurface }]}>Edit Note</Text>
-
-                  {/* Formularz edycji notatki */}
-                  <View style={[styles.formContainer, { backgroundColor: theme.colors.surface }]}>
-                    {/* Pole tekstowe na edytowaną notatkę */}
-                    <View style={styles.textInputContainer}>
-                      <TextInput
-                        style={[
-                          styles.textInput,
-                          { color: theme.colors.onSurface, borderColor: theme.colors.onSurface, paddingTop: 10 },
-                        ]}
-                        placeholder="Edit your note"
-                        placeholderTextColor="gray"
-                        value={editedNoteText}
-                        onChangeText={setEditedNoteText}
-                        multiline
-                        scrollEnabled
-                        textAlignVertical="top"
-                      />
-                    </View>
-
-                    {/* Przycisk zapisywania zmian */}
-                    <TouchableOpacity
-                      style={[styles.addButton, { backgroundColor: theme.colors.primary }]}
-                      onPress={handleEditNote}
-                    >
-                      <Text style={styles.addButtonText}>Save Changes</Text>
-                    </TouchableOpacity>
+                    Selected Country:
+                  </Text>
+                  <View style={styles.selectedCountryContainer}>
+                    {selectedCountry ? (
+                      <>
+                        <CountryFlag
+                          isoCode={selectedCountry}
+                          size={25}
+                          style={styles.selectedCountryFlag}
+                        />
+                        <Text
+                          style={{
+                            color: theme.colors.onSurface,
+                            marginLeft: 5,
+                          }}
+                        >
+                          {mappedCountries.find(
+                            (c) => c.cca2 === selectedCountry
+                          )?.name || "Unknown Country"}
+                        </Text>
+                      </>
+                    ) : (
+                      <Text style={{ color: "gray" }}>
+                        No country selected.
+                      </Text>
+                    )}
                   </View>
+
+                  {/* Pole tekstowe na notatkę */}
+                  <View style={styles.textInputContainer}>
+                    <TextInput
+                      style={[
+                        styles.textInput,
+                        {
+                          color: theme.colors.onSurface,
+                          borderColor: theme.colors.onSurface,
+                          paddingTop: 10,
+                        },
+                      ]}
+                      placeholder="Enter your note"
+                      placeholderTextColor="gray"
+                      value={noteText}
+                      onChangeText={setNoteText}
+                      multiline
+                      scrollEnabled
+                      textAlignVertical="top"
+                    />
+                  </View>
+
+                  {/* Przycisk dodawania notatki */}
+                  <TouchableOpacity
+                    style={[
+                      styles.addButton,
+                      { backgroundColor: theme.colors.primary },
+                    ]}
+                    onPress={handleAddNote}
+                  >
+                    <Text style={styles.addButtonText}>Add Note</Text>
+                  </TouchableOpacity>
                 </View>
-              </TouchableWithoutFeedback>
-            </KeyboardAvoidingView>
-          </Modal>
+              </View>
+            </TouchableWithoutFeedback>
+          </KeyboardAvoidingView>
+        </Modal>
 
-     {/* Lista Notatek */}
-     {loading ? (
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      ) : notes.length > 0 ? (
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          style={{ flex: 1 }} // Upewnij się, że ScrollView zajmuje całą wysokość
-          contentContainerStyle={[
-            styles.scrollContainer,
-            { backgroundColor: theme.colors.background },
-          ]}
+        {/* Modal edycji notatki */}
+        <Modal
+          visible={isEditModalVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setIsEditModalVisible(false)}
         >
-          <View style={styles.masonryContainer}>
-            {/* Lewa kolumna */}
-            <View style={styles.column}>
-              {leftColumn.map((item) => (
-                <View key={item.id}>{renderNoteItem({ item })}</View>
-              ))}
-            </View>
+          <TouchableWithoutFeedback
+            onPress={() => setIsEditModalVisible(false)}
+          >
+            <BlurView
+              intensity={50}
+              tint={isDarkTheme ? "dark" : "light"}
+              style={styles.blurView}
+            />
+          </TouchableWithoutFeedback>
+          <KeyboardAvoidingView
+            style={styles.modalContainer}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 20}
+          >
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <View
+                style={[
+                  styles.modalContent,
+                  {
+                    backgroundColor: theme.colors.surface,
+                    height: isKeyboardVisible
+                      ? deviceHeight * 0.81
+                      : deviceHeight * 0.95,
+                  },
+                ]}
+              >
+                {/* Close Button */}
+                <TouchableOpacity
+                  onPress={() => setIsEditModalVisible(false)}
+                  style={styles.modalCloseButton}
+                >
+                  <Ionicons
+                    name="close"
+                    size={24}
+                    color={theme.colors.onSurface}
+                  />
+                </TouchableOpacity>
 
-            {/* Prawa kolumna */}
-            <View style={styles.column}>
-              {rightColumn.map((item) => (
-                <View key={item.id}>{renderNoteItem({ item })}</View>
-              ))}
+                {/* Modal Header */}
+                <Text
+                  style={[
+                    styles.modalHeader,
+                    { color: theme.colors.onSurface },
+                  ]}
+                >
+                  Edit Note
+                </Text>
+
+                {/* Formularz edycji notatki */}
+                <View
+                  style={[
+                    styles.formContainer,
+                    { backgroundColor: theme.colors.surface },
+                  ]}
+                >
+                  {/* Pole tekstowe na edytowaną notatkę */}
+                  <View style={styles.textInputContainer}>
+                    <TextInput
+                      style={[
+                        styles.textInput,
+                        {
+                          color: theme.colors.onSurface,
+                          borderColor: theme.colors.onSurface,
+                          paddingTop: 10,
+                        },
+                      ]}
+                      placeholder="Edit your note"
+                      placeholderTextColor="gray"
+                      value={editedNoteText}
+                      onChangeText={setEditedNoteText}
+                      multiline
+                      scrollEnabled
+                      textAlignVertical="top"
+                    />
+                  </View>
+
+                  {/* Przycisk zapisywania zmian */}
+                  <TouchableOpacity
+                    style={[
+                      styles.addButton,
+                      { backgroundColor: theme.colors.primary },
+                    ]}
+                    onPress={handleEditNote}
+                  >
+                    <Text style={styles.addButtonText}>Save Changes</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </KeyboardAvoidingView>
+        </Modal>
+
+        {/* Lista Notatek */}
+        {loading ? (
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+        ) : notes.length > 0 ? (
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            style={{ flex: 1 }} // Upewnij się, że ScrollView zajmuje całą wysokość
+            contentContainerStyle={[
+              styles.scrollContainer,
+              { backgroundColor: theme.colors.background },
+            ]}
+          >
+            <View style={styles.masonryContainer}>
+              {/* Lewa kolumna */}
+              <View style={styles.column}>
+                {leftColumn.map((item) => (
+                  <View key={item.id}>{renderNoteItem({ item })}</View>
+                ))}
+              </View>
+
+              {/* Prawa kolumna */}
+              <View style={styles.column}>
+                {rightColumn.map((item) => (
+                  <View key={item.id}>{renderNoteItem({ item })}</View>
+                ))}
+              </View>
             </View>
+          </ScrollView>
+        ) : (
+          <View style={styles.noNotesContainer}>
+            <Text
+              style={[styles.noNotesText, { color: theme.colors.onSurface }]}
+            >
+              You haven't created any notes yet.
+            </Text>
           </View>
-        </ScrollView>
-      ) : (
-        <View style={styles.noNotesContainer}>
-          <Text style={[styles.noNotesText, { color: theme.colors.onSurface }]}>
-            You haven't created any notes yet.
-          </Text>
-        </View>
-      )}
-
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+        )}
+      </KeyboardAvoidingView>
+    </SafeAreaView>
     // </TouchableWithoutFeedback>
   );
 }
@@ -723,27 +912,26 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 10,
     marginBottom: 20, // Dodany margines poniżej nagłówka
   },
   headerButton: {
     padding: 8,
     width: 40,
-    alignItems: 'center',
+    alignItems: "center",
   },
   headerTitle: {
     fontSize: 21,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   masonryContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     // paddingHorizontal: 10,
     flexGrow: 1,
-    
   },
   column: {
     flex: 1, // Każda kolumna zajmuje połowę szerokości
@@ -754,19 +942,19 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    justifyContent: 'center', // Wyśrodkowanie modala
-    alignItems: 'center',
+    justifyContent: "center", // Wyśrodkowanie modala
+    alignItems: "center",
     // padding: 20,
   },
   noteHeader: {
-    flexDirection: 'row',
+    flexDirection: "row",
     // justifyContent: 'space-between',
     // alignItems: 'flex-start', // Wyrównaj do góry, jeśli tekst się zawija
     marginBottom: 8,
   },
   noteFlagContainer: {
-    flexDirection: 'row',
-    alignItems: 'center', // Wyrównaj do góry
+    flexDirection: "row",
+    alignItems: "center", // Wyrównaj do góry
     flex: 1, // Pozwól, aby zajmowało pozostałą przestrzeń
     // flexWrap: 'wrap',
   },
@@ -781,23 +969,23 @@ const styles = StyleSheet.create({
     height: 20, // Wysokość flagi
   },
   modalContent: {
-    width: '95%',
+    width: "95%",
     padding: 20,
     borderRadius: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
-    position: 'relative', // Upewnij się, że jest relative
+    position: "relative", // Upewnij się, że jest relative
   },
   blurView: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
+    position: "absolute",
+    width: "100%",
+    height: "100%",
   },
   modalCloseButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 10,
     right: 10,
     padding: 10, // Zwiększ obszar dotykowy
@@ -806,18 +994,18 @@ const styles = StyleSheet.create({
   },
   modalHeader: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 20,
-    textAlign: 'center',
+    textAlign: "center",
     // marginTop: 40, // Zapewnij odpowiednią przestrzeń od góry
     // paddingTop: 40,
-    paddingBottom: 20
+    paddingBottom: 20,
   },
   modalAddHeader: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 20,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 40, // Zapewnij odpowiednią przestrzeń od góry
     paddingTop: 40,
   },
@@ -825,76 +1013,76 @@ const styles = StyleSheet.create({
     flex: 1, // Wypełnia całą dostępną przestrzeń
     padding: 4,
     borderRadius: 10,
-    flexDirection: 'column',
+    flexDirection: "column",
   },
   formLabel: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 4,
   },
   inputContainer: {
-    width: '100%',
+    width: "100%",
     borderRadius: 28,
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: 2,
-    borderColor: '#ccc',
-    flexDirection: 'row',
-    alignItems: 'center',
+    borderColor: "#ccc",
+    flexDirection: "row",
+    alignItems: "center",
     height: 50, // Użyj jawnej liczby
     paddingHorizontal: 10, // Opcjonalnie, aby dodać przestrzeń wewnętrzną
     marginBottom: 17,
   },
   plusButtonContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 20,
   },
   plusButton: {
     width: 40,
     height: 40,
     borderRadius: 30, // Make it round
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     elevation: 5,
   },
   inputFocused: {
-    borderColor: '#6a1b9a',
+    borderColor: "#6a1b9a",
   },
   iconLeft: {
     marginLeft: 10,
   },
   countriesListWrapper: {
-    width: '100%',
+    width: "100%",
     borderRadius: 28,
-    overflow: 'hidden', // Ukryj elementy poza widocznym obszarem
+    overflow: "hidden", // Ukryj elementy poza widocznym obszarem
     borderWidth: 0.5,
-    borderColor: '#ccc',
+    borderColor: "#ccc",
     marginTop: -6,
-    position: 'relative', // Dodane dla gradientów
-    marginBottom: 7
+    position: "relative", // Dodane dla gradientów
+    marginBottom: 7,
   },
   topGradient: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     height: 20,
   },
   bottomGradient: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
     height: 20,
   },
   selectedCountryContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 10,
     borderRadius: 28, // Dodanie zaokrąglenia
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: "#ccc",
     marginBottom: 17, // Dodanie marginesu
-    backgroundColor: 'transparent', // Opcjonalne tło
+    backgroundColor: "transparent", // Opcjonalne tło
   },
   selectedCountryFlag: {
     marginRight: 10,
@@ -910,34 +1098,34 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 10, // Padding tylko po bokach
     paddingVertical: 0, // Brak paddingu od góry i dołu
-    textAlignVertical: 'top', // Ustawienie tekstu na górze
+    textAlignVertical: "top", // Ustawienie tekstu na górze
   },
   addButton: {
     paddingVertical: 12,
     paddingHorizontal: 30,
     borderRadius: 25, // Większe zaokrąglenie
-    alignItems: 'center',
-    backgroundColor: '#6200ee',
-    shadowColor: '#000',
+    alignItems: "center",
+    backgroundColor: "#6200ee",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
-    alignSelf: 'center', // Wyśrodkowanie
-    width: '80%', // Szerokość przycisku
+    alignSelf: "center", // Wyśrodkowanie
+    width: "80%", // Szerokość przycisku
     marginTop: 10, // Margines górny
   },
   addButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: 'bold', // Spójność z innymi przyciskami
+    fontWeight: "bold", // Spójność z innymi przyciskami
   },
   notesList: {
     paddingBottom: 20,
     flexGrow: 1, // Dodane
   },
   columnWrapper: {
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
     marginBottom: 16,
   },
   noteItem: {
@@ -947,7 +1135,7 @@ const styles = StyleSheet.create({
     // flex: 1,
     marginHorizontal: 5,
     // Dodaj cienie dla iOS
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -955,7 +1143,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   noteFlag: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     marginBottom: 8,
   },
   noteTextContainer: {
@@ -963,11 +1151,11 @@ const styles = StyleSheet.create({
   },
   noteCountryName: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
     flexShrink: 1, // Pozwól, aby tekst się zmniejszał
-    flexWrap: 'wrap',
+    flexWrap: "wrap",
     marginRight: 5, // Dodaj margines
-    maxWidth: '95%', // Maksymalna szerokość tekstu w stosunku do kontenera
+    maxWidth: "95%", // Maksymalna szerokość tekstu w stosunku do kontenera
   },
   noteText: {
     // flex: 1,
@@ -976,11 +1164,11 @@ const styles = StyleSheet.create({
     //  lineHeight: 20,
   },
   noNotesContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 20,
   },
   noNotesText: {
     fontSize: 16,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
 });

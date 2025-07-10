@@ -59,7 +59,7 @@ const ProfileTopBar = React.memo(
       <View
         style={[
           profileStyles.header,
-          { paddingTop: Dimensions.get("window").height * 0.02 },
+          { paddingTop: Dimensions.get("window").height * 0.018 },
         ]}
       >
         <TouchableOpacity

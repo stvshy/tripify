@@ -1,4 +1,4 @@
-import React, { useContext, useState, useMemo, useCallback } from 'react';
+import React, { useContext, useState, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -10,16 +10,22 @@ import {
   LayoutAnimation,
   TouchableWithoutFeedback,
   Modal,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { ThemeContext } from '../config/ThemeContext';
-import { useTheme } from 'react-native-paper';
-import { getDoc, doc, updateDoc, collection, getDocs } from 'firebase/firestore';
-import { db, auth } from '../config/firebaseConfig';
-import { Ionicons } from '@expo/vector-icons';
-import countriesData from '../../assets/maps/countries.json';
-import CountryFlag from 'react-native-country-flag';
-import RankingItem from '../../components/RankItem';
+} from "react-native";
+import { useRouter } from "expo-router";
+import { ThemeContext } from "../config/ThemeContext";
+import { useTheme } from "react-native-paper";
+import {
+  getDoc,
+  doc,
+  updateDoc,
+  collection,
+  getDocs,
+} from "firebase/firestore";
+import { db, auth } from "../config/firebaseConfig";
+import { Ionicons } from "@expo/vector-icons";
+import countriesData from "../../assets/maps/countries.json";
+import CountryFlag from "react-native-country-flag";
+import RankingItem from "../../components/RankItem";
 
 interface Country {
   id: string;
@@ -29,8 +35,8 @@ interface Country {
   class: string;
   path: string;
 }
-import { useFocusEffect } from '@react-navigation/native'; 
-import { signOut } from 'firebase/auth';
+import { useFocusEffect } from "@react-navigation/native";
+import { signOut } from "firebase/auth";
 
 interface RankingSlot {
   id: string;
@@ -43,36 +49,40 @@ interface Note {
   noteText: string;
   createdAt: any;
 }
-const generateUniqueId = () => `rank-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+const generateUniqueId = () =>
+  `rank-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 export default function AccountScreen() {
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
   const theme = useTheme();
   const router = useRouter();
   const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>([]);
-  const [activeRankingItemId, setActiveRankingItemId] = useState<string | null>(null);
-  const [userName, setUserName] = useState<string>('Error: No nickname');
-  const [userEmail, setUserEmail] = useState<string>('user@error.com');
+  const [activeRankingItemId, setActiveRankingItemId] = useState<string | null>(
+    null
+  );
+  const [userName, setUserName] = useState<string>("Error: No nickname");
+  const [userEmail, setUserEmail] = useState<string>("user@error.com");
   const [notes, setNotes] = useState<Note[]>([]);
-  const { width, height } = Dimensions.get('window');
-  const [isNotePreviewVisible, setIsNotePreviewVisible] = useState<boolean>(false);
+  const { width, height } = Dimensions.get("window");
+  const [isNotePreviewVisible, setIsNotePreviewVisible] =
+    useState<boolean>(false);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
-  
+
   const mappedCountries: Country[] = useMemo(() => {
     return countriesData.countries.map((country) => ({
       ...country,
       cca2: country.id,
       flag: `https://flagcdn.com/w40/${country.id.toLowerCase()}.png`,
-      name: country.name || 'Unknown',
-      class: country.class || 'Unknown',
-      path: country.path || 'Unknown',
+      name: country.name || "Unknown",
+      class: country.class || "Unknown",
+      path: country.path || "Unknown",
     }));
   }, []);
 
   const fetchUserData = useCallback(async () => {
     const currentUser = auth.currentUser;
     if (currentUser) {
-      const userDocRef = doc(db, 'users', currentUser.uid);
+      const userDocRef = doc(db, "users", currentUser.uid);
       const userDoc = await getDoc(userDocRef);
       if (userDoc.exists()) {
         const userData = userDoc.data();
@@ -80,12 +90,13 @@ export default function AccountScreen() {
         const nickname: string | undefined = userData.nickname;
         const email: string | null | undefined = currentUser.email;
 
-        setUserName(nickname || 'Error: No nickname');
-        setUserEmail(email || 'user@error.com');
+        setUserName(nickname || "Error: No nickname");
+        setUserEmail(email || "user@error.com");
 
         // Create initial ranking slots with unique IDs
         const initialSlots: RankingSlot[] = rankingData.map((cca2, index) => {
-          const country = mappedCountries.find((c: Country) => c.cca2 === cca2) || null;
+          const country =
+            mappedCountries.find((c: Country) => c.cca2 === cca2) || null;
           return {
             id: generateUniqueId(),
             rank: index + 1,
@@ -96,7 +107,12 @@ export default function AccountScreen() {
         setRankingSlots(initialSlots);
 
         // Fetch user notes
-        const notesCollectionRef = collection(db, 'users', currentUser.uid, 'notes');
+        const notesCollectionRef = collection(
+          db,
+          "users",
+          currentUser.uid,
+          "notes"
+        );
         const notesSnapshot = await getDocs(notesCollectionRef);
         const notesList: Note[] = notesSnapshot.docs.map((doc) => ({
           id: doc.id,
@@ -106,10 +122,10 @@ export default function AccountScreen() {
         }));
         setNotes(notesList);
       } else {
-        console.log('User document does not exist.');
+        console.log("User document does not exist.");
       }
     } else {
-      console.log('No current user.');
+      console.log("No current user.");
     }
   }, [mappedCountries]);
 
@@ -128,7 +144,10 @@ export default function AccountScreen() {
       const updatedSlots = [...rankingSlots];
       updatedSlots.splice(index, 1);
       // Update ranks
-      const reRankedSlots = updatedSlots.map((item, idx) => ({ ...item, rank: idx + 1 }));
+      const reRankedSlots = updatedSlots.map((item, idx) => ({
+        ...item,
+        rank: idx + 1,
+      }));
       setRankingSlots(reRankedSlots);
       handleSaveRanking(reRankedSlots);
       setActiveRankingItemId(null);
@@ -143,14 +162,14 @@ export default function AccountScreen() {
       .map((slot) => slot.country!.cca2);
     const currentUser = auth.currentUser;
     if (currentUser) {
-      const userDocRef = doc(db, 'users', currentUser.uid);
+      const userDocRef = doc(db, "users", currentUser.uid);
       await updateDoc(userDocRef, { ranking: ranking });
-      Alert.alert('Success', 'Ranking has been saved successfully.');
+      Alert.alert("Success", "Ranking has been saved successfully.");
     }
   };
 
   const handleNavigateToNotes = () => {
-    router.push('/notes');
+    router.push("/notes");
   };
 
   const handleNotePress = (note: Note) => {
@@ -160,49 +179,104 @@ export default function AccountScreen() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      router.replace('/welcome');
+      router.replace("/welcome");
     } catch (error) {
       console.error("Error logging out:", error);
-      Alert.alert('Error', 'Failed to log out. Please try again.');
+      Alert.alert("Error", "Failed to log out. Please try again.");
     }
   };
-  
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 20 }}
-       scrollIndicatorInsets={{ right: -3 }} >
+    <View
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 20 }}
+        scrollIndicatorInsets={{ right: -3 }}
+      >
         <TouchableWithoutFeedback onPress={() => setActiveRankingItemId(null)}>
           <View>
             {/* Header with back button and theme toggle */}
-            <View style={[styles.header, { paddingTop: height * 0.03 }]}>
-              <TouchableOpacity onPress={handleGoBack} style={[styles.headerButton, { marginLeft: -19 }]}>
-                <Ionicons name="arrow-back" size={26} color={theme.colors.onBackground} />
+            <View style={[styles.header, { paddingTop: height * 0.018 }]}>
+              <TouchableOpacity
+                onPress={handleGoBack}
+                style={[styles.headerButton, { marginLeft: -19 }]}
+              >
+                <Ionicons
+                  name="arrow-back"
+                  size={26}
+                  color={theme.colors.onBackground}
+                />
               </TouchableOpacity>
-              <Text style={[styles.headerTitle, { color: theme.colors.onBackground }]}>Account</Text>
-              <TouchableOpacity onPress={toggleTheme} style={[styles.headerButton, { marginRight: -16 }]}>
-                <Ionicons name={isDarkTheme ? 'sunny' : 'moon'} size={24} color={theme.colors.onBackground} />
+              <Text
+                style={[
+                  styles.headerTitle,
+                  { color: theme.colors.onBackground },
+                ]}
+              >
+                Account
+              </Text>
+              <TouchableOpacity
+                onPress={toggleTheme}
+                style={[styles.headerButton, { marginRight: -16 }]}
+              >
+                <Ionicons
+                  name={isDarkTheme ? "sunny" : "moon"}
+                  size={24}
+                  color={theme.colors.onBackground}
+                />
               </TouchableOpacity>
             </View>
 
             {/* User Panel */}
             <View style={styles.userPanel}>
-              <Ionicons name="person-circle" size={100} color={theme.colors.primary} />
-              <Text style={[styles.userName, { color: theme.colors.onBackground }]}>{userName}</Text>
-              <Text style={[styles.userEmail, { color: 'gray' }]}>{userEmail}</Text>
+              <Ionicons
+                name="person-circle"
+                size={100}
+                color={theme.colors.primary}
+              />
+              <Text
+                style={[styles.userName, { color: theme.colors.onBackground }]}
+              >
+                {userName}
+              </Text>
+              <Text style={[styles.userEmail, { color: "gray" }]}>
+                {userEmail}
+              </Text>
             </View>
 
             {/* Ranking Section */}
-            <View style={[styles.rankingWindow, { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' }]}>
-              <Text style={[styles.rankingTitle, { color: theme.colors.onSurface }]}>Ranking</Text>
+            <View
+              style={[
+                styles.rankingWindow,
+                { backgroundColor: isDarkTheme ? "#333333" : "#f5f5f5" },
+              ]}
+            >
+              <Text
+                style={[styles.rankingTitle, { color: theme.colors.onSurface }]}
+              >
+                Ranking
+              </Text>
               <TouchableOpacity
                 style={styles.editButton}
-                onPress={() => router.push('/ranking')}
+                onPress={() => router.push("/ranking")}
               >
-                <Text style={[styles.editButtonText, { color: theme.colors.primary }]}>
-                  {rankingSlots.length > 0 ? 'Show and Edit Ranking' : 'Create Ranking'}
+                <Text
+                  style={[
+                    styles.editButtonText,
+                    { color: theme.colors.primary },
+                  ]}
+                >
+                  {rankingSlots.length > 0
+                    ? "Show and Edit Ranking"
+                    : "Create Ranking"}
                 </Text>
-                <Ionicons name="chevron-forward" size={15} color={theme.colors.primary} style={{ marginRight: -11 }} />
+                <Ionicons
+                  name="chevron-forward"
+                  size={15}
+                  color={theme.colors.primary}
+                  style={{ marginRight: -11 }}
+                />
               </TouchableOpacity>
             </View>
 
@@ -211,7 +285,7 @@ export default function AccountScreen() {
               <View
                 style={[
                   styles.horizontalRankingContainer,
-                  { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' },
+                  { backgroundColor: isDarkTheme ? "#333333" : "#f5f5f5" },
                 ]}
               >
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -232,10 +306,15 @@ export default function AccountScreen() {
               <View
                 style={[
                   styles.noRankingContainer,
-                  { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' },
+                  { backgroundColor: isDarkTheme ? "#333333" : "#f5f5f5" },
                 ]}
               >
-                <Text style={[styles.noRankingText, { color: theme.colors.onBackground }]}>
+                <Text
+                  style={[
+                    styles.noRankingText,
+                    { color: theme.colors.onBackground },
+                  ]}
+                >
                   You haven't created a ranking yet.
                 </Text>
               </View>
@@ -245,18 +324,32 @@ export default function AccountScreen() {
             <View
               style={[
                 styles.notesContainer,
-                { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' },
+                { backgroundColor: isDarkTheme ? "#333333" : "#f5f5f5" },
               ]}
             >
-              <Text style={[styles.notesTitle, { color: theme.colors.onSurface }]}>Notes</Text>
+              <Text
+                style={[styles.notesTitle, { color: theme.colors.onSurface }]}
+              >
+                Notes
+              </Text>
               <TouchableOpacity
                 style={styles.editButton}
                 onPress={handleNavigateToNotes}
               >
-                <Text style={[styles.editButtonText, { color: theme.colors.primary }]}>
-                  {notes.length > 0 ? 'View and Create Notes' : 'Create Note'}
+                <Text
+                  style={[
+                    styles.editButtonText,
+                    { color: theme.colors.primary },
+                  ]}
+                >
+                  {notes.length > 0 ? "View and Create Notes" : "Create Note"}
                 </Text>
-                <Ionicons name="chevron-forward" size={15} color={theme.colors.primary} style={{ marginRight: -11 }} />
+                <Ionicons
+                  name="chevron-forward"
+                  size={15}
+                  color={theme.colors.primary}
+                  style={{ marginRight: -11 }}
+                />
               </TouchableOpacity>
             </View>
 
@@ -265,20 +358,24 @@ export default function AccountScreen() {
               <View
                 style={[
                   styles.horizontalNotesContainer,
-                  { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' },
+                  { backgroundColor: isDarkTheme ? "#333333" : "#f5f5f5" },
                 ]}
               >
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   {notes.map((note) => {
-                    const country = mappedCountries.find((c) => c.cca2 === note.countryCca2);
+                    const country = mappedCountries.find(
+                      (c) => c.cca2 === note.countryCca2
+                    );
                     return (
                       <TouchableOpacity
                         key={note.id}
                         style={[
                           styles.noteItem,
                           {
-                            backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5',
-                            borderColor: isDarkTheme ? '#555' : '#ccc', 
+                            backgroundColor: isDarkTheme
+                              ? "#333333"
+                              : "#f5f5f5",
+                            borderColor: isDarkTheme ? "#555" : "#ccc",
                             borderWidth: 1,
                           },
                         ]}
@@ -286,17 +383,27 @@ export default function AccountScreen() {
                       >
                         <View style={styles.noteHeader}>
                           {country && (
-                            <CountryFlag isoCode={country.cca2} size={20} style={styles.noteFlag} />
+                            <CountryFlag
+                              isoCode={country.cca2}
+                              size={20}
+                              style={styles.noteFlag}
+                            />
                           )}
                           <Text
-                            style={[styles.noteCountryName, { color: theme.colors.onSurface }]}
+                            style={[
+                              styles.noteCountryName,
+                              { color: theme.colors.onSurface },
+                            ]}
                             numberOfLines={2}
                           >
-                            {country ? country.name : 'Unknown Country'}
+                            {country ? country.name : "Unknown Country"}
                           </Text>
                         </View>
                         <Text
-                          style={[styles.noteText, { color: theme.colors.onSurface }]}
+                          style={[
+                            styles.noteText,
+                            { color: theme.colors.onSurface },
+                          ]}
                           numberOfLines={3}
                           ellipsizeMode="tail"
                         >
@@ -311,10 +418,15 @@ export default function AccountScreen() {
               <View
                 style={[
                   styles.noNotesContainer,
-                  { backgroundColor: isDarkTheme ? '#333333' : '#f5f5f5' },
+                  { backgroundColor: isDarkTheme ? "#333333" : "#f5f5f5" },
                 ]}
               >
-                <Text style={[styles.noNotesText, { color: theme.colors.onBackground }]}>
+                <Text
+                  style={[
+                    styles.noNotesText,
+                    { color: theme.colors.onBackground },
+                  ]}
+                >
                   You haven't created any notes yet.
                 </Text>
               </View>
@@ -322,15 +434,15 @@ export default function AccountScreen() {
           </View>
         </TouchableWithoutFeedback>
       </ScrollView>
-       {/* Logout Link */}
-       <View style={{ alignItems: 'center', marginBottom: -30 }}>
+      {/* Logout Link */}
+      <View style={{ alignItems: "center", marginBottom: -30 }}>
         <TouchableOpacity onPress={handleLogout}>
-          <Text style={{ color: theme.colors.primary, fontSize: 12}}>
+          <Text style={{ color: theme.colors.primary, fontSize: 12 }}>
             Logout
           </Text>
         </TouchableOpacity>
       </View>
-   {/* Note Preview Modal */}
+      {/* Note Preview Modal */}
       <Modal
         visible={isNotePreviewVisible}
         transparent
@@ -338,17 +450,28 @@ export default function AccountScreen() {
         onRequestClose={() => setIsNotePreviewVisible(false)}
       >
         <View style={styles.modalBackground}>
-          <TouchableWithoutFeedback onPress={() => setIsNotePreviewVisible(false)}>
+          <TouchableWithoutFeedback
+            onPress={() => setIsNotePreviewVisible(false)}
+          >
             <View style={styles.modalOverlay} />
           </TouchableWithoutFeedback>
           <View style={styles.modalContainer}>
-            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+            <View
+              style={[
+                styles.modalContent,
+                { backgroundColor: theme.colors.surface },
+              ]}
+            >
               {/* Close Button */}
               <TouchableOpacity
                 onPress={() => setIsNotePreviewVisible(false)}
                 style={styles.modalCloseButton}
               >
-                <Ionicons name="close" size={24} color={theme.colors.onSurface} />
+                <Ionicons
+                  name="close"
+                  size={24}
+                  color={theme.colors.onSurface}
+                />
               </TouchableOpacity>
 
               {/* Modal interior */}
@@ -358,20 +481,34 @@ export default function AccountScreen() {
               >
                 {selectedNote && (
                   <View style={styles.modalHeaderContainer}>
-                    {mappedCountries.find(c => c.cca2 === selectedNote.countryCca2) && (
+                    {mappedCountries.find(
+                      (c) => c.cca2 === selectedNote.countryCca2
+                    ) && (
                       <CountryFlag
                         isoCode={selectedNote.countryCca2}
                         size={25}
                         style={styles.modalFlag}
                       />
                     )}
-                    <Text style={[styles.modalHeader, { color: theme.colors.onSurface }]}>
-                      {mappedCountries.find(c => c.cca2 === selectedNote.countryCca2)?.name || ''}
+                    <Text
+                      style={[
+                        styles.modalHeader,
+                        { color: theme.colors.onSurface },
+                      ]}
+                    >
+                      {mappedCountries.find(
+                        (c) => c.cca2 === selectedNote.countryCca2
+                      )?.name || ""}
                     </Text>
                   </View>
                 )}
-                <Text style={[styles.modalNoteText, { color: theme.colors.onSurface }]}>
-                  {selectedNote ? selectedNote.noteText : ''}
+                <Text
+                  style={[
+                    styles.modalNoteText,
+                    { color: theme.colors.onSurface },
+                  ]}
+                >
+                  {selectedNote ? selectedNote.noteText : ""}
                 </Text>
               </ScrollView>
             </View>
@@ -382,50 +519,48 @@ export default function AccountScreen() {
   );
 }
 
-
-
 const styles = StyleSheet.create({
   container: {
     padding: 16,
     paddingBottom: 50,
     flex: 1,
-    justifyContent: 'flex-start',
+    justifyContent: "flex-start",
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 10,
     marginBottom: 20,
   },
   headerButton: {
     padding: 8,
     width: 40,
-    alignItems: 'center',
+    alignItems: "center",
   },
   headerTitle: {
     fontSize: 21,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   userPanel: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 30,
     marginTop: 10,
   },
   userName: {
     marginTop: 3,
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   userEmail: {
     marginTop: 4,
     fontSize: 14,
-    color: 'gray',
+    color: "gray",
   },
   rankingWindow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginTop: 10,
     paddingVertical: 5,
     paddingHorizontal: 15,
@@ -434,14 +569,14 @@ const styles = StyleSheet.create({
   },
   rankingTitle: {
     fontSize: 17,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   editButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   editButtonText: {
-    color: '#6200ee',
+    color: "#6200ee",
     fontSize: 14,
     marginRight: 4,
   },
@@ -454,7 +589,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   noRankingContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     borderBottomLeftRadius: 10,
     borderBottomRightRadius: 10,
     marginBottom: 20,
@@ -464,12 +599,12 @@ const styles = StyleSheet.create({
   },
   noRankingText: {
     fontSize: 14,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   notesContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginTop: 10,
     paddingVertical: 5,
     paddingHorizontal: 15,
@@ -478,7 +613,7 @@ const styles = StyleSheet.create({
   },
   notesTitle: {
     fontSize: 17,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   horizontalNotesContainer: {
     marginBottom: 20,
@@ -497,8 +632,8 @@ const styles = StyleSheet.create({
     // Instead, use border to match ranking items
   },
   noteHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start', // Align items to the top
+    flexDirection: "row",
+    alignItems: "flex-start", // Align items to the top
     marginBottom: 8,
   },
   noteFlag: {
@@ -510,16 +645,16 @@ const styles = StyleSheet.create({
   },
   noteCountryName: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
     flexShrink: 1,
-    flexWrap: 'wrap',
-    maxWidth: '90%',
+    flexWrap: "wrap",
+    maxWidth: "90%",
   },
   noteText: {
     fontSize: 14,
   },
   noNotesContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     borderBottomLeftRadius: 10,
     borderBottomRightRadius: 10,
     marginBottom: 20,
@@ -529,41 +664,41 @@ const styles = StyleSheet.create({
   },
   noNotesText: {
     fontSize: 14,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   modalBackground: {
     flex: 1,
-    position: 'relative',
+    position: "relative",
   },
   modalOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: "rgba(0,0,0,0.5)",
   },
   modalContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalContent: {
     borderRadius: 10,
     padding: 20,
     paddingTop: 40, // Aby uwzględnić przycisk zamknięcia
-    maxHeight: '86%', // Maksymalna wysokość modala
-    width: '90%', // Szerokość modala
+    maxHeight: "86%", // Maksymalna wysokość modala
+    width: "90%", // Szerokość modala
   },
   modalCloseButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 10,
     right: 10,
     zIndex: 1,
   },
   modalHeaderContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 20,
   },
   modalFlag: {
@@ -574,7 +709,7 @@ const styles = StyleSheet.create({
   },
   modalHeader: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   modalNoteText: {
     fontSize: 16,
@@ -583,18 +718,17 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   logoutButton: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 20,
     left: 0,
     right: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: 10,
   },
   logoutText: {
     fontSize: 16,
-    color: '#FF0000', // Czerwony kolor tekstu, możesz zmienić
-    fontWeight: 'bold',
+    color: "#FF0000", // Czerwony kolor tekstu, możesz zmienić
+    fontWeight: "bold",
   },
-  
 });

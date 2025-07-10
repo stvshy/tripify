@@ -336,7 +336,7 @@ export default function RankingScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       {/* Nagłówek z przyciskiem powrotu i przełącznikiem motywu */}
-      <View style={[styles.header, { paddingTop: height * 0.03 }]}>
+      <View style={[styles.header, { paddingTop: height * 0.018 }]}>
         <TouchableOpacity
           onPress={handleGoBack}
           style={[styles.headerButton, { marginLeft: -19 }]}
