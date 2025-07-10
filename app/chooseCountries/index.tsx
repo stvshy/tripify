@@ -641,7 +641,13 @@ export default function ChooseCountriesScreen({
             </View>
 
             {/* Country List */}
-            <View style={{ flex: 1, marginBottom: fromTab ? -16 : -20 }}>
+            <View
+              style={{
+                flex: 1,
+                marginBottom: fromTab ? -16 : -20,
+                marginTop: -9,
+              }}
+            >
               <SectionList
                 sections={processedCountries}
                 keyExtractor={(item) => item.cca3}
@@ -728,8 +734,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginHorizontal: 10,
-    marginBottom: 11,
+    marginHorizontal: 11.8,
+    marginBottom: 15,
     marginTop: 10,
   },
   inputContainer: {
