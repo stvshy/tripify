@@ -18,6 +18,8 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  TouchableNativeFeedback,
+  Pressable,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useTheme, MD3Theme } from "react-native-paper";
@@ -267,79 +269,90 @@ const SearchResultItem: React.FC<SearchResultItemProps> = memo(
     }, [hasSentRequestInitial]);
 
     const handlePressAdd = () => {
-      // 1. Wywołaj funkcję wysyłającą zaproszenie
       onAddFriend(item.uid, item.nickname as string);
-      // 2. OPTYMISTYCZNIE i NATYCHMIAST zmień lokalny stan na `true`
       setRequestSent(true);
     };
-    // -------------------------
 
-    let buttonContent,
-      isDisabled = false,
-      specificButtonStyle,
-      buttonBackgroundColor = theme.colors.primary,
-      onPressAction = handlePressAdd;
+    // Funkcja pomocnicza do renderowania przycisku
+    const renderButton = () => {
+      // === PRZYPADEK 1: OTRZYMANO ZAPROSZENIE (z nową, kuloodporną logiką) ===
+      if (hasReceivedRequest) {
+        return (
+          <Pressable
+            onPress={() => onNavigateToProfile(item.uid)}
+            // Funkcja stylu dla Pressable, aby uzyskać efekt naciśnięcia
+            style={({ pressed }) => ({
+              opacity: pressed ? 0.6 : 1, // Prosty efekt przyciemnienia
+            })}
+          >
+            {/* "Sztuczne" obramowanie */}
+            {/* Zewnętrzny View - to jest nasze obramowanie */}
+            <View
+              style={{
+                ...styles.addCircle, // Bierzemy rozmiar i kształt z istniejącego stylu
+                backgroundColor: theme.colors.primary, // Kolor obramowania
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              {/* Wewnętrzny View - to jest nasze tło przycisku */}
+              <View
+                style={{
+                  width: styles.addCircle.width - 2.94, // Trochę mniejszy niż rodzic (3 = 2 * 1.5px grubości)
+                  height: styles.addCircle.height - 2.95, // Trochę mniejszy niż rodzic
+                  borderRadius: styles.addCircle.borderRadius, // Taki sam border-radius
+                  backgroundColor: theme.colors.background, // Kolor tła aplikacji!
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <Ionicons
+                  name="arrow-undo-outline"
+                  size={16}
+                  color={theme.colors.primary}
+                />
+              </View>
+            </View>
+          </Pressable>
+        );
+      }
 
-    // Logika renderowania przycisku teraz używa stanu `requestSent`
-    if (isAlreadyFriend) {
-      specificButtonStyle = styles.friendButton;
-      buttonBackgroundColor = theme.dark
-        ? "rgba(171, 109, 197, 0.4)"
-        : "rgba(143, 73, 179, 0.37)";
-      buttonContent = (
-        <Text style={{ color: "#fff", fontSize: 14, fontWeight: "500" }}>
-          Friend
-        </Text>
-      );
-      isDisabled = true;
-    } else if (hasReceivedRequest) {
-      // Użyjmy ikony zamiast tekstu
-      specificButtonStyle = styles.addCircle; // Styl taki sam jak przycisk "Add" dla spójności
-      buttonBackgroundColor = "transparent"; // Przezroczyste tło
-      // Dodajemy tylko obramowanie
-      specificButtonStyle = {
-        ...specificButtonStyle,
-        borderWidth: 1.5, // Można dać nieco grubsze obramowanie dla wyróżnienia
-        borderColor: theme.colors.primary,
-        marginRight: 10, // Dodajemy z powrotem, bo w friendButton nie ma
-      };
-      // Wybieramy ikonę
-      buttonContent = (
-        // Użyj ikony powiadomienia, np. dzwonka
-        <Ionicons
-          name="arrow-undo-outline"
-          size={15}
-          color={theme.colors.primary}
-        />
-        // lub ikony "mail"
-        // <Ionicons name="mail-unread-outline" size={15} color={theme.colors.primary} />
-      );
-      isDisabled = false;
-      onPressAction = () => onNavigateToProfile(item.uid);
-    } else if (requestSent) {
-      specificButtonStyle = styles.sentButton;
-      buttonBackgroundColor = theme.dark
-        ? "rgba(128, 128, 128, 0.4)"
-        : "rgba(204, 204, 204, 0.7)";
-      buttonContent = <Text style={styles.sentButtonText}>Sent</Text>;
-      isDisabled = true;
-      onPressAction = () => onNavigateToProfile(item.uid); // Wysłano -> nawiguj
-    } else {
-      specificButtonStyle = styles.addCircle;
-      buttonBackgroundColor = theme.colors.primary;
-      buttonContent = <Ionicons name="add" size={17} color="#fff" />;
-    }
+      // === POZOSTAŁE PRZYPADKI (stara, działająca logika) ===
+      let buttonContent;
+      let isDisabled = false;
+      let specificButtonStyle;
+      let buttonBackgroundColor;
+      let onPressAction = handlePressAdd;
 
-    return (
-      <TouchableOpacity
-        onPress={() => onNavigateToProfile(item.uid)}
-        style={[styles.searchItem, { borderBottomColor: theme.colors.outline }]}
-      >
-        <Text style={{ color: theme.colors.onBackground, fontSize: 15 }}>
-          {item.nickname}
-        </Text>
+      if (isAlreadyFriend) {
+        specificButtonStyle = styles.friendButton;
+        buttonBackgroundColor = theme.dark
+          ? "rgba(171, 109, 197, 0.4)"
+          : "rgba(143, 73, 179, 0.37)";
+        buttonContent = (
+          <Text style={{ color: "#fff", fontSize: 14, fontWeight: "500" }}>
+            Friend
+          </Text>
+        );
+        isDisabled = true;
+        onPressAction = () => onNavigateToProfile(item.uid);
+      } else if (requestSent) {
+        specificButtonStyle = styles.sentButton;
+        buttonBackgroundColor = theme.dark
+          ? "rgba(128, 128, 128, 0.4)"
+          : "rgba(204, 204, 204, 0.7)";
+        buttonContent = <Text style={styles.sentButtonText}>Sent</Text>;
+        isDisabled = true;
+        onPressAction = () => onNavigateToProfile(item.uid);
+      } else {
+        specificButtonStyle = styles.addCircle;
+        buttonBackgroundColor = theme.colors.primary;
+        buttonContent = <Ionicons name="add" size={17} color="#fff" />;
+      }
+
+      return (
         <TouchableOpacity
-          onPress={onPressAction} // <<< 4. UŻYJ ZMIENNEJ AKCJI
+          onPress={onPressAction}
           style={[
             specificButtonStyle,
             { backgroundColor: buttonBackgroundColor },
@@ -348,11 +361,23 @@ const SearchResultItem: React.FC<SearchResultItemProps> = memo(
         >
           {buttonContent}
         </TouchableOpacity>
+      );
+    };
+
+    return (
+      <TouchableOpacity
+        onPress={() => onNavigateToProfile(item.uid)}
+        style={[styles.searchItem, { borderBottomColor: theme.colors.outline }]}
+        activeOpacity={0.8} // Dajmy jakiś feedback dla całego wiersza
+      >
+        <Text style={{ color: theme.colors.onBackground, fontSize: 15 }}>
+          {item.nickname}
+        </Text>
+        {renderButton()}
       </TouchableOpacity>
     );
   }
 );
-
 // --- Główny komponent ---
 export default function CommunityScreen() {
   const {
