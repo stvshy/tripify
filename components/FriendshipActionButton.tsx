@@ -107,23 +107,34 @@ export const FriendshipActionButtons = ({
     return (
       <View style={styles.friendActionButtons}>
         <TouchableOpacity
+          onPress={handleDecline}
+          style={[
+            styles.declineButton,
+            {
+              // Usunięto backgroundColor, aby przycisk był "w kolorze tła"
+              borderColor: theme.colors.primary,
+              borderWidth: 1.5,
+            },
+          ]}
+        >
+          <Text style={[styles.buttonText, { color: theme.colors.primary }]}>
+            Decline
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           onPress={handleAccept}
           style={[
             styles.acceptButton,
-            { backgroundColor: theme.colors.primary },
+            {
+              backgroundColor: theme.colors.primary,
+              // Zdefiniuj niższy padding, aby przycisk był niższy
+              //   paddingVertical: 5.5,
+            },
           ]}
         >
           <Text style={styles.buttonText}>Accept</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          onPress={handleDecline}
-          style={[
-            styles.declineButton,
-            { backgroundColor: "rgba(116, 116, 116, 0.3)" },
-          ]}
-        >
-          <Text style={styles.buttonText}>Decline</Text>
-        </TouchableOpacity>
+
         <ConfirmationModal {...modalState} onCancel={handleCloseModal} />
       </View>
     );
@@ -188,21 +199,23 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     width: "48%",
-    marginTop: 10,
+    marginTop: 6,
+    alignItems: "center",
   },
   acceptButton: {
     flex: 1,
-    paddingVertical: 5.5,
+    paddingVertical: 6.54,
     borderRadius: 20,
     alignItems: "center",
-    marginRight: 3,
+    paddingHorizontal: 3,
   },
   declineButton: {
     flex: 1,
     paddingVertical: 5.5,
     borderRadius: 20,
     alignItems: "center",
-    marginLeft: 3,
+    // marginLeft: 3,
+    marginRight: 5,
   },
   buttonText: {
     color: "#fff",
