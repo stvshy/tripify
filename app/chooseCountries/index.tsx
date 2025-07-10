@@ -728,8 +728,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginHorizontal: 13,
-    marginBottom: 13,
+    marginHorizontal: 10,
+    marginBottom: 11,
     marginTop: 10,
   },
   inputContainer: {

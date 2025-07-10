@@ -315,32 +315,34 @@ const TabLayoutContent: React.FC = () => {
   const handleNavigateToAccount = () => {
     router.push("/account");
   };
-
+  const HEADER_HEIGHT = 75; // Stała wysokość headera w pikselach
+  const TAB_BAR_HEIGHT = 50; // Stała wysokość paska zakładek w pikselach
+  const TAB_ICON_MARGIN_TOP = 12; // Stały margines górny ikon w pikselach
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <Tabs
         initialRouteName="index"
-        backBehavior="none" // KLUCZOWA ZMIANA: Zapobiega własnej obsłudze "wstecz" przez Tabs
+        backBehavior="none"
         screenOptions={{
           tabBarIconStyle: {
-            marginTop: window.height * 0.014,
+            marginTop: TAB_ICON_MARGIN_TOP, // Stała wartość zamiast window.height * 0.014
           },
           tabBarActiveTintColor: theme.colors.primary,
           tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
           tabBarStyle: {
             backgroundColor: theme.colors.surface,
-            height: window.height * 0.067,
+            height: TAB_BAR_HEIGHT, // Stała wartość zamiast window.height * 0.067
             borderTopWidth: 0,
             justifyContent: "center",
           },
           tabBarItemStyle: {
             justifyContent: "center",
             alignItems: "center",
-            marginTop: window.height * 0.014,
+            marginTop: TAB_ICON_MARGIN_TOP, // Stała wartość zamiast window.height * 0.014
           },
           headerStyle: {
             backgroundColor: theme.colors.surface,
-            height: window.height * 0.108,
+            height: HEADER_HEIGHT, // Stała wartość zamiast window.height * 0.108
             shadowOpacity: 0,
             elevation: 0,
           },
