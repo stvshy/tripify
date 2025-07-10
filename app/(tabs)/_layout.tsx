@@ -118,7 +118,7 @@ function VisitedToggle() {
         style={{
           marginRight: 7,
           color: theme.colors.onSurface,
-          fontSize: 14.5,
+          fontSize: 14.3,
           fontFamily: "Figtree-Regular",
         }}
       >
