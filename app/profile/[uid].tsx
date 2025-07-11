@@ -141,6 +141,16 @@ const RankingPreview = React.memo(
     onCountryPress: (countryId: string) => void;
   }) => {
     const theme = useTheme();
+    const [isButtonActive, setIsButtonActive] = useState(false);
+
+    const handlePress = () => {
+      setIsButtonActive(true);
+      // Natychmiast wywołaj funkcję
+      onShowFull();
+      // Reset stanu po krótkiej chwili
+      setTimeout(() => setIsButtonActive(false), 300);
+    };
+
     return (
       <View style={profileStyles.rankingContainer}>
         <View style={profileStyles.rankingHeader}>
@@ -152,7 +162,11 @@ const RankingPreview = React.memo(
           >
             Ranking
           </Text>
-          <TouchableOpacity onPress={onShowFull}>
+          <TouchableOpacity
+            onPress={handlePress}
+            style={isButtonActive ? { opacity: 0.7 } : undefined}
+            activeOpacity={0.6}
+          >
             <Text
               style={[
                 profileStyles.showAllRankingButton,
@@ -171,7 +185,6 @@ const RankingPreview = React.memo(
     );
   }
 );
-
 const continentColors = {
   Europe: "#E6E6FA", // Lawendowy
   Asia: "#DFF0D8", // Bladozielony
@@ -771,8 +784,8 @@ export default function ProfileScreen() {
             from={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ type: "timing", duration: 250 }}
-            style={modalStyles.overlay} // Nowy styl dla tła
+            transition={{ type: "timing", duration: 150 }} // Skrócono z 250ms do 150ms
+            style={modalStyles.overlay}
           >
             <MotiView
               from={{ translateY: height }}
@@ -780,15 +793,14 @@ export default function ProfileScreen() {
               exit={{ translateY: height }}
               transition={{
                 type: "spring",
-                stiffness: 400, // Wysoka sztywność dla szybkiej reakcji
-                damping: 40, // Wysokie tłumienie, aby zapobiec "odbijaniu" i zapewnić gładkie zatrzymanie
-                mass: 1.2, // Lekkie zwiększenie "masy" dla bardziej "solidnego" odczucia
+                stiffness: 500, // Zwiększono z 400 do 500 dla szybszej reakcji
+                damping: 40,
+                mass: 0.9, // Zmniejszono z 1.2 do 0.9 dla szybszego startu
               }}
               style={[
                 modalStyles.modalContentContainer,
                 {
                   backgroundColor: theme.colors.background,
-                  // Nie potrzebujemy paddingu tutaj, bo jest w stylach
                 },
               ]}
             >
@@ -805,6 +817,7 @@ export default function ProfileScreen() {
                 <TouchableOpacity
                   onPress={handleCloseFullRanking}
                   style={{ marginRight: -5 }}
+                  activeOpacity={0.6}
                 >
                   <Ionicons
                     name="close"
