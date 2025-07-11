@@ -152,7 +152,7 @@ const RankingPreview = React.memo(
           >
             Ranking
           </Text>
-          <TouchableOpacity onPress={onShowFull} activeOpacity={0.6}>
+          <TouchableOpacity onPressIn={onShowFull} activeOpacity={0.6}>
             <Text
               style={[
                 profileStyles.showAllRankingButton,
