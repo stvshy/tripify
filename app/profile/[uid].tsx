@@ -152,7 +152,7 @@ const RankingPreview = React.memo(
           >
             Ranking
           </Text>
-          <TouchableOpacity onPressIn={onShowFull} activeOpacity={0.6}>
+          <TouchableOpacity onPress={onShowFull} activeOpacity={0.6}>
             <Text
               style={[
                 profileStyles.showAllRankingButton,
@@ -595,15 +595,16 @@ export default function ProfileScreen() {
   }, [router]);
 
   const handleShowFullRanking = useCallback(() => {
-    // Kiedy chcemy pokazać modal:
-    // 1. Zapisz aktualne dane do refa.
-    modalRankingData.current = rankingSlots;
-    // 2. Ustaw widoczność na true.
-    setIsRankingModalVisible(true);
+    requestAnimationFrame(() => {
+      setIsRankingModalVisible(true);
+      modalRankingData.current = rankingSlots;
+    });
   }, [rankingSlots]); // Zależność od rankingSlots, aby ref miał zawsze aktualne dane
 
   const handleCloseFullRanking = () => {
-    setIsRankingModalVisible(false);
+    requestAnimationFrame(() => {
+      setIsRankingModalVisible(false);
+    });
   };
   const ListHeader = useCallback(
     () => (
@@ -799,7 +800,7 @@ export default function ProfileScreen() {
                   Full Ranking
                 </Text>
                 <TouchableOpacity
-                  onPressIn={handleCloseFullRanking}
+                  onPress={handleCloseFullRanking}
                   style={{ marginRight: -5 }}
                   activeOpacity={0.6}
                 >
