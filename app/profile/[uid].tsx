@@ -6,6 +6,7 @@ import React, {
   useCallback,
   useContext,
   useRef,
+  useImperativeHandle,
 } from "react";
 import {
   View,
@@ -36,6 +37,108 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import VisitedCountriesSkeleton from "@/components/VisitedCountriesSkeleton";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import { FriendshipActionButtons } from "@/components/FriendshipActionButton";
+
+// app/profile/[uid].tsx
+
+// --- WSTAW TEN NOWY KOMPONENT NA GÓRZE PLIKU, NP. POD IMPORTAMI ---
+
+import { Pressable } from "react-native"; // Upewnij się, że ten import jest na górze pliku
+
+// Definiujemy, jakie funkcje nasz modal będzie "wystawiał na zewnątrz"
+export interface RankingModalHandles {
+  open: (data: RankingSlot[]) => void;
+  close: () => void;
+}
+
+// Definiujemy propsy, które modal będzie przyjmował
+interface RankingModalProps {
+  onCountryPress: (countryId: string) => void;
+}
+
+const RankingModal = React.forwardRef<RankingModalHandles, RankingModalProps>(
+  ({ onCountryPress }, ref) => {
+    const [isVisible, setIsVisible] = useState(false);
+    const [rankingData, setRankingData] = useState<RankingSlot[]>([]);
+    const theme = useTheme();
+    const { height } = Dimensions.get("window");
+
+    // Używamy useImperativeHandle, aby zdefiniować funkcje dostępne przez ref
+    useImperativeHandle(ref, () => ({
+      open: (data) => {
+        setRankingData(data);
+        setIsVisible(true);
+      },
+      close: () => {
+        setIsVisible(false);
+      },
+    }));
+
+    // Funkcja zamykająca, którą będziemy wywoływać wewnątrz modala
+    const handleClose = () => setIsVisible(false);
+
+    return (
+      <AnimatePresence>
+        {isVisible && (
+          <MotiView
+            from={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ type: "timing", duration: 150 }}
+            style={modalStyles.overlay}
+          >
+            <MotiView
+              from={{ translateY: height }}
+              animate={{ translateY: 0 }}
+              exit={{ translateY: height }}
+              transition={{ type: "timing", duration: 250 }} // Szybka animacja
+              style={[
+                modalStyles.modalContentContainer,
+                { backgroundColor: theme.colors.background },
+              ]}
+            >
+              <View style={modalStyles.modalHeader}>
+                <Text
+                  style={[
+                    modalStyles.modalTitle,
+                    { color: theme.colors.onBackground },
+                  ]}
+                >
+                  Full Ranking
+                </Text>
+                <Pressable
+                  onPress={handleClose} // Używamy Pressable dla natychmiastowej reakcji
+                  style={({ pressed }) => ({
+                    opacity: pressed ? 0.6 : 1,
+                    marginRight: -5,
+                  })}
+                >
+                  <Ionicons
+                    name="close"
+                    size={26}
+                    color={theme.colors.onBackground}
+                  />
+                </Pressable>
+              </View>
+
+              <FlashList
+                data={rankingData}
+                renderItem={({ item }) => (
+                  <RankingList
+                    rankingSlots={[item]}
+                    onCountryPress={onCountryPress}
+                  />
+                )}
+                keyExtractor={(item) => item.id}
+                estimatedItemSize={50}
+                contentContainerStyle={modalStyles.modalScrollContent}
+              />
+            </MotiView>
+          </MotiView>
+        )}
+      </AnimatePresence>
+    );
+  }
+);
 interface UserProfile {
   uid: string;
   nickname: string;
@@ -240,11 +343,11 @@ export default function ProfileScreen() {
   const [screenPhase, setScreenPhase] = useState<
     "loading" | "presenting" | "error"
   >("loading");
-  const [isRankingModalVisible, setIsRankingModalVisible] = useState(false);
-  const [canRenderModalContent, setCanRenderModalContent] = useState(false);
+  // const [isRankingModalVisible, setIsRankingModalVisible] = useState(false);
+  // const [canRenderModalContent, setCanRenderModalContent] = useState(false);
   const [listData, setListData] = useState<ListItem[]>([]);
   // const [isProcessingList, setIsProcessingList] = useState(true); // Loader dla danych listy
-
+  const rankingModalRef = useRef<RankingModalHandles>(null);
   const handleCountryPress = useCallback(
     (countryId: string) => {
       router.push(`/country/${countryId}`);
@@ -595,17 +698,11 @@ export default function ProfileScreen() {
   }, [router]);
 
   const handleShowFullRanking = useCallback(() => {
-    requestAnimationFrame(() => {
-      setIsRankingModalVisible(true);
-      modalRankingData.current = rankingSlots;
-    });
-  }, [rankingSlots]); // Zależność od rankingSlots, aby ref miał zawsze aktualne dane
+    // Wywołujemy imperatywnie metodę 'open' na komponencie modala
+    // przekazując aktualne dane rankingu. To nie powoduje re-renderu ProfileScreen!
+    rankingModalRef.current?.open(rankingSlots);
+  }, [rankingSlots]);
 
-  const handleCloseFullRanking = () => {
-    requestAnimationFrame(() => {
-      setIsRankingModalVisible(false);
-    });
-  };
   const ListHeader = useCallback(
     () => (
       <>
@@ -765,69 +862,7 @@ export default function ProfileScreen() {
         }}
       />
       {/* Modal pozostaje bez zmian */}
-      <AnimatePresence>
-        {isRankingModalVisible && (
-          <MotiView
-            from={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ type: "timing", duration: 150 }} // Tło pojawia się szybko
-            style={modalStyles.overlay}
-          >
-            <MotiView
-              from={{ translateY: height }}
-              animate={{ translateY: 0 }}
-              exit={{ translateY: height }}
-              // Zmieniono 'spring' na 'timing' dla natychmiastowej reakcji
-              transition={{
-                type: "timing",
-                duration: 200, // Bardzo szybka animacja wysuwania (200ms)
-              }}
-              style={[
-                modalStyles.modalContentContainer,
-                {
-                  backgroundColor: theme.colors.background,
-                },
-              ]}
-            >
-              <View style={modalStyles.modalHeader}>
-                <Text
-                  style={[
-                    modalStyles.modalTitle,
-                    { color: theme.colors.onBackground },
-                  ]}
-                >
-                  Full Ranking
-                </Text>
-                <TouchableOpacity
-                  onPress={handleCloseFullRanking}
-                  style={{ marginRight: -5 }}
-                  activeOpacity={0.6}
-                >
-                  <Ionicons
-                    name="close"
-                    size={26}
-                    color={theme.colors.onBackground}
-                  />
-                </TouchableOpacity>
-              </View>
-
-              <FlashList
-                data={modalRankingData.current}
-                renderItem={({ item }) => (
-                  <RankingList
-                    rankingSlots={[item]}
-                    onCountryPress={handleCountryPress}
-                  />
-                )}
-                keyExtractor={(item) => item.id}
-                estimatedItemSize={50}
-                contentContainerStyle={modalStyles.modalScrollContent}
-              />
-            </MotiView>
-          </MotiView>
-        )}
-      </AnimatePresence>
+      <RankingModal ref={rankingModalRef} onCountryPress={handleCountryPress} />
       <ConfirmationModal
         visible={modalState.visible}
         title={modalState.title}
