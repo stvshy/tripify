@@ -141,16 +141,6 @@ const RankingPreview = React.memo(
     onCountryPress: (countryId: string) => void;
   }) => {
     const theme = useTheme();
-    const [isButtonActive, setIsButtonActive] = useState(false);
-
-    const handlePress = () => {
-      setIsButtonActive(true);
-      // Natychmiast wywołaj funkcję
-      onShowFull();
-      // Reset stanu po krótkiej chwili
-      setTimeout(() => setIsButtonActive(false), 300);
-    };
-
     return (
       <View style={profileStyles.rankingContainer}>
         <View style={profileStyles.rankingHeader}>
@@ -162,11 +152,7 @@ const RankingPreview = React.memo(
           >
             Ranking
           </Text>
-          <TouchableOpacity
-            onPress={handlePress}
-            style={isButtonActive ? { opacity: 0.7 } : undefined}
-            activeOpacity={0.6}
-          >
+          <TouchableOpacity onPress={onShowFull} activeOpacity={0.6}>
             <Text
               style={[
                 profileStyles.showAllRankingButton,
@@ -784,18 +770,17 @@ export default function ProfileScreen() {
             from={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ type: "timing", duration: 150 }} // Skrócono z 250ms do 150ms
+            transition={{ type: "timing", duration: 150 }} // Tło pojawia się szybko
             style={modalStyles.overlay}
           >
             <MotiView
               from={{ translateY: height }}
               animate={{ translateY: 0 }}
               exit={{ translateY: height }}
+              // Zmieniono 'spring' na 'timing' dla natychmiastowej reakcji
               transition={{
-                type: "spring",
-                stiffness: 500, // Zwiększono z 400 do 500 dla szybszej reakcji
-                damping: 40,
-                mass: 0.9, // Zmniejszono z 1.2 do 0.9 dla szybszego startu
+                type: "timing",
+                duration: 200, // Bardzo szybka animacja wysuwania (200ms)
               }}
               style={[
                 modalStyles.modalContentContainer,
@@ -804,7 +789,6 @@ export default function ProfileScreen() {
                 },
               ]}
             >
-              {/* === TREŚĆ MODALA === */}
               <View style={modalStyles.modalHeader}>
                 <Text
                   style={[
@@ -828,11 +812,11 @@ export default function ProfileScreen() {
               </View>
 
               <FlashList
-                data={modalRankingData.current} // Użyj danych z refa!
+                data={modalRankingData.current}
                 renderItem={({ item }) => (
                   <RankingList
                     rankingSlots={[item]}
-                    onCountryPress={handleCountryPress} // <-- DODAJ TO
+                    onCountryPress={handleCountryPress}
                   />
                 )}
                 keyExtractor={(item) => item.id}
