@@ -799,7 +799,7 @@ export default function ProfileScreen() {
                   Full Ranking
                 </Text>
                 <TouchableOpacity
-                  onPress={handleCloseFullRanking}
+                  onPressIn={handleCloseFullRanking}
                   style={{ marginRight: -5 }}
                   activeOpacity={0.6}
                 >
