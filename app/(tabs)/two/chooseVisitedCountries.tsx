@@ -165,7 +165,11 @@ const CountryItem = React.memo(function CountryItem({
               onPress={handleRemovePress}
               style={styles.deleteButton}
             >
-              <FontAwesome name="trash" size={20} color="#c0103d" />
+              <FontAwesome
+                name="trash"
+                size={20}
+                color={theme.colors.primary}
+              />
             </TouchableOpacity>
           </Animated.View>
         )}
@@ -180,30 +184,30 @@ export default function ChooseVisitedCountriesScreen() {
   const { toggleTheme, isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme();
   const scaleValue = useSharedValue(1) as SharedValue<number>;
-  const { setVisitedCountries } = useCountries();
+  const { visitedCountries, setVisitedCountries } = useCountries();
 
-  const [visitedCountriesData, setVisitedCountriesData] = useState<string[]>(
-    []
-  );
+  const [visitedCountriesData, setVisitedCountriesData] =
+    useState<string[]>(visitedCountries);
+
   const [selectedCountryCode, setSelectedCountryCode] = useState<string | null>(
     null
   );
   const [removeModalVisible, setRemoveModalVisible] = useState(false);
   const [countryToRemove, setCountryToRemove] = useState<string | null>(null);
   // ─── 2. FETCH DATA ─────────────────────────────────────────────
-  useEffect(() => {
-    (async () => {
-      const user = auth.currentUser;
-      if (!user) return;
-      const docRef = doc(db, "users", user.uid);
-      const snap = await getDoc(docRef);
-      if (snap.exists()) {
-        const arr = snap.data().countriesVisited || [];
-        setVisitedCountriesData(arr);
-        setVisitedCountries(arr);
-      }
-    })();
-  }, [setVisitedCountries]);
+  // useEffect(() => {
+  //   (async () => {
+  //     const user = auth.currentUser;
+  //     if (!user) return;
+  //     const docRef = doc(db, "users", user.uid);
+  //     const snap = await getDoc(docRef);
+  //     if (snap.exists()) {
+  //       const arr = snap.data().countriesVisited || [];
+  //       setVisitedCountriesData(arr);
+  //       setVisitedCountries(arr);
+  //     }
+  //   })();
+  // }, [setVisitedCountries]);
 
   // ─── 3. CALLBACKI ────────────────────────────────────────────
   const handleLongPress = useCallback((code: string) => {
@@ -367,7 +371,7 @@ export default function ChooseVisitedCountriesScreen() {
                     style={[
                       styles.modalButtonCancel,
                       {
-                        backgroundColor: isDarkTheme ? "#dbc9f2" : "#f5e9fc",
+                        backgroundColor: theme.colors.background,
                       },
                     ]}
                   >
@@ -522,7 +526,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 20,
-    borderWidth: 0.19,
+    borderWidth: 1.5,
     borderColor: "#9d23ea",
   },
   modalButtonText: {
