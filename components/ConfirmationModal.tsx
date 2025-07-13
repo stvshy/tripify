@@ -71,7 +71,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                 duration: 230, // <--- ZMIANA: Bardzo krótki czas dla samego okna
               }}
             >
-              <Text style={[styles.title, { color: theme.colors.onSurface }]}>
+              <Text style={[styles.title, { color: theme.colors.primary }]}>
                 {title}
               </Text>
 
