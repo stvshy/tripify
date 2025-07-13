@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 20,
+    borderRadius: 24,
     position: "absolute",
     bottom: 15,
     alignSelf: "center", // Lepsze centrowanie
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     marginLeft: 6,
     fontWeight: "bold",
-    fontSize: 13,
+    fontSize: 13.5,
   },
   outgoingPanel: {
     position: "absolute",

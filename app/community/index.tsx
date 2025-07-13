@@ -694,7 +694,7 @@ export default function CommunityScreen() {
                   ) : searchAttempted && searchText.trim().length >= 3 ? (
                     <View style={styles.noResults}>
                       <Text style={{ color: theme.colors.onBackground }}>
-                        No users found with that nickname.
+                        No users found with this nickname.
                       </Text>
                     </View>
                   ) : (
