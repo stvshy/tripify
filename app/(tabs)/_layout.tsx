@@ -110,7 +110,10 @@ function VisitedToggle() {
   return (
     <Pressable
       onPress={onPress}
-      style={{ flexDirection: "row", alignItems: "center", marginRight: 16 }}
+      style={({ pressed }) => [
+        { flexDirection: "row", alignItems: "center", marginRight: 16 }, // styl bazowy
+        pressed && styles.pressedHeaderRight, // styl warunkowy
+      ]}
     >
       {/* <MaterialCommunityIcons
         name={iconName}
