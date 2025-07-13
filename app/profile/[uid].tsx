@@ -43,6 +43,7 @@ import { FriendshipActionButtons } from "@/components/FriendshipActionButton";
 // --- WSTAW TEN NOWY KOMPONENT NA GÓRZE PLIKU, NP. POD IMPORTAMI ---
 
 import { Pressable } from "react-native"; // Upewnij się, że ten import jest na górze pliku
+import { Easing } from "react-native-reanimated";
 
 // Definiujemy, jakie funkcje nasz modal będzie "wystawiał na zewnątrz"
 export interface RankingModalHandles {
@@ -83,14 +84,21 @@ const RankingModal = React.forwardRef<RankingModalHandles, RankingModalProps>(
             from={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ type: "timing", duration: 150 }}
+            transition={{ type: "timing", duration: 250 }}
             style={modalStyles.overlay}
           >
             <MotiView
-              from={{ translateY: height }}
-              animate={{ translateY: 0 }}
-              exit={{ translateY: height }}
-              transition={{ type: "timing", duration: 250 }} // Szybka animacja
+              from={{ translateY: height, opacity: 0 }} // Początkowy stan - niewidoczny i od dołu
+              animate={{ translateY: 0, opacity: 1 }} // Stan po otwarciu - w pełni widoczny
+              exit={{ translateY: height, opacity: 0 }} // Stan po zamknięciu - zjedzie w dół i zaniknie
+              transition={{
+                type: "timing",
+                duration: 250, // Czas otwierania
+              }}
+              exitTransition={{
+                type: "timing",
+                duration: 500, // Czas zamykania
+              }}
               style={[
                 modalStyles.modalContentContainer,
                 { backgroundColor: theme.colors.background },
