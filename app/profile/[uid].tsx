@@ -84,7 +84,7 @@ const RankingModal = React.forwardRef<RankingModalHandles, RankingModalProps>(
             from={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ type: "timing", duration: 250 }}
+            transition={{ type: "timing", duration: 280 }}
             style={modalStyles.overlay}
           >
             <MotiView
@@ -93,7 +93,7 @@ const RankingModal = React.forwardRef<RankingModalHandles, RankingModalProps>(
               exit={{ translateY: height, opacity: 0 }} // Stan po zamknięciu - zjedzie w dół i zaniknie
               transition={{
                 type: "timing",
-                duration: 250, // Czas otwierania
+                duration: 280, // Czas otwierania
               }}
               exitTransition={{
                 type: "timing",
