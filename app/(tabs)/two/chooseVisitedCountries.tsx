@@ -29,7 +29,7 @@ import { ThemeContext } from "../../config/ThemeContext";
 import filteredCountriesData from "../../../components/filteredCountries.json";
 import { useCountries } from "../../config/CountryContext";
 import { SharedValue, useSharedValue } from "react-native-reanimated";
-import ConfirmationModal from "../../../components/ConfirmationModal";
+
 const { width, height } = Dimensions.get("window");
 
 type Continent =
@@ -165,11 +165,7 @@ const CountryItem = React.memo(function CountryItem({
               onPress={handleRemovePress}
               style={styles.deleteButton}
             >
-              <FontAwesome
-                name="trash"
-                size={20}
-                color={theme.colors.primary}
-              />
+              <FontAwesome name="trash" size={20} color="#c0103d" />
             </TouchableOpacity>
           </Animated.View>
         )}
@@ -184,30 +180,30 @@ export default function ChooseVisitedCountriesScreen() {
   const { toggleTheme, isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme();
   const scaleValue = useSharedValue(1) as SharedValue<number>;
-  const { visitedCountries, countriesMap } = useCountries();
+  const { setVisitedCountries } = useCountries();
 
-  // const [visitedCountriesData, setVisitedCountriesData] =
-  //   useState<string[]>(visitedCountries);
-
+  const [visitedCountriesData, setVisitedCountriesData] = useState<string[]>(
+    []
+  );
   const [selectedCountryCode, setSelectedCountryCode] = useState<string | null>(
     null
   );
   const [removeModalVisible, setRemoveModalVisible] = useState(false);
   const [countryToRemove, setCountryToRemove] = useState<string | null>(null);
   // ─── 2. FETCH DATA ─────────────────────────────────────────────
-  // useEffect(() => {
-  //   (async () => {
-  //     const user = auth.currentUser;
-  //     if (!user) return;
-  //     const docRef = doc(db, "users", user.uid);
-  //     const snap = await getDoc(docRef);
-  //     if (snap.exists()) {
-  //       const arr = snap.data().countriesVisited || [];
-  //       setVisitedCountriesData(arr);
-  //       setVisitedCountries(arr);
-  //     }
-  //   })();
-  // }, [setVisitedCountries]);
+  useEffect(() => {
+    (async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+      const docRef = doc(db, "users", user.uid);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        const arr = snap.data().countriesVisited || [];
+        setVisitedCountriesData(arr);
+        setVisitedCountries(arr);
+      }
+    })();
+  }, [setVisitedCountries]);
 
   // ─── 3. CALLBACKI ────────────────────────────────────────────
   const handleLongPress = useCallback((code: string) => {
@@ -220,25 +216,13 @@ export default function ChooseVisitedCountriesScreen() {
   }, []);
 
   // <<< ZMIANA: usunięcie kraju po potwierdzeniu
-  const [visitedCountriesData, setVisitedCountriesData] =
-    useState<string[]>(visitedCountries);
-  useEffect(() => {
-    setVisitedCountriesData(visitedCountries);
-  }, [visitedCountries]);
-
-  // Zaktualizowana funkcja confirmRemoveCountry
   const confirmRemoveCountry = useCallback(async () => {
     if (!countryToRemove) return;
+    const updated = visitedCountriesData.filter((c) => c !== countryToRemove);
 
-    // KROK 1: Zdefiniuj, jak będzie wyglądać zaktualizowana lista.
-    const updatedVisitedList = visitedCountriesData.filter(
-      (c) => c !== countryToRemove
-    );
-
-    // KROK 2: (Opcjonalnie, ale poprawia UX) Możesz od razu zaktualizować lokalny stan,
-    // aby UI zareagował natychmiast, nie czekając na odpowiedź z bazy.
-    // Listener z onSnapshot i tak za chwilę "nadpisze" tę zmianę identycznymi danymi.
-    setVisitedCountriesData(updatedVisitedList);
+    // 1) lokalnie od razu zaktualizuj stan
+    setVisitedCountriesData(updated);
+    setVisitedCountries(updated);
     setSelectedCountryCode(null);
     setRemoveModalVisible(false);
 
@@ -247,73 +231,50 @@ export default function ChooseVisitedCountriesScreen() {
       try {
         const userRef = doc(db, "users", user.uid);
 
-        // Pobierz aktualny ranking - to jest OK
+        // pobierz aktualny ranking
         const snap = await getDoc(userRef);
         const currentRanking: string[] = snap.exists()
           ? snap.data()?.ranking || []
           : [];
 
-        // Usuń z rankingu - to jest OK
+        // usuń z rankingu usunięty kraj
         const newRanking = currentRanking.filter(
           (code) => code !== countryToRemove
         );
 
-        // KROK 3: JEDYNA AKCJA ZAPISU - zaktualizuj Firestore.
-        // Kontekst zajmie się resztą.
+        // update obu pól jednym call’em
         await updateDoc(userRef, {
-          countriesVisited: updatedVisitedList, // użyj listy zdefiniowanej na początku
+          countriesVisited: updated,
           ranking: newRanking,
         });
-
-        // Nie ma już potrzeby robić nic więcej. Reszta dzieje się automatycznie.
       } catch (error) {
         console.error("Error updating visited & ranking:", error);
         Alert.alert("Error", "Nie udało się zaktualizować listy krajów.");
-        // W razie błędu, można by przywrócić stan poprzedni
-        setVisitedCountriesData(visitedCountries); // Przywróć dane z kontekstu
       }
     }
 
     setCountryToRemove(null);
-  }, [countryToRemove, visitedCountriesData, visitedCountries]);
+  }, [countryToRemove, visitedCountriesData, setVisitedCountries]);
+
   const cancelRemove = useCallback(() => {
     setRemoveModalVisible(false);
     setCountryToRemove(null); // Clear state on cancel
   }, []);
 
   // ─── 4. PRZYGOTOWANIE DANYCH DO LISTY ────────────────────────
-
   const processedCountries = useMemo(() => {
-    // KROK 1: Sprawdź, czy `countriesMap` w ogóle istnieje, ZANIM spróbujesz użyć .size
-    if (
-      !countriesMap ||
-      countriesMap.size === 0 ||
-      visitedCountries.length === 0
-    ) {
-      return [];
-    }
-
-    // Reszta kodu pozostaje bez zmian
-    const visitedCountryObjects = visitedCountries
-      .map((code) => countriesMap.get(code))
-      .filter((c): c is Country => c !== undefined);
-
+    const objs = filteredCountriesData.countries.filter((c: Country) =>
+      visitedCountriesData.includes(c.cca2)
+    );
     const grouped: Record<string, Country[]> = {};
-    for (const country of visitedCountryObjects) {
-      const continent = getContinent(country.region, country.subregion);
-      if (!grouped[continent]) {
-        grouped[continent] = [];
-      }
-      grouped[continent].push(country);
-    }
-
+    objs.forEach((c) => {
+      const continent = getContinent(c.region, c.subregion);
+      (grouped[continent] ||= []).push(c);
+    });
     return Object.entries(grouped)
-      .map(([title, data]) => ({
-        title,
-        data: data.sort((a, b) => a.name.localeCompare(b.name)),
-      }))
+      .map(([title, data]) => ({ title, data }))
       .sort((a, b) => a.title.localeCompare(b.title));
-  }, [visitedCountries, countriesMap]);
+  }, [visitedCountriesData]);
 
   // ─── 5. RENDERY ───────────────────────────────────────────────
   const renderCountryItem = useCallback(
@@ -375,22 +336,70 @@ export default function ChooseVisitedCountriesScreen() {
                 </Text>
               </View>
             )}
-            // --- POPRAWIONE PROPSY ---
-            initialNumToRender={15}
-            maxToRenderPerBatch={10}
-            windowSize={21}
-            removeClippedSubviews={true}
           />
-          <ConfirmationModal
+          <Modal
             visible={removeModalVisible}
-            title="Remove Country"
-            message="Are you sure you want to remove this country from your visited list?"
-            onCancel={cancelRemove}
-            onConfirm={confirmRemoveCountry}
-            confirmText="Remove"
-            cancelText="Cancel"
-            isDestructive={true} // Oznaczamy akcję jako destrukcyjną
-          />
+            transparent
+            animationType="fade"
+            onRequestClose={cancelRemove}
+          >
+            <View style={styles.modalOverlay}>
+              <View
+                style={[
+                  styles.modalContent,
+                  { backgroundColor: theme.colors.surface },
+                ]}
+              >
+                <Text
+                  style={[styles.modalTitle, { color: theme.colors.primary }]}
+                >
+                  Remove country
+                </Text>
+                <Text
+                  style={[styles.modalText, { color: theme.colors.onSurface }]}
+                >
+                  Are you sure you want to remove this country from your visited
+                  list?
+                </Text>
+                <View style={{ flexDirection: "row", marginTop: 10 }}>
+                  <TouchableOpacity
+                    onPress={cancelRemove}
+                    style={[
+                      styles.modalButtonCancel,
+                      {
+                        backgroundColor: isDarkTheme ? "#dbc9f2" : "#f5e9fc",
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.modalButtonText,
+                        { color: theme.colors.primary },
+                      ]}
+                    >
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={confirmRemoveCountry}
+                    style={[
+                      styles.modalButton,
+                      { backgroundColor: theme.colors.primary, marginLeft: 10 },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.modalButtonText,
+                        { color: theme.colors.onPrimary },
+                      ]}
+                    >
+                      Remove
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
         </TouchableOpacity>
       </SafeAreaView>
     </>
@@ -513,7 +522,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 20,
-    borderWidth: 1.5,
+    borderWidth: 0.19,
     borderColor: "#9d23ea",
   },
   modalButtonText: {

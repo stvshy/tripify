@@ -33,7 +33,13 @@ import {
 } from "react-native";
 import { TextInput as PaperTextInput, useTheme } from "react-native-paper";
 import { AntDesign, FontAwesome, MaterialIcons } from "@expo/vector-icons";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  arrayUnion,
+  arrayRemove,
+} from "firebase/firestore";
 import { router, useRouter } from "expo-router";
 import { auth, db } from "../config/firebaseConfig";
 import CountryFlag from "react-native-country-flag";
@@ -44,7 +50,7 @@ import { useCountries } from "../config/CountryContext"; // Import hook z kontek
 import { useAuthStore } from "../store/authStore";
 import { FlashList } from "@shopify/flash-list";
 const { width, height } = Dimensions.get("window");
-const ITEM_HEIGHT = 50; // Z Twojego stylu styles.countryItem
+const ITEM_HEIGHT = 54; // Z Twojego stylu styles.countryItem
 const SECTION_HEADER_HEIGHT = 28; // Przybliżona wysokość nagłówka sekcji
 
 type Continent =
@@ -103,17 +109,35 @@ const CountryItem = React.memo(function CountryItem({
   isSelected: boolean;
 }) {
   const theme = useTheme();
-  const { isDarkTheme } = useContext(ThemeContext);
+  const scaleValue = useRef(new Animated.Value(1)).current;
 
-  const handlePress = useCallback(() => {
+  // Funkcja wywoływana do zaznaczenia/odznaczenia
+  const handleToggleSelection = useCallback(() => {
+    // Animacja samego checkboxa
+    Animated.sequence([
+      Animated.timing(scaleValue, {
+        toValue: 0.8,
+        duration: 80,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleValue, {
+        toValue: 1,
+        duration: 80,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    // Animacja całego kontenera (zmiana tła)
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    // Wywołanie logiki zaznaczenia
     onSelect(item.cca2);
-  }, [onSelect, item.cca2]);
+  }, [scaleValue, onSelect, item.cca2]);
 
+  // Funkcja do nawigacji
   const handleNavigateToCountry = useCallback(() => {
     router.push(`/country/${item.id}`);
   }, [item.id]);
 
-  // Dynamic colors
+  // Kolory dynamiczne
   const selectedBackgroundColor = isSelected
     ? theme.colors.surfaceVariant
     : theme.colors.surface;
@@ -127,49 +151,71 @@ const CountryItem = React.memo(function CountryItem({
   const checkboxIconColor = isSelected ? theme.colors.onPrimary : "transparent";
 
   return (
+    // Zewnętrzny TouchableOpacity obsługuje zaznaczanie
     <TouchableOpacity
-      onPress={handlePress}
-      onLongPress={handleNavigateToCountry}
-      // Poniżej jest kluczowa poprawka stylu
-      style={[
-        styles.countryItemContainer, // Używamy kontenera, który ma borderBottom
-        { backgroundColor: selectedBackgroundColor },
-      ]}
-      activeOpacity={0.7}
-      delayLongPress={150}
+      onPress={handleToggleSelection}
+      style={styles.countryItemOuterContainer}
+      activeOpacity={0.9}
     >
-      {/* Ten View nie jest już potrzebny, bo style są w kontenerze powyżej */}
-      {/* <View style={styles.countryItemContent}> */}
+      {/* Wewnętrzny View ma tło i animacje */}
       <View
         style={[
-          styles.flagContainer,
-          styles.flagWithBorder,
-          { borderColor: flagBorderColor },
-        ]}
-      >
-        <CountryFlag isoCode={item.cca2} size={25} />
-      </View>
-
-      <Text style={[styles.countryText, { color: theme.colors.onSurface }]}>
-        {item.name}
-      </Text>
-
-      <View style={{ flex: 1 }} />
-
-      <View
-        style={[
-          styles.roundCheckbox,
+          styles.countryItemInnerContainer,
           {
-            backgroundColor: checkboxBackgroundColor,
-            borderColor: checkboxBorderColor,
+            backgroundColor: selectedBackgroundColor,
+            borderBottomWidth: isSelected ? 0 : 0.5, // <<< ZMIANA: Kreska znika, gdy element jest zaznaczony
+            borderBottomColor: theme.colors.outline,
           },
         ]}
       >
-        {isSelected && (
-          <FontAwesome name="check" size={12} color={checkboxIconColor} />
-        )}
+        {/* Flaga - kliknięcie nawiguje i zatrzymuje propagację zdarzenia */}
+        <Pressable
+          onPress={(e) => {
+            e.stopPropagation(); // Zapobiega wywołaniu handleToggleSelection
+            handleNavigateToCountry();
+          }}
+          hitSlop={8}
+          style={[
+            styles.flagContainer,
+            styles.flagWithBorder,
+            { borderColor: flagBorderColor },
+          ]}
+        >
+          <CountryFlag isoCode={item.cca2} size={25} />
+        </Pressable>
+
+        {/* Nazwa - kliknięcie nawiguje i zatrzymuje propagację zdarzenia */}
+        <Pressable
+          onPress={(e) => {
+            e.stopPropagation(); // Zapobiega wywołaniu handleToggleSelection
+            handleNavigateToCountry();
+          }}
+          hitSlop={8}
+          style={{ marginLeft: 5 }}
+        >
+          <Text style={[styles.countryText, { color: theme.colors.onSurface }]}>
+            {item.name}
+          </Text>
+        </Pressable>
+
+        <View style={{ flex: 1 }} />
+
+        {/* Checkbox z animacją scale */}
+        <Animated.View
+          style={[
+            styles.roundCheckbox,
+            {
+              backgroundColor: checkboxBackgroundColor,
+              borderColor: checkboxBorderColor,
+              transform: [{ scale: scaleValue }],
+            },
+          ]}
+        >
+          {isSelected && (
+            <FontAwesome name="check" size={12} color={checkboxIconColor} />
+          )}
+        </Animated.View>
       </View>
-      {/* </View> */}
     </TouchableOpacity>
   );
 });
@@ -204,16 +250,15 @@ export default function ChooseCountriesScreen({
   const scaleValue = useRef(new Animated.Value(1)).current;
   const [isPopupVisible, setIsPopupVisible] = useState(true);
   const searchInputRef = useRef<TextInput>(null);
-  const { visitedCountries, setVisitedCountries, isLoading } = useCountries();
+  const { visitedCountries } = useCountries();
   const [selectedCountries, setSelectedCountries] = useState(new Set<string>());
 
   useEffect(() => {
-    // Ten efekt jest idealny. Synchronizuje stan lokalny z globalnym.
-    // Uruchomi się, gdy isLoading zmieni się na false i dane będą dostępne.
-    if (!isLoading && visitedCountries) {
-      setSelectedCountries(new Set(visitedCountries));
-    }
-  }, [visitedCountries, isLoading]);
+    // Synchronizuj stan lokalny z globalnym kontekstem.
+    // To zapewni, że lista jest aktualna przy pierwszym renderowaniu
+    // i po zmianach z innych źródeł (dzięki onSnapshot w kontekście).
+    setSelectedCountries(new Set(visitedCountries));
+  }, [visitedCountries]);
   const { userProfile, setUserProfile } = useAuthStore();
   useEffect(() => {
     const checkPopup = async () => {
@@ -230,29 +275,6 @@ export default function ChooseCountriesScreen({
     checkPopup();
   }, []);
 
-  useEffect(() => {
-    // Fetch saved countriesVisited from Firestore
-    const fetchSelectedCountries = async () => {
-      const user = auth.currentUser;
-      if (user) {
-        try {
-          const userDocRef = doc(db, "users", user.uid);
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            const countriesVisited: string[] = userData?.countriesVisited || [];
-            // Konwertuj tablicę na Set
-            setSelectedCountries(new Set(countriesVisited));
-            setVisitedCountries(countriesVisited);
-          }
-        } catch (error) {
-          console.error("Error fetching selected countries:", error);
-        }
-      }
-    };
-
-    fetchSelectedCountries();
-  }, [setVisitedCountries]);
   useEffect(() => {
     setSelectedCountries(new Set(visitedCountries));
   }, [visitedCountries]);
@@ -386,14 +408,53 @@ export default function ChooseCountriesScreen({
     return flatList;
   }, [filterQuery]);
   const handleSelectCountry = useCallback((countryCode: string) => {
-    // Aktualizuj TYLKO lokalny stan tego ekranu.
-    setSelectedCountries((prev) => {
-      const newSelected = new Set(prev);
-      if (newSelected.has(countryCode)) {
+    const user = auth.currentUser;
+    if (!user) {
+      Alert.alert("Not Logged In", "User is not authenticated.");
+      return;
+    }
+
+    // Używamy funkcji aktualizującej (prevSelected => ...).
+    // React gwarantuje, że `prevSelected` to ZAWSZE najnowsza wersja stanu.
+    setSelectedCountries((prevSelected) => {
+      const newSelected = new Set(prevSelected);
+      const isCurrentlySelected = newSelected.has(countryCode);
+
+      // 1. Zaktualizuj lokalny Set dla natychmiastowej zmiany w UI
+      if (isCurrentlySelected) {
         newSelected.delete(countryCode);
       } else {
         newSelected.add(countryCode);
       }
+
+      // 2. W tle zaktualizuj Firestore
+      // Używamy `isCurrentlySelected` które obliczyliśmy na podstawie
+      // najświeższego stanu, więc decyzja (union/remove) jest zawsze poprawna.
+      const userDocRef = doc(db, "users", user.uid);
+      updateDoc(userDocRef, {
+        countriesVisited: isCurrentlySelected
+          ? arrayRemove(countryCode)
+          : arrayUnion(countryCode),
+      }).catch((error) => {
+        // 3. W razie błędu sieci, wycofaj optymistyczną zmianę w UI
+        console.error("Error updating country in Firestore:", error);
+        Alert.alert(
+          "Error",
+          "Could not update your selection. Please try again."
+        );
+        // Wycofujemy zmianę, przywracając poprzedni stan
+        setSelectedCountries((prev) => {
+          const revertedSet = new Set(prev);
+          if (isCurrentlySelected) {
+            revertedSet.add(countryCode); // Był zaznaczony, więc dodaj z powrotem
+          } else {
+            revertedSet.delete(countryCode); // Nie był, więc usuń dodany
+          }
+          return revertedSet;
+        });
+      });
+
+      // Zwróć nowy, zaktualizowany Set, aby React przerysował UI
       return newSelected;
     });
   }, []);
@@ -509,13 +570,13 @@ export default function ChooseCountriesScreen({
     ),
     [theme.colors.surface, theme.colors.primary]
   );
-  if (isLoading) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
-    );
-  }
+  // if (isLoading) {
+  //   return (
+  //     <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+  //       <ActivityIndicator size="large" color={theme.colors.primary} />
+  //     </View>
+  //   );
+  // }
   return (
     <TouchableWithoutFeedback onPress={dismissKeyboard}>
       <SafeAreaView
@@ -690,6 +751,7 @@ export default function ChooseCountriesScreen({
                 keyExtractor={(item, index) =>
                   ("isHeader" in item ? item.title : item.cca3) + index
                 }
+                extraData={selectedCountries}
                 getItemType={getItemType}
                 estimatedItemSize={ITEM_HEIGHT}
                 contentContainerStyle={{
@@ -775,11 +837,31 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 0,
   },
+  countryItemOuterContainer: {
+    width: "100%",
+    // paddingVertical: 2,
+  },
+  countryItemInnerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: 50,
+    paddingHorizontal: 8,
+    // marginHorizontal: 13,
+    // marginBottom: 1,
+    borderRadius: 4.2, // Domyślne zaokrąglenie
+    // tło i border radius są dynamiczne w komponencie
+  },
   containerFromTab: {
     marginTop: -5,
   },
   containerStandalone: {
     paddingTop: 30,
+  },
+  navigableArea: {
+    // Styl dla klikalnego obszaru flagi i nazwy
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 5, // Drobny padding dla lepszego wrażenia
   },
   searchAndToggleContainer: {
     flexDirection: "row",
