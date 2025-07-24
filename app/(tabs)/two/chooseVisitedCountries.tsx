@@ -184,10 +184,10 @@ export default function ChooseVisitedCountriesScreen() {
   const { toggleTheme, isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme();
   const scaleValue = useSharedValue(1) as SharedValue<number>;
-  const { visitedCountries, setVisitedCountries } = useCountries();
+  const { visitedCountries, countriesMap } = useCountries();
 
-  const [visitedCountriesData, setVisitedCountriesData] =
-    useState<string[]>(visitedCountries);
+  // const [visitedCountriesData, setVisitedCountriesData] =
+  //   useState<string[]>(visitedCountries);
 
   const [selectedCountryCode, setSelectedCountryCode] = useState<string | null>(
     null
@@ -220,13 +220,25 @@ export default function ChooseVisitedCountriesScreen() {
   }, []);
 
   // <<< ZMIANA: usunięcie kraju po potwierdzeniu
+  const [visitedCountriesData, setVisitedCountriesData] =
+    useState<string[]>(visitedCountries);
+  useEffect(() => {
+    setVisitedCountriesData(visitedCountries);
+  }, [visitedCountries]);
+
+  // Zaktualizowana funkcja confirmRemoveCountry
   const confirmRemoveCountry = useCallback(async () => {
     if (!countryToRemove) return;
-    const updated = visitedCountriesData.filter((c) => c !== countryToRemove);
 
-    // 1) lokalnie od razu zaktualizuj stan
-    setVisitedCountriesData(updated);
-    setVisitedCountries(updated);
+    // KROK 1: Zdefiniuj, jak będzie wyglądać zaktualizowana lista.
+    const updatedVisitedList = visitedCountriesData.filter(
+      (c) => c !== countryToRemove
+    );
+
+    // KROK 2: (Opcjonalnie, ale poprawia UX) Możesz od razu zaktualizować lokalny stan,
+    // aby UI zareagował natychmiast, nie czekając na odpowiedź z bazy.
+    // Listener z onSnapshot i tak za chwilę "nadpisze" tę zmianę identycznymi danymi.
+    setVisitedCountriesData(updatedVisitedList);
     setSelectedCountryCode(null);
     setRemoveModalVisible(false);
 
@@ -235,50 +247,73 @@ export default function ChooseVisitedCountriesScreen() {
       try {
         const userRef = doc(db, "users", user.uid);
 
-        // pobierz aktualny ranking
+        // Pobierz aktualny ranking - to jest OK
         const snap = await getDoc(userRef);
         const currentRanking: string[] = snap.exists()
           ? snap.data()?.ranking || []
           : [];
 
-        // usuń z rankingu usunięty kraj
+        // Usuń z rankingu - to jest OK
         const newRanking = currentRanking.filter(
           (code) => code !== countryToRemove
         );
 
-        // update obu pól jednym call’em
+        // KROK 3: JEDYNA AKCJA ZAPISU - zaktualizuj Firestore.
+        // Kontekst zajmie się resztą.
         await updateDoc(userRef, {
-          countriesVisited: updated,
+          countriesVisited: updatedVisitedList, // użyj listy zdefiniowanej na początku
           ranking: newRanking,
         });
+
+        // Nie ma już potrzeby robić nic więcej. Reszta dzieje się automatycznie.
       } catch (error) {
         console.error("Error updating visited & ranking:", error);
         Alert.alert("Error", "Nie udało się zaktualizować listy krajów.");
+        // W razie błędu, można by przywrócić stan poprzedni
+        setVisitedCountriesData(visitedCountries); // Przywróć dane z kontekstu
       }
     }
 
     setCountryToRemove(null);
-  }, [countryToRemove, visitedCountriesData, setVisitedCountries]);
-
+  }, [countryToRemove, visitedCountriesData, visitedCountries]);
   const cancelRemove = useCallback(() => {
     setRemoveModalVisible(false);
     setCountryToRemove(null); // Clear state on cancel
   }, []);
 
   // ─── 4. PRZYGOTOWANIE DANYCH DO LISTY ────────────────────────
+
   const processedCountries = useMemo(() => {
-    const objs = filteredCountriesData.countries.filter((c: Country) =>
-      visitedCountriesData.includes(c.cca2)
-    );
+    // KROK 1: Sprawdź, czy `countriesMap` w ogóle istnieje, ZANIM spróbujesz użyć .size
+    if (
+      !countriesMap ||
+      countriesMap.size === 0 ||
+      visitedCountries.length === 0
+    ) {
+      return [];
+    }
+
+    // Reszta kodu pozostaje bez zmian
+    const visitedCountryObjects = visitedCountries
+      .map((code) => countriesMap.get(code))
+      .filter((c): c is Country => c !== undefined);
+
     const grouped: Record<string, Country[]> = {};
-    objs.forEach((c) => {
-      const continent = getContinent(c.region, c.subregion);
-      (grouped[continent] ||= []).push(c);
-    });
+    for (const country of visitedCountryObjects) {
+      const continent = getContinent(country.region, country.subregion);
+      if (!grouped[continent]) {
+        grouped[continent] = [];
+      }
+      grouped[continent].push(country);
+    }
+
     return Object.entries(grouped)
-      .map(([title, data]) => ({ title, data }))
+      .map(([title, data]) => ({
+        title,
+        data: data.sort((a, b) => a.name.localeCompare(b.name)),
+      }))
       .sort((a, b) => a.title.localeCompare(b.title));
-  }, [visitedCountriesData]);
+  }, [visitedCountries, countriesMap]);
 
   // ─── 5. RENDERY ───────────────────────────────────────────────
   const renderCountryItem = useCallback(
@@ -340,6 +375,11 @@ export default function ChooseVisitedCountriesScreen() {
                 </Text>
               </View>
             )}
+            // --- POPRAWIONE PROPSY ---
+            initialNumToRender={15}
+            maxToRenderPerBatch={10}
+            windowSize={21}
+            removeClippedSubviews={true}
           />
           <ConfirmationModal
             visible={removeModalVisible}

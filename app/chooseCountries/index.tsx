@@ -40,7 +40,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import filteredCountriesData from "../../components/filteredCountries.json";
 import { useCountries } from "../config/CountryContext"; // Import hook z kontekstu
 import { useAuthStore } from "../store/authStore";
+import { FlashList } from "@shopify/flash-list";
 const { width, height } = Dimensions.get("window");
+const ITEM_HEIGHT = 50; // Z Twojego stylu styles.countryItem
+const SECTION_HEADER_HEIGHT = 28; // Przybliżona wysokość nagłówka sekcji
 
 type Continent =
   | "Africa"
@@ -62,7 +65,7 @@ export type Country = {
   class: string | null;
   path: string;
 };
-
+type ListItem = Country | { isHeader: true; title: string };
 export type FilteredCountries = {
   countries: Country[];
 };
@@ -99,125 +102,95 @@ const CountryItem = React.memo(function CountryItem({
 }) {
   const theme = useTheme();
   const { isDarkTheme } = useContext(ThemeContext);
-  const scaleValue = useRef(new Animated.Value(1)).current;
-
-  const handleCheckboxPress = useCallback(() => {
-    Animated.sequence([
-      Animated.timing(scaleValue, {
-        toValue: 0.8,
-        duration: 80,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleValue, {
-        toValue: 1,
-        duration: 80,
-        useNativeDriver: true,
-      }),
-    ]).start();
-    onSelect(item.cca2);
-  }, [scaleValue, onSelect, item.cca2]);
 
   const handlePress = useCallback(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    handleCheckboxPress();
-  }, [handleCheckboxPress]);
+    onSelect(item.cca2);
+  }, [onSelect, item.cca2]);
 
-  // Dynamic colors based on the theme
+  const handleNavigateToCountry = useCallback(() => {
+    router.push(`/country/${item.id}`);
+  }, [item.id]);
+
+  // Dynamic colors
   const selectedBackgroundColor = isSelected
     ? theme.colors.surfaceVariant
     : theme.colors.surface;
-
   const flagBorderColor = theme.colors.outline;
-
   const checkboxBackgroundColor = isSelected
     ? theme.colors.primary
     : "transparent";
-
   const checkboxBorderColor = isSelected
     ? theme.colors.primary
     : theme.colors.outline;
-
   const checkboxIconColor = isSelected ? theme.colors.onPrimary : "transparent";
-  const handleNavigateToCountry = useCallback(() => {
-    router.push(`/country/${item.id}`);
-  }, [router, item.id]);
+
   return (
     <TouchableOpacity
       onPress={handlePress}
-      style={[styles.countryItemContainer, { backgroundColor: "transparent" }]}
+      onLongPress={handleNavigateToCountry}
+      // Poniżej jest kluczowa poprawka stylu
+      style={[
+        styles.countryItemContainer, // Używamy kontenera, który ma borderBottom
+        { backgroundColor: selectedBackgroundColor },
+      ]}
       activeOpacity={0.7}
+      delayLongPress={150}
     >
+      {/* Ten View nie jest już potrzebny, bo style są w kontenerze powyżej */}
+      {/* <View style={styles.countryItemContent}> */}
       <View
         style={[
-          styles.countryItem,
+          styles.flagContainer,
+          styles.flagWithBorder,
+          { borderColor: flagBorderColor },
+        ]}
+      >
+        <CountryFlag isoCode={item.cca2} size={25} />
+      </View>
+
+      <Text style={[styles.countryText, { color: theme.colors.onSurface }]}>
+        {item.name}
+      </Text>
+
+      <View style={{ flex: 1 }} />
+
+      <View
+        style={[
+          styles.roundCheckbox,
           {
-            backgroundColor: selectedBackgroundColor,
-            borderRadius: isSelected ? 4.2 : 8,
+            backgroundColor: checkboxBackgroundColor,
+            borderColor: checkboxBorderColor,
           },
         ]}
       >
-        {/* FLAGA */}
-        <Pressable
-          onPress={(e) => {
-            e.stopPropagation();
-            handleNavigateToCountry();
-          }}
-          hitSlop={8}
-          style={[
-            styles.flagContainer,
-            styles.flagWithBorder,
-            { borderColor: flagBorderColor },
-          ]}
-        >
-          <CountryFlag isoCode={item.cca2} size={25} />
-        </Pressable>
-
-        {/* NAZWA */}
-        <Pressable
-          onPress={(e) => {
-            e.stopPropagation();
-            handleNavigateToCountry();
-          }}
-          hitSlop={8}
-          style={{ marginLeft: 5 }}
-        >
-          <Text style={[styles.countryText, { color: theme.colors.onSurface }]}>
-            {item.name}
-          </Text>
-        </Pressable>
-
-        {/* SPACER */}
-        <View style={{ flex: 1 }} />
-
-        {/* CHECKBOX */}
-        <Animated.View
-          style={[
-            styles.roundCheckbox,
-            {
-              backgroundColor: checkboxBackgroundColor,
-              borderColor: checkboxBorderColor,
-              transform: [{ scale: scaleValue }],
-            },
-          ]}
-        >
-          {isSelected && (
-            <FontAwesome name="check" size={12} color={checkboxIconColor} />
-          )}
-        </Animated.View>
+        {isSelected && (
+          <FontAwesome name="check" size={12} color={checkboxIconColor} />
+        )}
       </View>
+      {/* </View> */}
     </TouchableOpacity>
   );
 });
-
 type ChooseCountriesScreenProps = {
   fromTab?: boolean;
 };
-
+const SectionHeader = ({ title }: { title: string }) => {
+  const theme = useTheme();
+  return (
+    <View
+      style={[styles.sectionHeader, { backgroundColor: theme.colors.surface }]}
+    >
+      <Text style={[styles.sectionHeaderText, { color: theme.colors.primary }]}>
+        {title}
+      </Text>
+    </View>
+  );
+};
 export default function ChooseCountriesScreen({
   fromTab = false,
 }: ChooseCountriesScreenProps) {
   const router = useRouter();
-  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
+  const [selectedCountries, setSelectedCountries] = useState(new Set<string>());
   const [searchQuery, setSearchQuery] = useState("");
   const { toggleTheme, isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme();
@@ -255,8 +228,9 @@ export default function ChooseCountriesScreen({
           if (userDoc.exists()) {
             const userData = userDoc.data();
             const countriesVisited: string[] = userData?.countriesVisited || [];
-            setSelectedCountries(countriesVisited);
-            setVisitedCountries(countriesVisited); // Synchronizacja z kontekstem
+            // Konwertuj tablicę na Set
+            setSelectedCountries(new Set(countriesVisited));
+            setVisitedCountries(countriesVisited);
           }
         } catch (error) {
           console.error("Error fetching selected countries:", error);
@@ -267,8 +241,7 @@ export default function ChooseCountriesScreen({
     fetchSelectedCountries();
   }, [setVisitedCountries]);
   useEffect(() => {
-    // synchronizacja lokalnego selectedCountries z kontekstem
-    setSelectedCountries(visitedCountries);
+    setSelectedCountries(new Set(visitedCountries));
   }, [visitedCountries]);
   const handleClosePopup = useCallback(async () => {
     setIsPopupVisible(false);
@@ -278,7 +251,16 @@ export default function ChooseCountriesScreen({
       console.error("Failed to save popup status.");
     }
   }, []);
-
+  const overrideItemLayout = useCallback(
+    (layout: { size?: number }, item: ListItem) => {
+      if ("isHeader" in item) {
+        layout.size = SECTION_HEADER_HEIGHT;
+      } else {
+        layout.size = ITEM_HEIGHT;
+      }
+    },
+    []
+  );
   const handleToggleTheme = useCallback(() => {
     Animated.sequence([
       Animated.timing(scaleValue, {
@@ -349,12 +331,14 @@ export default function ChooseCountriesScreen({
   }, [isInputFocused, fadeAnim]);
 
   // Processing country data
-  const processedCountries = useMemo(() => {
+  const flattenedData = useMemo(() => {
+    // 1. Filtruj kraje na podstawie wyszukiwania
     const filtered = filteredCountriesData.countries.filter(
       (country: Country) =>
         country.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    // 2. Grupuj po kontynentach
     const grouped = filtered.reduce(
       (acc: { [key in Continent]?: Country[] }, country: Country) => {
         const continent = getContinent(country.region, country.subregion);
@@ -367,7 +351,8 @@ export default function ChooseCountriesScreen({
       {} as { [key in Continent]?: Country[] }
     );
 
-    const sections: { title: string; data: Country[] }[] = Object.keys(grouped)
+    // 3. Sortuj sekcje i spłaszczaj dane
+    const sections = Object.keys(grouped)
       .map((continent) => ({
         title: continent,
         data: grouped[continent as Continent]!.sort((a: Country, b: Country) =>
@@ -376,27 +361,36 @@ export default function ChooseCountriesScreen({
       }))
       .sort((a, b) => a.title.localeCompare(b.title));
 
-    return sections;
-  }, [searchQuery]);
+    // 4. Stwórz jedną, płaską tablicę
+    const flatList: ListItem[] = [];
+    sections.forEach((section) => {
+      // Dodaj obiekt reprezentujący nagłówek
+      flatList.push({ isHeader: true, title: section.title });
+      // Dodaj wszystkie kraje z tej sekcji
+      flatList.push(...section.data);
+    });
 
+    return flatList;
+  }, [searchQuery]);
   const handleSelectCountry = useCallback(
     (countryCode: string) => {
       setSelectedCountries((prevSelected) => {
-        let updatedSelected;
-        if (prevSelected.includes(countryCode)) {
-          updatedSelected = prevSelected.filter((c) => c !== countryCode);
+        // Tworzymy nową instancję Set, aby React wykrył zmianę stanu
+        const newSelected = new Set(prevSelected);
+        if (newSelected.has(countryCode)) {
+          newSelected.delete(countryCode); // Używamy .delete()
         } else {
-          updatedSelected = [...prevSelected, countryCode];
+          newSelected.add(countryCode); // Używamy .add()
         }
-        setVisitedCountries(updatedSelected); // Aktualizacja kontekstu
-        return updatedSelected;
+        // Aktualizujemy kontekst konwertując z powrotem na tablicę
+        setVisitedCountries(Array.from(newSelected));
+        return newSelected;
       });
     },
     [setVisitedCountries]
   );
-
   const handleSaveCountries = useCallback(async () => {
-    if (selectedCountries.length === 0) {
+    if (selectedCountries.size === 0) {
       Alert.alert("No Selection", "Please select at least one country.");
       return;
     }
@@ -407,8 +401,9 @@ export default function ChooseCountriesScreen({
 
         // Aktualizujesz Firestore (to jest już u Ciebie i jest OK)
         await updateDoc(userDocRef, {
-          countriesVisited: selectedCountries,
-          firstLoginComplete: true, // Kluczowy fragment
+          // Konwertuj Set na tablicę przed zapisem do Firestore
+          countriesVisited: Array.from(selectedCountries),
+          firstLoginComplete: true,
         });
         console.log("Selected countries saved:", selectedCountries);
 
@@ -450,17 +445,37 @@ export default function ChooseCountriesScreen({
       useNativeDriver: true,
     }).start();
   }, [fadeAnim]);
-
+  const renderItem = useCallback(
+    ({ item }: { item: ListItem }) => {
+      // Sprawdź, czy element jest nagłówkiem
+      if ("isHeader" in item) {
+        return <SectionHeader title={item.title} />;
+      }
+      // W przeciwnym razie, jest to kraj
+      return (
+        <CountryItem
+          item={item}
+          onSelect={handleSelectCountry}
+          // Użyj .has() zamiast .includes() - to jest znacznie szybsze!
+          isSelected={selectedCountries.has(item.cca2)}
+        />
+      );
+    },
+    [handleSelectCountry, selectedCountries] // selectedCountries jest teraz Setem
+  );
   const renderCountryItem = useCallback(
     ({ item }: { item: Country }) => (
       <CountryItem
         item={item}
         onSelect={handleSelectCountry}
-        isSelected={selectedCountries.includes(item.cca2)}
+        isSelected={selectedCountries.has(item.cca2)}
       />
     ),
     [handleSelectCountry, selectedCountries]
   );
+  const getItemType = useCallback((item: ListItem) => {
+    return "isHeader" in item ? "sectionHeader" : "row";
+  }, []);
 
   const renderSectionHeader = useCallback(
     ({ section }: { section: { title: string } }) => (
@@ -648,24 +663,39 @@ export default function ChooseCountriesScreen({
                 marginTop: -9,
               }}
             >
-              <SectionList
-                sections={processedCountries}
-                keyExtractor={(item) => item.cca3}
-                renderItem={renderCountryItem}
-                renderSectionHeader={renderSectionHeader}
-                stickySectionHeadersEnabled={false}
+              <FlashList
+                data={flattenedData}
+                renderItem={renderItem}
+                keyExtractor={(item, index) =>
+                  ("isHeader" in item ? item.title : item.cca3) + index
+                }
+                getItemType={getItemType}
+                estimatedItemSize={ITEM_HEIGHT}
                 contentContainerStyle={{
-                  flexGrow: 1,
                   paddingBottom: fromTab ? 86 : 96,
                 }}
+                overrideItemLayout={overrideItemLayout}
+                // --- POCZĄTEK KLUCZOWEJ ZMIANY ---
+
+                // Zwiększ dystans, na jakim renderowane są komórki poza ekranem.
+                // Wartość `height` to dobry, bezpieczny punkt wyjścia.
+                // Możesz eksperymentować z większymi wartościami (np. height * 1.5),
+                // jeśli problem nadal występuje.
+                drawDistance={height * 2}
+                // --- KONIEC KLUCZOWEJ ZMIANY ---
+
                 ListEmptyComponent={() => (
-                  <View style={styles.emptyContainer}>
+                  <View
+                    style={[
+                      styles.emptyContainer,
+                      { flex: 1, justifyContent: "center" },
+                    ]}
+                  >
                     <Text style={styles.emptyText}>No countries found.</Text>
                   </View>
                 )}
               />
             </View>
-
             {/* "Save and Continue" Button */}
             <Animated.View
               style={[
@@ -692,12 +722,12 @@ export default function ChooseCountriesScreen({
                 onPress={handleSaveCountries}
                 style={[
                   styles.saveButton,
-                  selectedCountries.length === 0 && styles.saveButtonDisabled,
-                  selectedCountries.length > 0
+                  selectedCountries.size === 0 && styles.saveButtonDisabled, // <<< POPRAWKA
+                  selectedCountries.size > 0 // <<< POPRAWKA
                     ? { backgroundColor: theme.colors.primary }
                     : {},
                 ]}
-                disabled={selectedCountries.length === 0}
+                disabled={selectedCountries.size === 0} // <<< POPRAWKA
               >
                 <Text
                   style={[
@@ -750,6 +780,17 @@ const styles = StyleSheet.create({
     height: height * 0.062,
     flex: 1,
   },
+  countryItemContainer: {
+    // To jest główny kontener, który ma flex i border
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    height: 50,
+    paddingHorizontal: 8,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#ccc",
+  },
+
   toggleButton: {
     width: height * 0.0615,
     height: height * 0.0615,
@@ -773,10 +814,18 @@ const styles = StyleSheet.create({
   iconLeft: {
     marginLeft: 10,
   },
-  countryItemContainer: {
-    width: "100%",
-    backgroundColor: "transparent",
+  countryItemContent: {
+    // Nowy styl dla zawartości
+    flexDirection: "row",
+    alignItems: "center",
+    height: 50,
+    paddingHorizontal: 8,
   },
+  // countryItem: { // Stary styl, teraz używany w countryItemContainer
+  //   // flexDirection, alignItems, height, paddingHorizontal - przeniesione do countryItemContent
+  //   borderBottomWidth: 0.5,
+  //   borderBottomColor: "#ccc",
+  // },
   sectionHeader: {
     paddingVertical: 4,
     paddingHorizontal: 8,
