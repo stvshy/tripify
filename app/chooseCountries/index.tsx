@@ -6,6 +6,7 @@ import React, {
   useContext,
   useEffect,
   useRef,
+  useTransition,
 } from "react";
 import {
   View,
@@ -28,6 +29,7 @@ import {
   BackHandler,
   TextInput,
   LayoutAnimation,
+  ActivityIndicator,
 } from "react-native";
 import { TextInput as PaperTextInput, useTheme } from "react-native-paper";
 import { AntDesign, FontAwesome, MaterialIcons } from "@expo/vector-icons";
@@ -190,8 +192,10 @@ export default function ChooseCountriesScreen({
   fromTab = false,
 }: ChooseCountriesScreenProps) {
   const router = useRouter();
-  const [selectedCountries, setSelectedCountries] = useState(new Set<string>());
-  const [searchQuery, setSearchQuery] = useState("");
+  const [inputValue, setInputValue] = useState(""); // Stan dla samego inputu
+  const [filterQuery, setFilterQuery] = useState(""); // Stan do filtrowania listy
+  const [isPending, startTransition] = useTransition();
+
   const { toggleTheme, isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme();
   const [isFocused, setIsFocused] = useState(false);
@@ -200,7 +204,16 @@ export default function ChooseCountriesScreen({
   const scaleValue = useRef(new Animated.Value(1)).current;
   const [isPopupVisible, setIsPopupVisible] = useState(true);
   const searchInputRef = useRef<TextInput>(null);
-  const { visitedCountries, setVisitedCountries } = useCountries(); // Pobranie stanu z kontekstu
+  const { visitedCountries, setVisitedCountries, isLoading } = useCountries();
+  const [selectedCountries, setSelectedCountries] = useState(new Set<string>());
+
+  useEffect(() => {
+    // Ten efekt jest idealny. Synchronizuje stan lokalny z globalnym.
+    // Uruchomi się, gdy isLoading zmieni się na false i dane będą dostępne.
+    if (!isLoading && visitedCountries) {
+      setSelectedCountries(new Set(visitedCountries));
+    }
+  }, [visitedCountries, isLoading]);
   const { userProfile, setUserProfile } = useAuthStore();
   useEffect(() => {
     const checkPopup = async () => {
@@ -335,7 +348,7 @@ export default function ChooseCountriesScreen({
     // 1. Filtruj kraje na podstawie wyszukiwania
     const filtered = filteredCountriesData.countries.filter(
       (country: Country) =>
-        country.name.toLowerCase().includes(searchQuery.toLowerCase())
+        country.name.toLowerCase().includes(filterQuery.toLowerCase())
     );
 
     // 2. Grupuj po kontynentach
@@ -371,24 +384,19 @@ export default function ChooseCountriesScreen({
     });
 
     return flatList;
-  }, [searchQuery]);
-  const handleSelectCountry = useCallback(
-    (countryCode: string) => {
-      setSelectedCountries((prevSelected) => {
-        // Tworzymy nową instancję Set, aby React wykrył zmianę stanu
-        const newSelected = new Set(prevSelected);
-        if (newSelected.has(countryCode)) {
-          newSelected.delete(countryCode); // Używamy .delete()
-        } else {
-          newSelected.add(countryCode); // Używamy .add()
-        }
-        // Aktualizujemy kontekst konwertując z powrotem na tablicę
-        setVisitedCountries(Array.from(newSelected));
-        return newSelected;
-      });
-    },
-    [setVisitedCountries]
-  );
+  }, [filterQuery]);
+  const handleSelectCountry = useCallback((countryCode: string) => {
+    // Aktualizuj TYLKO lokalny stan tego ekranu.
+    setSelectedCountries((prev) => {
+      const newSelected = new Set(prev);
+      if (newSelected.has(countryCode)) {
+        newSelected.delete(countryCode);
+      } else {
+        newSelected.add(countryCode);
+      }
+      return newSelected;
+    });
+  }, []);
   const handleSaveCountries = useCallback(async () => {
     if (selectedCountries.size === 0) {
       Alert.alert("No Selection", "Please select at least one country.");
@@ -463,6 +471,13 @@ export default function ChooseCountriesScreen({
     },
     [handleSelectCountry, selectedCountries] // selectedCountries jest teraz Setem
   );
+  const handleSearchChange = (text: string) => {
+    setInputValue(text); // Aktualizuj input natychmiast
+    startTransition(() => {
+      setFilterQuery(text); // Tę aktualizację oznacz jako "transition"
+    });
+  };
+
   const renderCountryItem = useCallback(
     ({ item }: { item: Country }) => (
       <CountryItem
@@ -494,7 +509,13 @@ export default function ChooseCountriesScreen({
     ),
     [theme.colors.surface, theme.colors.primary]
   );
-
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
   return (
     <TouchableWithoutFeedback onPress={dismissKeyboard}>
       <SafeAreaView
@@ -567,8 +588,8 @@ export default function ChooseCountriesScreen({
                 <PaperTextInput
                   ref={searchInputRef}
                   label="Search Country"
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
+                  value={inputValue} // <-- ZMIANA
+                  onChangeText={handleSearchChange} // <-- ZMIANA
                   mode="flat"
                   style={styles.input}
                   theme={{
@@ -598,7 +619,7 @@ export default function ChooseCountriesScreen({
                     />
                   }
                   right={
-                    searchQuery ? (
+                    inputValue ? ( // <-- ZMIANA
                       <PaperTextInput.Icon
                         icon={() => (
                           <MaterialIcons
@@ -607,7 +628,7 @@ export default function ChooseCountriesScreen({
                             color={theme.colors.outline}
                           />
                         )}
-                        onPress={() => setSearchQuery("")}
+                        onPress={() => handleSearchChange("")} // <-- ZMIANA
                       />
                     ) : null
                   }

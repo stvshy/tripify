@@ -6,13 +6,14 @@ import React, {
   useEffect,
   ReactNode,
   useContext,
-  useMemo, // NOWOŚĆ: Dodajemy useMemo dla optymalizacji
+  useMemo,
 } from "react";
 import { auth, db } from "./firebaseConfig";
 import { doc, onSnapshot } from "firebase/firestore";
+import { onAuthStateChanged, User } from "firebase/auth"; // <-- IMPORTUJ onAuthStateChanged i User
 import filteredCountriesData from "../../components/filteredCountries.json";
 
-// NOWOŚĆ: Definicja typu Country, aby kontekst był samodzielny
+// Reszta twojego kodu (typy, mapa) jest idealna i pozostaje bez zmian
 export type Country = {
   id: string;
   name: string;
@@ -25,91 +26,101 @@ export type Country = {
   path: string;
 };
 
-// NOWOŚĆ: Tworzymy mapę krajów RAZ, przy starcie aplikacji.
-// To jest nasz "cache". Dostęp do kraju po kodzie jest teraz błyskawiczny (O(1)).
 const countriesMap = new Map<string, Country>();
 filteredCountriesData.countries.forEach((country) => {
   countriesMap.set(country.cca2, country);
 });
 
-// NOWOŚĆ: Aktualizujemy interfejs kontekstu
 interface CountryContextProps {
   visitedCountries: string[];
   visitedCountriesCount: number;
   setVisitedCountries: (countries: string[]) => void;
-  countriesMap: Map<string, Country>; // Udostępniamy naszą zoptymalizowaną mapę
-  isLoading: boolean; // Dodajemy flagę ładowania
+  countriesMap: Map<string, Country>;
+  isLoading: boolean;
 }
 
-// Utworzenie kontekstu z zaktualizowanymi wartościami domyślnymi
 const CountryContext = createContext<CountryContextProps>({
   visitedCountries: [],
   visitedCountriesCount: 0,
   setVisitedCountries: () => {},
-  countriesMap: new Map(), // NOWOŚĆ
-  isLoading: true, // NOWOŚĆ
+  countriesMap: new Map(),
+  isLoading: true,
 });
 
-// Definicja propsów dla providera (bez zmian)
 interface CountryProviderProps {
   children: ReactNode;
 }
 
-// Provider kontekstu
+// === POCZĄTEK ZMIAN ===
 export const CountriesProvider: React.FC<CountryProviderProps> = ({
   children,
 }) => {
   const [visitedCountries, setVisitedCountries] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true); // NOWOŚĆ: Stan ładowania danych
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Reset stanu na wypadek zmiany użytkownika
-    setIsLoading(true);
-    setVisitedCountries([]);
+    // Ustawiamy listener, który będzie reagował na logowanie i wylogowywanie
+    const unsubscribeAuth = onAuthStateChanged(auth, (user: User | null) => {
+      if (user) {
+        // Użytkownik jest zalogowany, podpinamy listener do jego dokumentu
+        console.log("Auth state changed: User is logged in. Fetching data...");
+        setIsLoading(true);
+        const userDocRef = doc(db, "users", user.uid);
 
-    const user = auth.currentUser;
-    if (user) {
-      const userDocRef = doc(db, "users", user.uid);
-      const unsubscribe = onSnapshot(
-        userDocRef,
-        (docSnapshot) => {
-          if (docSnapshot.exists()) {
-            const data = docSnapshot.data();
-            setVisitedCountries(data.countriesVisited || []);
+        const unsubscribeDb = onSnapshot(
+          userDocRef,
+          (docSnapshot) => {
+            if (docSnapshot.exists()) {
+              const data = docSnapshot.data();
+              setVisitedCountries(data.countriesVisited || []);
+            } else {
+              // Dokument użytkownika jeszcze nie istnieje
+              setVisitedCountries([]);
+            }
+            setIsLoading(false); // Kończymy ładowanie
+          },
+          (error) => {
+            console.error("Error in onSnapshot:", error);
+            setIsLoading(false);
           }
-          // Niezależnie czy dokument istnieje, pierwsze pobranie danych się zakończyło
-          setIsLoading(false); // NOWOŚĆ: Kończymy ładowanie
-        },
-        (error) => {
-          console.error("Error in onSnapshot:", error);
-          setIsLoading(false); // NOWOŚĆ: Kończymy ładowanie także w razie błędu
-        }
-      );
+        );
 
-      return () => unsubscribe();
-    } else {
-      // Jeśli nie ma użytkownika, nie ma co ładować
-      setIsLoading(false); // NOWOŚĆ
-    }
-  }, []); // useEffect uruchomi się raz, przy montowaniu
+        // Zwracamy funkcję odpinającą listener bazy danych,
+        // zostanie ona wywołana, gdy użytkownik się wyloguje.
+        return () => {
+          console.log("Detaching DB listener for logged out user.");
+          unsubscribeDb();
+        };
+      } else {
+        // Użytkownik jest wylogowany, resetujemy stan
+        console.log("Auth state changed: User is logged out.");
+        setVisitedCountries([]);
+        setIsLoading(false);
+      }
+    });
 
-  // NOWOŚĆ: Używamy useMemo, aby uniknąć niepotrzebnych re-renderów komponentów potomnych,
-  // jeśli zmieni się tylko funkcja `setVisitedCountries` (która się nie zmienia).
+    // Funkcja czyszcząca główny useEffect - odpinamy listener autoryzacji
+    return () => {
+      console.log("Detaching auth state listener.");
+      unsubscribeAuth();
+    };
+  }, []); // Pusta tablica jest tutaj POPRAWNA - chcemy podpiąć listener tylko raz.
+
   const value = useMemo(
     () => ({
       visitedCountries,
       visitedCountriesCount: visitedCountries.length,
       setVisitedCountries,
-      countriesMap, // Udostępniamy stałą, zoptymalizowaną mapę
+      countriesMap,
       isLoading,
     }),
-    [visitedCountries, isLoading] // Przelicz wartość tylko, gdy te dane się zmienią
+    [visitedCountries, isLoading]
   );
 
   return (
     <CountryContext.Provider value={value}>{children}</CountryContext.Provider>
   );
 };
+// === KONIEC ZMIAN ===
 
-// Hook do korzystania z kontekstu (bez zmian)
 export const useCountries = () => useContext(CountryContext);
