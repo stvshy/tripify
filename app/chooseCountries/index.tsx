@@ -163,7 +163,7 @@ const CountryItem = React.memo(function CountryItem({
           styles.countryItemInnerContainer,
           {
             backgroundColor: selectedBackgroundColor,
-            borderBottomWidth: isSelected ? 0 : 0.5, // <<< ZMIANA: Kreska znika, gdy element jest zaznaczony
+            borderBottomWidth: 0.5,
             borderBottomColor: theme.colors.outline,
           },
         ]}
