@@ -113,25 +113,26 @@ const CountryItem = React.memo(function CountryItem({
 
   // Funkcja wywoływana do zaznaczenia/odznaczenia
   const handleToggleSelection = useCallback(() => {
-    // Animacja samego checkboxa
+    // Animujemy tylko skalę samego checkboxa - jest to tania operacja.
     Animated.sequence([
       Animated.timing(scaleValue, {
-        toValue: 0.8,
-        duration: 80,
+        toValue: 0.85,
+        duration: 70,
         useNativeDriver: true,
       }),
       Animated.timing(scaleValue, {
         toValue: 1,
-        duration: 80,
+        duration: 70,
         useNativeDriver: true,
       }),
     ]).start();
-    // Animacja całego kontenera (zmiana tła)
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    // Wywołanie logiki zaznaczenia
+
+    // UWAGA: Linia z LayoutAnimation została USUNIĘTA.
+    // To jest kluczowe dla wydajności przy szybkich kliknięciach.
+
+    // Wywołanie logiki zaznaczenia przekazanej z góry
     onSelect(item.cca2);
   }, [scaleValue, onSelect, item.cca2]);
-
   // Funkcja do nawigacji
   const handleNavigateToCountry = useCallback(() => {
     router.push(`/country/${item.id}`);
@@ -251,14 +252,11 @@ export default function ChooseCountriesScreen({
   const [isPopupVisible, setIsPopupVisible] = useState(true);
   const searchInputRef = useRef<TextInput>(null);
   const { visitedCountries } = useCountries();
-  const [selectedCountries, setSelectedCountries] = useState(new Set<string>());
+  // const [selectedCountries, setSelectedCountries] = useState(new Set<string>());
 
-  useEffect(() => {
-    // Synchronizuj stan lokalny z globalnym kontekstem.
-    // To zapewni, że lista jest aktualna przy pierwszym renderowaniu
-    // i po zmianach z innych źródeł (dzięki onSnapshot w kontekście).
-    setSelectedCountries(new Set(visitedCountries));
-  }, [visitedCountries]);
+  const [selectedCountries, setSelectedCountries] = useState(
+    () => new Set(visitedCountries)
+  );
   const { userProfile, setUserProfile } = useAuthStore();
   useEffect(() => {
     const checkPopup = async () => {
@@ -275,9 +273,9 @@ export default function ChooseCountriesScreen({
     checkPopup();
   }, []);
 
-  useEffect(() => {
-    setSelectedCountries(new Set(visitedCountries));
-  }, [visitedCountries]);
+  // useEffect(() => {
+  //   setSelectedCountries(new Set(visitedCountries));
+  // }, [visitedCountries]);
   const handleClosePopup = useCallback(async () => {
     setIsPopupVisible(false);
     try {
@@ -409,55 +407,48 @@ export default function ChooseCountriesScreen({
   }, [filterQuery]);
   const handleSelectCountry = useCallback((countryCode: string) => {
     const user = auth.currentUser;
-    if (!user) {
-      Alert.alert("Not Logged In", "User is not authenticated.");
-      return;
-    }
+    if (!user) return; // Ciche wyjście, jeśli nie ma usera
 
-    // Używamy funkcji aktualizującej (prevSelected => ...).
-    // React gwarantuje, że `prevSelected` to ZAWSZE najnowsza wersja stanu.
-    setSelectedCountries((prevSelected) => {
-      const newSelected = new Set(prevSelected);
+    // Krok 1: Natychmiastowa, optymistyczna aktualizacja lokalnego stanu UI
+    // Użycie funkcji zwrotnej gwarantuje, że operujemy na najnowszym stanie.
+    setSelectedCountries((currentSelected) => {
+      const newSelected = new Set(currentSelected);
       const isCurrentlySelected = newSelected.has(countryCode);
-
-      // 1. Zaktualizuj lokalny Set dla natychmiastowej zmiany w UI
       if (isCurrentlySelected) {
         newSelected.delete(countryCode);
       } else {
         newSelected.add(countryCode);
       }
 
-      // 2. W tle zaktualizuj Firestore
-      // Używamy `isCurrentlySelected` które obliczyliśmy na podstawie
-      // najświeższego stanu, więc decyzja (union/remove) jest zawsze poprawna.
+      // Krok 2: Asynchroniczny zapis do Firestore w tle ("fire-and-forget")
       const userDocRef = doc(db, "users", user.uid);
       updateDoc(userDocRef, {
         countriesVisited: isCurrentlySelected
           ? arrayRemove(countryCode)
           : arrayUnion(countryCode),
       }).catch((error) => {
-        // 3. W razie błędu sieci, wycofaj optymistyczną zmianę w UI
-        console.error("Error updating country in Firestore:", error);
+        // Krok 3: Wycofanie zmiany w UI w razie błędu sieci
+        console.error("Błąd zapisu do Firestore:", error);
         Alert.alert(
-          "Error",
-          "Could not update your selection. Please try again."
+          "Błąd",
+          "Nie udało się zapisać zmiany. Sprawdź połączenie."
         );
-        // Wycofujemy zmianę, przywracając poprzedni stan
-        setSelectedCountries((prev) => {
-          const revertedSet = new Set(prev);
+        // Przywracamy stan sprzed nieudanej operacji
+        setSelectedCountries((setBeforeError) => {
+          const revertedSet = new Set(setBeforeError);
           if (isCurrentlySelected) {
-            revertedSet.add(countryCode); // Był zaznaczony, więc dodaj z powrotem
+            revertedSet.add(countryCode); // Próbowaliśmy odznaczyć -> zaznacz z powrotem
           } else {
-            revertedSet.delete(countryCode); // Nie był, więc usuń dodany
+            revertedSet.delete(countryCode); // Próbowaliśmy zaznaczyć -> usuń
           }
           return revertedSet;
         });
       });
 
-      // Zwróć nowy, zaktualizowany Set, aby React przerysował UI
+      // Zwracamy nowy zbiór, aby React natychmiast przerysował listę
       return newSelected;
     });
-  }, []);
+  }, []); // Pusta tablica zależności = funkcja jest tworzona raz i nie zmienia się
   const handleSaveCountries = useCallback(async () => {
     if (selectedCountries.size === 0) {
       Alert.alert("No Selection", "Please select at least one country.");
@@ -749,9 +740,10 @@ export default function ChooseCountriesScreen({
                 data={flattenedData}
                 renderItem={renderItem}
                 keyExtractor={(item, index) =>
-                  ("isHeader" in item ? item.title : item.cca3) + index
+                  "isHeader" in item ? item.title : item.cca3
                 }
                 extraData={selectedCountries}
+                disableAutoLayout={true}
                 getItemType={getItemType}
                 estimatedItemSize={ITEM_HEIGHT}
                 contentContainerStyle={{
