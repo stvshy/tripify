@@ -39,6 +39,7 @@ import {
   updateDoc,
   arrayUnion,
   arrayRemove,
+  runTransaction,
 } from "firebase/firestore";
 import { router, useRouter } from "expo-router";
 import { auth, db } from "../config/firebaseConfig";
@@ -111,6 +112,12 @@ const CountryItem = React.memo(function CountryItem({
   const theme = useTheme();
   const scaleValue = useRef(new Animated.Value(1)).current;
 
+  const [localSelected, setLocalSelected] = useState(isSelected);
+
+  useEffect(() => {
+    setLocalSelected(isSelected);
+  }, [isSelected]);
+
   // Funkcja wywoływana do zaznaczenia/odznaczenia
   const handleToggleSelection = useCallback(() => {
     // Animujemy tylko skalę samego checkboxa - jest to tania operacja.
@@ -127,38 +134,39 @@ const CountryItem = React.memo(function CountryItem({
       }),
     ]).start();
 
-    // UWAGA: Linia z LayoutAnimation została USUNIĘTA.
-    // To jest kluczowe dla wydajności przy szybkich kliknięciach.
+    // Natychmiastowa zmiana lokalnego stanu dla błyskawicznego feedbacku
+    setLocalSelected((prev) => !prev);
 
     // Wywołanie logiki zaznaczenia przekazanej z góry
     onSelect(item.cca2);
   }, [scaleValue, onSelect, item.cca2]);
-  // Funkcja do nawigacji
+
   const handleNavigateToCountry = useCallback(() => {
     router.push(`/country/${item.id}`);
   }, [item.id]);
 
-  // Kolory dynamiczne
-  const selectedBackgroundColor = isSelected
+  // Kolory dynamiczne oparte na lokalnym stanie
+  const selectedBackgroundColor = localSelected
     ? theme.colors.surfaceVariant
     : theme.colors.surface;
   const flagBorderColor = theme.colors.outline;
-  const checkboxBackgroundColor = isSelected
+  const checkboxBackgroundColor = localSelected
     ? theme.colors.primary
     : "transparent";
-  const checkboxBorderColor = isSelected
+  const checkboxBorderColor = localSelected
     ? theme.colors.primary
     : theme.colors.outline;
-  const checkboxIconColor = isSelected ? theme.colors.onPrimary : "transparent";
+  const checkboxIconColor = localSelected
+    ? theme.colors.onPrimary
+    : "transparent";
 
+  // Reszta komponentu bez zmian (return)
   return (
-    // Zewnętrzny TouchableOpacity obsługuje zaznaczanie
     <TouchableOpacity
       onPress={handleToggleSelection}
       style={styles.countryItemOuterContainer}
       activeOpacity={0.9}
     >
-      {/* Wewnętrzny View ma tło i animacje */}
       <View
         style={[
           styles.countryItemInnerContainer,
@@ -169,10 +177,9 @@ const CountryItem = React.memo(function CountryItem({
           },
         ]}
       >
-        {/* Flaga - kliknięcie nawiguje i zatrzymuje propagację zdarzenia */}
         <Pressable
           onPress={(e) => {
-            e.stopPropagation(); // Zapobiega wywołaniu handleToggleSelection
+            e.stopPropagation();
             handleNavigateToCountry();
           }}
           hitSlop={8}
@@ -184,11 +191,9 @@ const CountryItem = React.memo(function CountryItem({
         >
           <CountryFlag isoCode={item.cca2} size={25} />
         </Pressable>
-
-        {/* Nazwa - kliknięcie nawiguje i zatrzymuje propagację zdarzenia */}
         <Pressable
           onPress={(e) => {
-            e.stopPropagation(); // Zapobiega wywołaniu handleToggleSelection
+            e.stopPropagation();
             handleNavigateToCountry();
           }}
           hitSlop={8}
@@ -198,10 +203,7 @@ const CountryItem = React.memo(function CountryItem({
             {item.name}
           </Text>
         </Pressable>
-
         <View style={{ flex: 1 }} />
-
-        {/* Checkbox z animacją scale */}
         <Animated.View
           style={[
             styles.roundCheckbox,
@@ -212,7 +214,7 @@ const CountryItem = React.memo(function CountryItem({
             },
           ]}
         >
-          {isSelected && (
+          {localSelected && (
             <FontAwesome name="check" size={12} color={checkboxIconColor} />
           )}
         </Animated.View>
@@ -254,9 +256,70 @@ export default function ChooseCountriesScreen({
   const { visitedCountries } = useCountries();
   // const [selectedCountries, setSelectedCountries] = useState(new Set<string>());
 
+  const selectedCountriesRef = useRef(new Set(visitedCountries));
   const [selectedCountries, setSelectedCountries] = useState(
-    () => new Set(visitedCountries)
+    selectedCountriesRef.current
   );
+  const pendingToggles = useRef<string[]>([]);
+  const updateTimer = useRef<NodeJS.Timeout | null>(null);
+  const isProcessing = useRef(false);
+
+  // Dodaj funkcję processPending
+  const processPending = useCallback(async () => {
+    if (isProcessing.current || pendingToggles.current.length === 0) return;
+
+    isProcessing.current = true;
+
+    const user = auth.currentUser;
+    if (!user) {
+      isProcessing.current = false;
+      return;
+    }
+
+    const userDocRef = doc(db, "users", user.uid);
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const userDoc = await transaction.get(userDocRef);
+        let currentCountries = userDoc.data()?.countriesVisited || [];
+
+        const localQueue = [...pendingToggles.current];
+        pendingToggles.current = [];
+
+        for (const countryCode of localQueue) {
+          const isSelected = currentCountries.includes(countryCode);
+          if (isSelected) {
+            currentCountries = currentCountries.filter(
+              (c: string) => c !== countryCode
+            );
+          } else {
+            currentCountries = [...currentCountries, countryCode];
+          }
+        }
+
+        transaction.update(userDocRef, { countriesVisited: currentCountries });
+      });
+    } catch (error) {
+      console.error("Błąd zapisu do Firestore:", error);
+      Alert.alert("Błąd", "Nie udało się zapisać zmian. Spróbuj ponownie.");
+
+      // Revert optymistycznych zmian na ref
+      const localQueue = [...pendingToggles.current]; // Użyj kopii, bo queue wyczyszczona
+      localQueue.forEach((countryCode) => {
+        if (selectedCountriesRef.current.has(countryCode)) {
+          selectedCountriesRef.current.delete(countryCode);
+        } else {
+          selectedCountriesRef.current.add(countryCode);
+        }
+      });
+
+      // Zaktualizuj stan UI
+      setSelectedCountries(new Set(selectedCountriesRef.current));
+    } finally {
+      isProcessing.current = false;
+      processPending(); // Przetwórz ewentualne nowe zmiany
+    }
+  }, []);
   const { userProfile, setUserProfile } = useAuthStore();
   useEffect(() => {
     const checkPopup = async () => {
@@ -405,52 +468,35 @@ export default function ChooseCountriesScreen({
 
     return flatList;
   }, [filterQuery]);
-  const handleSelectCountry = useCallback((countryCode: string) => {
-    const user = auth.currentUser;
-    if (!user) return; // Ciche wyjście, jeśli nie ma usera
+  const handleSelectCountry = useCallback(
+    (countryCode: string) => {
+      const user = auth.currentUser;
+      if (!user) return;
 
-    // Krok 1: Natychmiastowa, optymistyczna aktualizacja lokalnego stanu UI
-    // Użycie funkcji zwrotnej gwarantuje, że operujemy na najnowszym stanie.
-    setSelectedCountries((currentSelected) => {
-      const newSelected = new Set(currentSelected);
-      const isCurrentlySelected = newSelected.has(countryCode);
-      if (isCurrentlySelected) {
-        newSelected.delete(countryCode);
+      // Optymistyczna mutacja ref
+      if (selectedCountriesRef.current.has(countryCode)) {
+        selectedCountriesRef.current.delete(countryCode);
       } else {
-        newSelected.add(countryCode);
+        selectedCountriesRef.current.add(countryCode);
       }
 
-      // Krok 2: Asynchroniczny zapis do Firestore w tle ("fire-and-forget")
-      const userDocRef = doc(db, "users", user.uid);
-      updateDoc(userDocRef, {
-        countriesVisited: isCurrentlySelected
-          ? arrayRemove(countryCode)
-          : arrayUnion(countryCode),
-      }).catch((error) => {
-        // Krok 3: Wycofanie zmiany w UI w razie błędu sieci
-        console.error("Błąd zapisu do Firestore:", error);
-        Alert.alert(
-          "Błąd",
-          "Nie udało się zapisać zmiany. Sprawdź połączenie."
-        );
-        // Przywracamy stan sprzed nieudanej operacji
-        setSelectedCountries((setBeforeError) => {
-          const revertedSet = new Set(setBeforeError);
-          if (isCurrentlySelected) {
-            revertedSet.add(countryCode); // Próbowaliśmy odznaczyć -> zaznacz z powrotem
-          } else {
-            revertedSet.delete(countryCode); // Próbowaliśmy zaznaczyć -> usuń
-          }
-          return revertedSet;
-        });
-      });
+      // Debounce aktualizacji stanu (dla mniejszej liczby re-renderów)
+      if (updateTimer.current) clearTimeout(updateTimer.current);
+      updateTimer.current = setTimeout(() => {
+        setSelectedCountries(new Set(selectedCountriesRef.current));
+      }, 50);
 
-      // Zwracamy nowy zbiór, aby React natychmiast przerysował listę
-      return newSelected;
-    });
-  }, []); // Pusta tablica zależności = funkcja jest tworzona raz i nie zmienia się
+      // Dodaj do kolejki backendowej
+      pendingToggles.current.push(countryCode);
+
+      // Uruchom przetwarzanie
+      processPending();
+    },
+    [processPending]
+  );
   const handleSaveCountries = useCallback(async () => {
-    if (selectedCountries.size === 0) {
+    const currentSelected = Array.from(selectedCountriesRef.current);
+    if (currentSelected.length === 0) {
       Alert.alert("No Selection", "Please select at least one country.");
       return;
     }
@@ -458,27 +504,20 @@ export default function ChooseCountriesScreen({
     if (user) {
       try {
         const userDocRef = doc(db, "users", user.uid);
-
-        // Aktualizujesz Firestore (to jest już u Ciebie i jest OK)
         await updateDoc(userDocRef, {
-          // Konwertuj Set na tablicę przed zapisem do Firestore
-          countriesVisited: Array.from(selectedCountries),
+          countriesVisited: currentSelected,
           firstLoginComplete: true,
         });
-        console.log("Selected countries saved:", selectedCountries);
+        console.log("Selected countries saved:", currentSelected);
 
-        // 3. ZAKTUALIZUJ STAN W ZUSTAND
-        // To jest kluczowy fragment, który musisz dodać.
         if (userProfile) {
           setUserProfile({
-            ...userProfile, // Zachowaj istniejące dane jak nickname, emailVerified
-            firstLoginComplete: true, // Nadpisz tylko to pole
+            ...userProfile,
+            firstLoginComplete: true,
           });
         }
 
         await AsyncStorage.setItem("hasShownPopup", "true");
-
-        // Przekieruj na stronę główną
         router.replace("/");
       } catch (error) {
         console.error("Error saving countries:", error);
@@ -491,8 +530,7 @@ export default function ChooseCountriesScreen({
       Alert.alert("Not Logged In", "User is not authenticated.");
       router.replace("/welcome");
     }
-    // ZMIANA: Dodaj userProfile i setUserProfile do tablicy zależności hooka useCallback
-  }, [selectedCountries, router, userProfile, setUserProfile]);
+  }, [userProfile, setUserProfile]);
 
   // Function to handle clicking outside the text input
   const dismissKeyboard = useCallback(() => {
