@@ -110,7 +110,6 @@ const CountryItem = React.memo(function CountryItem({
   isSelected: boolean;
 }) {
   const theme = useTheme();
-  const scaleValue = useRef(new Animated.Value(1)).current;
 
   const [localSelected, setLocalSelected] = useState(isSelected);
 
@@ -118,28 +117,14 @@ const CountryItem = React.memo(function CountryItem({
     setLocalSelected(isSelected);
   }, [isSelected]);
 
-  // Funkcja wywoływana do zaznaczenia/odznaczenia
+  // Funkcja wywoływana do zaznaczenia/odznaczenia (bez animacji dla szybkości)
   const handleToggleSelection = useCallback(() => {
-    // Animujemy tylko skalę samego checkboxa - jest to tania operacja.
-    Animated.sequence([
-      Animated.timing(scaleValue, {
-        toValue: 0.85,
-        duration: 70,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleValue, {
-        toValue: 1,
-        duration: 70,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
     // Natychmiastowa zmiana lokalnego stanu dla błyskawicznego feedbacku
     setLocalSelected((prev) => !prev);
 
     // Wywołanie logiki zaznaczenia przekazanej z góry
     onSelect(item.cca2);
-  }, [scaleValue, onSelect, item.cca2]);
+  }, [onSelect, item.cca2]);
 
   const handleNavigateToCountry = useCallback(() => {
     router.push(`/country/${item.id}`);
@@ -160,12 +145,11 @@ const CountryItem = React.memo(function CountryItem({
     ? theme.colors.onPrimary
     : "transparent";
 
-  // Reszta komponentu bez zmian (return)
   return (
-    <TouchableOpacity
+    <Pressable
       onPress={handleToggleSelection}
       style={styles.countryItemOuterContainer}
-      activeOpacity={0.9}
+      android_ripple={{ color: theme.colors.surfaceVariant, borderless: false }}
     >
       <View
         style={[
@@ -204,22 +188,21 @@ const CountryItem = React.memo(function CountryItem({
           </Text>
         </Pressable>
         <View style={{ flex: 1 }} />
-        <Animated.View
+        <View // Usuń Animated.View, bo usuwamy animację
           style={[
             styles.roundCheckbox,
             {
               backgroundColor: checkboxBackgroundColor,
               borderColor: checkboxBorderColor,
-              transform: [{ scale: scaleValue }],
             },
           ]}
         >
           {localSelected && (
             <FontAwesome name="check" size={12} color={checkboxIconColor} />
           )}
-        </Animated.View>
+        </View>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 });
 type ChooseCountriesScreenProps = {
@@ -256,12 +239,10 @@ export default function ChooseCountriesScreen({
   const { visitedCountries } = useCountries();
   // const [selectedCountries, setSelectedCountries] = useState(new Set<string>());
 
+  const [updateKey, setUpdateKey] = useState(0);
+  const debouncedProcess = useRef<NodeJS.Timeout | null>(null);
   const selectedCountriesRef = useRef(new Set(visitedCountries));
-  const [selectedCountries, setSelectedCountries] = useState(
-    selectedCountriesRef.current
-  );
   const pendingToggles = useRef<string[]>([]);
-  const updateTimer = useRef<NodeJS.Timeout | null>(null);
   const isProcessing = useRef(false);
 
   // Dodaj funkcję processPending
@@ -278,22 +259,22 @@ export default function ChooseCountriesScreen({
 
     const userDocRef = doc(db, "users", user.uid);
 
+    let localQueue: string[] = []; // Lokalna kopia dla revertu
+
     try {
       await runTransaction(db, async (transaction) => {
         const userDoc = await transaction.get(userDocRef);
         let currentCountries = userDoc.data()?.countriesVisited || [];
 
-        const localQueue = [...pendingToggles.current];
+        localQueue = [...pendingToggles.current];
         pendingToggles.current = [];
 
         for (const countryCode of localQueue) {
-          const isSelected = currentCountries.includes(countryCode);
-          if (isSelected) {
-            currentCountries = currentCountries.filter(
-              (c: string) => c !== countryCode
-            );
+          const index = currentCountries.indexOf(countryCode);
+          if (index !== -1) {
+            currentCountries.splice(index, 1);
           } else {
-            currentCountries = [...currentCountries, countryCode];
+            currentCountries.push(countryCode);
           }
         }
 
@@ -303,8 +284,7 @@ export default function ChooseCountriesScreen({
       console.error("Błąd zapisu do Firestore:", error);
       Alert.alert("Błąd", "Nie udało się zapisać zmian. Spróbuj ponownie.");
 
-      // Revert optymistycznych zmian na ref
-      const localQueue = [...pendingToggles.current]; // Użyj kopii, bo queue wyczyszczona
+      // Revert optymistycznych zmian na ref używając localQueue
       localQueue.forEach((countryCode) => {
         if (selectedCountriesRef.current.has(countryCode)) {
           selectedCountriesRef.current.delete(countryCode);
@@ -313,13 +293,17 @@ export default function ChooseCountriesScreen({
         }
       });
 
-      // Zaktualizuj stan UI
-      setSelectedCountries(new Set(selectedCountriesRef.current));
+      // Force update UI po revercie
+      setUpdateKey((prev) => prev + 1);
     } finally {
       isProcessing.current = false;
-      processPending(); // Przetwórz ewentualne nowe zmiany
+      if (pendingToggles.current.length > 0) {
+        // Rekurencja dla nowych zmian, ale bez pętli nieskończonej
+        setTimeout(processPending, 0);
+      }
     }
   }, []);
+
   const { userProfile, setUserProfile } = useAuthStore();
   useEffect(() => {
     const checkPopup = async () => {
@@ -480,17 +464,17 @@ export default function ChooseCountriesScreen({
         selectedCountriesRef.current.add(countryCode);
       }
 
-      // Debounce aktualizacji stanu (dla mniejszej liczby re-renderów)
-      if (updateTimer.current) clearTimeout(updateTimer.current);
-      updateTimer.current = setTimeout(() => {
-        setSelectedCountries(new Set(selectedCountriesRef.current));
-      }, 50);
+      // Natychmiastowa aktualizacja UI (trigger re-render)
+      setUpdateKey((prev) => prev + 1);
 
-      // Dodaj do kolejki backendowej
-      pendingToggles.current.push(countryCode);
+      // Dodaj do kolejki backendowej (unikaj duplikatów)
+      if (!pendingToggles.current.includes(countryCode)) {
+        pendingToggles.current.push(countryCode);
+      }
 
-      // Uruchom przetwarzanie
-      processPending();
+      // Debounce tylko backend processing
+      if (debouncedProcess.current) clearTimeout(debouncedProcess.current);
+      debouncedProcess.current = setTimeout(processPending, 200);
     },
     [processPending]
   );
@@ -554,12 +538,12 @@ export default function ChooseCountriesScreen({
         <CountryItem
           item={item}
           onSelect={handleSelectCountry}
-          // Użyj .has() zamiast .includes() - to jest znacznie szybsze!
-          isSelected={selectedCountries.has(item.cca2)}
+          // Użyj ref bezpośrednio
+          isSelected={selectedCountriesRef.current.has(item.cca2)}
         />
       );
     },
-    [handleSelectCountry, selectedCountries] // selectedCountries jest teraz Setem
+    [handleSelectCountry] // Usuń selectedCountries z zależności
   );
   const handleSearchChange = (text: string) => {
     setInputValue(text); // Aktualizuj input natychmiast
@@ -573,11 +557,12 @@ export default function ChooseCountriesScreen({
       <CountryItem
         item={item}
         onSelect={handleSelectCountry}
-        isSelected={selectedCountries.has(item.cca2)}
+        isSelected={selectedCountriesRef.current.has(item.cca2)}
       />
     ),
-    [handleSelectCountry, selectedCountries]
+    [handleSelectCountry]
   );
+
   const getItemType = useCallback((item: ListItem) => {
     return "isHeader" in item ? "sectionHeader" : "row";
   }, []);
@@ -780,7 +765,7 @@ export default function ChooseCountriesScreen({
                 keyExtractor={(item, index) =>
                   "isHeader" in item ? item.title : item.cca3
                 }
-                extraData={selectedCountries}
+                extraData={updateKey}
                 disableAutoLayout={true}
                 getItemType={getItemType}
                 estimatedItemSize={ITEM_HEIGHT}
@@ -835,12 +820,13 @@ export default function ChooseCountriesScreen({
                 onPress={handleSaveCountries}
                 style={[
                   styles.saveButton,
-                  selectedCountries.size === 0 && styles.saveButtonDisabled, // <<< POPRAWKA
-                  selectedCountries.size > 0 // <<< POPRAWKA
+                  selectedCountriesRef.current.size === 0 &&
+                    styles.saveButtonDisabled,
+                  selectedCountriesRef.current.size > 0
                     ? { backgroundColor: theme.colors.primary }
                     : {},
                 ]}
-                disabled={selectedCountries.size === 0} // <<< POPRAWKA
+                disabled={selectedCountriesRef.current.size === 0}
               >
                 <Text
                   style={[
