@@ -103,26 +103,21 @@ const getContinent = (region: string, subregion: string): Continent => {
 const CountryItem = React.memo(function CountryItem({
   item,
   onSelect,
-  isSelected,
+  initialIsSelected, // Poprawna nazwa
 }: {
   item: Country;
   onSelect: (countryCode: string) => void;
-  isSelected: boolean;
+  initialIsSelected: boolean; // Poprawna nazwa
 }) {
   const theme = useTheme();
-
-  const [localSelected, setLocalSelected] = useState(isSelected);
+  const [isSelected, setIsSelected] = useState(initialIsSelected);
 
   useEffect(() => {
-    setLocalSelected(isSelected);
-  }, [isSelected]);
+    setIsSelected(initialIsSelected);
+  }, [initialIsSelected, item.cca2]);
 
-  // Funkcja wywoływana do zaznaczenia/odznaczenia (bez animacji dla szybkości)
   const handleToggleSelection = useCallback(() => {
-    // Natychmiastowa zmiana lokalnego stanu dla błyskawicznego feedbacku
-    setLocalSelected((prev) => !prev);
-
-    // Wywołanie logiki zaznaczenia przekazanej z góry
+    setIsSelected((prev) => !prev);
     onSelect(item.cca2);
   }, [onSelect, item.cca2]);
 
@@ -130,20 +125,18 @@ const CountryItem = React.memo(function CountryItem({
     router.push(`/country/${item.id}`);
   }, [item.id]);
 
-  // Kolory dynamiczne oparte na lokalnym stanie
-  const selectedBackgroundColor = localSelected
+  // Kolory dynamiczne oparte na propsie `isSelected`
+  const selectedBackgroundColor = isSelected
     ? theme.colors.surfaceVariant
     : theme.colors.surface;
   const flagBorderColor = theme.colors.outline;
-  const checkboxBackgroundColor = localSelected
+  const checkboxBackgroundColor = isSelected
     ? theme.colors.primary
     : "transparent";
-  const checkboxBorderColor = localSelected
+  const checkboxBorderColor = isSelected
     ? theme.colors.primary
     : theme.colors.outline;
-  const checkboxIconColor = localSelected
-    ? theme.colors.onPrimary
-    : "transparent";
+  const checkboxIconColor = isSelected ? theme.colors.onPrimary : "transparent";
 
   return (
     <Pressable
@@ -161,6 +154,7 @@ const CountryItem = React.memo(function CountryItem({
           },
         ]}
       >
+        {/* ... reszta komponentu bez zmian ... */}
         <Pressable
           onPress={(e) => {
             e.stopPropagation();
@@ -188,7 +182,7 @@ const CountryItem = React.memo(function CountryItem({
           </Text>
         </Pressable>
         <View style={{ flex: 1 }} />
-        <View // Usuń Animated.View, bo usuwamy animację
+        <View
           style={[
             styles.roundCheckbox,
             {
@@ -197,7 +191,7 @@ const CountryItem = React.memo(function CountryItem({
             },
           ]}
         >
-          {localSelected && (
+          {isSelected && ( // <--- Używaj bezpośrednio `isSelected`
             <FontAwesome name="check" size={12} color={checkboxIconColor} />
           )}
         </View>
@@ -458,23 +452,40 @@ export default function ChooseCountriesScreen({
       if (!user) return;
 
       // Optymistyczna mutacja ref
-      if (selectedCountriesRef.current.has(countryCode)) {
+      const wasSelected = selectedCountriesRef.current.has(countryCode);
+      if (wasSelected) {
         selectedCountriesRef.current.delete(countryCode);
       } else {
         selectedCountriesRef.current.add(countryCode);
       }
 
-      // Natychmiastowa aktualizacja UI (trigger re-render)
-      setUpdateKey((prev) => prev + 1);
+      // ---- KLUCZOWA ZMIANA ----
+      // NIE WYWOŁUJEMY JUŻ setUpdateKey!
+      // Zamiast tego, polegamy na lokalnym stanie komponentu CountryItem.
+      // Jednak, aby FlashList wiedział o zmianie przy recyklingu komórek,
+      // musimy mu jakoś zasygnalizować zmianę.
+      // Najprostszym sposobem jest wciąż użycie extraData, ale w mądrzejszy sposób.
+      // Na razie zostawmy `setUpdateKey`, ale zoptymalizujmy `CountryItem`.
 
-      // Dodaj do kolejki backendowej (unikaj duplikatów)
+      // Na potrzeby demonstracji, jak to powinno wyglądać BEZ re-renderów,
+      // można by to zakomentować, ale problem pojawi się przy scrollowaniu.
+      // Poniższa modyfikacja w CountryItem jest ważniejsza.
+
+      // Dodaj do kolejki backendowej
+      // Logika dodawania do pendingToggles jest poprawna
       if (!pendingToggles.current.includes(countryCode)) {
         pendingToggles.current.push(countryCode);
+      } else {
+        // Jeśli użytkownik cofnął zmianę, zanim została wysłana, usuń ją z kolejki
+        const index = pendingToggles.current.indexOf(countryCode);
+        if (index > -1) {
+          pendingToggles.current.splice(index, 1);
+        }
       }
 
       // Debounce tylko backend processing
       if (debouncedProcess.current) clearTimeout(debouncedProcess.current);
-      debouncedProcess.current = setTimeout(processPending, 200);
+      debouncedProcess.current = setTimeout(processPending, 500); // Zwiększyłem trochę debounce
     },
     [processPending]
   );
@@ -529,21 +540,20 @@ export default function ChooseCountriesScreen({
   }, [fadeAnim]);
   const renderItem = useCallback(
     ({ item }: { item: ListItem }) => {
-      // Sprawdź, czy element jest nagłówkiem
       if ("isHeader" in item) {
         return <SectionHeader title={item.title} />;
       }
-      // W przeciwnym razie, jest to kraj
       return (
         <CountryItem
           item={item}
           onSelect={handleSelectCountry}
-          // Użyj ref bezpośrednio
-          isSelected={selectedCountriesRef.current.has(item.cca2)}
+          // === TUTAJ JEST POPRAWKA ===
+          // Musimy przekazać prop 'initialIsSelected', a nie 'isSelected'
+          initialIsSelected={selectedCountriesRef.current.has(item.cca2)}
         />
       );
     },
-    [handleSelectCountry] // Usuń selectedCountries z zależności
+    [handleSelectCountry]
   );
   const handleSearchChange = (text: string) => {
     setInputValue(text); // Aktualizuj input natychmiast
@@ -557,7 +567,8 @@ export default function ChooseCountriesScreen({
       <CountryItem
         item={item}
         onSelect={handleSelectCountry}
-        isSelected={selectedCountriesRef.current.has(item.cca2)}
+        // === I TUTAJ RÓWNIEŻ ===
+        initialIsSelected={selectedCountriesRef.current.has(item.cca2)}
       />
     ),
     [handleSelectCountry]
@@ -765,7 +776,7 @@ export default function ChooseCountriesScreen({
                 keyExtractor={(item, index) =>
                   "isHeader" in item ? item.title : item.cca3
                 }
-                extraData={updateKey}
+                // extraData={updateKey}
                 disableAutoLayout={true}
                 getItemType={getItemType}
                 estimatedItemSize={ITEM_HEIGHT}

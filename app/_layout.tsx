@@ -96,6 +96,7 @@ export default function RootLayout() {
     (state) => state.listenForCommunityData
   );
   const cleanupCommunity = useCommunityStore((state) => state.cleanup);
+  const firebaseUser = useAuthStore((state) => state.firebaseUser);
   const [fontsLoaded, fontError] = useFonts({
     "PlusJakartaSans-Bold": require("../assets/fonts/PlusJakartaSans-Bold.ttf"),
     "DMSans-Bold": require("../assets/fonts/DMSans-Bold.ttf"),
@@ -113,13 +114,9 @@ export default function RootLayout() {
   const [initialRouteName, setInitialRouteName] = useState<string | null>(null);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
 
+  // Inicjalizacje (bez zmian)
   useEffect(() => {
-    console.log("RootLayout: Initializing countries data...");
-    // Używamy getState() - nie potrzebujemy rerenderować RootLayout,
-    // gdy dane będą gotowe. Store sam poinformuje komponenty, które go subskrybują.
     useCountryStore.getState().initializeCountries();
-  }, []);
-  useEffect(() => {
     fetchAndCacheBackgrounds();
   }, []);
   useEffect(() => {
@@ -145,7 +142,7 @@ export default function RootLayout() {
 
         if (user) {
           // UŻYTKOWNIK JEST ZALOGOWANY
-          listenForCommunityData(); // Uruchom listenery dla danych społecznościowych
+          // listenForCommunityData(); // Uruchom listenery dla danych społecznościowych
           setFirebaseUser(user);
 
           const userDocRef = doc(db, "users", user.uid);
@@ -184,7 +181,7 @@ export default function RootLayout() {
           }
         } else {
           // BRAK ZALOGOWANEGO UŻYTKOWNIKA
-          cleanupCommunity(); // Wyczyść dane i zatrzymaj listenery
+          // cleanupCommunity(); // Wyczyść dane i zatrzymaj listenery
           setFirebaseUser(null);
           setUserProfile(null);
           finalizePreparation("welcome");
@@ -196,7 +193,7 @@ export default function RootLayout() {
       // Funkcja czyszcząca
       console.log("RootLayout: Unsubscribing from onAuthStateChanged.");
       unsubscribeAuth();
-      cleanupCommunity();
+      // cleanupCommunity();
     };
   }, [
     // === NOWA, POPRAWNA TABLICA ZALEŻNOŚCI ===
@@ -209,6 +206,16 @@ export default function RootLayout() {
     listenForCommunityData,
     cleanupCommunity,
   ]);
+  useEffect(() => {
+    if (firebaseUser) {
+      // Jeśli użytkownik JEST zalogowany
+      listenForCommunityData();
+    }
+    // Funkcja czyszcząca uruchomi się, gdy `firebaseUser` się zmieni (np. na null)
+    return () => {
+      cleanupCommunity();
+    };
+  }, [firebaseUser]); // <-- Zależność tylko od obiektu użytkownika!
 
   useEffect(() => {
     if (fontsLoaded && isNavigationReady) {

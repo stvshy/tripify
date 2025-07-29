@@ -17,7 +17,7 @@ import {
   runTransaction,
 } from "firebase/firestore";
 import { Alert } from "react-native";
-
+import { isEqual } from "lodash";
 // --- TYPY I INTERFEJSY --- (bez zmian)
 export interface User {
   uid: string;
@@ -133,15 +133,46 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
         userDocRef,
         (snapshot) => {
           console.log("[DEBUG] SUCCESS: User document snapshot received.");
-          const userData = snapshot.exists() ? snapshot.data() : {};
+          const userData = snapshot.data();
+          if (!userData) {
+            console.warn(
+              "[DEBUG] User document data is undefined. Skipping state update."
+            );
+            userDocLoaded = true;
+            checkLoadingComplete();
+            return;
+          }
           const friendsList: Friendship[] = userData.friends || [];
           const outgoingList: OutgoingRequest[] =
             userData.friendRequests?.outgoing || [];
 
-          set({
-            friends: friendsList,
-            outgoingRequests: outgoingList,
-          });
+          // === KLUCZOWA ZMIANA ===
+          // Pobierz aktualny stan ze store'a
+          const currentState = get();
+
+          // Porównaj tylko te części stanu, za które ten listener jest odpowiedzialny.
+          // Użyj `isEqual` do głębokiego porównania tablic obiektów.
+          const friendsChanged = !isEqual(currentState.friends, friendsList);
+          const outgoingChanged = !isEqual(
+            currentState.outgoingRequests,
+            outgoingList
+          );
+
+          // Zaktualizuj stan tylko jeśli coś się faktycznie zmieniło!
+          if (friendsChanged || outgoingChanged) {
+            console.log(
+              "[DEBUG] User document data has changed. Updating state."
+            );
+            set({
+              friends: friendsList,
+              outgoingRequests: outgoingList,
+            });
+          } else {
+            console.log(
+              "[DEBUG] User document data is the same. Skipping state update."
+            );
+          }
+          // ========================
 
           userDocLoaded = true;
           checkLoadingComplete();
