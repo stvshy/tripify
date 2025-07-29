@@ -11,7 +11,6 @@ import React, {
 import {
   View,
   Text,
-  SectionList,
   Pressable,
   StyleSheet,
   Alert,
@@ -103,21 +102,17 @@ const getContinent = (region: string, subregion: string): Continent => {
 const CountryItem = React.memo(function CountryItem({
   item,
   onSelect,
-  initialIsSelected, // Poprawna nazwa
+  isSelected, // ZMIANA: Z 'initialIsSelected' na 'isSelected'
 }: {
   item: Country;
   onSelect: (countryCode: string) => void;
-  initialIsSelected: boolean; // Poprawna nazwa
+  isSelected: boolean; // ZMIANA: Prostszy prop
 }) {
   const theme = useTheme();
-  const [isSelected, setIsSelected] = useState(initialIsSelected);
 
-  useEffect(() => {
-    setIsSelected(initialIsSelected);
-  }, [initialIsSelected]);
+  // USUNIĘTO: useState i useEffect - komponent jest teraz "stateless"
 
   const handleToggleSelection = useCallback(() => {
-    setIsSelected((prev) => !prev);
     onSelect(item.cca2);
   }, [onSelect, item.cca2]);
 
@@ -125,7 +120,7 @@ const CountryItem = React.memo(function CountryItem({
     router.push(`/country/${item.id}`);
   }, [item.id]);
 
-  // Kolory dynamiczne oparte na propsie `isSelected`
+  // Kolory dynamiczne oparte na propsie isSelected
   const selectedBackgroundColor = isSelected
     ? theme.colors.surfaceVariant
     : theme.colors.surface;
@@ -230,14 +225,18 @@ export default function ChooseCountriesScreen({
   const [isPopupVisible, setIsPopupVisible] = useState(true);
   const searchInputRef = useRef<TextInput>(null);
   const { visitedCountries } = useCountries();
-  // const [selectedCountries, setSelectedCountries] = useState(new Set<string>());
+  const [selectedCountries, setSelectedCountries] = useState(new Set<string>());
 
-  const [updateKey, setUpdateKey] = useState(0);
+  // const [updateKey, setUpdateKey] = useState(0);
   const debouncedProcess = useRef<NodeJS.Timeout | null>(null);
-  const selectedCountriesRef = useRef(new Set(visitedCountries));
+  // const selectedCountriesRef = useRef(new Set(visitedCountries));
   const pendingToggles = useRef<string[]>([]);
   const isProcessing = useRef(false);
-
+  useEffect(() => {
+    if (visitedCountries.length > 0) {
+      setSelectedCountries(new Set(visitedCountries));
+    }
+  }, [visitedCountries]);
   // Dodaj funkcję processPending
   const processPending = useCallback(async () => {
     if (isProcessing.current || pendingToggles.current.length === 0) return;
@@ -249,19 +248,15 @@ export default function ChooseCountriesScreen({
       isProcessing.current = false;
       return;
     }
-
     const userDocRef = doc(db, "users", user.uid);
-
-    let localQueue: string[] = []; // Lokalna kopia dla revertu
+    let localQueue: string[] = [];
 
     try {
       await runTransaction(db, async (transaction) => {
         const userDoc = await transaction.get(userDocRef);
         let currentCountries = userDoc.data()?.countriesVisited || [];
-
         localQueue = [...pendingToggles.current];
         pendingToggles.current = [];
-
         for (const countryCode of localQueue) {
           const index = currentCountries.indexOf(countryCode);
           if (index !== -1) {
@@ -270,28 +265,28 @@ export default function ChooseCountriesScreen({
             currentCountries.push(countryCode);
           }
         }
-
         transaction.update(userDocRef, { countriesVisited: currentCountries });
       });
     } catch (error) {
       console.error("Błąd zapisu do Firestore:", error);
       Alert.alert("Błąd", "Nie udało się zapisać zmian. Spróbuj ponownie.");
 
-      // Revert optymistycznych zmian na ref używając localQueue
-      localQueue.forEach((countryCode) => {
-        if (selectedCountriesRef.current.has(countryCode)) {
-          selectedCountriesRef.current.delete(countryCode);
-        } else {
-          selectedCountriesRef.current.add(countryCode);
-        }
+      // ZMIANA: W razie błędu, cofamy zmiany w stanie UI, a nie w ref.
+      // To zapewni spójność interfejsu.
+      setSelectedCountries((currentSet) => {
+        const newSet = new Set(currentSet);
+        localQueue.forEach((countryCode) => {
+          if (newSet.has(countryCode)) {
+            newSet.delete(countryCode);
+          } else {
+            newSet.add(countryCode);
+          }
+        });
+        return newSet;
       });
-
-      // Force update UI po revercie
-      setUpdateKey((prev) => prev + 1);
     } finally {
       isProcessing.current = false;
       if (pendingToggles.current.length > 0) {
-        // Rekurencja dla nowych zmian, ale bez pętli nieskończonej
         setTimeout(processPending, 0);
       }
     }
@@ -313,9 +308,6 @@ export default function ChooseCountriesScreen({
     checkPopup();
   }, []);
 
-  // useEffect(() => {
-  //   setSelectedCountries(new Set(visitedCountries));
-  // }, [visitedCountries]);
   const handleClosePopup = useCallback(async () => {
     setIsPopupVisible(false);
     try {
@@ -447,22 +439,21 @@ export default function ChooseCountriesScreen({
   }, [filterQuery]);
   const handleSelectCountry = useCallback(
     (countryCode: string) => {
-      const user = auth.currentUser;
-      if (!user) return;
+      // Optymistyczna aktualizacja UI za pomocą useState.
+      // Tworzymy nową instancję Set, aby React wykrył zmianę.
+      setSelectedCountries((prevSet) => {
+        const newSet = new Set(prevSet);
+        if (newSet.has(countryCode)) {
+          newSet.delete(countryCode);
+        } else {
+          newSet.add(countryCode);
+        }
+        return newSet;
+      });
 
-      // Optymistyczna mutacja ref
-      const wasSelected = selectedCountriesRef.current.has(countryCode);
-      if (wasSelected) {
-        selectedCountriesRef.current.delete(countryCode);
-      } else {
-        selectedCountriesRef.current.add(countryCode);
-      }
+      // USUNIĘTO: setUpdateKey((prev) => prev + 1); - to był główny winowajca lagów.
 
-      // Force minimalny update UI tylko dla zmienionych - ale既然 używamy ref i prop w items, FlashList powinien sobie radzić.
-      // Ale aby zapewnić, dodajmy setUpdateKey, ale rzadziej.
-      setUpdateKey((prev) => prev + 1); // Tymczasowo, ale to może powodować re-rendery, więc ostrożnie.
-
-      // Dodaj do kolejki
+      // Reszta logiki (kolejkowanie do zapisu w tle) pozostaje bez zmian.
       if (!pendingToggles.current.includes(countryCode)) {
         pendingToggles.current.push(countryCode);
       } else {
@@ -472,14 +463,13 @@ export default function ChooseCountriesScreen({
         }
       }
 
-      // Debounce backend
       if (debouncedProcess.current) clearTimeout(debouncedProcess.current);
-      debouncedProcess.current = setTimeout(processPending, 300); // Zmniejszono do 300ms
+      debouncedProcess.current = setTimeout(processPending, 300);
     },
-    [processPending]
+    [processPending] // Zależność jest stabilna
   );
   const handleSaveCountries = useCallback(async () => {
-    const currentSelected = Array.from(selectedCountriesRef.current);
+    const currentSelected = Array.from(selectedCountries);
     if (currentSelected.length === 0) {
       Alert.alert("No Selection", "Please select at least one country.");
       return;
@@ -536,11 +526,12 @@ export default function ChooseCountriesScreen({
         <CountryItem
           item={item}
           onSelect={handleSelectCountry}
-          initialIsSelected={selectedCountriesRef.current.has(item.cca2)}
+          // ZMIANA: Przekazujemy aktualny stan zaznaczenia
+          isSelected={selectedCountries.has(item.cca2)}
         />
       );
     },
-    [handleSelectCountry]
+    [handleSelectCountry, selectedCountries]
   );
   const handleSearchChange = (text: string) => {
     setInputValue(text); // Aktualizuj input natychmiast
@@ -549,46 +540,10 @@ export default function ChooseCountriesScreen({
     });
   };
 
-  const renderCountryItem = useCallback(
-    ({ item }: { item: Country }) => (
-      <CountryItem
-        item={item}
-        onSelect={handleSelectCountry}
-        // === I TUTAJ RÓWNIEŻ ===
-        initialIsSelected={selectedCountriesRef.current.has(item.cca2)}
-      />
-    ),
-    [handleSelectCountry]
-  );
-
   const getItemType = useCallback((item: ListItem) => {
     return "isHeader" in item ? "sectionHeader" : "row";
   }, []);
 
-  const renderSectionHeader = useCallback(
-    ({ section }: { section: { title: string } }) => (
-      <View
-        style={[
-          styles.sectionHeader,
-          { backgroundColor: theme.colors.surface },
-        ]}
-      >
-        <Text
-          style={[styles.sectionHeaderText, { color: theme.colors.primary }]}
-        >
-          {section.title}
-        </Text>
-      </View>
-    ),
-    [theme.colors.surface, theme.colors.primary]
-  );
-  // if (isLoading) {
-  //   return (
-  //     <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-  //       <ActivityIndicator size="large" color={theme.colors.primary} />
-  //     </View>
-  //   );
-  // }
   return (
     <TouchableWithoutFeedback onPress={dismissKeyboard}>
       <SafeAreaView
@@ -765,6 +720,7 @@ export default function ChooseCountriesScreen({
                 }
                 disableAutoLayout={true}
                 getItemType={getItemType}
+                extraData={selectedCountries}
                 estimatedItemSize={ITEM_HEIGHT}
                 contentContainerStyle={{
                   paddingBottom: fromTab ? 86 : 96,
@@ -809,13 +765,13 @@ export default function ChooseCountriesScreen({
                 onPress={handleSaveCountries}
                 style={[
                   styles.saveButton,
-                  selectedCountriesRef.current.size === 0 &&
-                    styles.saveButtonDisabled,
-                  selectedCountriesRef.current.size > 0
+                  // ZMIANA: Sprawdzamy rozmiar stanu `selectedCountries`
+                  selectedCountries.size === 0 && styles.saveButtonDisabled,
+                  selectedCountries.size > 0
                     ? { backgroundColor: theme.colors.primary }
                     : {},
                 ]}
-                disabled={selectedCountriesRef.current.size === 0}
+                disabled={selectedCountries.size === 0} // ZMIANA
               >
                 <Text
                   style={[
