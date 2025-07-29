@@ -111,13 +111,7 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
       let incomingRequestsLoaded = false;
 
       const checkLoadingComplete = () => {
-        console.log(
-          `[DEBUG] Checking loading status: userDocLoaded=${userDocLoaded}, incomingRequestsLoaded=${incomingRequestsLoaded}`
-        );
         if (userDocLoaded && incomingRequestsLoaded) {
-          console.log(
-            "[DEBUG] Both listeners loaded. Setting isLoading to false."
-          );
           set({ isLoading: false });
         }
       };
@@ -132,7 +126,7 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
       const unsubUserDoc = onSnapshot(
         userDocRef,
         (snapshot) => {
-          console.log("[DEBUG] SUCCESS: User document snapshot received.");
+          // Usuń log SUCCESS jeśli dane takie same
           const userData = snapshot.data();
           if (!userData) {
             console.warn(
@@ -146,19 +140,14 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
           const outgoingList: OutgoingRequest[] =
             userData.friendRequests?.outgoing || [];
 
-          // === KLUCZOWA ZMIANA ===
-          // Pobierz aktualny stan ze store'a
           const currentState = get();
 
-          // Porównaj tylko te części stanu, za które ten listener jest odpowiedzialny.
-          // Użyj `isEqual` do głębokiego porównania tablic obiektów.
           const friendsChanged = !isEqual(currentState.friends, friendsList);
           const outgoingChanged = !isEqual(
             currentState.outgoingRequests,
             outgoingList
           );
 
-          // Zaktualizuj stan tylko jeśli coś się faktycznie zmieniło!
           if (friendsChanged || outgoingChanged) {
             console.log(
               "[DEBUG] User document data has changed. Updating state."
@@ -168,18 +157,21 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
               outgoingRequests: outgoingList,
             });
           } else {
-            console.log(
-              "[DEBUG] User document data is the same. Skipping state update."
-            );
+            // Pomij log "same"
           }
-          // ========================
 
           userDocLoaded = true;
+          // Usuń checking log lub warunkuj
+          if (!userDocLoaded || !incomingRequestsLoaded) {
+            console.log(
+              `[DEBUG] Checking loading status: userDocLoaded=${userDocLoaded}, incomingRequestsLoaded=${incomingRequestsLoaded}`
+            );
+          }
           checkLoadingComplete();
         },
         (error) => {
           console.error("[DEBUG] ERROR in userDoc listener:", error);
-          userDocLoaded = true; // Traktujemy błąd jako "zakończenie" ładowania
+          userDocLoaded = true;
           checkLoadingComplete();
         }
       );
@@ -198,9 +190,7 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
       const unsubIncoming = onSnapshot(
         incomingCollectionRef,
         (snapshot) => {
-          console.log(
-            `[DEBUG] SUCCESS: Incoming requests snapshot received. Found ${snapshot.docs.length} requests.`
-          );
+          // Usuń log SUCCESS
           const incomingList: IncomingRequest[] = snapshot.docs.map(
             (d) =>
               ({
@@ -216,7 +206,7 @@ export const useCommunityStore = create<CommunityState & CommunityActions>()(
         },
         (error) => {
           console.error("[DEBUG] ERROR in incomingRequests listener:", error);
-          incomingRequestsLoaded = true; // Traktujemy błąd jako "zakończenie" ładowania
+          incomingRequestsLoaded = true;
           checkLoadingComplete();
         }
       );

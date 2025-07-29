@@ -114,7 +114,7 @@ const CountryItem = React.memo(function CountryItem({
 
   useEffect(() => {
     setIsSelected(initialIsSelected);
-  }, [initialIsSelected, item.cca2]);
+  }, [initialIsSelected]);
 
   const handleToggleSelection = useCallback(() => {
     setIsSelected((prev) => !prev);
@@ -154,7 +154,6 @@ const CountryItem = React.memo(function CountryItem({
           },
         ]}
       >
-        {/* ... reszta komponentu bez zmian ... */}
         <Pressable
           onPress={(e) => {
             e.stopPropagation();
@@ -191,7 +190,7 @@ const CountryItem = React.memo(function CountryItem({
             },
           ]}
         >
-          {isSelected && ( // <--- Używaj bezpośrednio `isSelected`
+          {isSelected && (
             <FontAwesome name="check" size={12} color={checkboxIconColor} />
           )}
         </View>
@@ -459,33 +458,23 @@ export default function ChooseCountriesScreen({
         selectedCountriesRef.current.add(countryCode);
       }
 
-      // ---- KLUCZOWA ZMIANA ----
-      // NIE WYWOŁUJEMY JUŻ setUpdateKey!
-      // Zamiast tego, polegamy na lokalnym stanie komponentu CountryItem.
-      // Jednak, aby FlashList wiedział o zmianie przy recyklingu komórek,
-      // musimy mu jakoś zasygnalizować zmianę.
-      // Najprostszym sposobem jest wciąż użycie extraData, ale w mądrzejszy sposób.
-      // Na razie zostawmy `setUpdateKey`, ale zoptymalizujmy `CountryItem`.
+      // Force minimalny update UI tylko dla zmienionych - ale既然 używamy ref i prop w items, FlashList powinien sobie radzić.
+      // Ale aby zapewnić, dodajmy setUpdateKey, ale rzadziej.
+      setUpdateKey((prev) => prev + 1); // Tymczasowo, ale to może powodować re-rendery, więc ostrożnie.
 
-      // Na potrzeby demonstracji, jak to powinno wyglądać BEZ re-renderów,
-      // można by to zakomentować, ale problem pojawi się przy scrollowaniu.
-      // Poniższa modyfikacja w CountryItem jest ważniejsza.
-
-      // Dodaj do kolejki backendowej
-      // Logika dodawania do pendingToggles jest poprawna
+      // Dodaj do kolejki
       if (!pendingToggles.current.includes(countryCode)) {
         pendingToggles.current.push(countryCode);
       } else {
-        // Jeśli użytkownik cofnął zmianę, zanim została wysłana, usuń ją z kolejki
         const index = pendingToggles.current.indexOf(countryCode);
         if (index > -1) {
           pendingToggles.current.splice(index, 1);
         }
       }
 
-      // Debounce tylko backend processing
+      // Debounce backend
       if (debouncedProcess.current) clearTimeout(debouncedProcess.current);
-      debouncedProcess.current = setTimeout(processPending, 500); // Zwiększyłem trochę debounce
+      debouncedProcess.current = setTimeout(processPending, 300); // Zmniejszono do 300ms
     },
     [processPending]
   );
@@ -547,8 +536,6 @@ export default function ChooseCountriesScreen({
         <CountryItem
           item={item}
           onSelect={handleSelectCountry}
-          // === TUTAJ JEST POPRAWKA ===
-          // Musimy przekazać prop 'initialIsSelected', a nie 'isSelected'
           initialIsSelected={selectedCountriesRef.current.has(item.cca2)}
         />
       );
@@ -674,8 +661,8 @@ export default function ChooseCountriesScreen({
                 <PaperTextInput
                   ref={searchInputRef}
                   label="Search Country"
-                  value={inputValue} // <-- ZMIANA
-                  onChangeText={handleSearchChange} // <-- ZMIANA
+                  value={inputValue}
+                  onChangeText={handleSearchChange}
                   mode="flat"
                   style={styles.input}
                   theme={{
@@ -705,7 +692,7 @@ export default function ChooseCountriesScreen({
                     />
                   }
                   right={
-                    inputValue ? ( // <-- ZMIANA
+                    inputValue ? (
                       <PaperTextInput.Icon
                         icon={() => (
                           <MaterialIcons
@@ -714,7 +701,7 @@ export default function ChooseCountriesScreen({
                             color={theme.colors.outline}
                           />
                         )}
-                        onPress={() => handleSearchChange("")} // <-- ZMIANA
+                        onPress={() => handleSearchChange("")}
                       />
                     ) : null
                   }
@@ -776,7 +763,6 @@ export default function ChooseCountriesScreen({
                 keyExtractor={(item, index) =>
                   "isHeader" in item ? item.title : item.cca3
                 }
-                // extraData={updateKey}
                 disableAutoLayout={true}
                 getItemType={getItemType}
                 estimatedItemSize={ITEM_HEIGHT}
@@ -784,15 +770,7 @@ export default function ChooseCountriesScreen({
                   paddingBottom: fromTab ? 86 : 96,
                 }}
                 overrideItemLayout={overrideItemLayout}
-                // --- POCZĄTEK KLUCZOWEJ ZMIANY ---
-
-                // Zwiększ dystans, na jakim renderowane są komórki poza ekranem.
-                // Wartość `height` to dobry, bezpieczny punkt wyjścia.
-                // Możesz eksperymentować z większymi wartościami (np. height * 1.5),
-                // jeśli problem nadal występuje.
-                drawDistance={height * 2}
-                // --- KONIEC KLUCZOWEJ ZMIANY ---
-
+                drawDistance={height * 3}
                 ListEmptyComponent={() => (
                   <View
                     style={[
