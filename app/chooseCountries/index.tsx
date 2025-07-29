@@ -46,12 +46,12 @@ import CountryFlag from "react-native-country-flag";
 import { ThemeContext } from "../config/ThemeContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import filteredCountriesData from "../../components/filteredCountries.json";
-import { useCountries } from "../config/CountryContext"; // Import hook z kontekstu
+import { useCountries } from "../config/CountryContext";
 import { useAuthStore } from "../store/authStore";
 import { FlashList } from "@shopify/flash-list";
 const { width, height } = Dimensions.get("window");
-const ITEM_HEIGHT = 54; // Z Twojego stylu styles.countryItem
-const SECTION_HEADER_HEIGHT = 28; // Przybliżona wysokość nagłówka sekcji
+const ITEM_HEIGHT = 54;
+const SECTION_HEADER_HEIGHT = 28;
 
 type Continent =
   | "Africa"
@@ -102,15 +102,13 @@ const getContinent = (region: string, subregion: string): Continent => {
 const CountryItem = React.memo(function CountryItem({
   item,
   onSelect,
-  isSelected, // ZMIANA: Z 'initialIsSelected' na 'isSelected'
+  isSelected,
 }: {
   item: Country;
   onSelect: (countryCode: string) => void;
-  isSelected: boolean; // ZMIANA: Prostszy prop
+  isSelected: boolean;
 }) {
   const theme = useTheme();
-
-  // USUNIĘTO: useState i useEffect - komponent jest teraz "stateless"
 
   const handleToggleSelection = useCallback(() => {
     onSelect(item.cca2);
@@ -136,6 +134,7 @@ const CountryItem = React.memo(function CountryItem({
   return (
     <Pressable
       onPress={handleToggleSelection}
+      onLongPress={handleNavigateToCountry} // Navigate na long press
       style={styles.countryItemOuterContainer}
       android_ripple={{ color: theme.colors.surfaceVariant, borderless: false }}
     >
@@ -149,12 +148,7 @@ const CountryItem = React.memo(function CountryItem({
           },
         ]}
       >
-        <Pressable
-          onPress={(e) => {
-            e.stopPropagation();
-            handleNavigateToCountry();
-          }}
-          hitSlop={8}
+        <View
           style={[
             styles.flagContainer,
             styles.flagWithBorder,
@@ -162,19 +156,15 @@ const CountryItem = React.memo(function CountryItem({
           ]}
         >
           <CountryFlag isoCode={item.cca2} size={25} />
-        </Pressable>
-        <Pressable
-          onPress={(e) => {
-            e.stopPropagation();
-            handleNavigateToCountry();
-          }}
-          hitSlop={8}
-          style={{ marginLeft: 5 }}
+        </View>
+        <Text
+          style={[
+            styles.countryText,
+            { color: theme.colors.onSurface, marginLeft: 5 },
+          ]}
         >
-          <Text style={[styles.countryText, { color: theme.colors.onSurface }]}>
-            {item.name}
-          </Text>
-        </Pressable>
+          {item.name}
+        </Text>
         <View style={{ flex: 1 }} />
         <View
           style={[
@@ -193,6 +183,7 @@ const CountryItem = React.memo(function CountryItem({
     </Pressable>
   );
 });
+
 type ChooseCountriesScreenProps = {
   fromTab?: boolean;
 };
@@ -227,10 +218,9 @@ export default function ChooseCountriesScreen({
   const { visitedCountries } = useCountries();
   const [selectedCountries, setSelectedCountries] = useState(new Set<string>());
 
-  // const [updateKey, setUpdateKey] = useState(0);
   const debouncedProcess = useRef<NodeJS.Timeout | null>(null);
-  // const selectedCountriesRef = useRef(new Set(visitedCountries));
-  const pendingToggles = useRef<string[]>([]);
+
+  const pendingToggles = useRef(new Set<string>());
   const isProcessing = useRef(false);
   useEffect(() => {
     if (visitedCountries.length > 0) {
@@ -239,7 +229,7 @@ export default function ChooseCountriesScreen({
   }, [visitedCountries]);
   // Dodaj funkcję processPending
   const processPending = useCallback(async () => {
-    if (isProcessing.current || pendingToggles.current.length === 0) return;
+    if (isProcessing.current || pendingToggles.current.size === 0) return;
 
     isProcessing.current = true;
 
@@ -255,8 +245,8 @@ export default function ChooseCountriesScreen({
       await runTransaction(db, async (transaction) => {
         const userDoc = await transaction.get(userDocRef);
         let currentCountries = userDoc.data()?.countriesVisited || [];
-        localQueue = [...pendingToggles.current];
-        pendingToggles.current = [];
+        localQueue = Array.from(pendingToggles.current);
+        pendingToggles.current.clear();
         for (const countryCode of localQueue) {
           const index = currentCountries.indexOf(countryCode);
           if (index !== -1) {
@@ -271,8 +261,7 @@ export default function ChooseCountriesScreen({
       console.error("Błąd zapisu do Firestore:", error);
       Alert.alert("Błąd", "Nie udało się zapisać zmian. Spróbuj ponownie.");
 
-      // ZMIANA: W razie błędu, cofamy zmiany w stanie UI, a nie w ref.
-      // To zapewni spójność interfejsu.
+      // Cofanie zmian w UI
       setSelectedCountries((currentSet) => {
         const newSet = new Set(currentSet);
         localQueue.forEach((countryCode) => {
@@ -286,7 +275,7 @@ export default function ChooseCountriesScreen({
       });
     } finally {
       isProcessing.current = false;
-      if (pendingToggles.current.length > 0) {
+      if (pendingToggles.current.size > 0) {
         setTimeout(processPending, 0);
       }
     }
@@ -298,7 +287,7 @@ export default function ChooseCountriesScreen({
       try {
         const value = await AsyncStorage.getItem("hasShownPopup");
         if (value !== "true") {
-          setIsPopupVisible(true); // Show pop-up only if the key doesn't exist or has a different value
+          setIsPopupVisible(true);
         }
       } catch (e) {
         console.error("Failed to load popup status.");
@@ -439,8 +428,7 @@ export default function ChooseCountriesScreen({
   }, [filterQuery]);
   const handleSelectCountry = useCallback(
     (countryCode: string) => {
-      // Optymistyczna aktualizacja UI za pomocą useState.
-      // Tworzymy nową instancję Set, aby React wykrył zmianę.
+      // Optymistyczna aktualizacja UI
       setSelectedCountries((prevSet) => {
         const newSet = new Set(prevSet);
         if (newSet.has(countryCode)) {
@@ -451,22 +439,17 @@ export default function ChooseCountriesScreen({
         return newSet;
       });
 
-      // USUNIĘTO: setUpdateKey((prev) => prev + 1); - to był główny winowajca lagów.
-
-      // Reszta logiki (kolejkowanie do zapisu w tle) pozostaje bez zmian.
-      if (!pendingToggles.current.includes(countryCode)) {
-        pendingToggles.current.push(countryCode);
+      // Toggle w pending Set
+      if (pendingToggles.current.has(countryCode)) {
+        pendingToggles.current.delete(countryCode);
       } else {
-        const index = pendingToggles.current.indexOf(countryCode);
-        if (index > -1) {
-          pendingToggles.current.splice(index, 1);
-        }
+        pendingToggles.current.add(countryCode);
       }
 
       if (debouncedProcess.current) clearTimeout(debouncedProcess.current);
       debouncedProcess.current = setTimeout(processPending, 300);
     },
-    [processPending] // Zależność jest stabilna
+    [processPending]
   );
   const handleSaveCountries = useCallback(async () => {
     const currentSelected = Array.from(selectedCountries);
