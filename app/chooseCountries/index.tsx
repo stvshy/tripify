@@ -219,7 +219,10 @@ export default function ChooseCountriesScreen({
   const [selectedCountries, setSelectedCountries] = useState(
     () => new Set(visitedCountries)
   );
-
+  const selectedCountriesRef = useRef(selectedCountries);
+  useEffect(() => {
+    selectedCountriesRef.current = selectedCountries;
+  }, [selectedCountries]);
   const { userProfile, setUserProfile } = useAuthStore();
   useEffect(() => {
     const checkPopup = async () => {
@@ -370,37 +373,42 @@ export default function ChooseCountriesScreen({
   // ZASTĄP CAŁĄ FUNKCJĘ `handleSelectCountry` PONIŻSZYM KODEM:
   const handleSelectCountry = useCallback((countryCode: string) => {
     const user = auth.currentUser;
-    if (!user) return; // Zabezpieczenie na wypadek braku użytkownika
-
+    if (!user) return;
     const userDocRef = doc(db, "users", user.uid);
 
-    // Krok 1: Optymistyczna aktualizacja UI. Dzieje się natychmiast.
+    // Odczytaj stan z refa, by uniknąć problemu z nieaktualnym "zamknięciem" (closure)
+    const isCurrentlySelected = selectedCountriesRef.current.has(countryCode);
+
+    // Natychmiastowa aktualizacja UI za pomocą formy funkcyjnej
     setSelectedCountries((currentSet) => {
       const newSet = new Set(currentSet);
-      const isCurrentlySelected = newSet.has(countryCode);
-
       if (isCurrentlySelected) {
         newSet.delete(countryCode);
       } else {
         newSet.add(countryCode);
       }
-
-      // Krok 2: Operacja zapisu do bazy w tle ("fire and forget").
-      // Używamy arrayUnion/arrayRemove, które są atomowe i wydajne.
-      const operation = isCurrentlySelected
-        ? arrayRemove(countryCode)
-        : arrayUnion(countryCode);
-
-      updateDoc(userDocRef, { countriesVisited: operation }).catch((error) => {
-        console.error("Błąd zapisu do Firestore:", error);
-        Alert.alert("Błąd", "Nie udało się zapisać zmiany. Spróbuj ponownie.");
-        // Celowo nie cofamy tutaj zmiany w UI, aby uniknąć "mrugania".
-        // Użytkownik został poinformowany o błędzie.
-      });
-
       return newSet;
     });
-  }, []); // Zależności nie są potrzebne, bo auth i db są stałe w zasięgu modułu.
+
+    // Operacja zapisu do bazy w tle
+    const operation = isCurrentlySelected
+      ? arrayRemove(countryCode)
+      : arrayUnion(countryCode);
+
+    updateDoc(userDocRef, { countriesVisited: operation }).catch((error) => {
+      console.error("Błąd zapisu do Firestore:", error);
+      // W razie błędu, cofnij zmianę w UI, by zachować spójność
+      setSelectedCountries((currentSet) => {
+        const revertedSet = new Set(currentSet);
+        if (revertedSet.has(countryCode)) {
+          revertedSet.delete(countryCode);
+        } else {
+          revertedSet.add(countryCode);
+        }
+        return revertedSet;
+      });
+    });
+  }, []);
   const handleSaveCountries = useCallback(async () => {
     const currentSelected = Array.from(selectedCountries);
     if (currentSelected.length === 0) {
@@ -458,13 +466,15 @@ export default function ChooseCountriesScreen({
       return (
         <CountryItem
           item={item}
-          onSelect={handleSelectCountry}
-          // ZMIANA: Przekazujemy aktualny stan zaznaczenia
-          isSelected={selectedCountries.has(item.cca2)}
+          onSelect={handleSelectCountry} // Przekazujemy STABILNĄ funkcję
+          isSelected={selectedCountries.has(item.cca2)} // Odczytujemy z AKTUALNEGO stanu
         />
       );
     },
-    [handleSelectCountry, selectedCountries]
+    // Zależność od `selectedCountries` jest kluczowa, by funkcja
+    // `renderItem` miała zawsze dostęp do aktualnego stanu zaznaczeń.
+    // `handleSelectCountry` jest stabilne, więc nie powoduje problemów.
+    [selectedCountries, handleSelectCountry]
   );
   const handleSearchChange = (text: string) => {
     setInputValue(text); // Aktualizuj input natychmiast
