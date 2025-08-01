@@ -507,6 +507,7 @@ export default function ChooseCountriesScreen({
     searchInputRef.current?.blur();
     Keyboard.dismiss();
   }, []);
+
   const dismissKeyboardAndUnfocus = useCallback(() => {
     // Sprawdzamy, czy input faktycznie ma focus, żeby niepotrzebnie nie wywoływać
     if (searchInputRef.current?.isFocused()) {
@@ -715,23 +716,16 @@ export default function ChooseCountriesScreen({
                           color={theme.colors.outline}
                         />
                       )}
-                      onPress={() => handleSearchChange("")}
+                      onPress={() => {
+                        handleSearchChange("");
+                        dismissKeyboard();
+                      }}
                     />
                   ) : null
                 }
                 autoCapitalize="none"
-                onFocus={() => {
-                  setIsSearchFocused(true);
-                  fadeAnim.setValue(0);
-                }}
-                onBlur={() => {
-                  setIsSearchFocused(false);
-                  Animated.timing(fadeAnim, {
-                    toValue: 1,
-                    duration: 300,
-                    useNativeDriver: true,
-                  }).start();
-                }}
+                onFocus={handleFocus}
+                onBlur={handleBlur}
               />
             </View>
 
