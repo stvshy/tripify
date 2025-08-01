@@ -1,5 +1,11 @@
 // app/(tabs)/_layout.tsx
-import React, { useEffect, useState, useContext, useCallback } from "react";
+import React, {
+  useEffect,
+  useState,
+  useContext,
+  useCallback,
+  createContext,
+} from "react";
 import {
   View,
   Text,
@@ -38,7 +44,7 @@ import { MMKV } from "react-native-mmkv";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { useCommunityStore } from "../store/communityStore";
-
+import { LocalCountProvider, useLocalCount } from "../config/LocalCountContext";
 const mmkv = new MMKV();
 const db = getFirestore();
 const persister = createSyncStoragePersister({
@@ -64,6 +70,20 @@ const CustomTabBarButton: React.FC<BottomTabBarButtonProps> = ({
     {children}
   </Pressable>
 );
+// interface LocalCountContextType {
+//   localCount: number | null;
+//   setLocalCount: React.Dispatch<React.SetStateAction<number | null>>;
+// }
+
+// const LocalCountContext = createContext<LocalCountContextType | null>(null);
+
+// const useLocalCount = () => {
+//   const context = useContext(LocalCountContext);
+//   if (!context) {
+//     throw new Error("useLocalCount must be used within a LocalCountProvider");
+//   }
+//   return context;
+// };
 
 // Badge component for displaying counts
 const Badge: React.FC<{ count: number }> = ({ count }) => {
@@ -83,11 +103,18 @@ export default function TabLayout() {
     // 2. Owiń wszystko w MapStateProvider
     <CountriesProvider>
       <MapStateProvider>
-        <TabLayoutContent />
+        <LocalCountProvider>
+          <TabLayoutContent />
+        </LocalCountProvider>
       </MapStateProvider>
     </CountriesProvider>
   );
 }
+// const LocalCountProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+//   const [localCount, setLocalCount] = useState<number | null>(null);
+//   const value = { localCount, setLocalCount };
+//   return <LocalCountContext.Provider value={value}>{children}</LocalCountContext.Provider>;
+// };
 
 function VisitedToggle() {
   const segments = useSegments();
@@ -95,31 +122,31 @@ function VisitedToggle() {
   const theme = useTheme();
   const { visitedCountriesCount } = useCountries();
   const totalCountriesCount = filteredCountriesData.countries.length;
-
+  const { localCount } = useLocalCount(); // Używamy nowego hooka
   const inVisited =
     segments.length === 3 &&
     segments[0] === "(tabs)" &&
     segments[1] === "two" &&
     segments[2] === "chooseVisitedCountries";
-
+  const isOnTwoTab = segments[1] === "two";
+  const displayCount =
+    isOnTwoTab && localCount !== null ? localCount : visitedCountriesCount;
+  const inVisitedListScreen = segments[2] === "chooseVisitedCountries";
   const iconName = inVisited ? "eye-off-outline" : "eye-check-outline";
 
   const onPress = () =>
-    inVisited ? router.back() : router.push("/two/chooseVisitedCountries");
+    inVisitedListScreen
+      ? router.back()
+      : router.push("/two/chooseVisitedCountries");
 
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
-        { flexDirection: "row", alignItems: "center", marginRight: 16 }, // styl bazowy
-        pressed && styles.pressedHeaderRight, // styl warunkowy
+        { flexDirection: "row", alignItems: "center", marginRight: 16 },
+        pressed && styles.pressedHeaderRight,
       ]}
     >
-      {/* <MaterialCommunityIcons
-        name={iconName}
-        size={20}
-        color={theme.colors.primary}
-      /> */}
       <Text
         style={{
           marginRight: 7,
@@ -128,15 +155,13 @@ function VisitedToggle() {
           fontFamily: "Figtree-Regular",
         }}
       >
-        {visitedCountriesCount}/{totalCountriesCount}
+        {displayCount}/{totalCountriesCount}
       </Text>
       <MaterialCommunityIcons
         name={iconName}
         size={20}
         color={theme.colors.primary}
-        style={{
-          marginRight: -2,
-        }}
+        style={{ marginRight: -2 }}
       />
     </Pressable>
   );

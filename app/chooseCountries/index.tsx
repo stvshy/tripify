@@ -51,6 +51,7 @@ import { useCountries } from "../config/CountryContext";
 import { useAuthStore } from "../store/authStore";
 import { FlashList } from "@shopify/flash-list";
 import { isEqual } from "lodash";
+import { useLocalCount } from "../config/LocalCountContext";
 const { width, height } = Dimensions.get("window");
 const ITEM_HEIGHT = 54;
 const SECTION_HEADER_HEIGHT = 28;
@@ -208,7 +209,7 @@ export default function ChooseCountriesScreen({
   const [inputValue, setInputValue] = useState(""); // Stan dla samego inputu
   const [filterQuery, setFilterQuery] = useState(""); // Stan do filtrowania listy
   const [isPending, startTransition] = useTransition();
-
+  const { setLocalCount } = useLocalCount();
   const { toggleTheme, isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme();
   const [isFocused, setIsFocused] = useState(false);
@@ -373,20 +374,35 @@ export default function ChooseCountriesScreen({
     return flatList;
   }, [filterQuery]);
   // app/chooseCountries/index.tsx
+  useEffect(() => {
+    // Inicjalizuj stan lokalny i licznik, gdy komponent się załaduje
+    const initialSet = new Set(visitedCountries);
+    setLocalSelectedCountries(initialSet);
+    initialVisitedCountriesRef.current = initialSet;
+    setLocalCount(initialSet.size);
 
+    // Funkcja czyszcząca, która uruchamia się przy odmontowaniu
+    return () => {
+      // Resetuj licznik do null, aby na innych ekranach pokazywała się wartość globalna
+      setLocalCount(null);
+    };
+  }, [visitedCountries, setLocalCount]);
   // ZASTĄP CAŁĄ FUNKCJĘ `handleSelectCountry` PONIŻSZYM KODEM:
-  const handleSelectCountry = useCallback((countryCode: string) => {
-    // Ta funkcja jest teraz super szybka, bo operuje tylko na lokalnym stanie
-    setLocalSelectedCountries((currentSelected) => {
-      const newSet = new Set(currentSelected);
-      if (newSet.has(countryCode)) {
-        newSet.delete(countryCode);
-      } else {
-        newSet.add(countryCode);
-      }
-      return newSet;
-    });
-  }, []);
+  const handleSelectCountry = useCallback(
+    (countryCode: string) => {
+      setLocalSelectedCountries((currentSelected) => {
+        const newSet = new Set(currentSelected);
+        if (newSet.has(countryCode)) {
+          newSet.delete(countryCode);
+        } else {
+          newSet.add(countryCode);
+        }
+        setLocalCount(newSet.size); // Aktualizuj licznik natychmiast
+        return newSet;
+      });
+    },
+    [setLocalCount]
+  );
   const handleSaveCountries = useCallback(async () => {
     const user = auth.currentUser;
     if (!user) {
@@ -394,41 +410,39 @@ export default function ChooseCountriesScreen({
       return;
     }
 
-    // <<< ZMIANA: Porównujemy stan z momentu zapisu ze stanem początkowym >>>
     const initialSet = initialVisitedCountriesRef.current;
     const finalSet = localSelectedCountries;
 
     if (isEqual(initialSet, finalSet)) {
       console.log("No changes to save.");
-      return; // Nie ma zmian, nie robimy nic
+      return;
     }
 
     const currentSelectedArray = Array.from(finalSet);
     try {
       const userDocRef = doc(db, "users", user.uid);
+      // <<< KLUCZOWA ZMIANA: Zapisujemy TYLKO do Firestore. >>>
       await updateDoc(userDocRef, {
         countriesVisited: currentSelectedArray,
         ...(!fromTab && { firstLoginComplete: true }),
       });
 
-      setVisitedCountries(currentSelectedArray);
-      initialVisitedCountriesRef.current = new Set(currentSelectedArray); // Zaktualizuj stan początkowy po zapisie
+      // <<< USUNIĘTA LINIA: Już nie aktualizujemy stanu globalnego bezpośrednio! >>>
+      // setVisitedCountries(currentSelectedArray);
+
+      // Aktualizujemy stan początkowy, aby uniknąć ponownego zapisu tych samych danych
+      initialVisitedCountriesRef.current = new Set(currentSelectedArray);
 
       if (!fromTab && userProfile) {
+        // To jest OK, bo Zustand działa poza cyklem życia Reacta
         setUserProfile({ ...userProfile, firstLoginComplete: true });
       }
-      console.log("Countries saved automatically.");
+      console.log("Countries data sent to Firestore successfully.");
     } catch (error) {
       console.error("Error auto-saving countries:", error);
     }
-  }, [
-    localSelectedCountries,
-    fromTab,
-    setVisitedCountries,
-    userProfile,
-    setUserProfile,
-  ]);
-
+    // <<< ZMIANA: Zależności są teraz prostsze >>>
+  }, [localSelectedCountries, fromTab, userProfile, setUserProfile]);
   const handleSaveRef = useRef(handleSaveCountries);
   useEffect(() => {
     handleSaveRef.current = handleSaveCountries;
