@@ -54,7 +54,7 @@ import { FlashList } from "@shopify/flash-list";
 import { isEqual } from "lodash";
 import { useLocalCount } from "../config/LocalCountContext";
 const { width, height } = Dimensions.get("window");
-const ITEM_HEIGHT = 54;
+const ITEM_HEIGHT = 50;
 const SECTION_HEADER_HEIGHT = 28;
 
 type Continent =
@@ -582,7 +582,6 @@ export default function ChooseCountriesScreen({
   }, []);
   useFocusEffect(
     useCallback(() => {
-      // --- Logika dla AppState (zapis przy przejściu w tło) ---
       const onAppStateChange = (nextAppState: AppStateStatus) => {
         if (
           appState.current.match(/active/) &&
@@ -592,36 +591,31 @@ export default function ChooseCountriesScreen({
         }
         appState.current = nextAppState;
       };
+
+      const onBackPress = () => {
+        if (searchInputRef.current?.isFocused()) {
+          dismissKeyboard();
+          return true; // Prevent default action
+        }
+        return false; // Allow default action
+      };
+
       const appStateSubscription = AppState.addEventListener(
         "change",
         onAppStateChange
       );
-
-      // --- KLUCZOWA ZMIANA #2: Logika dla przycisku WSTECZ ---
-      const onBackPress = () => {
-        // Zamiast polegać na stanie, pytamy bezpośrednio refa, czy ma fokus.
-        // To omija problemy z "closure" stanu.
-        if (searchInputRef.current?.isFocused()) {
-          // Jeśli tak, używamy naszej centralnej funkcji
-          dismissKeyboard();
-          // I zatrzymujemy domyślną akcję
-          return true;
-        }
-        // Jeśli nie, pozwalamy na nawigację wstecz
-        return false;
-      };
       const backHandler = BackHandler.addEventListener(
         "hardwareBackPress",
         onBackPress
       );
 
-      // Funkcja czyszcząca, która uruchamia się, gdy ekran traci fokus
+      // Funkcja czyszcząca
       return () => {
         appStateSubscription.remove();
         backHandler.remove();
-        handleSaveRef.current?.();
+        handleSaveRef.current?.(); // Zapisz zmiany przy opuszczaniu ekranu
       };
-    }, [dismissKeyboard]) // Zależność tylko od `dismissKeyboard`, która jest stabilna
+    }, [dismissKeyboard]) // Stabilna zależność
   );
   const renderItem = useCallback(
     ({ item }: { item: ListItem }) => {
@@ -833,7 +827,7 @@ export default function ChooseCountriesScreen({
               keyExtractor={(item, index) =>
                 "isHeader" in item ? item.title : item.cca3
               }
-              disableAutoLayout={true}
+              // disableAutoLayout={true}
               getItemType={getItemType}
               extraData={localSelectedCountries}
               estimatedItemSize={ITEM_HEIGHT}
