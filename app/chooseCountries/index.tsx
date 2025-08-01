@@ -103,6 +103,8 @@ const getContinent = (region: string, subregion: string): Continent => {
 };
 
 // CountryItem component
+// Wklej ten kod w miejsce oryginalnego komponentu CountryItem
+
 const CountryItem = React.memo(function CountryItem({
   item,
   onSelect,
@@ -114,21 +116,29 @@ const CountryItem = React.memo(function CountryItem({
 }) {
   const theme = useTheme();
 
-  // NOWOŚĆ: Używamy useRef do przechowywania wartości animacji.
-  // Inicjalizujemy ją na podstawie początkowego stanu `isSelected`, aby uniknąć mignięcia.
-  const selectionAnimation = useRef(
-    new Animated.Value(isSelected ? 1 : 0)
-  ).current;
+  // ZMIANA: Rozdzielamy animacje dla lepszej kontroli i wydajności.
+  // 1. Animacja dla kolorów (wymaga useNativeDriver: false)
+  const colorAnimation = useRef(new Animated.Value(isSelected ? 1 : 0)).current;
+  // 2. Animacja dla skali ptaszka (może używać useNativeDriver: true)
+  const scaleAnimation = useRef(new Animated.Value(isSelected ? 1 : 0)).current;
 
-  // NOWOŚĆ: Efekt, który uruchamia animację, gdy zmienia się prop `isSelected`.
   useEffect(() => {
-    Animated.timing(selectionAnimation, {
+    // Animacja koloru tła (płynne przejście)
+    Animated.timing(colorAnimation, {
       toValue: isSelected ? 1 : 0,
-      duration: 170, // Trochę dłuższa animacja dla lepszego wrażenia
-      easing: Easing.out(Easing.ease), // Płynne wyhamowanie animacji
-      useNativeDriver: false, // WAŻNE: Wymagane do animacji kolorów (backgroundColor)
+      duration: 170, // nieco wolniej, by animacja sprężynowa mogła się wyróżnić
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: false, // Wymagane dla kolorów
     }).start();
-  }, [isSelected]); // Zależność tylko od `isSelected`
+
+    // NOWOŚĆ: Animacja sprężynowa (spring) dla ptaszka
+    Animated.spring(scaleAnimation, {
+      toValue: isSelected ? 1 : 0,
+      friction: 5, // Tarcie (im niższa wartość, tym więcej "odbicia")
+      tension: 48, // Napięcie/prędkość sprężyny
+      useNativeDriver: true, // KLUCZOWE dla wydajności animacji transformacji!
+    }).start();
+  }, [isSelected]); // Uruchamiamy obie animacje przy zmianie `isSelected`
 
   const handleToggleSelection = useCallback(() => {
     onSelect(item.cca2);
@@ -138,47 +148,36 @@ const CountryItem = React.memo(function CountryItem({
     router.push(`/country/${item.id}`);
   }, [item.id]);
 
-  // NOWOŚĆ: Interpolacje - "tłumaczą" wartość animacji (0 do 1) na konkretne style.
-
-  // 1. Animacja koloru tła elementu listy
-  const animatedBackgroundColor = selectionAnimation.interpolate({
+  // Interpolacje oparte na animacji koloru
+  const animatedBackgroundColor = colorAnimation.interpolate({
     inputRange: [0, 1],
     outputRange: [theme.colors.surface, theme.colors.surfaceVariant],
   });
 
-  // 2. Animacja koloru tła samego checkboxa
-  const animatedCheckboxBackgroundColor = selectionAnimation.interpolate({
+  const animatedCheckboxBackgroundColor = colorAnimation.interpolate({
     inputRange: [0, 1],
     outputRange: ["transparent", theme.colors.primary],
   });
 
-  // 3. Animacja koloru ramki checkboxa
-  const animatedCheckboxBorderColor = selectionAnimation.interpolate({
+  const animatedCheckboxBorderColor = colorAnimation.interpolate({
     inputRange: [0, 1],
     outputRange: [theme.colors.outline, theme.colors.primary],
   });
 
-  // 4. Animacja "pop-up" dla ptaszka (skalowanie)
-  const checkmarkScale = selectionAnimation.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0, 1.3, 1], // Skaluj od 0 -> powiększ do 130% -> wróć do 100%
-  });
-
-  // Statyczne kolory, które się nie animują
+  // Statyczne kolory
   const flagBorderColor = theme.colors.outline;
-  const checkboxIconColor = theme.colors.onPrimary; // Zawsze biały/kontrastowy na primary
+  const checkboxIconColor = theme.colors.onPrimary;
 
   return (
     <Pressable
       onPress={handleToggleSelection}
       style={styles.countryItemOuterContainer}
     >
-      {/* Używamy Animated.View, aby móc zastosować animowany styl tła */}
       <Animated.View
         style={[
           styles.countryItemInnerContainer,
           {
-            backgroundColor: animatedBackgroundColor, // Zastosowanie animowanego tła
+            backgroundColor: animatedBackgroundColor,
             borderBottomWidth: 0.5,
             borderBottomColor: theme.colors.outline,
           },
@@ -210,18 +209,17 @@ const CountryItem = React.memo(function CountryItem({
 
         <View style={{ flex: 1 }} />
 
-        {/* Checkbox również używa Animated.View */}
         <Animated.View
           style={[
             styles.roundCheckbox,
             {
-              backgroundColor: animatedCheckboxBackgroundColor, // animowane tło checkboxa
-              borderColor: animatedCheckboxBorderColor, // animowana ramka checkboxa
+              backgroundColor: animatedCheckboxBackgroundColor,
+              borderColor: animatedCheckboxBorderColor,
             },
           ]}
         >
-          {/* Ptaszka opakowujemy w Animated.View, aby go skalować */}
-          <Animated.View style={{ transform: [{ scale: checkmarkScale }] }}>
+          {/* NOWOŚĆ: Zastosowanie transformacji skali z animacji sprężynowej */}
+          <Animated.View style={{ transform: [{ scale: scaleAnimation }] }}>
             <FontAwesome name="check" size={12} color={checkboxIconColor} />
           </Animated.View>
         </Animated.View>
