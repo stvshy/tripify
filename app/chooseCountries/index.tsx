@@ -373,15 +373,22 @@ export default function ChooseCountriesScreen({
   // ZASTĄP CAŁĄ FUNKCJĘ `handleSelectCountry` PONIŻSZYM KODEM:
   const handleSelectCountry = useCallback((countryCode: string) => {
     const user = auth.currentUser;
-    if (!user) return;
+    if (!user) {
+      console.error("User not authenticated for country selection.");
+      return;
+    }
     const userDocRef = doc(db, "users", user.uid);
 
-    // Odczytaj stan z refa, by uniknąć problemu z nieaktualnym "zamknięciem" (closure)
+    // Sprawdzamy, czy kraj jest aktualnie zaznaczony, używając refa,
+    // aby uniknąć problemu z nieaktualnym stanem w domknięciu (closure).
     const isCurrentlySelected = selectedCountriesRef.current.has(countryCode);
 
-    // Natychmiastowa aktualizacja UI za pomocą formy funkcyjnej
-    setSelectedCountries((currentSet) => {
-      const newSet = new Set(currentSet);
+    // 1. OPTYMISTYCZNA AKTUALIZACJA UI:
+    // Natychmiast aktualizujemy stan lokalny, co powoduje błyskawiczne odświeżenie UI.
+    // Używamy formy funkcyjnej (prevState => newState), aby mieć pewność,
+    // że operujemy na najnowszej wersji stanu.
+    setSelectedCountries((currentSelected) => {
+      const newSet = new Set(currentSelected);
       if (isCurrentlySelected) {
         newSet.delete(countryCode);
       } else {
@@ -390,24 +397,38 @@ export default function ChooseCountriesScreen({
       return newSet;
     });
 
-    // Operacja zapisu do bazy w tle
-    const operation = isCurrentlySelected
+    // 2. OPERACJA W TLE:
+    // Przygotowujemy i wysyłamy operację do Firestore.
+    const firestoreOperation = isCurrentlySelected
       ? arrayRemove(countryCode)
       : arrayUnion(countryCode);
 
-    updateDoc(userDocRef, { countriesVisited: operation }).catch((error) => {
-      console.error("Błąd zapisu do Firestore:", error);
-      // W razie błędu, cofnij zmianę w UI, by zachować spójność
-      setSelectedCountries((currentSet) => {
-        const revertedSet = new Set(currentSet);
-        if (revertedSet.has(countryCode)) {
-          revertedSet.delete(countryCode);
-        } else {
-          revertedSet.add(countryCode);
-        }
-        return revertedSet;
-      });
-    });
+    updateDoc(userDocRef, { countriesVisited: firestoreOperation }).catch(
+      (error) => {
+        console.error("Firestore update failed, reverting UI change:", error);
+        // 3. COFNIĘCIE ZMIAN W RAZIE BŁĘDU (ROLLBACK):
+        // Jeśli zapis do bazy danych się nie powiedzie, musimy cofnąć zmianę w UI,
+        // aby zachować spójność danych.
+        setSelectedCountries((currentSelected) => {
+          const revertedSet = new Set(currentSelected);
+          // Odwracamy logikę z kroku 1
+          if (isCurrentlySelected) {
+            revertedSet.add(countryCode); // Jeśli go usunęliśmy, dodajemy z powrotem
+          } else {
+            revertedSet.delete(countryCode); // Jeśli go dodaliśmy, usuwamy
+          }
+          return revertedSet;
+        });
+        // Opcjonalnie: poinformuj użytkownika o błędzie
+        Alert.alert(
+          "Error",
+          "Could not save your selection. Please check your connection and try again."
+        );
+      }
+    );
+    // Pusta tablica zależności w useCallback jest teraz poprawna, ponieważ
+    // funkcja opiera się na refie i funkcyjnej aktualizacji stanu,
+    // co czyni ją stabilną i zapobiega niepotrzebnym re-renderom komponentów potomnych.
   }, []);
   const handleSaveCountries = useCallback(async () => {
     const currentSelected = Array.from(selectedCountries);
