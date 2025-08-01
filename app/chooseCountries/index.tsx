@@ -215,14 +215,14 @@ export default function ChooseCountriesScreen({
   const scaleValue = useRef(new Animated.Value(1)).current;
   const [isPopupVisible, setIsPopupVisible] = useState(true);
   const searchInputRef = useRef<TextInput>(null);
-  const { visitedCountries } = useCountries();
-  const [selectedCountries, setSelectedCountries] = useState(
-    () => new Set(visitedCountries)
+  const { visitedCountries, setVisitedCountries } = useCountries();
+  const [localSelectedCountries, setLocalSelectedCountries] = useState(
+    () => new Set<string>()
   );
-  const selectedCountriesRef = useRef(selectedCountries);
+  //  const selectedCountriesRef = useRef(selectedCountries);
   useEffect(() => {
-    selectedCountriesRef.current = selectedCountries;
-  }, [selectedCountries]);
+    setLocalSelectedCountries(new Set(visitedCountries));
+  }, [visitedCountries]);
   const { userProfile, setUserProfile } = useAuthStore();
   useEffect(() => {
     const checkPopup = async () => {
@@ -372,67 +372,20 @@ export default function ChooseCountriesScreen({
 
   // ZASTĄP CAŁĄ FUNKCJĘ `handleSelectCountry` PONIŻSZYM KODEM:
   const handleSelectCountry = useCallback((countryCode: string) => {
-    const user = auth.currentUser;
-    if (!user) {
-      console.error("User not authenticated for country selection.");
-      return;
-    }
-    const userDocRef = doc(db, "users", user.uid);
-
-    // Sprawdzamy, czy kraj jest aktualnie zaznaczony, używając refa,
-    // aby uniknąć problemu z nieaktualnym stanem w domknięciu (closure).
-    const isCurrentlySelected = selectedCountriesRef.current.has(countryCode);
-
-    // 1. OPTYMISTYCZNA AKTUALIZACJA UI:
-    // Natychmiast aktualizujemy stan lokalny, co powoduje błyskawiczne odświeżenie UI.
-    // Używamy formy funkcyjnej (prevState => newState), aby mieć pewność,
-    // że operujemy na najnowszej wersji stanu.
-    setSelectedCountries((currentSelected) => {
+    // Ta funkcja jest teraz super szybka, bo operuje tylko na lokalnym stanie
+    setLocalSelectedCountries((currentSelected) => {
       const newSet = new Set(currentSelected);
-      if (isCurrentlySelected) {
+      if (newSet.has(countryCode)) {
         newSet.delete(countryCode);
       } else {
         newSet.add(countryCode);
       }
       return newSet;
     });
-
-    // 2. OPERACJA W TLE:
-    // Przygotowujemy i wysyłamy operację do Firestore.
-    const firestoreOperation = isCurrentlySelected
-      ? arrayRemove(countryCode)
-      : arrayUnion(countryCode);
-
-    updateDoc(userDocRef, { countriesVisited: firestoreOperation }).catch(
-      (error) => {
-        console.error("Firestore update failed, reverting UI change:", error);
-        // 3. COFNIĘCIE ZMIAN W RAZIE BŁĘDU (ROLLBACK):
-        // Jeśli zapis do bazy danych się nie powiedzie, musimy cofnąć zmianę w UI,
-        // aby zachować spójność danych.
-        setSelectedCountries((currentSelected) => {
-          const revertedSet = new Set(currentSelected);
-          // Odwracamy logikę z kroku 1
-          if (isCurrentlySelected) {
-            revertedSet.add(countryCode); // Jeśli go usunęliśmy, dodajemy z powrotem
-          } else {
-            revertedSet.delete(countryCode); // Jeśli go dodaliśmy, usuwamy
-          }
-          return revertedSet;
-        });
-        // Opcjonalnie: poinformuj użytkownika o błędzie
-        Alert.alert(
-          "Error",
-          "Could not save your selection. Please check your connection and try again."
-        );
-      }
-    );
-    // Pusta tablica zależności w useCallback jest teraz poprawna, ponieważ
-    // funkcja opiera się na refie i funkcyjnej aktualizacji stanu,
-    // co czyni ją stabilną i zapobiega niepotrzebnym re-renderom komponentów potomnych.
   }, []);
   const handleSaveCountries = useCallback(async () => {
-    const currentSelected = Array.from(selectedCountries);
-    if (currentSelected.length === 0) {
+    const currentSelectedArray = Array.from(localSelectedCountries);
+    if (!fromTab && currentSelectedArray.length === 0) {
       Alert.alert("No Selection", "Please select at least one country.");
       return;
     }
@@ -440,33 +393,45 @@ export default function ChooseCountriesScreen({
     if (user) {
       try {
         const userDocRef = doc(db, "users", user.uid);
+        // Zapisz do Firestore
         await updateDoc(userDocRef, {
-          countriesVisited: currentSelected,
+          countriesVisited: currentSelectedArray,
           firstLoginComplete: true,
         });
-        console.log("Selected countries saved:", currentSelected);
 
+        // Zaktualizuj globalny stan w CountryContext - TERAZ I TYLKO TERAZ!
+        setVisitedCountries(currentSelectedArray);
+
+        // Zaktualizuj stan w AuthStore
         if (userProfile) {
-          setUserProfile({
-            ...userProfile,
-            firstLoginComplete: true,
-          });
+          setUserProfile({ ...userProfile, firstLoginComplete: true });
         }
 
-        await AsyncStorage.setItem("hasShownPopup", "true");
-        router.replace("/");
+        if (!fromTab) {
+          await AsyncStorage.setItem("hasShownPopup", "true");
+          router.replace("/");
+        } else {
+          Alert.alert(
+            "Success",
+            "Your visited countries list has been updated."
+          );
+        }
       } catch (error) {
         console.error("Error saving countries:", error);
-        Alert.alert(
-          "Error",
-          "Failed to save selected countries. Please try again."
-        );
+        Alert.alert("Error", "Failed to save selected countries.");
       }
     } else {
       Alert.alert("Not Logged In", "User is not authenticated.");
       router.replace("/welcome");
     }
-  }, [userProfile, setUserProfile]);
+  }, [
+    localSelectedCountries,
+    fromTab,
+    setVisitedCountries,
+    userProfile,
+    setUserProfile,
+    router,
+  ]);
 
   // Function to handle clicking outside the text input
   const dismissKeyboard = useCallback(() => {
@@ -488,14 +453,14 @@ export default function ChooseCountriesScreen({
         <CountryItem
           item={item}
           onSelect={handleSelectCountry} // Przekazujemy STABILNĄ funkcję
-          isSelected={selectedCountries.has(item.cca2)} // Odczytujemy z AKTUALNEGO stanu
+          isSelected={localSelectedCountries.has(item.cca2)}
         />
       );
     },
     // Zależność od `selectedCountries` jest kluczowa, by funkcja
     // `renderItem` miała zawsze dostęp do aktualnego stanu zaznaczeń.
     // `handleSelectCountry` jest stabilne, więc nie powoduje problemów.
-    [selectedCountries, handleSelectCountry]
+    [localSelectedCountries, handleSelectCountry]
   );
   const handleSearchChange = (text: string) => {
     setInputValue(text); // Aktualizuj input natychmiast
@@ -684,7 +649,7 @@ export default function ChooseCountriesScreen({
                 }
                 disableAutoLayout={true}
                 getItemType={getItemType}
-                extraData={selectedCountries}
+                extraData={localSelectedCountries}
                 estimatedItemSize={ITEM_HEIGHT}
                 contentContainerStyle={{
                   paddingBottom: fromTab ? 86 : 96,
@@ -730,12 +695,13 @@ export default function ChooseCountriesScreen({
                 style={[
                   styles.saveButton,
                   // ZMIANA: Sprawdzamy rozmiar stanu `selectedCountries`
-                  selectedCountries.size === 0 && styles.saveButtonDisabled,
-                  selectedCountries.size > 0
+                  localSelectedCountries.size === 0 &&
+                    styles.saveButtonDisabled, // <<< ZMIANA
+                  localSelectedCountries.size > 0
                     ? { backgroundColor: theme.colors.primary }
-                    : {},
+                    : {}, // <<< ZMIANA
                 ]}
-                disabled={selectedCountries.size === 0} // ZMIANA
+                disabled={localSelectedCountries.size === 0} // <<< ZMIANA
               >
                 <Text
                   style={[

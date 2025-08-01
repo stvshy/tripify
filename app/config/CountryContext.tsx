@@ -5,7 +5,7 @@ import React, {
   useEffect,
   ReactNode,
   useContext,
-  Dispatch, // ZMIANA: Importuj Dispatch i SetStateAction
+  Dispatch, // <<< ZMIANA: Importuj Dispatch i SetStateAction
   SetStateAction,
 } from "react";
 import { auth, db } from "./firebaseConfig";
@@ -14,7 +14,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 interface CountryContextProps {
   visitedCountries: string[];
   visitedCountriesCount: number;
-  // ZMIANA: Poprawiony typ funkcji. Teraz akceptuje zarówno nową wartość,
+  // <<< ZMIANA: Poprawiony typ funkcji. Teraz akceptuje zarówno nową wartość,
   // jak i funkcję aktualizującą (prevState => newState).
   setVisitedCountries: Dispatch<SetStateAction<string[]>>;
 }
@@ -35,8 +35,6 @@ export const CountriesProvider: React.FC<CountryProviderProps> = ({
   const [visitedCountries, setVisitedCountries] = useState<string[]>([]);
 
   useEffect(() => {
-    // onSnapshot będzie aktualizował stan, gdy tylko dane w Firestore się zmienią,
-    // więc nie potrzebujemy dodatkowego fetchowania w ChooseCountriesScreen.
     const user = auth.currentUser;
     if (user) {
       const userDocRef = doc(db, "users", user.uid);
@@ -44,7 +42,6 @@ export const CountriesProvider: React.FC<CountryProviderProps> = ({
         if (docSnapshot.exists()) {
           const data = docSnapshot.data();
           const countriesFromDb = data.countriesVisited || [];
-          // Porównujemy, żeby uniknąć niepotrzebnych re-renderów, jeśli tablica jest taka sama
           setVisitedCountries((current) => {
             if (JSON.stringify(current) !== JSON.stringify(countriesFromDb)) {
               return countriesFromDb;
