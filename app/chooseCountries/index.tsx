@@ -29,6 +29,7 @@ import {
   TextInput,
   LayoutAnimation,
   ActivityIndicator,
+  AppState,
 } from "react-native";
 import { TextInput as PaperTextInput, useTheme } from "react-native-paper";
 import { AntDesign, FontAwesome, MaterialIcons } from "@expo/vector-icons";
@@ -40,7 +41,7 @@ import {
   arrayRemove,
   runTransaction,
 } from "firebase/firestore";
-import { router, useRouter } from "expo-router";
+import { router, useFocusEffect, useRouter } from "expo-router";
 import { auth, db } from "../config/firebaseConfig";
 import CountryFlag from "react-native-country-flag";
 import { ThemeContext } from "../config/ThemeContext";
@@ -49,6 +50,7 @@ import filteredCountriesData from "../../components/filteredCountries.json";
 import { useCountries } from "../config/CountryContext";
 import { useAuthStore } from "../store/authStore";
 import { FlashList } from "@shopify/flash-list";
+import { isEqual } from "lodash";
 const { width, height } = Dimensions.get("window");
 const ITEM_HEIGHT = 54;
 const SECTION_HEADER_HEIGHT = 28;
@@ -216,6 +218,8 @@ export default function ChooseCountriesScreen({
   const [isPopupVisible, setIsPopupVisible] = useState(true);
   const searchInputRef = useRef<TextInput>(null);
   const { visitedCountries, setVisitedCountries } = useCountries();
+  const initialVisitedCountriesRef = useRef(new Set(visitedCountries));
+  const appState = useRef(AppState.currentState);
   const [localSelectedCountries, setLocalSelectedCountries] = useState(
     () => new Set<string>()
   );
@@ -384,45 +388,38 @@ export default function ChooseCountriesScreen({
     });
   }, []);
   const handleSaveCountries = useCallback(async () => {
-    const currentSelectedArray = Array.from(localSelectedCountries);
-    if (!fromTab && currentSelectedArray.length === 0) {
-      Alert.alert("No Selection", "Please select at least one country.");
+    const user = auth.currentUser;
+    if (!user) {
+      console.error("Cannot save, user not authenticated.");
       return;
     }
-    const user = auth.currentUser;
-    if (user) {
-      try {
-        const userDocRef = doc(db, "users", user.uid);
-        // Zapisz do Firestore
-        await updateDoc(userDocRef, {
-          countriesVisited: currentSelectedArray,
-          firstLoginComplete: true,
-        });
 
-        // Zaktualizuj globalny stan w CountryContext - TERAZ I TYLKO TERAZ!
-        setVisitedCountries(currentSelectedArray);
+    // <<< ZMIANA: Porównujemy stan z momentu zapisu ze stanem początkowym >>>
+    const initialSet = initialVisitedCountriesRef.current;
+    const finalSet = localSelectedCountries;
 
-        // Zaktualizuj stan w AuthStore
-        if (userProfile) {
-          setUserProfile({ ...userProfile, firstLoginComplete: true });
-        }
+    if (isEqual(initialSet, finalSet)) {
+      console.log("No changes to save.");
+      return; // Nie ma zmian, nie robimy nic
+    }
 
-        if (!fromTab) {
-          await AsyncStorage.setItem("hasShownPopup", "true");
-          router.replace("/");
-        } else {
-          Alert.alert(
-            "Success",
-            "Your visited countries list has been updated."
-          );
-        }
-      } catch (error) {
-        console.error("Error saving countries:", error);
-        Alert.alert("Error", "Failed to save selected countries.");
+    const currentSelectedArray = Array.from(finalSet);
+    try {
+      const userDocRef = doc(db, "users", user.uid);
+      await updateDoc(userDocRef, {
+        countriesVisited: currentSelectedArray,
+        ...(!fromTab && { firstLoginComplete: true }),
+      });
+
+      setVisitedCountries(currentSelectedArray);
+      initialVisitedCountriesRef.current = new Set(currentSelectedArray); // Zaktualizuj stan początkowy po zapisie
+
+      if (!fromTab && userProfile) {
+        setUserProfile({ ...userProfile, firstLoginComplete: true });
       }
-    } else {
-      Alert.alert("Not Logged In", "User is not authenticated.");
-      router.replace("/welcome");
+      console.log("Countries saved automatically.");
+    } catch (error) {
+      console.error("Error auto-saving countries:", error);
     }
   }, [
     localSelectedCountries,
@@ -430,9 +427,42 @@ export default function ChooseCountriesScreen({
     setVisitedCountries,
     userProfile,
     setUserProfile,
-    router,
   ]);
 
+  const handleSaveRef = useRef(handleSaveCountries);
+  useEffect(() => {
+    handleSaveRef.current = handleSaveCountries;
+  }, [handleSaveCountries]);
+
+  // <<< GŁÓWNA ZMIANA: Obsługa stanu aplikacji (background/inactive) >>>
+  useFocusEffect(
+    useCallback(() => {
+      // Ta funkcja jest wywoływana, gdy ekran zyskuje fokus.
+      // Możemy tu nasłuchiwać na zmiany stanu aplikacji.
+      const subscription = AppState.addEventListener(
+        "change",
+        (nextAppState) => {
+          if (
+            appState.current.match(/active/) &&
+            (nextAppState === "background" || nextAppState === "inactive")
+          ) {
+            console.log(
+              "App state changed to inactive/background! Saving changes..."
+            );
+            handleSaveRef.current?.();
+          }
+          appState.current = nextAppState;
+        }
+      );
+
+      // Ta funkcja czyszcząca jest wywoływana, gdy ekran traci fokus.
+      return () => {
+        subscription.remove();
+        console.log("Screen lost focus! Saving changes...");
+        handleSaveRef.current?.();
+      };
+    }, []) // Pusta tablica zależności jest tutaj kluczowa
+  );
   // Function to handle clicking outside the text input
   const dismissKeyboard = useCallback(() => {
     Keyboard.dismiss();
@@ -669,50 +699,48 @@ export default function ChooseCountriesScreen({
               />
             </View>
             {/* "Save and Continue" Button */}
-            <Animated.View
-              style={[
-                styles.footer,
-                {
-                  opacity: fadeAnim,
-                  transform: [
-                    {
-                      translateY: fadeAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [50, 0],
-                      }),
-                    },
-                  ],
-                  bottom: fromTab
-                    ? -3
-                    : isInputFocused
+            {!fromTab && (
+              <Animated.View
+                style={[
+                  styles.footer,
+                  {
+                    opacity: fadeAnim,
+                    transform: [
+                      {
+                        translateY: fadeAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [50, 0],
+                        }),
+                      },
+                    ],
+                    bottom: isInputFocused
                       ? -styles.saveButton.marginBottom - 5
                       : 0,
-                },
-              ]}
-            >
-              <Pressable
-                onPress={handleSaveCountries}
-                style={[
-                  styles.saveButton,
-                  // ZMIANA: Sprawdzamy rozmiar stanu `selectedCountries`
-                  localSelectedCountries.size === 0 &&
-                    styles.saveButtonDisabled, // <<< ZMIANA
-                  localSelectedCountries.size > 0
-                    ? { backgroundColor: theme.colors.primary }
-                    : {}, // <<< ZMIANA
+                  },
                 ]}
-                disabled={localSelectedCountries.size === 0} // <<< ZMIANA
               >
-                <Text
+                <Pressable
+                  onPress={() => {
+                    // <<< ZMIANA: Przycisk "Continue" najpierw zapisuje, potem nawiguje
+                    handleSaveRef.current();
+                    router.replace("/");
+                  }}
                   style={[
-                    styles.saveButtonText,
-                    { color: theme.colors.onPrimary },
+                    styles.saveButton,
+                    { backgroundColor: theme.colors.primary },
                   ]}
                 >
-                  Save and Continue
-                </Text>
-              </Pressable>
-            </Animated.View>
+                  <Text
+                    style={[
+                      styles.saveButtonText,
+                      { color: theme.colors.onPrimary },
+                    ]}
+                  >
+                    Continue
+                  </Text>
+                </Pressable>
+              </Animated.View>
+            )}
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
