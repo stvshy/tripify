@@ -134,7 +134,7 @@ const CountryItem = React.memo(function CountryItem({
   return (
     <Pressable
       onPress={handleToggleSelection}
-      onLongPress={handleNavigateToCountry} // Navigate na long press
+      // onLongPress={handleNavigateToCountry} // Navigate na long press
       style={styles.countryItemOuterContainer}
       android_ripple={{ color: theme.colors.surfaceVariant, borderless: false }}
     >
@@ -216,70 +216,9 @@ export default function ChooseCountriesScreen({
   const [isPopupVisible, setIsPopupVisible] = useState(true);
   const searchInputRef = useRef<TextInput>(null);
   const { visitedCountries } = useCountries();
-  const [selectedCountries, setSelectedCountries] = useState(new Set<string>());
-
-  const debouncedProcess = useRef<NodeJS.Timeout | null>(null);
-
-  const pendingToggles = useRef(new Set<string>());
-  const isProcessing = useRef(false);
-  useEffect(() => {
-    if (visitedCountries.length > 0) {
-      setSelectedCountries(new Set(visitedCountries));
-    }
-  }, [visitedCountries]);
-  // Dodaj funkcję processPending
-  const processPending = useCallback(async () => {
-    if (isProcessing.current || pendingToggles.current.size === 0) return;
-
-    isProcessing.current = true;
-
-    const user = auth.currentUser;
-    if (!user) {
-      isProcessing.current = false;
-      return;
-    }
-    const userDocRef = doc(db, "users", user.uid);
-    let localQueue: string[] = [];
-
-    try {
-      await runTransaction(db, async (transaction) => {
-        const userDoc = await transaction.get(userDocRef);
-        let currentCountries = userDoc.data()?.countriesVisited || [];
-        localQueue = Array.from(pendingToggles.current);
-        pendingToggles.current.clear();
-        for (const countryCode of localQueue) {
-          const index = currentCountries.indexOf(countryCode);
-          if (index !== -1) {
-            currentCountries.splice(index, 1);
-          } else {
-            currentCountries.push(countryCode);
-          }
-        }
-        transaction.update(userDocRef, { countriesVisited: currentCountries });
-      });
-    } catch (error) {
-      console.error("Błąd zapisu do Firestore:", error);
-      Alert.alert("Błąd", "Nie udało się zapisać zmian. Spróbuj ponownie.");
-
-      // Cofanie zmian w UI
-      setSelectedCountries((currentSet) => {
-        const newSet = new Set(currentSet);
-        localQueue.forEach((countryCode) => {
-          if (newSet.has(countryCode)) {
-            newSet.delete(countryCode);
-          } else {
-            newSet.add(countryCode);
-          }
-        });
-        return newSet;
-      });
-    } finally {
-      isProcessing.current = false;
-      if (pendingToggles.current.size > 0) {
-        setTimeout(processPending, 0);
-      }
-    }
-  }, []);
+  const [selectedCountries, setSelectedCountries] = useState(
+    () => new Set(visitedCountries)
+  );
 
   const { userProfile, setUserProfile } = useAuthStore();
   useEffect(() => {
@@ -426,31 +365,42 @@ export default function ChooseCountriesScreen({
 
     return flatList;
   }, [filterQuery]);
-  const handleSelectCountry = useCallback(
-    (countryCode: string) => {
-      // Optymistyczna aktualizacja UI
-      setSelectedCountries((prevSet) => {
-        const newSet = new Set(prevSet);
-        if (newSet.has(countryCode)) {
-          newSet.delete(countryCode);
-        } else {
-          newSet.add(countryCode);
-        }
-        return newSet;
-      });
+  // app/chooseCountries/index.tsx
 
-      // Toggle w pending Set
-      if (pendingToggles.current.has(countryCode)) {
-        pendingToggles.current.delete(countryCode);
+  // ZASTĄP CAŁĄ FUNKCJĘ `handleSelectCountry` PONIŻSZYM KODEM:
+  const handleSelectCountry = useCallback((countryCode: string) => {
+    const user = auth.currentUser;
+    if (!user) return; // Zabezpieczenie na wypadek braku użytkownika
+
+    const userDocRef = doc(db, "users", user.uid);
+
+    // Krok 1: Optymistyczna aktualizacja UI. Dzieje się natychmiast.
+    setSelectedCountries((currentSet) => {
+      const newSet = new Set(currentSet);
+      const isCurrentlySelected = newSet.has(countryCode);
+
+      if (isCurrentlySelected) {
+        newSet.delete(countryCode);
       } else {
-        pendingToggles.current.add(countryCode);
+        newSet.add(countryCode);
       }
 
-      if (debouncedProcess.current) clearTimeout(debouncedProcess.current);
-      debouncedProcess.current = setTimeout(processPending, 300);
-    },
-    [processPending]
-  );
+      // Krok 2: Operacja zapisu do bazy w tle ("fire and forget").
+      // Używamy arrayUnion/arrayRemove, które są atomowe i wydajne.
+      const operation = isCurrentlySelected
+        ? arrayRemove(countryCode)
+        : arrayUnion(countryCode);
+
+      updateDoc(userDocRef, { countriesVisited: operation }).catch((error) => {
+        console.error("Błąd zapisu do Firestore:", error);
+        Alert.alert("Błąd", "Nie udało się zapisać zmiany. Spróbuj ponownie.");
+        // Celowo nie cofamy tutaj zmiany w UI, aby uniknąć "mrugania".
+        // Użytkownik został poinformowany o błędzie.
+      });
+
+      return newSet;
+    });
+  }, []); // Zależności nie są potrzebne, bo auth i db są stałe w zasięgu modułu.
   const handleSaveCountries = useCallback(async () => {
     const currentSelected = Array.from(selectedCountries);
     if (currentSelected.length === 0) {
