@@ -477,12 +477,13 @@ export default function ChooseCountriesScreen({
         } else {
           newSet.add(countryCode);
         }
-        setLocalCount(newSet.size); // Aktualizuj licznik natychmiast
+        // setLocalCount(newSet.size); // <-- USUŃ TĘ LINIĘ
         return newSet;
       });
     },
-    [setLocalCount]
+    [] // <-- Usuń setLocalCount z zależności, bo już go tu nie używasz
   );
+
   const handleSaveCountries = useCallback(async () => {
     const user = auth.currentUser;
     if (!user) {
@@ -527,7 +528,13 @@ export default function ChooseCountriesScreen({
   useEffect(() => {
     handleSaveRef.current = handleSaveCountries;
   }, [handleSaveCountries]);
-
+  useEffect(() => {
+    // Ten efekt uruchomi się za każdym razem, gdy zmieni się `localSelectedCountries`.
+    // Co ważne, dzieje się to PO tym, jak komponent się wyrenderuje.
+    if (setLocalCount) {
+      setLocalCount(localSelectedCountries.size);
+    }
+  }, [localSelectedCountries, setLocalCount]);
   // <<< GŁÓWNA ZMIANA: Obsługa stanu aplikacji (background/inactive) >>>
   useFocusEffect(
     useCallback(() => {
