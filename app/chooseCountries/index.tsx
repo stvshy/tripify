@@ -151,23 +151,31 @@ const CountryItem = React.memo(function CountryItem({
           },
         ]}
       >
-        <View
-          style={[
-            styles.flagContainer,
-            styles.flagWithBorder,
-            { borderColor: flagBorderColor },
-          ]}
+        <TouchableOpacity
+          onPress={handleNavigateToCountry}
+          style={styles.navigableArea}
+          activeOpacity={0.6}
         >
-          <CountryFlag isoCode={item.cca2} size={25} />
-        </View>
-        <Text
-          style={[
-            styles.countryText,
-            { color: theme.colors.onSurface, marginLeft: 5 },
-          ]}
-        >
-          {item.name}
-        </Text>
+          <View
+            style={[
+              styles.flagContainer,
+              styles.flagWithBorder,
+              { borderColor: flagBorderColor },
+            ]}
+          >
+            <CountryFlag isoCode={item.cca2} size={25} />
+          </View>
+          <Text
+            style={[
+              styles.countryText,
+              { color: theme.colors.onSurface, marginLeft: 5 },
+            ]}
+          >
+            {item.name}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Spacer i Checkbox pozostają bez zmian */}
         <View style={{ flex: 1 }} />
         <View
           style={[
