@@ -303,6 +303,56 @@ export default function ChooseCountriesScreen({
   //   };
   // }, [visitedCountries, setLocalCount]); // Zależności są idealne
   const { userProfile, setUserProfile } = useAuthStore();
+  const [flattenedData, setFlattenedData] = useState<ListItem[]>([]);
+  useEffect(() => {
+    // Ta funkcja wykonuje ciężką pracę
+    const processData = () => {
+      const filtered = filteredCountriesData.countries.filter(
+        (country: Country) =>
+          country.name.toLowerCase().includes(filterQuery.toLowerCase())
+      );
+      const grouped = filtered.reduce(
+        (acc: { [key in Continent]?: Country[] }, country: Country) => {
+          const continent = getContinent(country.region, country.subregion);
+          if (!acc[continent]) acc[continent] = [];
+          acc[continent]!.push(country);
+          return acc;
+        },
+        {}
+      );
+      const sections = Object.keys(grouped)
+        .map((continent) => ({
+          title: continent,
+          data: grouped[continent as Continent]!.sort(
+            (a: Country, b: Country) => a.name.localeCompare(b.name)
+          ),
+        }))
+        .sort((a, b) => a.title.localeCompare(b.title));
+
+      const flatList: ListItem[] = [];
+      sections.forEach((section) => {
+        flatList.push({ isHeader: true, title: section.title });
+        flatList.push(...section.data);
+      });
+
+      // Ustawiamy przetworzone dane i kończymy ładowanie
+      setFlattenedData(flatList);
+      setIsProcessing(false); // Kluczowy moment!
+    };
+
+    // Wywołujemy funkcję. Dla filtrowania używamy `startTransition`,
+    // ale dla pierwszego ładowania możemy to zrobić bezpośrednio.
+    if (isPending) {
+      // Jeśli transition jest aktywne (dla filtrowania), to już działa OK
+    } else if (filterQuery) {
+      // Jeśli jest filtr, ale nie ma transition, też działamy
+      processData();
+    } else {
+      // Dla pierwszego ładowania
+      processData();
+    }
+  }, [filterQuery]);
+  const [isProcessing, setIsProcessing] = useState(true); // Domyślnie true!
   useEffect(() => {
     const checkPopup = async () => {
       try {
@@ -411,47 +461,47 @@ export default function ChooseCountriesScreen({
     }, []) // Pusta tablica zależności jest tutaj KLUCZOWA, aby to działało jak componentDidMount/WillUnmount
   );
   // Processing country data
-  const flattenedData = useMemo(() => {
-    // 1. Filtruj kraje na podstawie wyszukiwania
-    const filtered = filteredCountriesData.countries.filter(
-      (country: Country) =>
-        country.name.toLowerCase().includes(filterQuery.toLowerCase())
-    );
+  // const flattenedData = useMemo(() => {
+  //   // 1. Filtruj kraje na podstawie wyszukiwania
+  //   const filtered = filteredCountriesData.countries.filter(
+  //     (country: Country) =>
+  //       country.name.toLowerCase().includes(filterQuery.toLowerCase())
+  //   );
 
-    // 2. Grupuj po kontynentach
-    const grouped = filtered.reduce(
-      (acc: { [key in Continent]?: Country[] }, country: Country) => {
-        const continent = getContinent(country.region, country.subregion);
-        if (!acc[continent]) {
-          acc[continent] = [];
-        }
-        acc[continent]!.push(country);
-        return acc;
-      },
-      {} as { [key in Continent]?: Country[] }
-    );
+  //   // 2. Grupuj po kontynentach
+  //   const grouped = filtered.reduce(
+  //     (acc: { [key in Continent]?: Country[] }, country: Country) => {
+  //       const continent = getContinent(country.region, country.subregion);
+  //       if (!acc[continent]) {
+  //         acc[continent] = [];
+  //       }
+  //       acc[continent]!.push(country);
+  //       return acc;
+  //     },
+  //     {} as { [key in Continent]?: Country[] }
+  //   );
 
-    // 3. Sortuj sekcje i spłaszczaj dane
-    const sections = Object.keys(grouped)
-      .map((continent) => ({
-        title: continent,
-        data: grouped[continent as Continent]!.sort((a: Country, b: Country) =>
-          a.name.localeCompare(b.name)
-        ),
-      }))
-      .sort((a, b) => a.title.localeCompare(b.title));
+  //   // 3. Sortuj sekcje i spłaszczaj dane
+  //   const sections = Object.keys(grouped)
+  //     .map((continent) => ({
+  //       title: continent,
+  //       data: grouped[continent as Continent]!.sort((a: Country, b: Country) =>
+  //         a.name.localeCompare(b.name)
+  //       ),
+  //     }))
+  //     .sort((a, b) => a.title.localeCompare(b.title));
 
-    // 4. Stwórz jedną, płaską tablicę
-    const flatList: ListItem[] = [];
-    sections.forEach((section) => {
-      // Dodaj obiekt reprezentujący nagłówek
-      flatList.push({ isHeader: true, title: section.title });
-      // Dodaj wszystkie kraje z tej sekcji
-      flatList.push(...section.data);
-    });
+  //   // 4. Stwórz jedną, płaską tablicę
+  //   const flatList: ListItem[] = [];
+  //   sections.forEach((section) => {
+  //     // Dodaj obiekt reprezentujący nagłówek
+  //     flatList.push({ isHeader: true, title: section.title });
+  //     // Dodaj wszystkie kraje z tej sekcji
+  //     flatList.push(...section.data);
+  //   });
 
-    return flatList;
-  }, [filterQuery]);
+  //   return flatList;
+  // }, [filterQuery]);
   // app/chooseCountries/index.tsx
   useEffect(() => {
     // Inicjalizuj stan lokalny i licznik, gdy komponent się załaduje
@@ -821,34 +871,40 @@ export default function ChooseCountriesScreen({
               marginTop: -9,
             }}
           >
-            <FlashList
-              data={flattenedData}
-              renderItem={renderItem}
-              keyExtractor={(item, index) =>
-                "isHeader" in item ? item.title : item.cca3
-              }
-              // disableAutoLayout={true}
-              getItemType={getItemType}
-              extraData={localSelectedCountries}
-              estimatedItemSize={ITEM_HEIGHT}
-              contentContainerStyle={{
-                paddingBottom: fromTab ? 20 : 96,
-              }}
-              overrideItemLayout={overrideItemLayout}
-              drawDistance={height * 3}
-              keyboardShouldPersistTaps="handled"
-              onScrollBeginDrag={dismissKeyboardAndUnfocus}
-              ListEmptyComponent={() => (
-                <View
-                  style={[
-                    styles.emptyContainer,
-                    { flex: 1, justifyContent: "center" },
-                  ]}
-                >
-                  <Text style={styles.emptyText}>No countries found.</Text>
-                </View>
-              )}
-            />
+            {isProcessing || isPending ? ( // Display indicator during initial processing or filtering
+              <View style={styles.loaderContainer}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+              </View>
+            ) : (
+              <FlashList
+                data={flattenedData}
+                renderItem={renderItem}
+                keyExtractor={(item) =>
+                  "isHeader" in item ? item.title : item.cca3
+                }
+                // disableAutoLayout={true}
+                getItemType={getItemType}
+                extraData={localSelectedCountries}
+                estimatedItemSize={ITEM_HEIGHT}
+                contentContainerStyle={{
+                  paddingBottom: fromTab ? 20 : 96,
+                }}
+                overrideItemLayout={overrideItemLayout}
+                drawDistance={height * 3}
+                keyboardShouldPersistTaps="handled"
+                onScrollBeginDrag={dismissKeyboardAndUnfocus}
+                ListEmptyComponent={() => (
+                  <View
+                    style={[
+                      styles.emptyContainer,
+                      { flex: 1, justifyContent: "center" },
+                    ]}
+                  >
+                    <Text style={styles.emptyText}>No countries found.</Text>
+                  </View>
+                )}
+              />
+            )}
           </View>
           {/* "Save and Continue" Button */}
           {!fromTab && (
@@ -923,6 +979,11 @@ const styles = StyleSheet.create({
   },
   containerFromTab: {
     marginTop: -5,
+  },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   containerStandalone: {
     paddingTop: 30,
