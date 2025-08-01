@@ -47,7 +47,8 @@ import { auth, db } from "../config/firebaseConfig";
 import CountryFlag from "react-native-country-flag";
 import { ThemeContext } from "../config/ThemeContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import filteredCountriesData from "../../components/filteredCountries.json";
+// DOBRZE - importujemy i od razu mówimy TS, jaki to ma być typ
+import preprocessedCountries from "../../components/preprocessedCountries.json";
 import { useCountries } from "../config/CountryContext";
 import { useAuthStore } from "../store/authStore";
 import { FlashList } from "@shopify/flash-list";
@@ -75,7 +76,7 @@ export type Country = {
   region: string;
   subregion: string;
   class: string | null;
-  path: string;
+  // path: string;
 };
 type ListItem = Country | { isHeader: true; title: string };
 export type FilteredCountries = {
@@ -303,56 +304,40 @@ export default function ChooseCountriesScreen({
   //   };
   // }, [visitedCountries, setLocalCount]); // Zależności są idealne
   const { userProfile, setUserProfile } = useAuthStore();
-  const [flattenedData, setFlattenedData] = useState<ListItem[]>([]);
-  useEffect(() => {
-    // Ta funkcja wykonuje ciężką pracę
-    const processData = () => {
-      const filtered = filteredCountriesData.countries.filter(
-        (country: Country) =>
-          country.name.toLowerCase().includes(filterQuery.toLowerCase())
-      );
-      const grouped = filtered.reduce(
-        (acc: { [key in Continent]?: Country[] }, country: Country) => {
-          const continent = getContinent(country.region, country.subregion);
-          if (!acc[continent]) acc[continent] = [];
-          acc[continent]!.push(country);
-          return acc;
-        },
-        {}
-      );
-      const sections = Object.keys(grouped)
-        .map((continent) => ({
-          title: continent,
-          data: grouped[continent as Continent]!.sort(
-            (a: Country, b: Country) => a.name.localeCompare(b.name)
-          ),
-        }))
-        .sort((a, b) => a.title.localeCompare(b.title));
 
-      const flatList: ListItem[] = [];
-      sections.forEach((section) => {
-        flatList.push({ isHeader: true, title: section.title });
-        flatList.push(...section.data);
-      });
+  // const preprocessedCountries: ListItem[] = preprocessedData;
 
-      // Ustawiamy przetworzone dane i kończymy ładowanie
-      setFlattenedData(flatList);
-      setIsProcessing(false); // Kluczowy moment!
-    };
+  // Używamy useMemo do błyskawicznego filtrowania GOTOWEJ listy.
+  // To jest bardzo szybka operacja w porównaniu do poprzedniej.
+  const allCountries = preprocessedCountries as unknown as ListItem[];
 
-    // Wywołujemy funkcję. Dla filtrowania używamy `startTransition`,
-    // ale dla pierwszego ładowania możemy to zrobić bezpośrednio.
-    if (isPending) {
-      // Jeśli transition jest aktywne (dla filtrowania), to już działa OK
-    } else if (filterQuery) {
-      // Jeśli jest filtr, ale nie ma transition, też działamy
-      processData();
-    } else {
-      // Dla pierwszego ładowania
-      processData();
+  const flattenedData = useMemo(() => {
+    if (!filterQuery) {
+      return allCountries;
     }
+
+    const lowercasedQuery = filterQuery.toLowerCase();
+    const result: ListItem[] = [];
+    let currentHeader: ListItem | null = null;
+
+    for (const item of allCountries) {
+      // Używamy nowej stałej
+      if ("isHeader" in item) {
+        currentHeader = item;
+      } else {
+        if (item.name.toLowerCase().includes(lowercasedQuery)) {
+          if (
+            currentHeader &&
+            (result.length === 0 || result[result.length - 1] !== currentHeader)
+          ) {
+            result.push(currentHeader);
+          }
+          result.push(item);
+        }
+      }
+    }
+    return result;
   }, [filterQuery]);
-  const [isProcessing, setIsProcessing] = useState(true); // Domyślnie true!
   useEffect(() => {
     const checkPopup = async () => {
       try {
@@ -871,7 +856,7 @@ export default function ChooseCountriesScreen({
               marginTop: -9,
             }}
           >
-            {isProcessing || isPending ? ( // Display indicator during initial processing or filtering
+            {isPending ? (
               <View style={styles.loaderContainer}>
                 <ActivityIndicator size="large" color={theme.colors.primary} />
               </View>
