@@ -838,7 +838,7 @@ export default function ChooseCountriesScreen({
               extraData={localSelectedCountries}
               estimatedItemSize={ITEM_HEIGHT}
               contentContainerStyle={{
-                paddingBottom: fromTab ? 86 : 96,
+                paddingBottom: fromTab ? 20 : 96,
               }}
               overrideItemLayout={overrideItemLayout}
               drawDistance={height * 3}
