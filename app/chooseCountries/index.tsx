@@ -114,6 +114,22 @@ const CountryItem = React.memo(function CountryItem({
 }) {
   const theme = useTheme();
 
+  // NOWOŚĆ: Używamy useRef do przechowywania wartości animacji.
+  // Inicjalizujemy ją na podstawie początkowego stanu `isSelected`, aby uniknąć mignięcia.
+  const selectionAnimation = useRef(
+    new Animated.Value(isSelected ? 1 : 0)
+  ).current;
+
+  // NOWOŚĆ: Efekt, który uruchamia animację, gdy zmienia się prop `isSelected`.
+  useEffect(() => {
+    Animated.timing(selectionAnimation, {
+      toValue: isSelected ? 1 : 0,
+      duration: 170, // Trochę dłuższa animacja dla lepszego wrażenia
+      easing: Easing.out(Easing.ease), // Płynne wyhamowanie animacji
+      useNativeDriver: false, // WAŻNE: Wymagane do animacji kolorów (backgroundColor)
+    }).start();
+  }, [isSelected]); // Zależność tylko od `isSelected`
+
   const handleToggleSelection = useCallback(() => {
     onSelect(item.cca2);
   }, [onSelect, item.cca2]);
@@ -122,30 +138,47 @@ const CountryItem = React.memo(function CountryItem({
     router.push(`/country/${item.id}`);
   }, [item.id]);
 
-  // Kolory dynamiczne oparte na propsie isSelected
-  const selectedBackgroundColor = isSelected
-    ? theme.colors.surfaceVariant
-    : theme.colors.surface;
+  // NOWOŚĆ: Interpolacje - "tłumaczą" wartość animacji (0 do 1) na konkretne style.
+
+  // 1. Animacja koloru tła elementu listy
+  const animatedBackgroundColor = selectionAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [theme.colors.surface, theme.colors.surfaceVariant],
+  });
+
+  // 2. Animacja koloru tła samego checkboxa
+  const animatedCheckboxBackgroundColor = selectionAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["transparent", theme.colors.primary],
+  });
+
+  // 3. Animacja koloru ramki checkboxa
+  const animatedCheckboxBorderColor = selectionAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [theme.colors.outline, theme.colors.primary],
+  });
+
+  // 4. Animacja "pop-up" dla ptaszka (skalowanie)
+  const checkmarkScale = selectionAnimation.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0, 1.3, 1], // Skaluj od 0 -> powiększ do 130% -> wróć do 100%
+  });
+
+  // Statyczne kolory, które się nie animują
   const flagBorderColor = theme.colors.outline;
-  const checkboxBackgroundColor = isSelected
-    ? theme.colors.primary
-    : "transparent";
-  const checkboxBorderColor = isSelected
-    ? theme.colors.primary
-    : theme.colors.outline;
-  const checkboxIconColor = isSelected ? theme.colors.onPrimary : "transparent";
+  const checkboxIconColor = theme.colors.onPrimary; // Zawsze biały/kontrastowy na primary
 
   return (
     <Pressable
       onPress={handleToggleSelection}
-      // onLongPress={handleNavigateToCountry} // Navigate na long press
       style={styles.countryItemOuterContainer}
     >
-      <View
+      {/* Używamy Animated.View, aby móc zastosować animowany styl tła */}
+      <Animated.View
         style={[
           styles.countryItemInnerContainer,
           {
-            backgroundColor: selectedBackgroundColor,
+            backgroundColor: animatedBackgroundColor, // Zastosowanie animowanego tła
             borderBottomWidth: 0.5,
             borderBottomColor: theme.colors.outline,
           },
@@ -175,26 +208,27 @@ const CountryItem = React.memo(function CountryItem({
           </Text>
         </TouchableOpacity>
 
-        {/* Spacer i Checkbox pozostają bez zmian */}
         <View style={{ flex: 1 }} />
-        <View
+
+        {/* Checkbox również używa Animated.View */}
+        <Animated.View
           style={[
             styles.roundCheckbox,
             {
-              backgroundColor: checkboxBackgroundColor,
-              borderColor: checkboxBorderColor,
+              backgroundColor: animatedCheckboxBackgroundColor, // animowane tło checkboxa
+              borderColor: animatedCheckboxBorderColor, // animowana ramka checkboxa
             },
           ]}
         >
-          {isSelected && (
+          {/* Ptaszka opakowujemy w Animated.View, aby go skalować */}
+          <Animated.View style={{ transform: [{ scale: checkmarkScale }] }}>
             <FontAwesome name="check" size={12} color={checkboxIconColor} />
-          )}
-        </View>
-      </View>
+          </Animated.View>
+        </Animated.View>
+      </Animated.View>
     </Pressable>
   );
 });
-
 type ChooseCountriesScreenProps = {
   fromTab?: boolean;
 };
