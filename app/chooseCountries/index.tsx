@@ -122,24 +122,49 @@ const CountryItem = React.memo(function CountryItem({
   // 2. Animacja dla skali ptaszka (może używać useNativeDriver: true)
   const scaleAnimation = useRef(new Animated.Value(isSelected ? 1 : 0)).current;
 
+  // Wklej ten kod w miejsce całego bloku useEffect w CountryItem
+
   useEffect(() => {
-    // Animacja koloru tła (płynne przejście)
-    Animated.timing(colorAnimation, {
-      toValue: isSelected ? 1 : 0,
-      duration: 170, // nieco wolniej, by animacja sprężynowa mogła się wyróżnić
-      easing: Easing.out(Easing.ease),
-      useNativeDriver: false, // Wymagane dla kolorów
-    }).start();
+    // Używamy warunku, aby zastosować różne animacje
+    // dla zaznaczania i odznaczania.
 
-    // NOWOŚĆ: Animacja sprężynowa (spring) dla ptaszka
-    Animated.spring(scaleAnimation, {
-      toValue: isSelected ? 1 : 0,
-      friction: 5, // Tarcie (im niższa wartość, tym więcej "odbicia")
-      tension: 48, // Napięcie/prędkość sprężyny
-      useNativeDriver: true, // KLUCZOWE dla wydajności animacji transformacji!
-    }).start();
-  }, [isSelected]); // Uruchamiamy obie animacje przy zmianie `isSelected`
+    if (isSelected) {
+      // --- ANIMACJA ZAZNACZANIA (wolniejsza, bardziej efektowna) ---
 
+      // Animacja koloru tła
+      Animated.timing(colorAnimation, {
+        toValue: 1,
+        duration: 170,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: false,
+      }).start();
+
+      // Animacja sprężynowa dla ptaszka (efekt "pop-up")
+      Animated.spring(scaleAnimation, {
+        toValue: 1,
+        friction: 4,
+        tension: 52,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      // --- ANIMACJA ODZNACZANIA (szybsza, bardziej dyskretna) ---
+
+      // Szybsza animacja koloru tła
+      Animated.timing(colorAnimation, {
+        toValue: 0,
+        duration: 150, // ZMIANA: Krótszy czas (o połowę)
+        easing: Easing.in(Easing.ease), // ZMIANA: Szybki start animacji
+        useNativeDriver: false,
+      }).start();
+
+      // Szybka animacja zanikania ptaszka (bez sprężyny)
+      Animated.timing(scaleAnimation, {
+        toValue: 0,
+        duration: 150, // ZMIANA: Bardzo krótki czas
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [isSelected]);
   const handleToggleSelection = useCallback(() => {
     onSelect(item.cca2);
   }, [onSelect, item.cca2]);
