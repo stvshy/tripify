@@ -30,6 +30,7 @@ import {
   LayoutAnimation,
   ActivityIndicator,
   AppState,
+  AppStateStatus,
 } from "react-native";
 import { TextInput as PaperTextInput, useTheme } from "react-native-paper";
 import { AntDesign, FontAwesome, MaterialIcons } from "@expo/vector-icons";
@@ -139,7 +140,6 @@ const CountryItem = React.memo(function CountryItem({
       onPress={handleToggleSelection}
       // onLongPress={handleNavigateToCountry} // Navigate na long press
       style={styles.countryItemOuterContainer}
-      android_ripple={{ color: theme.colors.surfaceVariant, borderless: false }}
     >
       <View
         style={[
@@ -220,9 +220,9 @@ export default function ChooseCountriesScreen({
   const { setLocalCount } = useLocalCount();
   const { toggleTheme, isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme();
-  const [isFocused, setIsFocused] = useState(false);
+  // const [isFocused, setIsFocused] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
-  const [isInputFocused, setIsInputFocused] = useState(false);
+  // const [isInputFocused, setIsInputFocused] = useState(false);
   const scaleValue = useRef(new Animated.Value(1)).current;
   const [isPopupVisible, setIsPopupVisible] = useState(true);
   const searchInputRef = useRef<TextInput>(null);
@@ -232,10 +232,19 @@ export default function ChooseCountriesScreen({
   const [localSelectedCountries, setLocalSelectedCountries] = useState(
     () => new Set<string>()
   );
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   //  const selectedCountriesRef = useRef(selectedCountries);
-  useEffect(() => {
-    setLocalSelectedCountries(new Set(visitedCountries));
-  }, [visitedCountries]);
+  // useEffect(() => {
+  //   const initialSet = new Set(visitedCountries);
+  //   setLocalSelectedCountries(initialSet); // Ustawia stan lokalny
+  //   initialVisitedCountriesRef.current = initialSet; // Zapisuje stan początkowy
+  //   setLocalCount(initialSet.size); // Ustawia licznik
+
+  //   // Funkcja czyszcząca uruchomi się przy odmontowaniu
+  //   return () => {
+  //     setLocalCount(null);
+  //   };
+  // }, [visitedCountries, setLocalCount]); // Zależności są idealne
   const { userProfile, setUserProfile } = useAuthStore();
   useEffect(() => {
     const checkPopup = async () => {
@@ -287,58 +296,63 @@ export default function ChooseCountriesScreen({
     });
   }, [scaleValue, toggleTheme]);
 
-  useEffect(() => {
-    const showEvent =
-      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent =
-      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+  useFocusEffect(
+    useCallback(() => {
+      // --- Nowa, bardziej agresywna logika BackHandler ---
+      const onBackPress = () => {
+        // Sprawdzamy, czy jakikolwiek TextInput jest aktywny.
+        // To jest bardziej ogólne i niezawodne niż poleganie na naszym stanie.
+        const activeElement = TextInput.State.currentlyFocusedInput();
 
-    if (
-      Platform.OS === "android" &&
-      UIManager.setLayoutAnimationEnabledExperimental
-    ) {
-      UIManager.setLayoutAnimationEnabledExperimental(true);
-    }
+        if (activeElement) {
+          // Jeśli tak, bezwzględnie usuwamy fokus i chowamy klawiaturę
+          activeElement.blur();
+          Keyboard.dismiss();
 
-    const keyboardShowListener = Keyboard.addListener(showEvent, () => {
-      if (isInputFocused) {
-        fadeAnim.setValue(0);
-      }
-    });
+          // Upewniamy się, że nasz stan też jest zsynchronizowany
+          setIsSearchFocused(false);
 
-    const keyboardHideListener = Keyboard.addListener(hideEvent, () => {
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }).start();
-    });
+          // Zwracamy `true`, aby zatrzymać dalsze działania
+          return true;
+        }
 
-    // Add listener for the "back" button on Android
-    const handleBackPress = () => {
-      if (isInputFocused && searchInputRef.current) {
+        // Jeśli żaden input nie jest aktywny, pozwalamy na normalne działanie
+        return false;
+      };
+
+      const backHandler = BackHandler.addEventListener(
+        "hardwareBackPress",
+        onBackPress
+      );
+
+      // --- Logika AppState (pozostaje bez zmian) ---
+      const subscription = AppState.addEventListener(
+        "change",
+        (nextAppState) => {
+          if (
+            appState.current.match(/active/) &&
+            (nextAppState === "background" || nextAppState === "inactive")
+          ) {
+            console.log(
+              "App state changed to inactive/background! Saving changes..."
+            );
+            handleSaveRef.current?.();
+          }
+          appState.current = nextAppState;
+        }
+      );
+
+      // --- Funkcja czyszcząca ---
+      return () => {
         console.log(
-          "Back button pressed while input is focused. Blurring input."
+          "Screen lost focus! Removing listeners and saving changes..."
         );
-        searchInputRef.current.blur();
-        return true;
-      }
-      return false;
-    };
-
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      handleBackPress
-    );
-
-    return () => {
-      backHandler.remove();
-      keyboardShowListener.remove();
-      keyboardHideListener.remove();
-    };
-  }, [isInputFocused, fadeAnim]);
-
+        backHandler.remove(); // Usuwamy listener BackHandler
+        subscription.remove(); // Usuwamy listener AppState
+        handleSaveRef.current?.(); // Zapisujemy zmiany przy utracie fokusu
+      };
+    }, []) // Pusta tablica zależności jest tutaj KLUCZOWA, aby to działało jak componentDidMount/WillUnmount
+  );
   // Processing country data
   const flattenedData = useMemo(() => {
     // 1. Filtruj kraje na podstawie wyszukiwania
@@ -398,6 +412,7 @@ export default function ChooseCountriesScreen({
   // ZASTĄP CAŁĄ FUNKCJĘ `handleSelectCountry` PONIŻSZYM KODEM:
   const handleSelectCountry = useCallback(
     (countryCode: string) => {
+      dismissKeyboard();
       setLocalSelectedCountries((currentSelected) => {
         const newSet = new Set(currentSelected);
         if (newSet.has(countryCode)) {
@@ -487,15 +502,62 @@ export default function ChooseCountriesScreen({
   );
   // Function to handle clicking outside the text input
   const dismissKeyboard = useCallback(() => {
+    // Nie sprawdzamy warunków, po prostu wywołujemy obie akcje.
+    // To jest bardziej niezawodne.
+    searchInputRef.current?.blur();
     Keyboard.dismiss();
-    setIsInputFocused(false);
-    setIsFocused(false);
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [fadeAnim]);
+  }, []);
+  const dismissKeyboardAndUnfocus = useCallback(() => {
+    // Sprawdzamy, czy input faktycznie ma focus, żeby niepotrzebnie nie wywoływać
+    if (searchInputRef.current?.isFocused()) {
+      searchInputRef.current?.blur();
+    }
+    // Niezależnie od wszystkiego, chowamy klawiaturę
+    Keyboard.dismiss();
+  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      // --- Logika dla AppState (zapis przy przejściu w tło) ---
+      const onAppStateChange = (nextAppState: AppStateStatus) => {
+        if (
+          appState.current.match(/active/) &&
+          (nextAppState === "background" || nextAppState === "inactive")
+        ) {
+          handleSaveRef.current?.();
+        }
+        appState.current = nextAppState;
+      };
+      const appStateSubscription = AppState.addEventListener(
+        "change",
+        onAppStateChange
+      );
+
+      // --- KLUCZOWA ZMIANA #2: Logika dla przycisku WSTECZ ---
+      const onBackPress = () => {
+        // Zamiast polegać na stanie, pytamy bezpośrednio refa, czy ma fokus.
+        // To omija problemy z "closure" stanu.
+        if (searchInputRef.current?.isFocused()) {
+          // Jeśli tak, używamy naszej centralnej funkcji
+          dismissKeyboard();
+          // I zatrzymujemy domyślną akcję
+          return true;
+        }
+        // Jeśli nie, pozwalamy na nawigację wstecz
+        return false;
+      };
+      const backHandler = BackHandler.addEventListener(
+        "hardwareBackPress",
+        onBackPress
+      );
+
+      // Funkcja czyszcząca, która uruchamia się, gdy ekran traci fokus
+      return () => {
+        appStateSubscription.remove();
+        backHandler.remove();
+        handleSaveRef.current?.();
+      };
+    }, [dismissKeyboard]) // Zależność tylko od `dismissKeyboard`, która jest stabilna
+  );
   const renderItem = useCallback(
     ({ item }: { item: ListItem }) => {
       if ("isHeader" in item) {
@@ -524,249 +586,264 @@ export default function ChooseCountriesScreen({
   const getItemType = useCallback((item: ListItem) => {
     return "isHeader" in item ? "sectionHeader" : "row";
   }, []);
+  const handleFocus = useCallback(() => {
+    setIsSearchFocused(true);
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim]);
 
+  const handleBlur = useCallback(() => {
+    setIsSearchFocused(false);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim]);
   return (
-    <TouchableWithoutFeedback onPress={dismissKeyboard}>
-      <SafeAreaView
-        style={[
-          styles.container,
-          { backgroundColor: theme.colors.background },
-          fromTab ? styles.containerFromTab : styles.containerStandalone,
-        ]}
-      >
-        {/* Informational Popup */}
-        {!fromTab && isPopupVisible && (
-          <Modal
-            transparent={true}
-            visible={isPopupVisible}
-            animationType="slide"
-            onRequestClose={handleClosePopup}
-          >
-            <View style={styles.modalOverlay}>
-              <View
+    // <TouchableWithoutFeedback onPress={dismissKeyboard}>
+    <SafeAreaView
+      style={[
+        styles.container,
+        { backgroundColor: theme.colors.background },
+        fromTab ? styles.containerFromTab : styles.containerStandalone,
+      ]}
+    >
+      {/* Informational Popup */}
+      {!fromTab && isPopupVisible && (
+        <Modal
+          transparent={true}
+          visible={isPopupVisible}
+          animationType="slide"
+          onRequestClose={handleClosePopup}
+        >
+          <View style={styles.modalOverlay}>
+            <View
+              style={[
+                styles.modalContent,
+                { backgroundColor: theme.colors.surface },
+              ]}
+            >
+              <Text
+                style={[styles.modalTitle, { color: theme.colors.primary }]}
+              >
+                Hey Traveller!
+              </Text>
+              <Text
+                style={[styles.modalText, { color: theme.colors.onSurface }]}
+              >
+                Please choose the countries you have visited from the list
+                below.
+              </Text>
+              <TouchableOpacity
+                onPress={handleClosePopup}
                 style={[
-                  styles.modalContent,
-                  { backgroundColor: theme.colors.surface },
+                  styles.modalButton,
+                  { backgroundColor: theme.colors.primary },
                 ]}
               >
                 <Text
-                  style={[styles.modalTitle, { color: theme.colors.primary }]}
-                >
-                  Hey Traveller!
-                </Text>
-                <Text
-                  style={[styles.modalText, { color: theme.colors.onSurface }]}
-                >
-                  Please choose the countries you have visited from the list
-                  below.
-                </Text>
-                <TouchableOpacity
-                  onPress={handleClosePopup}
                   style={[
-                    styles.modalButton,
-                    { backgroundColor: theme.colors.primary },
+                    styles.modalButtonText,
+                    { color: theme.colors.onPrimary },
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.modalButtonText,
-                      { color: theme.colors.onPrimary },
-                    ]}
-                  >
-                    Got it
-                  </Text>
-                </TouchableOpacity>
-              </View>
+                  Got it
+                </Text>
+              </TouchableOpacity>
             </View>
-          </Modal>
-        )}
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.keyboardAvoidingView}
-          keyboardVerticalOffset={fromTab ? 0 : Platform.OS === "ios" ? 80 : 20}
-        >
-          <View style={{ flex: 1 }}>
-            {/* Search Bar and Theme Toggle Button */}
-            <View style={styles.searchAndToggleContainer}>
-              <View
-                style={[
-                  styles.inputContainer,
-                  isFocused && styles.inputFocused,
-                ]}
-              >
-                <PaperTextInput
-                  ref={searchInputRef}
-                  label="Search Country"
-                  value={inputValue}
-                  onChangeText={handleSearchChange}
-                  mode="flat"
-                  style={styles.input}
-                  theme={{
-                    colors: {
-                      primary: isFocused
-                        ? theme.colors.primary
-                        : theme.colors.outline,
-                      background: "transparent",
-                      text: theme.colors.onSurface,
-                    },
-                  }}
-                  underlineColor="transparent"
-                  left={
+          </View>
+        </Modal>
+      )}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardAvoidingView}
+        keyboardVerticalOffset={fromTab ? 0 : Platform.OS === "ios" ? 80 : 20}
+      >
+        <View style={{ flex: 1 }}>
+          {/* Search Bar and Theme Toggle Button */}
+          <View style={styles.searchAndToggleContainer}>
+            <View
+              style={[
+                styles.inputContainer,
+                isSearchFocused && styles.inputFocused,
+              ]}
+            >
+              <PaperTextInput
+                ref={searchInputRef}
+                label="Search Country"
+                value={inputValue}
+                onChangeText={handleSearchChange}
+                mode="flat"
+                style={styles.input}
+                theme={{
+                  colors: {
+                    primary: isSearchFocused
+                      ? theme.colors.primary
+                      : theme.colors.outline,
+                    background: "transparent",
+                    text: theme.colors.onSurface,
+                  },
+                }}
+                underlineColor="transparent"
+                left={
+                  <PaperTextInput.Icon
+                    icon={() => (
+                      <AntDesign
+                        name="search1"
+                        size={21.5}
+                        color={
+                          isSearchFocused
+                            ? theme.colors.primary
+                            : theme.colors.outline
+                        }
+                      />
+                    )}
+                    style={styles.iconLeft}
+                  />
+                }
+                right={
+                  inputValue ? (
                     <PaperTextInput.Icon
                       icon={() => (
-                        <AntDesign
-                          name="search1"
-                          size={21.5}
-                          color={
-                            isFocused
-                              ? theme.colors.primary
-                              : theme.colors.outline
-                          }
+                        <MaterialIcons
+                          name="close"
+                          size={17}
+                          color={theme.colors.outline}
                         />
                       )}
-                      style={styles.iconLeft}
+                      onPress={() => handleSearchChange("")}
                     />
-                  }
-                  right={
-                    inputValue ? (
-                      <PaperTextInput.Icon
-                        icon={() => (
-                          <MaterialIcons
-                            name="close"
-                            size={17}
-                            color={theme.colors.outline}
-                          />
-                        )}
-                        onPress={() => handleSearchChange("")}
-                      />
-                    ) : null
-                  }
-                  autoCapitalize="none"
-                  onFocus={() => {
-                    setIsInputFocused(true);
-                    setIsFocused(true);
-                    fadeAnim.setValue(0);
-                  }}
-                  onBlur={() => {
-                    setIsInputFocused(false);
-                    setIsFocused(false);
-                    Animated.timing(fadeAnim, {
-                      toValue: 1,
-                      duration: 300,
-                      useNativeDriver: true,
-                    }).start();
-                  }}
-                />
-              </View>
-
-              {/* Round Button to Toggle Theme */}
-              <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
-                <Pressable
-                  onPress={handleToggleTheme}
-                  style={[
-                    styles.toggleButton,
-                    { backgroundColor: theme.colors.primary },
-                  ]}
-                >
-                  {isDarkTheme ? (
-                    <MaterialIcons
-                      name="dark-mode"
-                      size={24}
-                      color={theme.colors.onPrimary}
-                    />
-                  ) : (
-                    <MaterialIcons
-                      name="light-mode"
-                      size={24}
-                      color={theme.colors.onPrimary}
-                    />
-                  )}
-                </Pressable>
-              </Animated.View>
-            </View>
-
-            {/* Country List */}
-            <View
-              style={{
-                flex: 1,
-                marginBottom: fromTab ? -16 : -20,
-                marginTop: -9,
-              }}
-            >
-              <FlashList
-                data={flattenedData}
-                renderItem={renderItem}
-                keyExtractor={(item, index) =>
-                  "isHeader" in item ? item.title : item.cca3
+                  ) : null
                 }
-                disableAutoLayout={true}
-                getItemType={getItemType}
-                extraData={localSelectedCountries}
-                estimatedItemSize={ITEM_HEIGHT}
-                contentContainerStyle={{
-                  paddingBottom: fromTab ? 86 : 96,
+                autoCapitalize="none"
+                onFocus={() => {
+                  setIsSearchFocused(true);
+                  fadeAnim.setValue(0);
                 }}
-                overrideItemLayout={overrideItemLayout}
-                drawDistance={height * 3}
-                ListEmptyComponent={() => (
-                  <View
-                    style={[
-                      styles.emptyContainer,
-                      { flex: 1, justifyContent: "center" },
-                    ]}
-                  >
-                    <Text style={styles.emptyText}>No countries found.</Text>
-                  </View>
-                )}
+                onBlur={() => {
+                  setIsSearchFocused(false);
+                  Animated.timing(fadeAnim, {
+                    toValue: 1,
+                    duration: 300,
+                    useNativeDriver: true,
+                  }).start();
+                }}
               />
             </View>
-            {/* "Save and Continue" Button */}
-            {!fromTab && (
-              <Animated.View
+
+            {/* Round Button to Toggle Theme */}
+            <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
+              <Pressable
+                onPress={handleToggleTheme}
                 style={[
-                  styles.footer,
-                  {
-                    opacity: fadeAnim,
-                    transform: [
-                      {
-                        translateY: fadeAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [50, 0],
-                        }),
-                      },
-                    ],
-                    bottom: isInputFocused
-                      ? -styles.saveButton.marginBottom - 5
-                      : 0,
-                  },
+                  styles.toggleButton,
+                  { backgroundColor: theme.colors.primary },
                 ]}
               >
-                <Pressable
-                  onPress={() => {
-                    // <<< ZMIANA: Przycisk "Continue" najpierw zapisuje, potem nawiguje
-                    handleSaveRef.current();
-                    router.replace("/");
-                  }}
+                {isDarkTheme ? (
+                  <MaterialIcons
+                    name="dark-mode"
+                    size={24}
+                    color={theme.colors.onPrimary}
+                  />
+                ) : (
+                  <MaterialIcons
+                    name="light-mode"
+                    size={24}
+                    color={theme.colors.onPrimary}
+                  />
+                )}
+              </Pressable>
+            </Animated.View>
+          </View>
+
+          {/* Country List */}
+          <View
+            style={{
+              flex: 1,
+              marginBottom: fromTab ? -16 : -20,
+              marginTop: -9,
+            }}
+          >
+            <FlashList
+              data={flattenedData}
+              renderItem={renderItem}
+              keyExtractor={(item, index) =>
+                "isHeader" in item ? item.title : item.cca3
+              }
+              disableAutoLayout={true}
+              getItemType={getItemType}
+              extraData={localSelectedCountries}
+              estimatedItemSize={ITEM_HEIGHT}
+              contentContainerStyle={{
+                paddingBottom: fromTab ? 86 : 96,
+              }}
+              overrideItemLayout={overrideItemLayout}
+              drawDistance={height * 3}
+              keyboardShouldPersistTaps="handled"
+              onScrollBeginDrag={dismissKeyboardAndUnfocus}
+              ListEmptyComponent={() => (
+                <View
                   style={[
-                    styles.saveButton,
-                    { backgroundColor: theme.colors.primary },
+                    styles.emptyContainer,
+                    { flex: 1, justifyContent: "center" },
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.saveButtonText,
-                      { color: theme.colors.onPrimary },
-                    ]}
-                  >
-                    Continue
-                  </Text>
-                </Pressable>
-              </Animated.View>
-            )}
+                  <Text style={styles.emptyText}>No countries found.</Text>
+                </View>
+              )}
+            />
           </View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </TouchableWithoutFeedback>
+          {/* "Save and Continue" Button */}
+          {!fromTab && (
+            <Animated.View
+              style={[
+                styles.footer,
+                {
+                  opacity: fadeAnim,
+                  transform: [
+                    {
+                      translateY: fadeAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [50, 0],
+                      }),
+                    },
+                  ],
+                  bottom: isSearchFocused
+                    ? -styles.saveButton.marginBottom - 5
+                    : 0,
+                },
+              ]}
+            >
+              <Pressable
+                onPress={() => {
+                  // <<< ZMIANA: Przycisk "Continue" najpierw zapisuje, potem nawiguje
+                  handleSaveRef.current();
+                  router.replace("/");
+                }}
+                style={[
+                  styles.saveButton,
+                  { backgroundColor: theme.colors.primary },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.saveButtonText,
+                    { color: theme.colors.onPrimary },
+                  ]}
+                >
+                  Continue
+                </Text>
+              </Pressable>
+            </Animated.View>
+          )}
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
