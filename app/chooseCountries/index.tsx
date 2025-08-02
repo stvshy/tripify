@@ -54,6 +54,7 @@ import { useAuthStore } from "../store/authStore";
 import { FlashList } from "@shopify/flash-list";
 import { isEqual } from "lodash";
 import { useLocalCount } from "../config/LocalCountContext";
+import Color from "color";
 const { width, height } = Dimensions.get("window");
 const ITEM_HEIGHT = 50;
 const SECTION_HEADER_HEIGHT = 28;
@@ -445,49 +446,109 @@ export default function ChooseCountriesScreen({
       };
     }, []) // Pusta tablica zależności jest tutaj KLUCZOWA, aby to działało jak componentDidMount/WillUnmount
   );
-  // Processing country data
-  // const flattenedData = useMemo(() => {
-  //   // 1. Filtruj kraje na podstawie wyszukiwania
-  //   const filtered = filteredCountriesData.countries.filter(
-  //     (country: Country) =>
-  //       country.name.toLowerCase().includes(filterQuery.toLowerCase())
-  //   );
+  const SkeletonItem = () => {
+    const theme = useTheme();
 
-  //   // 2. Grupuj po kontynentach
-  //   const grouped = filtered.reduce(
-  //     (acc: { [key in Continent]?: Country[] }, country: Country) => {
-  //       const continent = getContinent(country.region, country.subregion);
-  //       if (!acc[continent]) {
-  //         acc[continent] = [];
-  //       }
-  //       acc[continent]!.push(country);
-  //       return acc;
-  //     },
-  //     {} as { [key in Continent]?: Country[] }
-  //   );
+    // --- Logika kolorów zgodna z Twoimi wymaganiami ---
 
-  //   // 3. Sortuj sekcje i spłaszczaj dane
-  //   const sections = Object.keys(grouped)
-  //     .map((continent) => ({
-  //       title: continent,
-  //       data: grouped[continent as Continent]!.sort((a: Country, b: Country) =>
-  //         a.name.localeCompare(b.name)
-  //       ),
-  //     }))
-  //     .sort((a, b) => a.title.localeCompare(b.title));
+    // Tło komórki: surface jaśniejszy o 10%
+    // Używamy try-catch, bo operacje na kolorach mogą rzucić błąd, jeśli format jest nieoczekiwany
+    let itemBackgroundColor;
+    try {
+      // Dla motywu ciemnego rozjaśniamy, dla jasnego... też rozjaśniamy (można to dostosować)
+      itemBackgroundColor = Color(theme.colors.surface).hex();
+    } catch (e) {
+      itemBackgroundColor = theme.colors.surface; // Fallback
+    }
 
-  //   // 4. Stwórz jedną, płaską tablicę
-  //   const flatList: ListItem[] = [];
-  //   sections.forEach((section) => {
-  //     // Dodaj obiekt reprezentujący nagłówek
-  //     flatList.push({ isHeader: true, title: section.title });
-  //     // Dodaj wszystkie kraje z tej sekcji
-  //     flatList.push(...section.data);
-  //   });
+    // Kolor elementów (placeholdery): surfaceVariant ciemniejszy o 40%
+    let placeholderColor;
+    try {
+      placeholderColor = Color(theme.colors.surfaceVariant).darken(0.2).hex();
+    } catch (e) {
+      placeholderColor = theme.colors.surfaceVariant; // Fallback
+    }
 
-  //   return flatList;
-  // }, [filterQuery]);
-  // app/chooseCountries/index.tsx
+    return (
+      // Używamy tego samego stylu co prawdziwy item, aby zapewnić spójność
+      <View
+        style={[
+          styles.countryItemInnerContainer,
+          {
+            backgroundColor: itemBackgroundColor,
+            // Dodajemy border, aby pasował do prawdziwego itemu
+            borderBottomWidth: 0.5,
+            borderBottomColor: theme.colors.outline,
+            // Dodajemy marginesy, które są na prawdziwej liście
+            // marginHorizontal: 13,
+            // marginBottom: 1,
+            width: "100%", // Upewniamy się, że zajmuje całą szerokość
+          },
+        ]}
+      >
+        {/* Kontener na flagę i nazwę - zachowujemy strukturę */}
+        <View style={styles.navigableArea}>
+          {/* Placeholder flagi */}
+          <View
+            style={[
+              styles.flagContainer,
+              {
+                width: 30, // Stała szerokość jak w CountryFlag
+                height: 25, // Stała wysokość jak w CountryFlag
+                backgroundColor: placeholderColor,
+                borderRadius: 5,
+                borderWidth: 1,
+                borderColor: "transparent", // Ukrywamy border flagi, bo ma tło
+              },
+            ]}
+          />
+          {/* Placeholder nazwy kraju */}
+          <View
+            style={{
+              height: 20,
+              width: "60%", // Przykładowa szerokość
+              backgroundColor: placeholderColor,
+              borderRadius: 13,
+              marginLeft: 5, // Taki sam margines jak w `countryText`
+            }}
+          />
+        </View>
+
+        <View style={{ flex: 1 }} />
+
+        {/* Placeholder checkboxa */}
+        <View
+          style={[
+            styles.roundCheckbox,
+            {
+              // Naśladujemy wygląd niezaznaczonego checkboxa
+              borderColor: theme.colors.outline,
+              backgroundColor: "transparent",
+            },
+          ]}
+        />
+      </View>
+    );
+  };
+  const ListSkeleton = () => {
+    // Pokaż tyle skeletonów, ile mniej więcej mieści się na ekranie
+    const skeletonCount = Math.floor(height / (ITEM_HEIGHT + 1)) - 2; // +1 za marginBottom
+    return (
+      // Zmieniamy paddingTop, aby pasował do odstępu w prawdziwej liście
+      <View style={{ paddingTop: 37, flex: 1 }}>
+        {Array.from({ length: skeletonCount }).map((_, index) => (
+          <SkeletonItem key={index} />
+        ))}
+      </View>
+    );
+  };
+  const [isReady, setIsReady] = useState(false);
+  useEffect(() => {
+    // Używamy setTimeout z zerowym opóźnieniem, aby dać UI czas na "oddech"
+    // i wykonanie tej operacji tuż po zakończeniu bieżącego cyklu renderowania.
+    const timer = setTimeout(() => setIsReady(true), 0);
+    return () => clearTimeout(timer); // Czyszczenie
+  }, []);
   useEffect(() => {
     // Inicjalizuj stan lokalny i licznik, gdy komponent się załaduje
     const initialSet = new Set(visitedCountries);
@@ -860,6 +921,8 @@ export default function ChooseCountriesScreen({
               <View style={styles.loaderContainer}>
                 <ActivityIndicator size="large" color={theme.colors.primary} />
               </View>
+            ) : !isReady ? (
+              <ListSkeleton />
             ) : (
               <FlashList
                 data={flattenedData}
