@@ -544,13 +544,13 @@ export default function ChooseCountriesScreen({
       </View>
     );
   };
-  const [isReady, setIsReady] = useState(false);
-  useEffect(() => {
-    // Używamy setTimeout z zerowym opóźnieniem, aby dać UI czas na "oddech"
-    // i wykonanie tej operacji tuż po zakończeniu bieżącego cyklu renderowania.
-    const timer = setTimeout(() => setIsReady(true), 0);
-    return () => clearTimeout(timer); // Czyszczenie
-  }, []);
+  const [isSkeletonVisible, setIsSkeletonVisible] = useState(true);
+
+  // Wartość opacity dla animacji zanikania skeletona
+  const skeletonOpacity = useRef(new Animated.Value(1)).current;
+
+  // Ref, który zapewni, że animacja zanikania uruchomi się tylko raz
+  const hasInitialLoadFired = useRef(false);
   useEffect(() => {
     // Inicjalizuj stan lokalny i licznik, gdy komponent się załaduje
     const initialSet = new Set(visitedCountries);
@@ -581,7 +581,22 @@ export default function ChooseCountriesScreen({
     },
     [] // <-- Usuń setLocalCount z zależności, bo już go tu nie używasz
   );
+  const handleViewableItemsChanged = useCallback(() => {
+    // Sprawdzamy, czy to pierwsze załadowanie (dzięki ref-owi)
+    if (!hasInitialLoadFired.current) {
+      hasInitialLoadFired.current = true; // Zaznaczamy, że już się uruchomiło
 
+      // Uruchamiamy animację zanikania skeletona
+      Animated.timing(skeletonOpacity, {
+        toValue: 0,
+        duration: 250, // Krótka, płynna animacja
+        useNativeDriver: true,
+      }).start(() => {
+        // Po zakończeniu animacji, całkowicie usuwamy skeleton z drzewa komponentów
+        setIsSkeletonVisible(false);
+      });
+    }
+  }, [skeletonOpacity]);
   const handleSaveCountries = useCallback(async () => {
     const user = auth.currentUser;
     if (!user) {
@@ -923,82 +938,104 @@ export default function ChooseCountriesScreen({
               <View style={styles.loaderContainer}>
                 <ActivityIndicator size="large" color={theme.colors.primary} />
               </View>
-            ) : !isReady ? (
-              <ListSkeleton />
             ) : (
-              <FlashList
-                data={flattenedData}
-                renderItem={renderItem}
-                keyExtractor={(item) =>
-                  "isHeader" in item ? item.title : item.cca3
-                }
-                // disableAutoLayout={true}
-                getItemType={getItemType}
-                extraData={localSelectedCountries}
-                estimatedItemSize={ITEM_HEIGHT}
-                contentContainerStyle={{
-                  paddingBottom: fromTab ? 20 : 96,
-                }}
-                overrideItemLayout={overrideItemLayout}
-                drawDistance={height * 3}
-                keyboardShouldPersistTaps="handled"
-                onScrollBeginDrag={dismissKeyboardAndUnfocus}
-                ListEmptyComponent={() => (
-                  <View
+              // Kontener dla listy i nakładki ze skeletonem
+              <View style={{ flex: 1 }}>
+                <FlashList
+                  data={flattenedData}
+                  renderItem={renderItem}
+                  keyExtractor={(item) =>
+                    "isHeader" in item ? item.title : item.cca3
+                  }
+                  getItemType={getItemType}
+                  extraData={localSelectedCountries}
+                  estimatedItemSize={ITEM_HEIGHT}
+                  contentContainerStyle={{
+                    paddingBottom: fromTab ? 20 : 96,
+                  }}
+                  overrideItemLayout={overrideItemLayout}
+                  drawDistance={height * 3}
+                  keyboardShouldPersistTaps="handled"
+                  onScrollBeginDrag={dismissKeyboardAndUnfocus}
+                  // <<< NOWE, WAŻNE PROPSY >>>
+                  onViewableItemsChanged={handleViewableItemsChanged}
+                  viewabilityConfig={{
+                    itemVisiblePercentThreshold: 1, // Uruchom callback, gdy tylko 1% pierwszego itemu jest widoczny
+                  }}
+                  ListEmptyComponent={() => (
+                    <View
+                      style={[
+                        styles.emptyContainer,
+                        { flex: 1, justifyContent: "center" },
+                      ]}
+                    >
+                      <Text style={styles.emptyText}>No countries found.</Text>
+                    </View>
+                  )}
+                />
+
+                {/* Skeleton renderowany jako nakładka, która zniknie */}
+                {isSkeletonVisible && (
+                  <Animated.View
                     style={[
-                      styles.emptyContainer,
-                      { flex: 1, justifyContent: "center" },
+                      StyleSheet.absoluteFill, // Rozciąga się na cały kontener nadrzędny
+                      {
+                        backgroundColor: theme.colors.background, // Ważne, aby zakryć listę pod spodem!
+                        opacity: skeletonOpacity, // Kontrolujemy przezroczystość
+                      },
                     ]}
+                    // Wyłącza interakcję z nakładką, gdy jest niewidoczna
+                    pointerEvents="none"
                   >
-                    <Text style={styles.emptyText}>No countries found.</Text>
-                  </View>
+                    <ListSkeleton />
+                  </Animated.View>
                 )}
-              />
+              </View>
             )}
-          </View>
-          {/* "Save and Continue" Button */}
-          {!fromTab && (
-            <Animated.View
-              style={[
-                styles.footer,
-                {
-                  opacity: fadeAnim,
-                  transform: [
-                    {
-                      translateY: fadeAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [50, 0],
-                      }),
-                    },
-                  ],
-                  bottom: isSearchFocused
-                    ? -styles.saveButton.marginBottom - 5
-                    : 0,
-                },
-              ]}
-            >
-              <Pressable
-                onPress={() => {
-                  // <<< ZMIANA: Przycisk "Continue" najpierw zapisuje, potem nawiguje
-                  handleSaveRef.current();
-                  router.replace("/");
-                }}
+            {/* "Save and Continue" Button */}
+            {!fromTab && (
+              <Animated.View
                 style={[
-                  styles.saveButton,
-                  { backgroundColor: theme.colors.primary },
+                  styles.footer,
+                  {
+                    opacity: fadeAnim,
+                    transform: [
+                      {
+                        translateY: fadeAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [50, 0],
+                        }),
+                      },
+                    ],
+                    bottom: isSearchFocused
+                      ? -styles.saveButton.marginBottom - 5
+                      : 0,
+                  },
                 ]}
               >
-                <Text
+                <Pressable
+                  onPress={() => {
+                    // <<< ZMIANA: Przycisk "Continue" najpierw zapisuje, potem nawiguje
+                    handleSaveRef.current();
+                    router.replace("/");
+                  }}
                   style={[
-                    styles.saveButtonText,
-                    { color: theme.colors.onPrimary },
+                    styles.saveButton,
+                    { backgroundColor: theme.colors.primary },
                   ]}
                 >
-                  Continue
-                </Text>
-              </Pressable>
-            </Animated.View>
-          )}
+                  <Text
+                    style={[
+                      styles.saveButtonText,
+                      { color: theme.colors.onPrimary },
+                    ]}
+                  >
+                    Continue
+                  </Text>
+                </Pressable>
+              </Animated.View>
+            )}
+          </View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
