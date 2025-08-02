@@ -461,10 +461,12 @@ export default function ChooseCountriesScreen({
       itemBackgroundColor = theme.colors.surface; // Fallback
     }
 
-    // Kolor elementów (placeholdery): surfaceVariant ciemniejszy o 40%
+    // Kolor elementów (placeholdery): w trybie ciemnym przyciemniony o 0.2, w jasnym rozjaśniony o 0.2
     let placeholderColor;
     try {
-      placeholderColor = Color(theme.colors.surfaceVariant).darken(0.2).hex();
+      placeholderColor = theme.dark
+        ? Color(theme.colors.surfaceVariant).darken(0.2).hex()
+        : Color(theme.colors.surfaceVariant).lighten(0.2).hex();
     } catch (e) {
       placeholderColor = theme.colors.surfaceVariant; // Fallback
     }
