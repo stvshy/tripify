@@ -136,7 +136,7 @@ const CountryItem = React.memo(function CountryItem({
       // Animacja koloru tła
       Animated.timing(colorAnimation, {
         toValue: 1,
-        duration: 170,
+        duration: 150,
         easing: Easing.out(Easing.ease),
         useNativeDriver: false,
       }).start();
@@ -154,7 +154,7 @@ const CountryItem = React.memo(function CountryItem({
       // Szybsza animacja koloru tła
       Animated.timing(colorAnimation, {
         toValue: 0,
-        duration: 150, // ZMIANA: Krótszy czas (o połowę)
+        duration: 80, // ZMIANA: Krótszy czas (o połowę)
         easing: Easing.in(Easing.ease), // ZMIANA: Szybki start animacji
         useNativeDriver: false,
       }).start();
@@ -162,7 +162,7 @@ const CountryItem = React.memo(function CountryItem({
       // Szybka animacja zanikania ptaszka (bez sprężyny)
       Animated.timing(scaleAnimation, {
         toValue: 0,
-        duration: 150, // ZMIANA: Bardzo krótki czas
+        duration: 153, // ZMIANA: Bardzo krótki czas
         useNativeDriver: true,
       }).start();
     }
