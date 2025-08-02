@@ -465,8 +465,8 @@ export default function ChooseCountriesScreen({
     let placeholderColor;
     try {
       placeholderColor = theme.dark
-        ? Color(theme.colors.surfaceVariant).darken(0.2).hex()
-        : Color(theme.colors.surfaceVariant).lighten(0.2).hex();
+        ? Color(theme.colors.surfaceVariant).darken(0.16).hex()
+        : Color(theme.colors.surfaceVariant).darken(0.01).hex();
     } catch (e) {
       placeholderColor = theme.colors.surfaceVariant; // Fallback
     }
