@@ -14,6 +14,8 @@ import {
   SafeAreaView,
   Pressable,
   BackHandler,
+  StyleProp,
+  ViewStyle,
 } from "react-native";
 import { Tabs, useRouter, useSegments, useFocusEffect } from "expo-router"; // Usunięto useNavigation
 
@@ -84,14 +86,19 @@ const CustomTabBarButton: React.FC<BottomTabBarButtonProps> = ({
 //   }
 //   return context;
 // };
-
-// Badge component for displaying counts
-const Badge: React.FC<{ count: number }> = ({ count }) => {
+const Badge: React.FC<{ count: number; style?: StyleProp<ViewStyle> }> = ({
+  count,
+  style,
+}) => {
   const theme = useTheme();
   if (count <= 0) return null;
   return (
     <View
-      style={[styles.badgeContainer, { backgroundColor: theme.colors.primary }]}
+      style={[
+        styles.badgeContainer,
+        { backgroundColor: theme.colors.primary },
+        style,
+      ]}
     >
       <Text style={styles.badgeText}>{count}</Text>
     </View>
@@ -434,6 +441,7 @@ const TabLayoutContent: React.FC = () => {
                 style={({ pressed }) => [
                   styles.headerRightContainer,
                   pressed && styles.pressedHeaderRight,
+                  { marginTop: 4.5 },
                 ]}
               >
                 <View style={{ position: "relative" }}>
@@ -441,8 +449,12 @@ const TabLayoutContent: React.FC = () => {
                     name="mail-outline"
                     size={23}
                     color={theme.colors.onSurface}
+                    style={{ marginRight: 2 }}
                   />
-                  <Badge count={friendRequestsCount} />
+                  <Badge
+                    count={friendRequestsCount}
+                    style={{ marginRight: 2 }}
+                  />
                 </View>
               </Pressable>
             ),
