@@ -313,32 +313,45 @@ export default function ChooseCountriesScreen({
   const allCountries = preprocessedCountries as unknown as ListItem[];
 
   const flattenedData = useMemo(() => {
-    if (!filterQuery) {
+    const lowercasedQuery = filterQuery.toLowerCase().trim();
+
+    // Jeśli nie ma filtrowania, zwróć całą listę
+    if (!lowercasedQuery) {
       return allCountries;
     }
 
-    const lowercasedQuery = filterQuery.toLowerCase();
-    const result: ListItem[] = [];
-    let currentHeader: ListItem | null = null;
+    // Obiekt do przechowywania przefiltrowanych krajów pogrupowanych po kontynentach
+    const grouped: Record<string, Country[]> = {};
 
+    // Iterujemy tylko po krajach (ignorujemy nagłówki na tym etapie)
     for (const item of allCountries) {
-      // Używamy nowej stałej
-      if ("isHeader" in item) {
-        currentHeader = item;
-      } else {
+      if (!("isHeader" in item)) {
         if (item.name.toLowerCase().includes(lowercasedQuery)) {
-          if (
-            currentHeader &&
-            (result.length === 0 || result[result.length - 1] !== currentHeader)
-          ) {
-            result.push(currentHeader);
+          // Znajdź kontynent dla tego kraju
+          const continent = getContinent(item.region, item.subregion);
+
+          // Jeśli kontynent nie istnieje w naszym obiekcie, stwórz dla niego tablicę
+          if (!grouped[continent]) {
+            grouped[continent] = [];
           }
-          result.push(item);
+          // Dodaj kraj do odpowiedniej grupy
+          grouped[continent].push(item);
         }
       }
     }
+
+    // Teraz "spłaszcz" pogrupowane dane z powrotem do formatu listy
+    const result: ListItem[] = [];
+    for (const continentTitle of Object.keys(grouped).sort()) {
+      // Sortujemy kontynenty alfabetycznie
+      // Dodaj nagłówek kontynentu
+      result.push({ isHeader: true, title: continentTitle });
+      // Dodaj wszystkie kraje z tego kontynentu
+      result.push(...grouped[continentTitle]);
+    }
+
     return result;
-  }, [filterQuery]);
+  }, [filterQuery, allCountries]);
   useEffect(() => {
     const checkPopup = async () => {
       try {
@@ -944,8 +957,10 @@ export default function ChooseCountriesScreen({
                 <FlashList
                   data={flattenedData}
                   renderItem={renderItem}
-                  keyExtractor={(item) =>
-                    "isHeader" in item ? item.title : item.cca3
+                  keyExtractor={(item, index) =>
+                    "isHeader" in item
+                      ? `header-${item.title}`
+                      : `country-${item.cca3}`
                   }
                   getItemType={getItemType}
                   extraData={localSelectedCountries}
@@ -1085,9 +1100,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginHorizontal: 11.8,
+    marginHorizontal: 9.3,
     marginBottom: 13,
-    marginTop: 10,
+    marginTop: 8.3,
   },
   inputContainer: {
     width: width * 0.82,
