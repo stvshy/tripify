@@ -8,6 +8,7 @@ import React, {
   useMemo,
   useState,
   useEffect,
+  useRef,
 } from "react";
 import {
   useSharedValue,
@@ -25,9 +26,12 @@ interface MapContextType {
   translateX: SharedValue<number>;
   translateY: SharedValue<number>;
   resetMapTransform: () => void;
+  isUpdating: boolean;
+  recentlyChangedCountries: Set<string>;
   // Stan Danych
   selectedCountries: string[] | null;
   isLoadingData: boolean;
+  updateAndHighlightCountries: (newCountries: string[]) => void;
 }
 
 const MapContext = createContext<MapContextType | null>(null);
@@ -48,7 +52,7 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
   // --- NOWA LOGIKA STANU DANYCH ---
 
   // === KROK 2: Używamy hooka useCountries, aby uzyskać dostęp do danych w czasie rzeczywistym ===
-  const { visitedCountries } = useCountries();
+  const { visitedCountries, setVisitedCountries } = useCountries();
 
   // === KROK 3: Usuwamy stary, skomplikowany stan. Teraz jest prościej. ===
   // Stan `isLoadingData` zależy teraz od tego, czy `visitedCountries` jest już dostępne.
@@ -57,7 +61,11 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
     null
   );
   const [isLoadingData, setIsLoadingData] = useState(true);
-
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [recentlyChangedCountries, setRecentlyChangedCountries] = useState(
+    new Set<string>()
+  );
+  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   // === KROK 4: Używamy useEffect do synchronizacji danych z CountryContext ===
   // Ten hook uruchomi się przy pierwszym renderowaniu ORAZ za każdym razem,
   // gdy `visitedCountries` z `CountryContext` się zmieni.
@@ -76,23 +84,70 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
     // Jeśli `CountryContext` nigdy nie zwróci danych (np. błąd),
     // `isLoadingData` pozostanie `true`.
   }, [visitedCountries, isLoadingData]); // Zależność od danych z CountryContext
+  const updateAndHighlightCountries = useCallback(
+    (newCountries: string[]) => {
+      // Jeśli poprzednia animacja jeszcze trwa, anulujemy ją
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
 
+      const oldCountriesSet = new Set(visitedCountries || []);
+      const newCountriesSet = new Set(newCountries);
+
+      // Znajdź różnice (kraje dodane i usunięte)
+      const changed = new Set<string>();
+      for (const country of newCountries) {
+        if (!oldCountriesSet.has(country)) {
+          changed.add(country);
+        }
+      }
+      for (const country of oldCountriesSet) {
+        if (!newCountriesSet.has(country)) {
+          changed.add(country);
+        }
+      }
+
+      if (changed.size === 0) return; // Nie ma zmian, nic nie rób
+
+      // 1. Rozpocznij proces aktualizacji
+      setIsUpdating(true);
+      setRecentlyChangedCountries(changed);
+
+      // 2. Natychmiast zaktualizuj główny stan (optymistyczna aktualizacja)
+      setVisitedCountries(newCountries);
+
+      // 3. Ustaw timer, który zakończy "animację"
+      updateTimeoutRef.current = setTimeout(() => {
+        setRecentlyChangedCountries(new Set()); // Wyczyść podświetlenie
+        setIsUpdating(false); // Odblokuj interakcje
+        updateTimeoutRef.current = null;
+      }, 4000); // Czas trwania podświetlenia (w ms)
+    },
+    [visitedCountries, setVisitedCountries]
+  );
   const value = useMemo(
     () => ({
       scale,
       translateX,
       translateY,
       resetMapTransform,
-      selectedCountries,
+      selectedCountries: visitedCountries, // Używamy bezpośrednio visitedCountries
       isLoadingData,
+      // Eksportujemy nowe wartości
+      isUpdating,
+      recentlyChangedCountries,
+      updateAndHighlightCountries,
     }),
     [
       scale,
       translateX,
       translateY,
       resetMapTransform,
-      selectedCountries,
+      visitedCountries,
       isLoadingData,
+      isUpdating,
+      recentlyChangedCountries,
+      updateAndHighlightCountries,
     ]
   );
 

@@ -257,7 +257,14 @@ const InteractiveMapComponent = forwardRef<
   InteractiveMapRef,
   InteractiveMapProps
 >(({ selectedCountries, totalCountries, onCountryPress, style }, ref) => {
-  const { scale, translateX, translateY, resetMapTransform } = useMapState();
+  const {
+    scale,
+    translateX,
+    translateY,
+    resetMapTransform,
+    isUpdating, // <-- NOWY STAN
+    recentlyChangedCountries, // <-- NOWY STAN
+  } = useMapState();
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
   const theme = useTheme();
   const router = useRouter(); // Hook do nawigacji
@@ -550,12 +557,20 @@ const InteractiveMapComponent = forwardRef<
     (countryCode: string) => {
       const isVisited = selectedCountries.includes(countryCode);
       const isHighlighted = tooltip && tooltip.country.id === countryCode;
+
+      // --- NOWA, NAJWAŻNIEJSZA LOGIKA ---
+      // Jeśli kraj właśnie się zmienia, nadaj mu specjalny kolor
+      if (recentlyChangedCountries.has(countryCode)) {
+        return theme.colors.primary; // Kolor podświetlenia (FIOLETOWY)
+      }
+
       if (isHighlighted) {
         return applyTransparency(theme.colors.primary, 0.75);
       }
-      return isVisited ? "rgba(0,174,245,255)" : "#b2b7bf";
+
+      return isVisited ? "rgba(0,174,245,255)" : "#b2b7bf"; // Błękitny lub szary
     },
-    [selectedCountries, tooltip, theme.colors.primary]
+    [selectedCountries, tooltip, theme.colors.primary, recentlyChangedCountries] // <-- DODAJ NOWĄ ZALEŻNOŚĆ
   );
 
   // Zaktualizuj isCountryHighlighted
@@ -712,6 +727,7 @@ const InteractiveMapComponent = forwardRef<
     };
   }, [screenWidth, RESOLUTION_FACTOR]);
   const pinchGesture = Gesture.Pinch()
+    .enabled(!isUpdating)
     .onBegin((event) => {
       "worklet";
       if (tooltip) {
@@ -766,6 +782,7 @@ const InteractiveMapComponent = forwardRef<
 
   const panGesture = Gesture.Pan()
     .maxPointers(1)
+    .enabled(!isUpdating)
     .onStart(() => {
       startX.value = translateX.value;
       startY.value = translateY.value;

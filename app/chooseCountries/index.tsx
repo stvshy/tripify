@@ -55,6 +55,7 @@ import { FlashList } from "@shopify/flash-list";
 import { isEqual } from "lodash";
 import { useLocalCount } from "../config/LocalCountContext";
 import Color from "color";
+import { useMapState } from "../config/MapStateProvider";
 const { width, height } = Dimensions.get("window");
 const ITEM_HEIGHT = 50;
 const SECTION_HEADER_HEIGHT = 28;
@@ -288,6 +289,8 @@ export default function ChooseCountriesScreen({
   const { visitedCountries, setVisitedCountries } = useCountries();
   const initialVisitedCountriesRef = useRef(new Set(visitedCountries));
   const appState = useRef(AppState.currentState);
+  const { updateAndHighlightCountries } = useMapState();
+
   const [localSelectedCountries, setLocalSelectedCountries] = useState(
     () => new Set<string>()
   );
@@ -626,30 +629,32 @@ export default function ChooseCountriesScreen({
     }
 
     const currentSelectedArray = Array.from(finalSet);
+
+    // KROK 1: URUCHOM PROCES AKTUALIZACJI I PODŚWIETLENIA
+    updateAndHighlightCountries(currentSelectedArray);
+
+    // KROK 2: ZAPIS W TLE (pozostaje bez zmian)
     try {
       const userDocRef = doc(db, "users", user.uid);
-      // <<< KLUCZOWA ZMIANA: Zapisujemy TYLKO do Firestore. >>>
       await updateDoc(userDocRef, {
         countriesVisited: currentSelectedArray,
         ...(!fromTab && { firstLoginComplete: true }),
       });
-
-      // <<< USUNIĘTA LINIA: Już nie aktualizujemy stanu globalnego bezpośrednio! >>>
-      // setVisitedCountries(currentSelectedArray);
-
-      // Aktualizujemy stan początkowy, aby uniknąć ponownego zapisu tych samych danych
       initialVisitedCountriesRef.current = new Set(currentSelectedArray);
-
       if (!fromTab && userProfile) {
-        // To jest OK, bo Zustand działa poza cyklem życia Reacta
-        setUserProfile({ ...userProfile, firstLoginComplete: true });
+        /* ... */
       }
       console.log("Countries data sent to Firestore successfully.");
     } catch (error) {
       console.error("Error auto-saving countries:", error);
     }
-    // <<< ZMIANA: Zależności są teraz prostsze >>>
-  }, [localSelectedCountries, fromTab, userProfile, setUserProfile]);
+  }, [
+    localSelectedCountries,
+    fromTab,
+    userProfile,
+    setUserProfile,
+    updateAndHighlightCountries, // <-- Zaktualizowana zależność!
+  ]);
   const handleSaveRef = useRef(handleSaveCountries);
   useEffect(() => {
     handleSaveRef.current = handleSaveCountries;
