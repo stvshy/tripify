@@ -864,6 +864,7 @@ export default function ChooseCountriesScreen({
                 onChangeText={handleSearchChange}
                 mode="flat"
                 style={styles.input}
+                placeholderTextColor={theme.colors.onSurfaceVariant}
                 theme={{
                   colors: {
                     primary: isSearchFocused
@@ -884,7 +885,9 @@ export default function ChooseCountriesScreen({
                         color={
                           isSearchFocused
                             ? theme.colors.primary
-                            : theme.colors.outline
+                            : theme.dark
+                              ? "#838383ff"
+                              : "#888888ff"
                         }
                       />
                     )}
@@ -899,6 +902,7 @@ export default function ChooseCountriesScreen({
                           name="close"
                           size={17}
                           color={theme.colors.outline}
+                          style={styles.iconRight}
                         />
                       )}
                       onPress={() => {
@@ -1110,7 +1114,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f0ed8f5",
     borderRadius: 28,
     overflow: "hidden",
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: "#ccc",
     flexDirection: "row",
     alignItems: "center",
@@ -1127,7 +1131,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: "#ccc",
   },
-
+  iconRight: {
+    marginRight: -10,
+  },
   toggleButton: {
     width: height * 0.0615,
     height: height * 0.0615,
