@@ -754,7 +754,6 @@ export default function ChooseCountriesScreen({
         // Sprawdzamy, czy nasz input wciąż ma fokus.
         // Czasem może go stracić z innego powodu, więc to jest dobre zabezpieczenie.
         if (searchInputRef.current?.isFocused()) {
-          console.log("Keyboard did hide, now blurring the input.");
           // Imperatywnie i natychmiastowo usuwamy fokus.
           searchInputRef.current.blur();
         }
@@ -784,7 +783,6 @@ export default function ChooseCountriesScreen({
       // --- Funkcja czyszcząca ---
       // Jest absolutnie kluczowa, aby usunąć listenery, gdy ekran straci fokus.
       return () => {
-        console.log("Screen lost focus, cleaning up listeners and saving.");
         keyboardDidHideSubscription.remove(); // Usuwamy nasz nowy listener
         appStateSubscription.remove();
         handleSaveRef.current?.();
