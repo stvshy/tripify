@@ -874,6 +874,7 @@ export default function ChooseCountriesScreen({
                   },
                 }}
                 underlineColor="transparent"
+                // contentStyle={{ marginLeft: -15 }}
                 left={
                   <PaperTextInput.Icon
                     icon={() => (
@@ -1140,15 +1141,18 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    // paddingLeft: 10,
     height: 50,
     fontSize: 14,
     backgroundColor: "transparent",
     borderRadius: 0,
     color: "#000",
+    marginLeft: -8,
   },
   iconLeft: {
-    marginLeft: 10,
+    marginLeft: 7,
+    // KLUCZOWA ZMIANA: Ujemny margines z prawej strony na kontenerze ikony.
+    // To "mówi" kolejnemu elementowi (polu tekstowemu), żeby przysunął się w lewo.
+    marginRight: -5,
   },
   countryItemContent: {
     // Nowy styl dla zawartości

@@ -87,6 +87,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 13,
+    marginLeft: 4,
   },
   modeToggleContainer: {
     flex: 1.1,
