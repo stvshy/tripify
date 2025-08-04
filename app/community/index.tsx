@@ -20,6 +20,7 @@ import {
   Platform,
   TouchableNativeFeedback,
   Pressable,
+  Keyboard,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useTheme, MD3Theme } from "react-native-paper";
@@ -399,12 +400,12 @@ export default function CommunityScreen() {
   const [searchText, setSearchText] = useState("");
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [activeFriendId, setActiveFriendId] = useState<string | null>(null);
-  const [isFocused, setIsFocused] = useState(true);
+  const [isFocused, setIsFocused] = useState(false);
   const [searchAttempted, setSearchAttempted] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
   const theme = useTheme();
-
+  const inputRef = useRef<TextInput>(null);
   const [removalModal, setRemovalModal] = useState<{
     visible: boolean;
     friend: Friendship | null;
@@ -413,16 +414,22 @@ export default function CommunityScreen() {
     friend: null,
   });
 
-  useFocusEffect(
-    useCallback(() => {
-      // Ta prosta zmiana stanu wymusi ponowne renderowanie komponentu
-      // za każdym razem, gdy ekran odzyska fokus.
-      setIsFocused(true);
+  // ZMIANA: Dodaj ten hook do obsługi chowania klawiatury
+  useEffect(() => {
+    const keyboardDidHideListener = Keyboard.addListener(
+      "keyboardDidHide",
+      () => {
+        // Gdy klawiatura się chowa (np. przez przycisk "wstecz"),
+        // programowo usuwamy focus z inputu.
+        inputRef.current?.blur();
+      }
+    );
 
-      // Funkcja czyszcząca
-      return () => setIsFocused(false);
-    }, [])
-  );
+    // Funkcja czyszcząca, która usuwa listener, gdy komponent jest odmontowywany
+    return () => {
+      keyboardDidHideListener.remove();
+    };
+  }, []); // Pusta tablica zależności sprawia, że listener jest dodawany tylko raz
 
   const filteredFriends = useMemo(() => {
     if (!searchText) {
@@ -542,6 +549,7 @@ export default function CommunityScreen() {
                     style={styles.searchIcon}
                   />
                   <TextInput
+                    ref={inputRef}
                     placeholder={
                       isSearchMode
                         ? "Enter friend's nickname..."
