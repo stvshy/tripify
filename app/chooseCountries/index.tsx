@@ -402,63 +402,63 @@ export default function ChooseCountriesScreen({
     });
   }, [scaleValue, toggleTheme]);
 
-  useFocusEffect(
-    useCallback(() => {
-      // --- Nowa, bardziej agresywna logika BackHandler ---
-      const onBackPress = () => {
-        // Sprawdzamy, czy jakikolwiek TextInput jest aktywny.
-        // To jest bardziej ogólne i niezawodne niż poleganie na naszym stanie.
-        const activeElement = TextInput.State.currentlyFocusedInput();
+  // useFocusEffect(
+  //   useCallback(() => {
+  //     // --- Nowa, bardziej agresywna logika BackHandler ---
+  //     const onBackPress = () => {
+  //       // Sprawdzamy, czy jakikolwiek TextInput jest aktywny.
+  //       // To jest bardziej ogólne i niezawodne niż poleganie na naszym stanie.
+  //       const activeElement = TextInput.State.currentlyFocusedInput();
 
-        if (activeElement) {
-          // Jeśli tak, bezwzględnie usuwamy fokus i chowamy klawiaturę
-          activeElement.blur();
-          Keyboard.dismiss();
+  //       if (activeElement) {
+  //         // Jeśli tak, bezwzględnie usuwamy fokus i chowamy klawiaturę
+  //         activeElement.blur();
+  //         Keyboard.dismiss();
 
-          // Upewniamy się, że nasz stan też jest zsynchronizowany
-          setIsSearchFocused(false);
+  //         // Upewniamy się, że nasz stan też jest zsynchronizowany
+  //         setIsSearchFocused(false);
 
-          // Zwracamy `true`, aby zatrzymać dalsze działania
-          return true;
-        }
+  //         // Zwracamy `true`, aby zatrzymać dalsze działania
+  //         return true;
+  //       }
 
-        // Jeśli żaden input nie jest aktywny, pozwalamy na normalne działanie
-        return false;
-      };
+  //       // Jeśli żaden input nie jest aktywny, pozwalamy na normalne działanie
+  //       return false;
+  //     };
 
-      const backHandler = BackHandler.addEventListener(
-        "hardwareBackPress",
-        onBackPress
-      );
+  //     const backHandler = BackHandler.addEventListener(
+  //       "hardwareBackPress",
+  //       onBackPress
+  //     );
 
-      // --- Logika AppState (pozostaje bez zmian) ---
-      const subscription = AppState.addEventListener(
-        "change",
-        (nextAppState) => {
-          if (
-            appState.current.match(/active/) &&
-            (nextAppState === "background" || nextAppState === "inactive")
-          ) {
-            console.log(
-              "App state changed to inactive/background! Saving changes..."
-            );
-            handleSaveRef.current?.();
-          }
-          appState.current = nextAppState;
-        }
-      );
+  //     // --- Logika AppState (pozostaje bez zmian) ---
+  //     const subscription = AppState.addEventListener(
+  //       "change",
+  //       (nextAppState) => {
+  //         if (
+  //           appState.current.match(/active/) &&
+  //           (nextAppState === "background" || nextAppState === "inactive")
+  //         ) {
+  //           console.log(
+  //             "App state changed to inactive/background! Saving changes..."
+  //           );
+  //           handleSaveRef.current?.();
+  //         }
+  //         appState.current = nextAppState;
+  //       }
+  //     );
 
-      // --- Funkcja czyszcząca ---
-      return () => {
-        console.log(
-          "Screen lost focus! Removing listeners and saving changes..."
-        );
-        backHandler.remove(); // Usuwamy listener BackHandler
-        subscription.remove(); // Usuwamy listener AppState
-        handleSaveRef.current?.(); // Zapisujemy zmiany przy utracie fokusu
-      };
-    }, []) // Pusta tablica zależności jest tutaj KLUCZOWA, aby to działało jak componentDidMount/WillUnmount
-  );
+  //     // --- Funkcja czyszcząca ---
+  //     return () => {
+  //       console.log(
+  //         "Screen lost focus! Removing listeners and saving changes..."
+  //       );
+  //       backHandler.remove(); // Usuwamy listener BackHandler
+  //       subscription.remove(); // Usuwamy listener AppState
+  //       handleSaveRef.current?.(); // Zapisujemy zmiany przy utracie fokusu
+  //     };
+  //   }, []) // Pusta tablica zależności jest tutaj KLUCZOWA, aby to działało jak componentDidMount/WillUnmount
+  // );
   const SkeletonItem = () => {
     const theme = useTheme();
 
@@ -662,34 +662,34 @@ export default function ChooseCountriesScreen({
     }
   }, [localSelectedCountries, setLocalCount]);
   // <<< GŁÓWNA ZMIANA: Obsługa stanu aplikacji (background/inactive) >>>
-  useFocusEffect(
-    useCallback(() => {
-      // Ta funkcja jest wywoływana, gdy ekran zyskuje fokus.
-      // Możemy tu nasłuchiwać na zmiany stanu aplikacji.
-      const subscription = AppState.addEventListener(
-        "change",
-        (nextAppState) => {
-          if (
-            appState.current.match(/active/) &&
-            (nextAppState === "background" || nextAppState === "inactive")
-          ) {
-            console.log(
-              "App state changed to inactive/background! Saving changes..."
-            );
-            handleSaveRef.current?.();
-          }
-          appState.current = nextAppState;
-        }
-      );
+  // useFocusEffect(
+  //   useCallback(() => {
+  //     // Ta funkcja jest wywoływana, gdy ekran zyskuje fokus.
+  //     // Możemy tu nasłuchiwać na zmiany stanu aplikacji.
+  //     const subscription = AppState.addEventListener(
+  //       "change",
+  //       (nextAppState) => {
+  //         if (
+  //           appState.current.match(/active/) &&
+  //           (nextAppState === "background" || nextAppState === "inactive")
+  //         ) {
+  //           console.log(
+  //             "App state changed to inactive/background! Saving changes..."
+  //           );
+  //           handleSaveRef.current?.();
+  //         }
+  //         appState.current = nextAppState;
+  //       }
+  //     );
 
-      // Ta funkcja czyszcząca jest wywoływana, gdy ekran traci fokus.
-      return () => {
-        subscription.remove();
-        console.log("Screen lost focus! Saving changes...");
-        handleSaveRef.current?.();
-      };
-    }, []) // Pusta tablica zależności jest tutaj kluczowa
-  );
+  //     // Ta funkcja czyszcząca jest wywoływana, gdy ekran traci fokus.
+  //     return () => {
+  //       subscription.remove();
+  //       console.log("Screen lost focus! Saving changes...");
+  //       handleSaveRef.current?.();
+  //     };
+  //   }, []) // Pusta tablica zależności jest tutaj kluczowa
+  // );
   // Function to handle clicking outside the text input
   const dismissKeyboard = useCallback(() => {
     // Nie sprawdzamy warunków, po prostu wywołujemy obie akcje.
@@ -706,42 +706,91 @@ export default function ChooseCountriesScreen({
     // Niezależnie od wszystkiego, chowamy klawiaturę
     Keyboard.dismiss();
   }, []);
+  // useFocusEffect(
+  //   useCallback(() => {
+  //     const onAppStateChange = (nextAppState: AppStateStatus) => {
+  //       if (
+  //         appState.current.match(/active/) &&
+  //         (nextAppState === "background" || nextAppState === "inactive")
+  //       ) {
+  //         handleSaveRef.current?.();
+  //       }
+  //       appState.current = nextAppState;
+  //     };
+
+  //     const onBackPress = () => {
+  //       if (searchInputRef.current?.isFocused()) {
+  //         dismissKeyboard();
+  //         return true; // Prevent default action
+  //       }
+  //       return false; // Allow default action
+  //     };
+
+  //     const appStateSubscription = AppState.addEventListener(
+  //       "change",
+  //       onAppStateChange
+  //     );
+  //     const backHandler = BackHandler.addEventListener(
+  //       "hardwareBackPress",
+  //       onBackPress
+  //     );
+
+  //     // Funkcja czyszcząca
+  //     return () => {
+  //       appStateSubscription.remove();
+  //       backHandler.remove();
+  //       handleSaveRef.current?.(); // Zapisz zmiany przy opuszczaniu ekranu
+  //     };
+  //   }, [dismissKeyboard]) // Stabilna zależność
+  // );
+  // Wklej ten kod do komponentu ChooseCountriesScreen
+
+  // Wklej ten kod do komponentu ChooseCountriesScreen (w miejsce poprzednich `useFocusEffect`)
+
   useFocusEffect(
     useCallback(() => {
-      const onAppStateChange = (nextAppState: AppStateStatus) => {
-        if (
-          appState.current.match(/active/) &&
-          (nextAppState === "background" || nextAppState === "inactive")
-        ) {
-          handleSaveRef.current?.();
-        }
-        appState.current = nextAppState;
-      };
-
-      const onBackPress = () => {
+      // Ta funkcja zostanie wywołana, gdy klawiatura CAŁKOWICIE się schowa.
+      const onKeyboardHide = () => {
+        // Sprawdzamy, czy nasz input wciąż ma fokus.
+        // Czasem może go stracić z innego powodu, więc to jest dobre zabezpieczenie.
         if (searchInputRef.current?.isFocused()) {
-          dismissKeyboard();
-          return true; // Prevent default action
+          console.log("Keyboard did hide, now blurring the input.");
+          // Imperatywnie i natychmiastowo usuwamy fokus.
+          searchInputRef.current.blur();
         }
-        return false; // Allow default action
       };
 
+      // --- NOWY, KLUCZOWY ELEMENT: Nasłuchiwanie na zdarzenie systemowe ---
+      // Rejestrujemy listener, który odpali się PO schowaniu klawiatury.
+      const keyboardDidHideSubscription = Keyboard.addListener(
+        "keyboardDidHide",
+        onKeyboardHide
+      );
+
+      // Listener dla stanu aplikacji zostaje, bo jest potrzebny do zapisu danych.
       const appStateSubscription = AppState.addEventListener(
         "change",
-        onAppStateChange
-      );
-      const backHandler = BackHandler.addEventListener(
-        "hardwareBackPress",
-        onBackPress
+        (nextAppState) => {
+          if (
+            appState.current.match(/active/) &&
+            (nextAppState === "background" || nextAppState === "inactive")
+          ) {
+            handleSaveRef.current?.();
+          }
+          appState.current = nextAppState;
+        }
       );
 
-      // Funkcja czyszcząca
+      // --- Funkcja czyszcząca ---
+      // Jest absolutnie kluczowa, aby usunąć listenery, gdy ekran straci fokus.
       return () => {
+        console.log("Screen lost focus, cleaning up listeners and saving.");
+        keyboardDidHideSubscription.remove(); // Usuwamy nasz nowy listener
         appStateSubscription.remove();
-        backHandler.remove();
-        handleSaveRef.current?.(); // Zapisz zmiany przy opuszczaniu ekranu
+        handleSaveRef.current?.();
       };
-    }, [dismissKeyboard]) // Stabilna zależność
+    }, []) // Pusta tablica zależności jest tutaj poprawna,
+    // ponieważ logika zależy tylko od stabilnego refa i nie musi być odtwarzana.
   );
   const renderItem = useCallback(
     ({ item }: { item: ListItem }) => {
