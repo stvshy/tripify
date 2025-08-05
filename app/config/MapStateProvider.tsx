@@ -15,9 +15,6 @@ import {
   SharedValue,
   withSpring,
 } from "react-native-reanimated";
-
-// === KROK 1: Importujemy hooki z Twojego CountryContext ===
-// Zakładam, że plik nazywa się CountryContext.tsx i eksportuje ten hook.
 import { useCountries } from "./CountryContext";
 
 interface MapContextType {
@@ -28,6 +25,7 @@ interface MapContextType {
   resetMapTransform: () => void;
   isUpdating: boolean;
   recentlyChangedCountries: Set<string>;
+  clearHighlights: () => void; // NOWA FUNKCJA DO EKSPORTU
   // Stan Danych
   selectedCountries: string[] | null;
   isLoadingData: boolean;
@@ -37,7 +35,7 @@ interface MapContextType {
 const MapContext = createContext<MapContextType | null>(null);
 
 export const MapStateProvider = ({ children }: { children: ReactNode }) => {
-  // --- Stan UI (tak jak poprzednio, bez zmian) ---
+  // --- Stan UI (bez zmian) ---
   const scale = useSharedValue(1);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -49,14 +47,9 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
     translateY.value = withSpring(0, springConfig);
   }, [scale, translateX, translateY]);
 
-  // --- NOWA LOGIKA STANU DANYCH ---
-
-  // === KROK 2: Używamy hooka useCountries, aby uzyskać dostęp do danych w czasie rzeczywistym ===
+  // --- Logika stanu danych ---
   const { visitedCountries, setVisitedCountries } = useCountries();
 
-  // === KROK 3: Usuwamy stary, skomplikowany stan. Teraz jest prościej. ===
-  // Stan `isLoadingData` zależy teraz od tego, czy `visitedCountries` jest już dostępne.
-  // Używamy `useState` i `useEffect` do zarządzania stanem ładowania.
   const [selectedCountries, setSelectedCountries] = useState<string[] | null>(
     null
   );
@@ -66,24 +59,21 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
     new Set<string>()
   );
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  // === KROK 4: Używamy useEffect do synchronizacji danych z CountryContext ===
-  // Ten hook uruchomi się przy pierwszym renderowaniu ORAZ za każdym razem,
-  // gdy `visitedCountries` z `CountryContext` się zmieni.
+
   useEffect(() => {
-    // Jeśli `visitedCountries` nie jest już pustą tablicą (domyślny stan),
-    // to znaczy, że `CountryContext` załadował dane z Firestore.
-    // Sprawdzamy też, czy nie jest `undefined`, na wszelki wypadek.
     if (visitedCountries) {
       setSelectedCountries(visitedCountries);
-      // Gdy tylko mamy dane, przestajemy pokazywać ładowanie.
       if (isLoadingData) {
         setIsLoadingData(false);
       }
     }
-    // Jeśli `visitedCountries` to `null` lub `undefined`, możemy poczekać.
-    // Jeśli `CountryContext` nigdy nie zwróci danych (np. błąd),
-    // `isLoadingData` pozostanie `true`.
-  }, [visitedCountries, isLoadingData]); // Zależność od danych z CountryContext
+  }, [visitedCountries, isLoadingData]);
+
+  // NOWA FUNKCJA: Odpowiedzialna tylko za czyszczenie podświetleń
+  const clearHighlights = useCallback(() => {
+    setRecentlyChangedCountries(new Set());
+  }, []);
+
   const updateAndHighlightCountries = useCallback(
     (newCountries: string[]) => {
       // Jeśli poprzednia animacja jeszcze trwa, anulujemy ją
@@ -109,19 +99,22 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
 
       if (changed.size === 0) return; // Nie ma zmian, nic nie rób
 
-      // 1. Rozpocznij proces aktualizacji
+      // 1. Rozpocznij proces aktualizacji i podświetl kraje
+      // Te dwa stany zostaną zaktualizowane razem
       setIsUpdating(true);
       setRecentlyChangedCountries(changed);
 
-      // 2. Natychmiast zaktualizuj główny stan (optymistyczna aktualizacja)
+      // 2. Zaktualizuj główny stan w tle
       setVisitedCountries(newCountries);
 
-      // 3. Ustaw timer, który zakończy "animację"
+      // 3. Ustaw timer, który ZAKOŃCZY aktualizację
+      // KLUCZOWA ZMIANA: Po 4 sekundach jednocześnie wyłączamy flagę 'isUpdating'
+      // i czyścimy podświetlone kraje. React zbatchuje te zmiany.
       updateTimeoutRef.current = setTimeout(() => {
+        setIsUpdating(false); // Odblokuj interakcje i zmień przyciski
         setRecentlyChangedCountries(new Set()); // Wyczyść podświetlenie
-        setIsUpdating(false); // Odblokuj interakcje
         updateTimeoutRef.current = null;
-      }, 4000); // Czas trwania podświetlenia (w ms)
+      }, 4000); // Czas trwania podświetlenia i widoczności przycisku "New"
     },
     [visitedCountries, setVisitedCountries]
   );
@@ -131,12 +124,12 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       translateX,
       translateY,
       resetMapTransform,
-      selectedCountries: visitedCountries, // Używamy bezpośrednio visitedCountries
+      selectedCountries: visitedCountries,
       isLoadingData,
-      // Eksportujemy nowe wartości
       isUpdating,
       recentlyChangedCountries,
       updateAndHighlightCountries,
+      clearHighlights, // EKSPORTUJEMY NOWĄ FUNKCJĘ
     }),
     [
       scale,
@@ -148,6 +141,7 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       isUpdating,
       recentlyChangedCountries,
       updateAndHighlightCountries,
+      clearHighlights, // DODAJ DO ZALEŻNOŚCI
     ]
   );
 

@@ -263,8 +263,9 @@ const InteractiveMapComponent = forwardRef<
     translateX,
     translateY,
     resetMapTransform,
-    isUpdating, // <-- NOWY STAN
-    recentlyChangedCountries, // <-- NOWY STAN
+    isUpdating,
+    recentlyChangedCountries,
+    clearHighlights, // <<<---- NOWOŚĆ: Zaimportuj nową funkcję
   } = useMapState();
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
   const theme = useTheme();
@@ -303,12 +304,18 @@ const InteractiveMapComponent = forwardRef<
   // KROK 2: Funkcja odsłaniająca standardowe przyciski
   // Używamy useCallback, aby uniknąć niepotrzebnych re-renderów.
   const revealRegularButtons = useCallback(() => {
-    // Zapobiegamy wielokrotnemu uruchomieniu animacji
     if (newButtonRevealed) return;
     setNewButtonRevealed(true);
 
     // Animacja zanikania przycisku "New!"
-    newButtonOpacity.value = withTiming(0, { duration: 250 });
+    // KLUCZOWA ZMIANA: Dodajemy callback `runOnJS` na końcu animacji
+    newButtonOpacity.value = withTiming(0, { duration: 250 }, (finished) => {
+      // Po zakończeniu animacji...
+      if (finished) {
+        // ...wywołaj funkcję czyszczącą podświetlenie w głównym wątku JS.
+        runOnJS(clearHighlights)();
+      }
+    });
     newButtonScale.value = withTiming(0.8, { duration: 250 });
 
     // Animacja pojawiania się standardowych przycisków
@@ -316,25 +323,23 @@ const InteractiveMapComponent = forwardRef<
       100,
       withTiming(1, { duration: 250 })
     );
-  }, [newButtonRevealed]); // Zależność od stanu
+  }, [newButtonRevealed, clearHighlights]); // <<<---- NOWOŚĆ: Dodaj `clearHighlights` do zależności
 
-  // KROK 3: Logika reagująca na zmiany w `isUpdating` (z MapStateProvider)
+  // KROK 3: Zmodyfikuj `useEffect` reagujący na `isUpdating`
   useEffect(() => {
     if (isUpdating) {
-      // NOWE KRAJE SIĘ POJAWIŁY!
-      // Resetujemy stan, aby animacja mogła się ponownie uruchomić
       setNewButtonRevealed(false);
-      // Pokaż przycisk "New!" i ukryj standardowe
-      newButtonOpacity.value = withTiming(1, { duration: 300 });
-      newButtonScale.value = withTiming(1, { duration: 300 });
-      regularButtonsOpacity.value = withTiming(0, { duration: 150 });
+      // ZMIANA: Przyspieszamy animację pojawiania się przycisku "New!",
+      // aby zminimalizować opóźnienie względem natychmiastowego podświetlenia.
+      // Możesz ustawić duration nawet na 0, jeśli chcesz, aby pojawił się od razu.
+      newButtonOpacity.value = withTiming(1, { duration: 150 }); // Było 300
+      newButtonScale.value = withSpring(1, { damping: 12, stiffness: 120 }); // Użyj sprężyny dla ładniejszego efektu
+      regularButtonsOpacity.value = withTiming(0, { duration: 100 }); // Było 150
     } else {
-      // MINĄŁ TIMER (isUpdating stało się false)
-      // Uruchamiamy animację powrotną, jeśli nie została jeszcze uruchomiona przez kliknięcie
+      // Ta część pozostaje bez zmian, uruchomi zmodyfikowaną funkcję `revealRegularButtons`
       revealRegularButtons();
     }
   }, [isUpdating, revealRegularButtons]);
-
   // KROK 4: Zdefiniowanie animowanych stylów
   const newButtonAnimatedStyle = useAnimatedStyle(() => ({
     opacity: newButtonOpacity.value,
@@ -1347,105 +1352,108 @@ const InteractiveMapComponent = forwardRef<
             </View>
           </View>
         </View>
-        {/* Kontener przyciskĂłw */}
+        {/* Kontener przycisków */}
         <Animated.View
           style={[styles.buttonContainer, buttonContainerAnimatedStyle]}
         >
-          {/* Pojemnik na przycisk "New!", widoczny gdy trzeba */}
-          <Animated.View
-            style={[
-              StyleSheet.absoluteFill,
-              styles.centeredContent,
-              newButtonAnimatedStyle,
-            ]}
-            pointerEvents={newButtonRevealed ? "none" : "auto"}
-          >
-            <TouchableOpacity
-              style={[
-                styles.newButton,
-                { backgroundColor: theme.colors.primary },
-              ]}
-              onPress={revealRegularButtons}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.newButtonText,
-                  { color: theme.colors.onPrimary },
-                ]}
-              >
-                New!
-              </Text>
-            </TouchableOpacity>
-          </Animated.View>
-
-          {/* Pojemnik na standardowe przyciski, widoczny normalnie */}
-          <Animated.View
-            style={[
-              StyleSheet.absoluteFill,
-              styles.centeredContent,
-              regularButtonsAnimatedStyle,
-            ]}
-            pointerEvents={newButtonRevealed ? "auto" : "none"}
-          >
-            <TouchableOpacity
-              style={[
-                styles.resetButton,
-                { backgroundColor: theme.colors.primary },
-              ]}
-              onPress={resetMap}
-              activeOpacity={0.7}
-            >
-              <Feather
-                name="code"
-                size={ICON_SIZE}
-                style={styles.resetIcon}
-                color={theme.colors.onPrimary}
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.shareButton,
-                { backgroundColor: theme.colors.primary },
-              ]}
-              onPress={shareMap}
-              activeOpacity={0.7}
-              disabled={isSharing}
-            >
-              {isSharing ? (
-                <ActivityIndicator
-                  size="small"
-                  color={theme.colors.onPrimary}
-                />
-              ) : (
-                <Feather
-                  name="share-2"
-                  size={ICON_SIZE}
-                  color={theme.colors.onPrimary}
-                />
-              )}
-            </TouchableOpacity>
-
-            <Animated.View
-              style={[styles.toggleButtonContainer, animatedToggleStyle]}
-            >
+          {/* Używamy operatora trójargumentowego do warunkowego renderowania.
+              To gwarantuje, że zmiana będzie natychmiastowa i zsynchronizowana
+              ze stanem `isUpdating`. */}
+          {isUpdating ? (
+            // WIDOK, GDY isUpdating === true
+            <View style={[StyleSheet.absoluteFill, styles.centeredContent]}>
               <TouchableOpacity
-                onPress={handleToggleTheme}
                 style={[
-                  styles.toggleButton,
+                  styles.newButton,
                   { backgroundColor: theme.colors.primary },
                 ]}
+                // onPress może np. przyspieszyć zniknięcie
+                onPress={() => {
+                  // Jeśli chcemy, aby kliknięcie na "New!" od razu go schowało
+                  // (opcjonalne, ale dobra funkcjonalność)
+                  // Musielibyśmy przenieść logikę setTimeout do InteractiveMap
+                  // Na razie zostawmy bez akcji
+                }}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.newButtonText,
+                    { color: theme.colors.onPrimary },
+                  ]}
+                >
+                  New!
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            // WIDOK, GDY isUpdating === false
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                styles.centeredContent,
+                { flexDirection: "row" },
+              ]}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.resetButton,
+                  { backgroundColor: theme.colors.primary },
+                ]}
+                onPress={resetMap}
                 activeOpacity={0.7}
               >
-                <MaterialIcons
-                  name={isDarkTheme ? "dark-mode" : "light-mode"}
+                <Feather
+                  name="code"
                   size={ICON_SIZE}
+                  style={styles.resetIcon}
                   color={theme.colors.onPrimary}
                 />
               </TouchableOpacity>
-            </Animated.View>
-          </Animated.View>
+
+              <TouchableOpacity
+                style={[
+                  styles.shareButton,
+                  { backgroundColor: theme.colors.primary },
+                ]}
+                onPress={shareMap}
+                activeOpacity={0.7}
+                disabled={isSharing}
+              >
+                {isSharing ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={theme.colors.onPrimary}
+                  />
+                ) : (
+                  <Feather
+                    name="share-2"
+                    size={ICON_SIZE}
+                    color={theme.colors.onPrimary}
+                  />
+                )}
+              </TouchableOpacity>
+
+              <Animated.View
+                style={[styles.toggleButtonContainer, animatedToggleStyle]}
+              >
+                <TouchableOpacity
+                  onPress={handleToggleTheme}
+                  style={[
+                    styles.toggleButton,
+                    { backgroundColor: theme.colors.primary },
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <MaterialIcons
+                    name={isDarkTheme ? "dark-mode" : "light-mode"}
+                    size={ICON_SIZE}
+                    color={theme.colors.onPrimary}
+                  />
+                </TouchableOpacity>
+              </Animated.View>
+            </View>
+          )}
         </Animated.View>
       </View>
     </GestureHandlerRootView>
