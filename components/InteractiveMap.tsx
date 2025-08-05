@@ -40,6 +40,7 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withSequence,
   withSpring,
   withTiming,
@@ -292,6 +293,60 @@ const InteractiveMapComponent = forwardRef<
   const [containerOffset, setContainerOffset] = useState({ x: 0, y: 0 });
   const animatedToggleStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scaleValue.value }],
+  }));
+  const [newButtonRevealed, setNewButtonRevealed] = useState(true);
+  // Wartości animowane do płynnego przejścia
+  const newButtonOpacity = useSharedValue(0);
+  const newButtonScale = useSharedValue(0.8);
+  const regularButtonsOpacity = useSharedValue(1);
+
+  // KROK 2: Funkcja odsłaniająca standardowe przyciski
+  // Używamy useCallback, aby uniknąć niepotrzebnych re-renderów.
+  const revealRegularButtons = useCallback(() => {
+    // Zapobiegamy wielokrotnemu uruchomieniu animacji
+    if (newButtonRevealed) return;
+    setNewButtonRevealed(true);
+
+    // Animacja zanikania przycisku "New!"
+    newButtonOpacity.value = withTiming(0, { duration: 250 });
+    newButtonScale.value = withTiming(0.8, { duration: 250 });
+
+    // Animacja pojawiania się standardowych przycisków
+    regularButtonsOpacity.value = withDelay(
+      100,
+      withTiming(1, { duration: 250 })
+    );
+  }, [newButtonRevealed]); // Zależność od stanu
+
+  // KROK 3: Logika reagująca na zmiany w `isUpdating` (z MapStateProvider)
+  useEffect(() => {
+    if (isUpdating) {
+      // NOWE KRAJE SIĘ POJAWIŁY!
+      // Resetujemy stan, aby animacja mogła się ponownie uruchomić
+      setNewButtonRevealed(false);
+      // Pokaż przycisk "New!" i ukryj standardowe
+      newButtonOpacity.value = withTiming(1, { duration: 300 });
+      newButtonScale.value = withTiming(1, { duration: 300 });
+      regularButtonsOpacity.value = withTiming(0, { duration: 150 });
+    } else {
+      // MINĄŁ TIMER (isUpdating stało się false)
+      // Uruchamiamy animację powrotną, jeśli nie została jeszcze uruchomiona przez kliknięcie
+      revealRegularButtons();
+    }
+  }, [isUpdating, revealRegularButtons]);
+
+  // KROK 4: Zdefiniowanie animowanych stylów
+  const newButtonAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: newButtonOpacity.value,
+    transform: [{ scale: newButtonScale.value }],
+  }));
+
+  const regularButtonsAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: regularButtonsOpacity.value,
+    // Utrzymujemy ten sam układ co "New!"
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
   }));
 
   const handleToggleTheme = () => {
@@ -1296,57 +1351,100 @@ const InteractiveMapComponent = forwardRef<
         <Animated.View
           style={[styles.buttonContainer, buttonContainerAnimatedStyle]}
         >
-          <TouchableOpacity
-            style={[
-              styles.resetButton,
-              { backgroundColor: theme.colors.primary },
-            ]}
-            onPress={resetMap}
-            activeOpacity={0.7}
-          >
-            <Feather
-              name="code"
-              size={ICON_SIZE}
-              style={styles.resetIcon}
-              color={theme.colors.onPrimary}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.shareButton,
-              { backgroundColor: theme.colors.primary },
-            ]}
-            onPress={shareMap}
-            activeOpacity={0.7}
-            disabled={isSharing}
-          >
-            {isSharing ? (
-              <ActivityIndicator size="small" color={theme.colors.onPrimary} />
-            ) : (
-              <Feather
-                name="share-2"
-                size={ICON_SIZE}
-                color={theme.colors.onPrimary}
-              />
-            )}
-          </TouchableOpacity>
+          {/* Pojemnik na przycisk "New!", widoczny gdy trzeba */}
           <Animated.View
-            style={[styles.toggleButtonContainer, animatedToggleStyle]}
+            style={[
+              StyleSheet.absoluteFill,
+              styles.centeredContent,
+              newButtonAnimatedStyle,
+            ]}
+            pointerEvents={newButtonRevealed ? "none" : "auto"}
           >
             <TouchableOpacity
-              onPress={handleToggleTheme}
               style={[
-                styles.toggleButton,
+                styles.newButton,
                 { backgroundColor: theme.colors.primary },
               ]}
+              onPress={revealRegularButtons}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.newButtonText,
+                  { color: theme.colors.onPrimary },
+                ]}
+              >
+                New!
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+
+          {/* Pojemnik na standardowe przyciski, widoczny normalnie */}
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFill,
+              styles.centeredContent,
+              regularButtonsAnimatedStyle,
+            ]}
+            pointerEvents={newButtonRevealed ? "auto" : "none"}
+          >
+            <TouchableOpacity
+              style={[
+                styles.resetButton,
+                { backgroundColor: theme.colors.primary },
+              ]}
+              onPress={resetMap}
               activeOpacity={0.7}
             >
-              <MaterialIcons
-                name={isDarkTheme ? "dark-mode" : "light-mode"}
+              <Feather
+                name="code"
                 size={ICON_SIZE}
+                style={styles.resetIcon}
                 color={theme.colors.onPrimary}
               />
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.shareButton,
+                { backgroundColor: theme.colors.primary },
+              ]}
+              onPress={shareMap}
+              activeOpacity={0.7}
+              disabled={isSharing}
+            >
+              {isSharing ? (
+                <ActivityIndicator
+                  size="small"
+                  color={theme.colors.onPrimary}
+                />
+              ) : (
+                <Feather
+                  name="share-2"
+                  size={ICON_SIZE}
+                  color={theme.colors.onPrimary}
+                />
+              )}
+            </TouchableOpacity>
+
+            <Animated.View
+              style={[styles.toggleButtonContainer, animatedToggleStyle]}
+            >
+              <TouchableOpacity
+                onPress={handleToggleTheme}
+                style={[
+                  styles.toggleButton,
+                  { backgroundColor: theme.colors.primary },
+                ]}
+                activeOpacity={0.7}
+              >
+                <MaterialIcons
+                  name={isDarkTheme ? "dark-mode" : "light-mode"}
+                  size={ICON_SIZE}
+                  color={theme.colors.onPrimary}
+                />
+              </TouchableOpacity>
+            </Animated.View>
           </Animated.View>
         </Animated.View>
       </View>
@@ -1521,6 +1619,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
+    height: BUTTON_SIZE,
   },
   resetButton: {
     width: BUTTON_SIZE,
@@ -1564,6 +1663,26 @@ const styles = StyleSheet.create({
   resetIcon: {
     transform: [{ rotate: "-45deg" }],
     fontSize: ICON_SIZE,
+  },
+  centeredContent: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  newButton: {
+    width: BUTTON_SIZE * 2,
+    height: BUTTON_SIZE,
+    borderRadius: BUTTON_SIZE / 2,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  newButtonText: {
+    fontSize: ICON_SIZE,
+    fontWeight: "bold",
   },
 });
 
