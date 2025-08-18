@@ -306,61 +306,47 @@ const InteractiveMapComponent = forwardRef<
   );
   const confettiRef = useRef<ConfettiCannon>(null);
   // Inicjalizujemy na podstawie showNewIndicator aby uniknąć opóźnienia pierwszej klatki
-  const [newButtonRevealed, setNewButtonRevealed] = useState(
-    () => !showNewIndicator
-  );
+  // const [newButtonRevealed, setNewButtonRevealed] = useState(
+  //   () => !showNewIndicator
+  // );
   // Flaga do natychmiastowego ukrycia (bez animacji) przy kliknięciu New
   const suppressHideAnimationRef = useRef(false);
   // Wartości animowane do płynnego przejścia
-  const newButtonOpacity = useSharedValue(showNewIndicator ? 1 : 0);
-  const newButtonScale = useSharedValue(showNewIndicator ? 1 : 0.8);
-  const regularButtonsOpacity = useSharedValue(showNewIndicator ? 0 : 1);
+  // const newButtonOpacity = useSharedValue(showNewIndicator ? 1 : 0);
+  // const newButtonScale = useSharedValue(showNewIndicator ? 1 : 0.8);
+  // const regularButtonsOpacity = useSharedValue(showNewIndicator ? 0 : 1);
 
   // KROK 2: Funkcja odsłaniająca standardowe przyciski
   // Używamy useCallback, aby uniknąć niepotrzebnych re-renderów.
-  const revealRegularButtons = useCallback(() => {
-    if (newButtonRevealed) return;
-    setNewButtonRevealed(true);
-    newButtonOpacity.value = withTiming(0, { duration: 250 });
-    newButtonScale.value = withTiming(0.8, { duration: 250 });
-    regularButtonsOpacity.value = withTiming(1, { duration: 250 });
-  }, [newButtonRevealed]);
+  // const revealRegularButtons = useCallback(() => {
+  //   if (newButtonRevealed) return;
+  //   setNewButtonRevealed(true);
+  //   newButtonOpacity.value = withTiming(0, { duration: 250 });
+  //   newButtonScale.value = withTiming(0.8, { duration: 250 });
+  //   regularButtonsOpacity.value = withTiming(1, { duration: 250 });
+  // }, [newButtonRevealed]);
 
   // Logika przejść PO pierwszym renderze – natychmiastowe pojawienie się przycisku New (bez opóźnienia animacji)
   const prevShowRef = useRef(showNewIndicator);
-  useLayoutEffect(() => {
+  const toggleProgress = useSharedValue(showNewIndicator ? 1 : 0);
+
+  useEffect(() => {
+    // płynne przejście między trybami
+    toggleProgress.value = withTiming(showNewIndicator ? 1 : 0, {
+      duration: 220,
+    });
     if (showNewIndicator) {
-      // POKAŻ "New"
-      setConfettiKey(Date.now());
-      newButtonOpacity.value = 1;
-      newButtonScale.value = 1;
-      regularButtonsOpacity.value = 0;
-      setNewButtonRevealed(false);
-    } else {
-      // UKRYJ "New" (także gdy zniknie przez timer) – NATYCHMIAST
-      newButtonOpacity.value = 0;
-      newButtonScale.value = 0.8;
-      regularButtonsOpacity.value = 1;
-      setNewButtonRevealed(true);
+      setConfettiKey(Date.now()); // tylko gdy pojawia się "New"
     }
-    prevShowRef.current = showNewIndicator;
-  }, [
-    showNewIndicator,
-    newButtonOpacity,
-    newButtonScale,
-    regularButtonsOpacity,
-  ]);
-  const newButtonAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: newButtonOpacity.value,
-    transform: [{ scale: newButtonScale.value }],
+  }, [showNewIndicator]);
+
+  const newContainerAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: toggleProgress.value, // 0..1
+    transform: [{ scale: 0.8 + 0.2 * toggleProgress.value }], // 0.8 -> 1.0
   }));
 
   const regularButtonsAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: regularButtonsOpacity.value,
-    // Utrzymujemy ten sam układ co "New!"
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
+    opacity: 1 - toggleProgress.value, // komplementarnie
   }));
 
   const handleToggleTheme = () => {
@@ -1058,26 +1044,9 @@ const InteractiveMapComponent = forwardRef<
   }, [resetMapTransform]);
 
   const handlePressNew = useCallback(() => {
-    suppressHideAnimationRef.current = true;
-    // natychmiastowa zmiana animowanych wartości
-    newButtonOpacity.value = 0;
-    newButtonScale.value = 0.8;
-    regularButtonsOpacity.value = 1;
-    setNewButtonRevealed(true);
-
-    // czyszczenie highlightów i stanu "New"
     clearHighlights();
-    instantDismissNewIndicator();
-
-    // dodatkowo (opcjonalnie) wymuś odświeżenie konfetti przez unmount (nic nie robi gdy ukryte)
-    setConfettiKey(Date.now());
-  }, [
-    instantDismissNewIndicator,
-    clearHighlights,
-    newButtonOpacity,
-    newButtonScale,
-    regularButtonsOpacity,
-  ]);
+    instantDismissNewIndicator(); // to przełączy showNewIndicator -> resztę zrobi efekt z toggleProgress
+  }, [clearHighlights, instantDismissNewIndicator]);
 
   // Reset tooltip & New indicator when leaving this screen
   useFocusEffect(
@@ -1423,77 +1392,73 @@ const InteractiveMapComponent = forwardRef<
         <Animated.View
           style={[styles.buttonContainer, buttonContainerAnimatedStyle]}
         >
-          {/* Przycisk "New!" - zawsze renderowany, kontrolowany przez animację */}
-          {showNewIndicator && (
-            <Animated.View
-              style={[
-                StyleSheet.absoluteFill,
-                styles.centeredContent,
-                newButtonAnimatedStyle,
-              ]}
-              pointerEvents="auto"
+          {/* Warstwa "New" zawsze montowana - sterujemy tylko opacity */}
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFill,
+              styles.centeredContent,
+              newContainerAnimatedStyle,
+            ]}
+            // Klikalne tylko gdy faktycznie widoczne (gdy showNewIndicator true)
+            pointerEvents={showNewIndicator ? "auto" : "none"}
+          >
+            <ConfettiCannon
+              key={confettiKey}
+              ref={confettiRef}
+              count={120}
+              origin={{ x: screenWidth / 2, y: 0 }}
+              fadeOut
+              explosionSpeed={300}
+              fallSpeed={2500}
+              autoStart
+            />
+            <TouchableOpacity
+              style={styles.newButtonWrapper}
+              activeOpacity={0.85}
+              onPress={handlePressNew}
             >
-              <ConfettiCannon
-                key={confettiKey}
-                ref={confettiRef}
-                count={120}
-                origin={{ x: screenWidth / 2, y: 0 }}
-                fadeOut
-                explosionSpeed={300}
-                fallSpeed={2500}
-                autoStart
-              />
-              <TouchableOpacity
-                style={styles.newButtonWrapper}
-                activeOpacity={0.85}
-                onPress={handlePressNew}
+              <LinearGradient
+                colors={[theme.colors.primary, "#00AEF5", theme.colors.primary]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={styles.newButtonBorder}
               >
-                <LinearGradient
-                  colors={[
-                    theme.colors.primary,
-                    "#00AEF5",
-                    theme.colors.primary,
+                <View
+                  style={[
+                    styles.newButtonInner,
+                    {
+                      backgroundColor: isDarkTheme
+                        ? "rgba(0, 0, 0, 0.17)"
+                        : "rgba(255, 255, 255, 0.83)",
+                    },
                   ]}
-                  start={{ x: 0, y: 0.5 }}
-                  end={{ x: 1, y: 0.5 }}
-                  style={styles.newButtonBorder}
                 >
-                  <View
+                  <Text
                     style={[
-                      styles.newButtonInner,
+                      styles.newButtonText,
                       {
-                        backgroundColor: isDarkTheme
-                          ? "rgba(0, 0, 0, 0.17)"
-                          : "rgba(255, 255, 255, 0.83)",
+                        color: isDarkTheme
+                          ? theme.colors.onPrimary
+                          : theme.colors.primary,
                       },
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.newButtonText,
-                        {
-                          color: isDarkTheme
-                            ? theme.colors.onPrimary
-                            : theme.colors.primary,
-                        },
-                      ]}
-                    >
-                      New
-                    </Text>
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-            </Animated.View>
-          )}
+                    New
+                  </Text>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          </Animated.View>
 
           {/* Standardowe przyciski - zawsze renderowane, kontrolowane przez animację */}
           <Animated.View
             style={[
               StyleSheet.absoluteFill,
               styles.centeredContent,
+              { flexDirection: "row" }, // zapewnia poziome ułożenie
               regularButtonsAnimatedStyle, // Używamy stylu animowanego
             ]}
-            pointerEvents={!showNewIndicator ? "auto" : "none"} // Klikalne tylko, gdy widoczne
+            pointerEvents={showNewIndicator ? "none" : "auto"} // Klikalne gdy warstwa New wygaszona
           >
             <TouchableOpacity
               style={[
