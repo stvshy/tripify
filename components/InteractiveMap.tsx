@@ -7,6 +7,7 @@ import React, {
   useCallback,
   useMemo,
   useEffect,
+  useLayoutEffect, // re-added for synchronous update
 } from "react";
 import {
   StyleSheet,
@@ -40,7 +41,6 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
   withSequence,
   withSpring,
   withTiming,
@@ -94,7 +94,7 @@ const pixelRatio = PixelRatio.get();
 const initialTranslateX = 0;
 const initialTranslateY = 0;
 
-// Przetwarzanie danych, aby usunÄÄ duplikaty i upewniÄ siÄ, Ĺźe 'cca2' istnieje
+// Przetwarzanie danych, aby usunÄÄ duplikaty i upewniÄ siÄ, Ĺźe 'cca2' istnieje
 const uniqueCountries: Country[] = [];
 
 const { countries, countryCentroids } = (() => {
@@ -299,7 +299,16 @@ const InteractiveMapComponent = forwardRef<
   const animatedToggleStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scaleValue.value }],
   }));
-  const [newButtonRevealed, setNewButtonRevealed] = useState(true);
+  const [confettiKey, setConfettiKey] = useState(() =>
+    showNewIndicator ? 1 : 0
+  );
+  const confettiRef = useRef<ConfettiCannon>(null);
+  // Inicjalizujemy na podstawie showNewIndicator aby uniknąć opóźnienia pierwszej klatki
+  const [newButtonRevealed, setNewButtonRevealed] = useState(
+    () => !showNewIndicator
+  );
+  // Flaga do natychmiastowego ukrycia (bez animacji) przy kliknięciu New
+  const suppressHideAnimationRef = useRef(false);
   // Wartości animowane do płynnego przejścia
   const newButtonOpacity = useSharedValue(showNewIndicator ? 1 : 0);
   const newButtonScale = useSharedValue(showNewIndicator ? 1 : 0.8);
@@ -312,24 +321,33 @@ const InteractiveMapComponent = forwardRef<
     setNewButtonRevealed(true);
     newButtonOpacity.value = withTiming(0, { duration: 250 });
     newButtonScale.value = withTiming(0.8, { duration: 250 });
-    regularButtonsOpacity.value = withDelay(
-      100,
-      withTiming(1, { duration: 250 })
-    );
+    regularButtonsOpacity.value = withTiming(1, { duration: 250 });
   }, [newButtonRevealed]);
 
-  // KROK 3: Zmodyfikuj `useEffect` reagujący na `isUpdating`
-  // ZMODYFIKOWANY useEffect REAGUJĄCY NA isUpdating
-  // ZMODYFIKOWANY useEffect - teraz obsługuje tylko zmiany stanu, gdy komponent jest już widoczny
-  useEffect(() => {
+  // Logika przejść PO pierwszym renderze – natychmiastowe pojawienie się przycisku New (bez opóźnienia animacji)
+  const prevShowRef = useRef(showNewIndicator);
+  useLayoutEffect(() => {
     if (showNewIndicator) {
       setNewButtonRevealed(false);
-      newButtonOpacity.value = withTiming(1, { duration: 120 });
-      newButtonScale.value = withSpring(1);
-      regularButtonsOpacity.value = withTiming(0, { duration: 80 });
-    } else {
-      revealRegularButtons();
+      newButtonOpacity.value = 1;
+      newButtonScale.value = 1;
+      regularButtonsOpacity.value = 0;
+      if (!prevShowRef.current) {
+        setConfettiKey((k) => k + 1);
+      }
+    } else if (prevShowRef.current && !showNewIndicator) {
+      if (suppressHideAnimationRef.current) {
+        // Natychmiastowe ukrycie przy wymuszeniu
+        suppressHideAnimationRef.current = false;
+        newButtonOpacity.value = 0;
+        newButtonScale.value = 0.8;
+        regularButtonsOpacity.value = 1;
+        setNewButtonRevealed(true);
+      } else {
+        revealRegularButtons();
+      }
     }
+    prevShowRef.current = showNewIndicator;
   }, [showNewIndicator, revealRegularButtons]);
   // KROK 4: Zdefiniowanie animowanych stylów
   const newButtonAnimatedStyle = useAnimatedStyle(() => ({
@@ -360,7 +378,7 @@ const InteractiveMapComponent = forwardRef<
   const gradientColorsBase = [
     PINK_HEX, // Fiolet
     PINK_HEX,
-    TURQUOISE_HEX, // Turkus
+    TURQUOISE_HEX, // Turkusowy
     PINK_HEX, // Fiolet
     PINK_HEX,
   ];
@@ -671,8 +689,15 @@ const InteractiveMapComponent = forwardRef<
         </>
       );
     },
-    (prev, next) => !isInteracting.value
-  ); // Twoja optymalizacja memo
+    (prev, next) => {
+      // Jeśli są aktywne podświetlenia, zawsze pozwól na re-render
+      if (recentlyChangedCountries.size > 0) {
+        return false;
+      }
+      // W przeciwnym razie używaj standardowej optymalizacji
+      return !isInteracting.value;
+    }
+  );
   const SvgInvisibleTouchLayer = React.memo(
     () => {
       return (
@@ -1029,8 +1054,15 @@ const InteractiveMapComponent = forwardRef<
   }, [resetMapTransform]);
 
   const handlePressNew = useCallback(() => {
+    // Natychmiastowe ukrycie bez animacji
+    suppressHideAnimationRef.current = true;
+    newButtonOpacity.value = 0;
+    newButtonScale.value = 0.8;
+    regularButtonsOpacity.value = 1;
+    setNewButtonRevealed(true);
+    clearHighlights();
     dismissNewIndicator();
-  }, [dismissNewIndicator]);
+  }, [dismissNewIndicator, clearHighlights]);
 
   // Reset tooltip & New indicator when leaving this screen
   useFocusEffect(
@@ -1256,18 +1288,36 @@ const InteractiveMapComponent = forwardRef<
             },
           ]}
         >
-          <View style={styles.topSectionPhoto}>
+          {/* uproszczone: usunięto dodatkowe style *_Photo aby uniknąć duplikatów */}
+          <View
+            style={{
+              position: "absolute",
+              top: "4%",
+              left: 0,
+              right: 0,
+              alignItems: "center",
+            }}
+          >
             <FastImage
               source={
                 typeof logoImage === "number"
                   ? logoImage
                   : { uri: Image.resolveAssetSource(logoImage).uri }
               }
-              style={styles.logoImage}
+              style={{ width: "20%", aspectRatio: 2 }}
               resizeMode={FastImage.resizeMode.contain}
             />
           </View>
-          <View style={styles.mapContainerPhoto}>
+          <View
+            style={{
+              flex: 1,
+              marginTop: "10%",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "100%",
+              height: "100%",
+            }}
+          >
             <Svg
               width="100%"
               height="100%"
@@ -1291,11 +1341,17 @@ const InteractiveMapComponent = forwardRef<
               })}
             </Svg>
           </View>
-
-          <View style={styles.bottomSectionPhoto}>
-            {/* Używamy progressBarWrapper dla spójności stylów i wymiarów */}
+          <View
+            style={{
+              justifyContent: "center",
+              alignItems: "center",
+              position: "absolute",
+              bottom: "3%",
+              left: 0,
+              right: 0,
+            }}
+          >
             <View style={styles.progressBarWrapper}>
-              {/* Gradient TŁA (bardziej przezroczysty) */}
               <LinearGradient
                 colors={backgroundGradientColors}
                 locations={gradientLocations}
@@ -1303,37 +1359,28 @@ const InteractiveMapComponent = forwardRef<
                 end={{ x: 1, y: 0.5 }}
                 style={StyleSheet.absoluteFill}
               />
-
-              {/* Widok przycinający dla gradientu wypełnienia ORAZ BLURA */}
               <View
                 style={{
                   width: `${percentageVisited * 100}%`,
                   height: "100%",
-                  overflow: "hidden", // Kluczowe: przycina wewnętrzny gradient I BLUR
+                  overflow: "hidden",
                 }}
               >
-                {/* Gradient WYPEŁNIENIA (pełne kolory) */}
                 <LinearGradient
                   colors={filledGradientColors}
                   locations={gradientLocations}
                   start={{ x: 0, y: 0.5 }}
                   end={{ x: 1, y: 0.5 }}
-                  style={{
-                    width: screenWidth * 0.8, // Pełna szerokość paska, aby gradient był spójny
-                    height: "100%",
-                  }}
+                  style={{ width: screenWidth * 0.8, height: "100%" }}
                 />
-                {/* Warstwa Blur - WEWNĄTRZ PRZYCIĘTEGO WIDOKU */}
                 {!isDarkTheme && (
                   <BlurView
                     style={StyleSheet.absoluteFillObject}
                     tint="light"
-                    intensity={15} // Dostosuj
+                    intensity={15}
                   />
                 )}
               </View>
-
-              {/* Teksty postępu (muszą być NAD gradientami i blurem) */}
               <View style={styles.progressTextLeft}>
                 <Text
                   style={[
@@ -1370,15 +1417,16 @@ const InteractiveMapComponent = forwardRef<
             ]}
             pointerEvents={showNewIndicator ? "auto" : "none"} // Klikalny tylko, gdy widoczny
           >
-            {showNewIndicator && (
-              <ConfettiCannon
-                count={120}
-                origin={{ x: screenWidth / 2, y: 0 }}
-                fadeOut
-                explosionSpeed={300}
-                fallSpeed={2500}
-              />
-            )}
+            <ConfettiCannon
+              key={confettiKey}
+              ref={confettiRef}
+              count={120}
+              origin={{ x: screenWidth / 2, y: 0 }}
+              fadeOut
+              explosionSpeed={300}
+              fallSpeed={2500}
+              autoStart={showNewIndicator}
+            />
             <TouchableOpacity
               style={styles.newButtonWrapper}
               activeOpacity={0.85}
@@ -1606,44 +1654,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "DMSans-SemiBold",
   },
-  topSectionPhoto: {
-    position: "absolute",
-    top: "4%",
-    left: 0,
-    right: 0,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  logoImage: {
-    width: "20%",
-    height: undefined,
-    aspectRatio: 2,
-  },
-  bottomSectionPhoto: {
-    justifyContent: "center",
-    alignItems: "center",
-    position: "absolute",
-    bottom: "3%",
-    left: 0,
-    right: 0,
-  },
-  mapContainerPhoto: {
-    flex: 1,
-    marginTop: "10%",
-    justifyContent: "center",
-    alignItems: "center",
-    width: "100%",
-    height: "100%",
-  },
   mapContainer: {
     justifyContent: "center",
     alignItems: "center",
     width: "100%",
     height: "100%",
   },
+  // Usunięto *_Photo style definitions aby uniknąć duplikatów / nieużywanych referencji
   baseMapContainer: {
     position: "absolute",
-    top: -9999, // zamiast opacity: 0, caĹkowicie usuwamy z pola widzenia
+    top: -9999,
     left: -9999,
     width: screenWidth,
     height: screenWidth * (16 / 9),
