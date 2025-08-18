@@ -330,13 +330,26 @@ const InteractiveMapComponent = forwardRef<
   const prevShowRef = useRef(showNewIndicator);
   useLayoutEffect(() => {
     if (showNewIndicator) {
-      setConfettiKey(Date.now()); // pewny remount
+      // POKAŻ "New"
+      setConfettiKey(Date.now());
       newButtonOpacity.value = 1;
       newButtonScale.value = 1;
       regularButtonsOpacity.value = 0;
       setNewButtonRevealed(false);
+    } else {
+      // UKRYJ "New" (także gdy zniknie przez timer) – NATYCHMIAST
+      newButtonOpacity.value = 0;
+      newButtonScale.value = 0.8;
+      regularButtonsOpacity.value = 1;
+      setNewButtonRevealed(true);
     }
-  }, [showNewIndicator]);
+    prevShowRef.current = showNewIndicator;
+  }, [
+    showNewIndicator,
+    newButtonOpacity,
+    newButtonScale,
+    regularButtonsOpacity,
+  ]);
   const newButtonAnimatedStyle = useAnimatedStyle(() => ({
     opacity: newButtonOpacity.value,
     transform: [{ scale: newButtonScale.value }],
@@ -1411,15 +1424,15 @@ const InteractiveMapComponent = forwardRef<
           style={[styles.buttonContainer, buttonContainerAnimatedStyle]}
         >
           {/* Przycisk "New!" - zawsze renderowany, kontrolowany przez animację */}
-          <Animated.View
-            style={[
-              StyleSheet.absoluteFill,
-              styles.centeredContent,
-              newButtonAnimatedStyle,
-            ]}
-            pointerEvents={showNewIndicator ? "auto" : "none"}
-          >
-            {showNewIndicator && ( // <-- warunkowy mount konfetti
+          {showNewIndicator && (
+            <Animated.View
+              style={[
+                StyleSheet.absoluteFill,
+                styles.centeredContent,
+                newButtonAnimatedStyle,
+              ]}
+              pointerEvents="auto"
+            >
               <ConfettiCannon
                 key={confettiKey}
                 ref={confettiRef}
@@ -1430,44 +1443,48 @@ const InteractiveMapComponent = forwardRef<
                 fallSpeed={2500}
                 autoStart
               />
-            )}
-            <TouchableOpacity
-              style={styles.newButtonWrapper}
-              activeOpacity={0.85}
-              onPress={handlePressNew}
-            >
-              <LinearGradient
-                colors={[theme.colors.primary, "#00AEF5", theme.colors.primary]}
-                start={{ x: 0, y: 0.5 }}
-                end={{ x: 1, y: 0.5 }}
-                style={styles.newButtonBorder}
+              <TouchableOpacity
+                style={styles.newButtonWrapper}
+                activeOpacity={0.85}
+                onPress={handlePressNew}
               >
-                <View
-                  style={[
-                    styles.newButtonInner,
-                    {
-                      backgroundColor: isDarkTheme
-                        ? "rgba(0, 0, 0, 0.17)"
-                        : "rgba(255, 255, 255, 0.83)",
-                    },
+                <LinearGradient
+                  colors={[
+                    theme.colors.primary,
+                    "#00AEF5",
+                    theme.colors.primary,
                   ]}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={styles.newButtonBorder}
                 >
-                  <Text
+                  <View
                     style={[
-                      styles.newButtonText,
+                      styles.newButtonInner,
                       {
-                        color: isDarkTheme
-                          ? theme.colors.onPrimary
-                          : theme.colors.primary,
+                        backgroundColor: isDarkTheme
+                          ? "rgba(0, 0, 0, 0.17)"
+                          : "rgba(255, 255, 255, 0.83)",
                       },
                     ]}
                   >
-                    New
-                  </Text>
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
-          </Animated.View>
+                    <Text
+                      style={[
+                        styles.newButtonText,
+                        {
+                          color: isDarkTheme
+                            ? theme.colors.onPrimary
+                            : theme.colors.primary,
+                        },
+                      ]}
+                    >
+                      New
+                    </Text>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            </Animated.View>
+          )}
 
           {/* Standardowe przyciski - zawsze renderowane, kontrolowane przez animację */}
           <Animated.View
