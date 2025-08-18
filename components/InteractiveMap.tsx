@@ -53,6 +53,7 @@ import logoTextImage from "../assets/images/logo-tripify-tekst.png";
 import logoTextImageDesaturated from "../assets/images/logo-tripify-tekst2.png";
 import CountryFlag from "react-native-country-flag";
 import Popover, { Rect } from "react-native-popover-view";
+import { useFocusEffect } from "@react-navigation/native"; // added for blur/focus lifecycle
 // Dodajemy hook do nawigacji
 import { useRouter } from "expo-router";
 import { AntDesign } from "@expo/vector-icons";
@@ -1031,6 +1032,16 @@ const InteractiveMapComponent = forwardRef<
     dismissNewIndicator();
   }, [dismissNewIndicator]);
 
+  // Reset tooltip & New indicator when leaving this screen
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        setTooltip(null);
+        dismissNewIndicator();
+      };
+    }, [dismissNewIndicator])
+  );
+
   return (
     <GestureHandlerRootView>
       <View
@@ -1379,11 +1390,24 @@ const InteractiveMapComponent = forwardRef<
                 end={{ x: 1, y: 0.5 }}
                 style={styles.newButtonBorder}
               >
-                <View style={styles.newButtonInner}>
+                <View
+                  style={[
+                    styles.newButtonInner,
+                    {
+                      backgroundColor: isDarkTheme
+                        ? "rgba(0, 0, 0, 0.17)"
+                        : "rgba(255, 255, 255, 0.88)",
+                    },
+                  ]}
+                >
                   <Text
                     style={[
                       styles.newButtonText,
-                      { color: theme.colors.onPrimary },
+                      {
+                        color: isDarkTheme
+                          ? theme.colors.onPrimary
+                          : theme.colors.primary,
+                      },
                     ]}
                   >
                     New
@@ -1700,7 +1724,7 @@ const styles = StyleSheet.create({
     flex: 1,
     width: "100%",
     borderRadius: BUTTON_SIZE / 2,
-    backgroundColor: "rgba(0, 0, 0, 0.26)",
+    // backgroundColor moved to dynamic runtime style (dark/light)
     justifyContent: "center",
     alignItems: "center",
   },
