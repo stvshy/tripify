@@ -1396,7 +1396,7 @@ const InteractiveMapComponent = forwardRef<
                     {
                       backgroundColor: isDarkTheme
                         ? "rgba(0, 0, 0, 0.17)"
-                        : "rgba(255, 255, 255, 0.88)",
+                        : "rgba(255, 255, 255, 0.83)",
                     },
                   ]}
                 >
