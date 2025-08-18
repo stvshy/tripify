@@ -67,6 +67,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 // import { BlurView } from "@react-native-community/blur";
 import { BlurView } from "expo-blur";
+import ConfettiCannon from "react-native-confetti-cannon";
 
 import { useMapState } from "@/app/config/MapStateProvider";
 
@@ -265,7 +266,9 @@ const InteractiveMapComponent = forwardRef<
     resetMapTransform,
     isUpdating,
     recentlyChangedCountries,
-    clearHighlights, // <<<---- NOWOŚĆ: Zaimportuj nową funkcję
+    clearHighlights,
+    showNewIndicator,
+    dismissNewIndicator,
   } = useMapState();
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
   const theme = useTheme();
@@ -297,49 +300,36 @@ const InteractiveMapComponent = forwardRef<
   }));
   const [newButtonRevealed, setNewButtonRevealed] = useState(true);
   // Wartości animowane do płynnego przejścia
-  const newButtonOpacity = useSharedValue(isUpdating ? 1 : 0);
-  const newButtonScale = useSharedValue(isUpdating ? 1 : 0.8);
-  const regularButtonsOpacity = useSharedValue(isUpdating ? 0 : 1);
+  const newButtonOpacity = useSharedValue(showNewIndicator ? 1 : 0);
+  const newButtonScale = useSharedValue(showNewIndicator ? 1 : 0.8);
+  const regularButtonsOpacity = useSharedValue(showNewIndicator ? 0 : 1);
 
   // KROK 2: Funkcja odsłaniająca standardowe przyciski
   // Używamy useCallback, aby uniknąć niepotrzebnych re-renderów.
   const revealRegularButtons = useCallback(() => {
     if (newButtonRevealed) return;
     setNewButtonRevealed(true);
-
-    // Animacja zanikania przycisku "New!"
-    // KLUCZOWA ZMIANA: Dodajemy callback `runOnJS` na końcu animacji
-    newButtonOpacity.value = withTiming(0, { duration: 250 }, (finished) => {
-      // Po zakończeniu animacji...
-      if (finished) {
-        // ...wywołaj funkcję czyszczącą podświetlenie w głównym wątku JS.
-        runOnJS(clearHighlights)();
-      }
-    });
+    newButtonOpacity.value = withTiming(0, { duration: 250 });
     newButtonScale.value = withTiming(0.8, { duration: 250 });
-
-    // Animacja pojawiania się standardowych przycisków
     regularButtonsOpacity.value = withDelay(
       100,
       withTiming(1, { duration: 250 })
     );
-  }, [newButtonRevealed, clearHighlights]); // <<<---- NOWOŚĆ: Dodaj `clearHighlights` do zależności
+  }, [newButtonRevealed]);
 
   // KROK 3: Zmodyfikuj `useEffect` reagujący na `isUpdating`
   // ZMODYFIKOWANY useEffect REAGUJĄCY NA isUpdating
   // ZMODYFIKOWANY useEffect - teraz obsługuje tylko zmiany stanu, gdy komponent jest już widoczny
   useEffect(() => {
-    if (isUpdating) {
-      // Jeśli stan zmieni się na `true` w trakcie, upewnij się, że przyciski są w poprawnym stanie
+    if (showNewIndicator) {
       setNewButtonRevealed(false);
-      newButtonOpacity.value = withTiming(1, { duration: 150 });
+      newButtonOpacity.value = withTiming(1, { duration: 120 });
       newButtonScale.value = withSpring(1);
-      regularButtonsOpacity.value = withTiming(0, { duration: 100 });
+      regularButtonsOpacity.value = withTiming(0, { duration: 80 });
     } else {
-      // Ta funkcja odpowiada za płynny powrót do standardowych przycisków
       revealRegularButtons();
     }
-  }, [isUpdating, revealRegularButtons]);
+  }, [showNewIndicator, revealRegularButtons]);
   // KROK 4: Zdefiniowanie animowanych stylów
   const newButtonAnimatedStyle = useAnimatedStyle(() => ({
     opacity: newButtonOpacity.value,
@@ -1037,6 +1027,10 @@ const InteractiveMapComponent = forwardRef<
     runOnJS(setTooltip)(null);
   }, [resetMapTransform]);
 
+  const handlePressNew = useCallback(() => {
+    dismissNewIndicator();
+  }, [dismissNewIndicator]);
+
   return (
     <GestureHandlerRootView>
       <View
@@ -1363,23 +1357,39 @@ const InteractiveMapComponent = forwardRef<
               styles.centeredContent,
               newButtonAnimatedStyle, // Używamy stylu animowanego
             ]}
-            pointerEvents={isUpdating ? "auto" : "none"} // Klikalny tylko, gdy widoczny
+            pointerEvents={showNewIndicator ? "auto" : "none"} // Klikalny tylko, gdy widoczny
           >
+            {showNewIndicator && (
+              <ConfettiCannon
+                count={120}
+                origin={{ x: screenWidth / 2, y: 0 }}
+                fadeOut
+                explosionSpeed={300}
+                fallSpeed={2500}
+              />
+            )}
             <TouchableOpacity
-              style={[
-                styles.newButton,
-                { backgroundColor: theme.colors.primary },
-              ]}
-              activeOpacity={0.8}
+              style={styles.newButtonWrapper}
+              activeOpacity={0.85}
+              onPress={handlePressNew}
             >
-              <Text
-                style={[
-                  styles.newButtonText,
-                  { color: theme.colors.onPrimary },
-                ]}
+              <LinearGradient
+                colors={[theme.colors.primary, "#00AEF5", theme.colors.primary]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={styles.newButtonBorder}
               >
-                New!
-              </Text>
+                <View style={styles.newButtonInner}>
+                  <Text
+                    style={[
+                      styles.newButtonText,
+                      { color: theme.colors.onPrimary },
+                    ]}
+                  >
+                    New
+                  </Text>
+                </View>
+              </LinearGradient>
             </TouchableOpacity>
           </Animated.View>
 
@@ -1390,7 +1400,7 @@ const InteractiveMapComponent = forwardRef<
               styles.centeredContent,
               regularButtonsAnimatedStyle, // Używamy stylu animowanego
             ]}
-            pointerEvents={!isUpdating ? "auto" : "none"} // Klikalne tylko, gdy widoczne
+            pointerEvents={!showNewIndicator ? "auto" : "none"} // Klikalne tylko, gdy widoczne
           >
             <TouchableOpacity
               style={[
@@ -1672,6 +1682,28 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  newButtonWrapper: {
+    width: BUTTON_SIZE * 2.2,
+    height: BUTTON_SIZE * 1.05,
+    borderRadius: BUTTON_SIZE / 2,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  newButtonBorder: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: BUTTON_SIZE / 2,
+    padding: 3,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  newButtonInner: {
+    flex: 1,
+    width: "100%",
+    borderRadius: BUTTON_SIZE / 2,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   newButton: {
     width: BUTTON_SIZE * 2,
     height: BUTTON_SIZE,
@@ -1689,5 +1721,3 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 });
-
-// export default InteractiveMap;

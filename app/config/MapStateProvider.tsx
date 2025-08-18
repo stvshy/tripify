@@ -30,6 +30,9 @@ interface MapContextType {
   selectedCountries: string[] | null;
   isLoadingData: boolean;
   updateAndHighlightCountries: (newCountries: string[]) => void;
+  // Nowe dla natychmiastowego przycisku "New"
+  showNewIndicator: boolean;
+  dismissNewIndicator: () => void;
 }
 
 const MapContext = createContext<MapContextType | null>(null);
@@ -58,6 +61,7 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
   const [recentlyChangedCountries, setRecentlyChangedCountries] = useState(
     new Set<string>()
   );
+  const [showNewIndicator, setShowNewIndicator] = useState(false);
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -73,6 +77,16 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
   const clearHighlights = useCallback(() => {
     setRecentlyChangedCountries(new Set());
   }, []);
+
+  const dismissNewIndicator = useCallback(() => {
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+      updateTimeoutRef.current = null;
+    }
+    setIsUpdating(false);
+    setShowNewIndicator(false);
+    clearHighlights();
+  }, [clearHighlights]);
 
   const updateAndHighlightCountries = useCallback(
     (newCountries: string[]) => {
@@ -99,25 +113,22 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
 
       if (changed.size === 0) return; // Nie ma zmian, nic nie rób
 
-      // 1. Rozpocznij proces aktualizacji i podświetl kraje
-      // Te dwa stany zostaną zaktualizowane razem
-      setIsUpdating(true);
-      setRecentlyChangedCountries(changed);
+      // 1. Natychmiastowa informacja dla mapy: pokaż przycisk New + blokada interakcji
+      setIsUpdating(true); // nadal używane do wyłączeń gestów
+      setShowNewIndicator(true); // steruje bezpośrednio widocznością przycisku i confetti
+      setRecentlyChangedCountries(changed); // podświetlenia
 
       // 2. Zaktualizuj główny stan w tle
       setVisitedCountries(newCountries);
 
-      // 3. Ustaw timer, który ZAKOŃCZY aktualizację
-      // KLUCZOWA ZMIANA: Po 4 sekundach jednocześnie wyłączamy flagę 'isUpdating'
-      // i czyścimy podświetlone kraje. React zbatchuje te zmiany.
+      // 3. Ustaw timer wygaszenia (9 sekund)
       updateTimeoutRef.current = setTimeout(() => {
-        setIsUpdating(false); // Odblokuj interakcje i zmień przyciski
-        setRecentlyChangedCountries(new Set()); // Wyczyść podświetlenie
-        updateTimeoutRef.current = null;
-      }, 4000); // Czas trwania podświetlenia i widoczności przycisku "New"
+        dismissNewIndicator();
+      }, 9000);
     },
-    [visitedCountries, setVisitedCountries]
+    [visitedCountries, setVisitedCountries, dismissNewIndicator]
   );
+
   const value = useMemo(
     () => ({
       scale,
@@ -130,6 +141,8 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       recentlyChangedCountries,
       updateAndHighlightCountries,
       clearHighlights, // EKSPORTUJEMY NOWĄ FUNKCJĘ
+      showNewIndicator,
+      dismissNewIndicator,
     }),
     [
       scale,
@@ -142,6 +155,8 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       recentlyChangedCountries,
       updateAndHighlightCountries,
       clearHighlights, // DODAJ DO ZALEŻNOŚCI
+      showNewIndicator,
+      dismissNewIndicator,
     ]
   );
 
