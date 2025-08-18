@@ -272,6 +272,7 @@ const InteractiveMapComponent = forwardRef<
     dismissNewIndicator,
     instantDismissNewIndicator, // NOWE
     selectedCountries: selectedCountriesCtx, // <- dodane
+    updateSequence, // NOWE
   } = useMapState();
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
   const theme = useTheme();
@@ -1051,11 +1052,17 @@ const InteractiveMapComponent = forwardRef<
   // Reset tooltip & New indicator when leaving this screen
   useFocusEffect(
     useCallback(() => {
+      // Przy wejściu na ekran jeśli jest aktywny showNewIndicator i są highlighty uruchamiamy konfetti (klucz po updateSequence)
+      if (showNewIndicator && recentlyChangedCountries.size > 0) {
+        setConfettiKey(updateSequence); // nowy klucz -> restart animacji
+      }
       return () => {
         setTooltip(null);
-        dismissNewIndicator();
+        // NIE wyłączamy od razu showNewIndicator żeby użytkownik zobaczył po powrocie jeśli nadal trwa okno 9s
+        // Jeśli chcesz zawsze resetować tu wskaźnik odkomentuj poniższą linię:
+        // dismissNewIndicator();
       };
-    }, [dismissNewIndicator])
+    }, [showNewIndicator, recentlyChangedCountries, updateSequence])
   );
 
   return (

@@ -34,6 +34,8 @@ interface MapContextType {
   showNewIndicator: boolean;
   dismissNewIndicator: () => void;
   instantDismissNewIndicator: () => void;
+  // NOWE: identyfikator aktualizacji do obsługi konfetti po fokusie ekranu
+  updateSequence: number;
 }
 
 const MapContext = createContext<MapContextType | null>(null);
@@ -64,6 +66,8 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
   );
   const [showNewIndicator, setShowNewIndicator] = useState(false);
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // NOWE: sekwencja aktualizacji
+  const [updateSequence, setUpdateSequence] = useState(0);
 
   useEffect(() => {
     if (visitedCountries) {
@@ -115,6 +119,7 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       setIsUpdating(true);
       setShowNewIndicator(true);
       setRecentlyChangedCountries(changed);
+      setUpdateSequence((prev) => prev + 1); // inkrementujemy identyfikator aktualizacji
       // Aktualizacja listy odwiedzonych (trafia do kontekstu → progress)
       setVisitedCountries(newCountries);
 
@@ -141,6 +146,7 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       showNewIndicator,
       dismissNewIndicator,
       instantDismissNewIndicator, // EXPORT
+      updateSequence, // NOWE
     }),
     [
       scale,
@@ -156,6 +162,7 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       showNewIndicator,
       dismissNewIndicator,
       instantDismissNewIndicator,
+      updateSequence,
     ]
   );
   return <MapContext.Provider value={value}>{children}</MapContext.Provider>;
