@@ -1692,7 +1692,7 @@ const styles = StyleSheet.create({
   newButtonBorder: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: BUTTON_SIZE / 2,
-    padding: 3,
+    padding: 2.3,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1700,12 +1700,12 @@ const styles = StyleSheet.create({
     flex: 1,
     width: "100%",
     borderRadius: BUTTON_SIZE / 2,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: "rgba(0, 0, 0, 0.26)",
     justifyContent: "center",
     alignItems: "center",
   },
   newButton: {
-    width: BUTTON_SIZE * 2,
+    width: BUTTON_SIZE * 2.4,
     height: BUTTON_SIZE,
     borderRadius: BUTTON_SIZE / 2,
     alignItems: "center",
@@ -1718,6 +1718,6 @@ const styles = StyleSheet.create({
   },
   newButtonText: {
     fontSize: ICON_SIZE,
-    fontWeight: "bold",
+    fontWeight: "500",
   },
 });
