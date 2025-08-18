@@ -33,6 +33,7 @@ interface MapContextType {
   // Nowe dla natychmiastowego przycisku "New"
   showNewIndicator: boolean;
   dismissNewIndicator: () => void;
+  instantDismissNewIndicator: () => void;
 }
 
 const MapContext = createContext<MapContextType | null>(null);
@@ -78,6 +79,16 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
     setRecentlyChangedCountries(new Set());
   }, []);
 
+  const instantDismissNewIndicator = useCallback(() => {
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+      updateTimeoutRef.current = null;
+    }
+    setShowNewIndicator(false);
+    setIsUpdating(false);
+    setRecentlyChangedCountries(new Set());
+  }, []);
+
   const dismissNewIndicator = useCallback(() => {
     if (updateTimeoutRef.current) {
       clearTimeout(updateTimeoutRef.current);
@@ -90,38 +101,24 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
 
   const updateAndHighlightCountries = useCallback(
     (newCountries: string[]) => {
-      // Jeśli poprzednia animacja jeszcze trwa, anulujemy ją
       if (updateTimeoutRef.current) {
         clearTimeout(updateTimeoutRef.current);
       }
-
-      const oldCountriesSet = new Set(visitedCountries || []);
-      const newCountriesSet = new Set(newCountries);
-
-      // Znajdź różnice (kraje dodane i usunięte)
+      const oldSet = new Set(visitedCountries || []);
+      const newSet = new Set(newCountries);
       const changed = new Set<string>();
-      for (const country of newCountries) {
-        if (!oldCountriesSet.has(country)) {
-          changed.add(country);
-        }
-      }
-      for (const country of oldCountriesSet) {
-        if (!newCountriesSet.has(country)) {
-          changed.add(country);
-        }
-      }
+      for (const c of newCountries) if (!oldSet.has(c)) changed.add(c);
+      for (const c of oldSet) if (!newSet.has(c)) changed.add(c);
+      if (changed.size === 0) return;
 
-      if (changed.size === 0) return; // Nie ma zmian, nic nie rób
-
-      // 1. Natychmiastowa informacja dla mapy: pokaż przycisk New + blokada interakcji
-      setIsUpdating(true); // nadal używane do wyłączeń gestów
-      setShowNewIndicator(true); // steruje bezpośrednio widocznością przycisku i confetti
-      setRecentlyChangedCountries(changed); // podświetlenia
-
-      // 2. Zaktualizuj główny stan w tle
+      // Natychmiastowy pełny stan UI
+      setIsUpdating(true);
+      setShowNewIndicator(true);
+      setRecentlyChangedCountries(changed);
+      // Aktualizacja listy odwiedzonych (trafia do kontekstu → progress)
       setVisitedCountries(newCountries);
 
-      // 3. Ustaw timer wygaszenia (9 sekund)
+      // Timer auto-wygaszenia (jeśli użytkownik nie kliknie)
       updateTimeoutRef.current = setTimeout(() => {
         dismissNewIndicator();
       }, 9000);
@@ -140,9 +137,10 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       isUpdating,
       recentlyChangedCountries,
       updateAndHighlightCountries,
-      clearHighlights, // EKSPORTUJEMY NOWĄ FUNKCJĘ
+      clearHighlights,
       showNewIndicator,
       dismissNewIndicator,
+      instantDismissNewIndicator, // EXPORT
     }),
     [
       scale,
@@ -154,12 +152,12 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       isUpdating,
       recentlyChangedCountries,
       updateAndHighlightCountries,
-      clearHighlights, // DODAJ DO ZALEŻNOŚCI
+      clearHighlights,
       showNewIndicator,
       dismissNewIndicator,
+      instantDismissNewIndicator,
     ]
   );
-
   return <MapContext.Provider value={value}>{children}</MapContext.Provider>;
 };
 

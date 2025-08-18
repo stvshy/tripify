@@ -270,6 +270,8 @@ const InteractiveMapComponent = forwardRef<
     clearHighlights,
     showNewIndicator,
     dismissNewIndicator,
+    instantDismissNewIndicator, // NOWE
+    selectedCountries: selectedCountriesCtx, // <- dodane
   } = useMapState();
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
   const theme = useTheme();
@@ -328,28 +330,13 @@ const InteractiveMapComponent = forwardRef<
   const prevShowRef = useRef(showNewIndicator);
   useLayoutEffect(() => {
     if (showNewIndicator) {
-      setNewButtonRevealed(false);
+      setConfettiKey(Date.now()); // pewny remount
       newButtonOpacity.value = 1;
       newButtonScale.value = 1;
       regularButtonsOpacity.value = 0;
-      if (!prevShowRef.current) {
-        setConfettiKey((k) => k + 1);
-      }
-    } else if (prevShowRef.current && !showNewIndicator) {
-      if (suppressHideAnimationRef.current) {
-        // Natychmiastowe ukrycie przy wymuszeniu
-        suppressHideAnimationRef.current = false;
-        newButtonOpacity.value = 0;
-        newButtonScale.value = 0.8;
-        regularButtonsOpacity.value = 1;
-        setNewButtonRevealed(true);
-      } else {
-        revealRegularButtons();
-      }
+      setNewButtonRevealed(false);
     }
-    prevShowRef.current = showNewIndicator;
-  }, [showNewIndicator, revealRegularButtons]);
-  // KROK 4: Zdefiniowanie animowanych stylów
+  }, [showNewIndicator]);
   const newButtonAnimatedStyle = useAnimatedStyle(() => ({
     opacity: newButtonOpacity.value,
     transform: [{ scale: newButtonScale.value }],
@@ -726,14 +713,18 @@ const InteractiveMapComponent = forwardRef<
     () => true
   );
   const visitedCountries = useMemo(
-    () => selectedCountries.length,
-    [selectedCountries]
+    () => (selectedCountriesCtx ? selectedCountriesCtx.length : 0),
+    [selectedCountriesCtx]
   );
   const percentageVisited = useMemo(
-    () => (totalCountries > 0 ? visitedCountries / totalCountries : 0),
+    () =>
+      selectedCountriesCtx &&
+      selectedCountriesCtx.length > 0 &&
+      totalCountries > 0
+        ? visitedCountries / totalCountries
+        : 0,
     [visitedCountries, totalCountries]
   );
-
   const clamp = (value: number, min: number, max: number): number => {
     "worklet";
     return Math.min(Math.max(value, min), max);
@@ -1054,15 +1045,26 @@ const InteractiveMapComponent = forwardRef<
   }, [resetMapTransform]);
 
   const handlePressNew = useCallback(() => {
-    // Natychmiastowe ukrycie bez animacji
     suppressHideAnimationRef.current = true;
+    // natychmiastowa zmiana animowanych wartości
     newButtonOpacity.value = 0;
     newButtonScale.value = 0.8;
     regularButtonsOpacity.value = 1;
     setNewButtonRevealed(true);
+
+    // czyszczenie highlightów i stanu "New"
     clearHighlights();
-    dismissNewIndicator();
-  }, [dismissNewIndicator, clearHighlights]);
+    instantDismissNewIndicator();
+
+    // dodatkowo (opcjonalnie) wymuś odświeżenie konfetti przez unmount (nic nie robi gdy ukryte)
+    setConfettiKey(Date.now());
+  }, [
+    instantDismissNewIndicator,
+    clearHighlights,
+    newButtonOpacity,
+    newButtonScale,
+    regularButtonsOpacity,
+  ]);
 
   // Reset tooltip & New indicator when leaving this screen
   useFocusEffect(
@@ -1413,20 +1415,22 @@ const InteractiveMapComponent = forwardRef<
             style={[
               StyleSheet.absoluteFill,
               styles.centeredContent,
-              newButtonAnimatedStyle, // Używamy stylu animowanego
+              newButtonAnimatedStyle,
             ]}
-            pointerEvents={showNewIndicator ? "auto" : "none"} // Klikalny tylko, gdy widoczny
+            pointerEvents={showNewIndicator ? "auto" : "none"}
           >
-            <ConfettiCannon
-              key={confettiKey}
-              ref={confettiRef}
-              count={120}
-              origin={{ x: screenWidth / 2, y: 0 }}
-              fadeOut
-              explosionSpeed={300}
-              fallSpeed={2500}
-              autoStart={showNewIndicator}
-            />
+            {showNewIndicator && ( // <-- warunkowy mount konfetti
+              <ConfettiCannon
+                key={confettiKey}
+                ref={confettiRef}
+                count={120}
+                origin={{ x: screenWidth / 2, y: 0 }}
+                fadeOut
+                explosionSpeed={300}
+                fallSpeed={2500}
+                autoStart
+              />
+            )}
             <TouchableOpacity
               style={styles.newButtonWrapper}
               activeOpacity={0.85}
