@@ -13,9 +13,14 @@ const totalCountries = filteredCountriesData.countries.length;
 
 export default function IndexScreen() {
   const theme = useTheme();
-
-  // KROK 2: Pobierz funkcję resetującą z naszego hooka
-  const { selectedCountries, isLoadingData, resetMapTransform } = useMapState();
+  const {
+    selectedCountries,
+    isLoadingData,
+    resetMapTransform,
+    setMapActive,
+    visitedCount,
+    flushQueuedDiffs,
+  } = useMapState();
 
   // KROK 3: Użyj useFocusEffect, aby zresetować mapę przy każdym wejściu
   useFocusEffect(
@@ -23,9 +28,14 @@ export default function IndexScreen() {
       // Ta funkcja zostanie wykonana za każdym razem, gdy ekran (zakładka)
       // stanie się aktywny.
       resetMapTransform();
+      setMapActive(true);
+      flushQueuedDiffs();
 
+      return () => {
+        setMapActive(false);
+      };
       // Nie potrzebujemy funkcji czyszczącej, więc jej nie zwracamy.
-    }, [resetMapTransform]) // Zależność od funkcji resetującej
+    }, [resetMapTransform, setMapActive, flushQueuedDiffs]) // Zależność od funkcji resetującej
   );
 
   const handleCountryPress = useCallback((countryCode: string) => {
@@ -56,6 +66,7 @@ export default function IndexScreen() {
         totalCountries={totalCountries}
         onCountryPress={handleCountryPress}
         style={styles.map}
+        // TODO: pass visitedCount to progress bar once refactored
       />
     </View>
   );

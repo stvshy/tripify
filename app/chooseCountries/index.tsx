@@ -628,13 +628,20 @@ export default function ChooseCountriesScreen({
       return;
     }
 
-    const currentSelectedArray = Array.from(finalSet);
+    const add: string[] = [];
+    const remove: string[] = [];
+    finalSet.forEach((c) => {
+      if (!initialSet.has(c)) add.push(c);
+    });
+    initialSet.forEach((c) => {
+      if (!finalSet.has(c)) remove.push(c);
+    });
 
-    // KROK 1: URUCHOM PROCES AKTUALIZACJI I PODŚWIETLENIA
-    updateAndHighlightCountries(currentSelectedArray);
+    // Diff-based update (fast, minimal)
+    updateAndHighlightCountries(Array.from(finalSet));
 
-    // KROK 2: ZAPIS W TLE (pozostaje bez zmian)
     try {
+      const currentSelectedArray = Array.from(finalSet);
       const userDocRef = doc(db, "users", user.uid);
       await updateDoc(userDocRef, {
         countriesVisited: currentSelectedArray,
@@ -653,7 +660,7 @@ export default function ChooseCountriesScreen({
     fromTab,
     userProfile,
     setUserProfile,
-    updateAndHighlightCountries, // <-- Zaktualizowana zależność!
+    updateAndHighlightCountries,
   ]);
   const handleSaveRef = useRef(handleSaveCountries);
   useEffect(() => {
@@ -693,7 +700,7 @@ export default function ChooseCountriesScreen({
   //       console.log("Screen lost focus! Saving changes...");
   //       handleSaveRef.current?.();
   //     };
-  //   }, []) // Pusta tablica zależności jest tutaj kluczowa
+  //   }, []) // Pusta tablica zależności jest tutaj poprawna
   // );
   // Function to handle clicking outside the text input
   const dismissKeyboard = useCallback(() => {

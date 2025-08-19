@@ -37,6 +37,12 @@ interface MapContextType {
     newCountries: string[],
     options?: { immediate?: boolean; noDefer?: boolean }
   ) => void;
+  // NEW: diff-based incremental update
+  applyCountryDiff: (
+    add: string[],
+    remove: string[],
+    options?: { immediate?: boolean; deferVisual?: boolean; noDefer?: boolean }
+  ) => void;
   // Nowe dla natychmiastowego przycisku "New"
   showNewIndicator: boolean;
   dismissNewIndicator: () => void;
@@ -45,6 +51,12 @@ interface MapContextType {
   updateSequence: number;
   // NEW: expose transition pending state (optional)
   isPending: boolean;
+  // NEW: liczba odwiedzonych krajów (lekka pochodna)
+  visitedCount: number;
+  // NEW: czy ekran mapy jest aktywny
+  isMapActive: boolean;
+  setMapActive: (active: boolean) => void;
+  flushQueuedDiffs: () => void;
 }
 
 const MapContext = createContext<MapContextType | null>(null);
@@ -79,6 +91,12 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
   const [updateSequence, setUpdateSequence] = useState(0);
   // NEW: transition hook for non-blocking state updates
   const [isPending, startTransition] = useTransition();
+  // NEW: aktywność ekranu mapy
+  const [isMapActive, setIsMapActive] = useState(false);
+  // NEW: kolejki diffa gdy mapa nieaktywna
+  const queuedAddsRef = useRef<Set<string>>(new Set());
+  const queuedRemovesRef = useRef<Set<string>>(new Set());
+  const queuedChangedRef = useRef<Set<string>>(new Set());
 
   // Helper: shallow unordered equality (Set compare) to skip redundant work
   const areCountryArraysEqual = useCallback(
@@ -128,49 +146,99 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
     clearHighlights();
   }, [clearHighlights]);
 
-  const updateAndHighlightCountries = useCallback(
+  // NEW: funkcja ustawiania aktywności mapy
+  const flushQueuedDiffs = useCallback(() => {
+    if (
+      queuedChangedRef.current.size === 0 ||
+      !isMapActive ||
+      visitedCountries == null
+    )
+      return;
+    const changed = new Set(queuedChangedRef.current);
+    queuedChangedRef.current.clear();
+    queuedAddsRef.current.clear();
+    queuedRemovesRef.current.clear();
+    setRecentlyChangedCountries(changed);
+    setShowNewIndicator(true);
+    setIsUpdating(true);
+    setUpdateSequence((p) => p + 1);
+    if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
+    updateTimeoutRef.current = setTimeout(() => {
+      dismissNewIndicator();
+    }, 5500);
+  }, [dismissNewIndicator, isMapActive, visitedCountries]);
+
+  const setMapActive = useCallback(
+    (active: boolean) => {
+      setIsMapActive(active);
+      if (active) {
+        // przy wejściu próbujemy z-flushować zebrane zmiany
+        flushQueuedDiffs();
+      }
+    },
+    [flushQueuedDiffs]
+  );
+
+  // NEW: incremental diff application (moved before wrapper to avoid use-before-declare)
+  const applyCountryDiff = useCallback(
     (
-      newCountries: string[],
-      options?: { immediate?: boolean; noDefer?: boolean }
+      add: string[],
+      remove: string[],
+      options?: {
+        immediate?: boolean;
+        deferVisual?: boolean;
+        noDefer?: boolean;
+      }
     ) => {
-      const { immediate = false, noDefer = false } = options || {};
-      // EARLY EXIT: no real change → skip everything (prevents double renders)
-      if (areCountryArraysEqual(visitedCountries, newCountries)) {
+      if ((!add || add.length === 0) && (!remove || remove.length === 0))
         return;
+      const {
+        immediate = false,
+        deferVisual = false,
+        noDefer = false,
+      } = options || {};
+
+      const prev = visitedCountries || [];
+      const nextSet = new Set(prev);
+      for (const a of add) nextSet.add(a);
+      for (const r of remove) nextSet.delete(r);
+
+      if (nextSet.size === prev.length) {
+        let changed = false;
+        for (const a of add) if (!prev.includes(a)) changed = true;
+        for (const r of remove) if (prev.includes(r)) changed = true;
+        if (!changed) return;
       }
 
-      const oldArr = visitedCountries || [];
-      const oldSet = new Set(oldArr);
-      const newSet = new Set(newCountries);
-      const changed = new Set<string>();
-      for (const c of newCountries) if (!oldSet.has(c)) changed.add(c);
-      for (const c of oldSet) if (!newSet.has(c)) changed.add(c);
-      if (changed.size === 0) return;
+      const changedSet = new Set<string>([...add, ...remove]);
 
-      // UI highlight state (cheap, keep sync)
-      setIsUpdating(true);
-      setShowNewIndicator(true);
-      setRecentlyChangedCountries(changed);
-      setUpdateSequence((prev) => prev + 1);
-      if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
-
-      const commit = () => {
-        // Szybki commit bez startTransition jeśli immediate/noDefer aby uniknąć opóźnienia percepcyjnego
-        if (immediate || noDefer) {
-          setVisitedCountries(newCountries);
-        } else {
-          startTransition(() => {
-            setVisitedCountries(newCountries);
-          });
-        }
+      if (isMapActive && !deferVisual) {
+        setRecentlyChangedCountries(changedSet);
+        setShowNewIndicator(true);
+        setIsUpdating(true);
+        setUpdateSequence((p) => p + 1);
+        if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
         updateTimeoutRef.current = setTimeout(() => {
           dismissNewIndicator();
         }, 5500);
+      } else {
+        add.forEach((c) => queuedAddsRef.current.add(c));
+        remove.forEach((c) => queuedRemovesRef.current.add(c));
+        changedSet.forEach((c) => queuedChangedRef.current.add(c));
+      }
+
+      const commit = () => {
+        const nextArr = Array.from(nextSet);
+        if (immediate || noDefer) {
+          setVisitedCountries(nextArr);
+        } else {
+          startTransition(() => setVisitedCountries(nextArr));
+        }
       };
 
-      // Defer only for very large bulk updates AND jeśli nie wymusiliśmy immediate
       const LARGE_CHANGE_THRESHOLD = 25;
-      if (!immediate && !noDefer && changed.size > LARGE_CHANGE_THRESHOLD) {
+      const totalChanged = add.length + remove.length;
+      if (!immediate && !noDefer && totalChanged > LARGE_CHANGE_THRESHOLD) {
         InteractionManager.runAfterInteractions(commit);
       } else {
         commit();
@@ -178,11 +246,34 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
     },
     [
       visitedCountries,
-      setVisitedCountries,
+      isMapActive,
       dismissNewIndicator,
-      areCountryArraysEqual,
       startTransition,
+      setVisitedCountries,
     ]
+  );
+
+  // Wrapper kompatybilności – full list -> diff
+  const updateAndHighlightCountries = useCallback(
+    (
+      newCountries: string[],
+      options?: { immediate?: boolean; noDefer?: boolean }
+    ) => {
+      if (areCountryArraysEqual(visitedCountries, newCountries)) return;
+      const prev = visitedCountries || [];
+      const prevSet = new Set(prev);
+      const nextSet = new Set(newCountries);
+      const add: string[] = [];
+      const remove: string[] = [];
+      for (const c of newCountries) if (!prevSet.has(c)) add.push(c);
+      for (const c of prev) if (!nextSet.has(c)) remove.push(c);
+      if (add.length === 0 && remove.length === 0) return;
+      applyCountryDiff(add, remove, {
+        immediate: options?.immediate,
+        noDefer: options?.noDefer,
+      });
+    },
+    [visitedCountries, applyCountryDiff, areCountryArraysEqual]
   );
 
   const value = useMemo(
@@ -196,12 +287,17 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       isUpdating,
       recentlyChangedCountries,
       updateAndHighlightCountries,
+      applyCountryDiff,
       clearHighlights,
       showNewIndicator,
       dismissNewIndicator,
       instantDismissNewIndicator,
       updateSequence,
       isPending,
+      visitedCount: visitedCountries ? visitedCountries.length : 0,
+      isMapActive,
+      setMapActive,
+      flushQueuedDiffs,
     }),
     [
       scale,
@@ -213,12 +309,16 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       isUpdating,
       recentlyChangedCountries,
       updateAndHighlightCountries,
+      applyCountryDiff,
       clearHighlights,
       showNewIndicator,
       dismissNewIndicator,
       instantDismissNewIndicator,
       updateSequence,
       isPending,
+      isMapActive,
+      setMapActive,
+      flushQueuedDiffs,
     ]
   );
   return <MapContext.Provider value={value}>{children}</MapContext.Provider>;
