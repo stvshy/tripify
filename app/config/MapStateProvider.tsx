@@ -98,6 +98,8 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
   const queuedRemovesRef = useRef<Set<string>>(new Set());
   const queuedChangedRef = useRef<Set<string>>(new Set());
   const selectedCountriesActiveSnapshotRef = useRef<string[] | null>(null);
+  // NEW: limit ilu krajom nadajemy jednocześnie highlight (F)
+  const HIGHLIGHT_LIMIT = 50;
 
   // Keep an active snapshot only when map is active to avoid propagating large array changes to background tab
   useEffect(() => {
@@ -162,11 +164,16 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       visitedCountries == null
     )
       return;
-    const changed = new Set(queuedChangedRef.current);
+    // Respect highlight limit
+    const changedArr = Array.from(queuedChangedRef.current);
+    const limited =
+      changedArr.length > HIGHLIGHT_LIMIT
+        ? new Set(changedArr.slice(0, HIGHLIGHT_LIMIT))
+        : new Set(changedArr);
     queuedChangedRef.current.clear();
     queuedAddsRef.current.clear();
     queuedRemovesRef.current.clear();
-    setRecentlyChangedCountries(changed);
+    setRecentlyChangedCountries(limited);
     setShowNewIndicator(true);
     setIsUpdating(true);
     setUpdateSequence((p) => p + 1);
@@ -182,14 +189,12 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       if (active) {
         flushQueuedDiffs();
       } else {
-        // Deaktywacja mapy: natychmiast przerwij animacje/timeouty żeby nie wykonywały się w tle
+        // A: szybkie wygaszenie – natychmiast zrezygnuj z pending highlight / przycisku
         if (updateTimeoutRef.current) {
           clearTimeout(updateTimeoutRef.current);
           updateTimeoutRef.current = null;
         }
-        // Nie chcemy aby po kilku sekundach odpalił się delayed dismiss -> robimy to teraz
         if (showNewIndicator || recentlyChangedCountries.size > 0) {
-          // Wyciszamy highlighty aby nie generować dalszych re-renderów
           setShowNewIndicator(false);
           setIsUpdating(false);
           setRecentlyChangedCountries(new Set());
@@ -231,9 +236,14 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       }
 
       const changedSet = new Set<string>([...add, ...remove]);
+      // Limit visual highlight size (F)
+      const visualChangedSet =
+        changedSet.size > HIGHLIGHT_LIMIT
+          ? new Set(Array.from(changedSet).slice(0, HIGHLIGHT_LIMIT))
+          : changedSet;
 
       if (isMapActive && !deferVisual) {
-        setRecentlyChangedCountries(changedSet);
+        setRecentlyChangedCountries(visualChangedSet);
         setShowNewIndicator(true);
         setIsUpdating(true);
         setUpdateSequence((p) => p + 1);
@@ -244,7 +254,8 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       } else {
         add.forEach((c) => queuedAddsRef.current.add(c));
         remove.forEach((c) => queuedRemovesRef.current.add(c));
-        changedSet.forEach((c) => queuedChangedRef.current.add(c));
+        // queue only limited set for visual diff
+        visualChangedSet.forEach((c) => queuedChangedRef.current.add(c));
       }
 
       const commit = () => {
@@ -258,7 +269,13 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
 
       const LARGE_CHANGE_THRESHOLD = 25;
       const totalChanged = add.length + remove.length;
-      if (!immediate && !noDefer && totalChanged > LARGE_CHANGE_THRESHOLD) {
+      // A: przy pierwszej aktywacji mapy nie blokuj interakcji; jeśli mapa nieaktywna lub duży diff – puszczamy commit od razu (ułatwia szybkie przejście dalej)
+      if (
+        !immediate &&
+        !noDefer &&
+        totalChanged > LARGE_CHANGE_THRESHOLD &&
+        isMapActive
+      ) {
         InteractionManager.runAfterInteractions(commit);
       } else {
         commit();

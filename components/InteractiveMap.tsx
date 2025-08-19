@@ -284,9 +284,25 @@ const InteractiveMapComponent = forwardRef<
   const [isSharing, setIsSharing] = useState(false);
   const [tooltip, setTooltip] = useState<TooltipPosition | null>(null);
   const scaleValue = useSharedValue(1);
-  // const scale = useSharedValue(1);
-  // const translateX = useSharedValue(initialTranslateX);
-  // const translateY = useSharedValue(initialTranslateY);
+  // B: visitedSet (must be defined before first usage)
+  const visitedSet = useMemo(
+    () => new Set(selectedCountries),
+    [selectedCountries]
+  );
+  // Helper clamp (was below, keep here for ordering)
+  const clamp = useCallback(
+    (value: number, min: number, max: number): number => {
+      "worklet";
+      return Math.min(Math.max(value, min), max);
+    },
+    []
+  );
+  // Preserve previous percentageVisited logic after introducing visitedSet
+  const visitedCountries = useMemo(() => visitedCount, [visitedCount]);
+  const percentageVisited = useMemo(
+    () => (totalCountries > 0 ? visitedCount / totalCountries : 0),
+    [visitedCount, totalCountries]
+  );
   const AnimatedImage = Animated.createAnimatedComponent(Image);
   const storedButtonTranslateY = useSharedValue(0);
   const tooltipVisible = useSharedValue(0);
@@ -613,22 +629,17 @@ const InteractiveMapComponent = forwardRef<
   // Zaktualizuj funkcjÄ getCountryFill
   const getCountryFill = useCallback(
     (countryCode: string) => {
-      const isVisited = selectedCountries.includes(countryCode);
+      const isVisited = visitedSet.has(countryCode);
       const isHighlighted = tooltip && tooltip.country.id === countryCode;
-
-      // --- NOWA, NAJWAŻNIEJSZA LOGIKA ---
-      // Jeśli kraj właśnie się zmienia, nadaj mu specjalny kolor
       if (recentlyChangedCountries.has(countryCode)) {
-        return theme.colors.primary; // Kolor podświetlenia (FIOLETOWY)
+        return theme.colors.primary;
       }
-
       if (isHighlighted) {
         return applyTransparency(theme.colors.primary, 0.75);
       }
-
-      return isVisited ? "rgba(0,174,245,255)" : "#b2b7bf"; // Błękitny lub szary
+      return isVisited ? "rgba(0,174,245,255)" : "#b2b7bf";
     },
-    [selectedCountries, tooltip, theme.colors.primary, recentlyChangedCountries] // <-- DODAJ NOWĄ ZALEŻNOŚĆ
+    [visitedSet, tooltip, theme.colors.primary, recentlyChangedCountries]
   );
 
   // Zaktualizuj isCountryHighlighted
@@ -638,73 +649,73 @@ const InteractiveMapComponent = forwardRef<
     },
     [tooltip]
   );
-  const SkiaVisibleCountries = React.memo(
-    () => {
-      return (
-        <>
-          {skiaPaths.map((countryData) => {
-            if (
-              !countryData.skPath ||
-              !countryData.id ||
-              countryData.id.startsWith("UNKNOWN-")
-            ) {
-              return null;
-            }
-            const countryCode = countryData.id;
-            const fill = getCountryFill(countryCode); // Twoja funkcja
-            const strokeColor = isCountryHighlighted(countryCode)
-              ? theme.colors.primary
-              : theme.colors.outline;
-            const strokeWidthVal = isCountryHighlighted(countryCode)
-              ? 0.5
-              : 0.2;
+  // OPT (B): Prekomputacja kolorów wszystkich krajów dla Skia (redukcja kosztów w pętli renderowania)
+  const countryColors = useMemo(() => {
+    return countries.map((c) => {
+      const id = c.id;
+      if (recentlyChangedCountries.has(id)) return theme.colors.primary;
+      if (tooltip && tooltip.country.id === id)
+        return applyTransparency(theme.colors.primary, 0.75);
+      return visitedSet.has(id) ? "rgba(0,174,245,255)" : "#b2b7bf";
+    });
+  }, [visitedSet, recentlyChangedCountries, tooltip, theme.colors.primary]);
 
-            return (
-              <React.Fragment key={`skia-visible-${countryCode}`}>
-                <SkiaPathDrawing // Ten Path jest z '@shopify/react-native-skia'
-                  path={countryData.skPath}
-                  color={fill}
-                  style="fill"
-                />
-                <SkiaPathDrawing
-                  path={countryData.skPath}
-                  color={strokeColor}
-                  style="stroke"
-                  strokeWidth={strokeWidthVal}
-                />
-              </React.Fragment>
-            );
-          })}
-        </>
-      );
-    },
-    (prev, next) => {
-      // Jeśli są aktywne podświetlenia, zawsze pozwól na re-render
-      if (recentlyChangedCountries.size > 0) {
-        return false;
-      }
-      // W przeciwnym razie używaj standardowej optymalizacji
-      return !isInteracting.value;
-    }
-  );
+  // Zmieniono: uproszczona wersja bez React.memo – koszty per render mniejsze dzięki prekomputacji countryColors
+  const SkiaVisibleCountries = () => {
+    return (
+      <>
+        {skiaPaths.map((countryData, idx) => {
+          if (
+            !countryData.skPath ||
+            !countryData.id ||
+            countryData.id.startsWith("UNKNOWN-")
+          ) {
+            return null;
+          }
+          const countryCode = countryData.id;
+          const fill = countryColors[idx];
+          const strokeHighlighted =
+            tooltip && tooltip.country.id === countryCode;
+          const strokeColor = strokeHighlighted
+            ? theme.colors.primary
+            : theme.colors.outline;
+          const strokeWidthVal = strokeHighlighted ? 0.5 : 0.2;
+          return (
+            <React.Fragment key={`skia-visible-${countryCode}`}>
+              <SkiaPathDrawing
+                path={countryData.skPath}
+                color={fill}
+                style="fill"
+              />
+              <SkiaPathDrawing
+                path={countryData.skPath}
+                color={strokeColor}
+                style="stroke"
+                strokeWidth={strokeWidthVal}
+              />
+            </React.Fragment>
+          );
+        })}
+      </>
+    );
+  };
+
+  // Proper definition of invisible SVG touch layer (previously misplaced inside styles)
   const SvgInvisibleTouchLayer = React.memo(
     () => {
       return (
         <>
-          {countries.map((country) => {
-            // Używamy oryginalnych `countries` z `path` SVG
+          {countries.map((country: Country, index: number) => {
             const countryCode = country.id;
-            if (!countryCode || countryCode.startsWith("UNKNOWN-")) {
-              return null;
-            }
+            if (!countryCode || countryCode.startsWith("UNKNOWN-")) return null;
             return (
-              <MemoizedCountryPath // Używa komponentu SVG
-                key={`touch-svg-${countryCode}`}
+              <MemoizedCountryPath
+                key={`touch-svg-${countryCode}-${index}`}
                 path={country.path}
-                fill="transparent" // Niewidzialne
-                stroke="transparent" // Niewidzialne
-                strokeWidth={0.1} // Minimalna grubość dla wykrywania dotyku
-                onPress={(event) => handlePathPress(event, countryCode)} // Twoja istniejąca funkcja
+                fill="transparent"
+                stroke="transparent"
+                strokeWidth={0}
+                onPress={(event) => handlePathPress(event, countryCode)}
                 countryId={countryCode}
               />
             );
@@ -714,51 +725,6 @@ const InteractiveMapComponent = forwardRef<
     },
     () => true
   );
-  const visitedCountries = useMemo(() => visitedCount, [visitedCount]);
-  const percentageVisited = useMemo(
-    () => (totalCountries > 0 ? visitedCount / totalCountries : 0),
-    [visitedCount, totalCountries]
-  );
-  const clamp = (value: number, min: number, max: number): number => {
-    "worklet";
-    return Math.min(Math.max(value, min), max);
-  };
-  useEffect(() => {
-    if (tooltip) {
-      tooltipVisible.value = 1;
-      // Obliczamy bieĹźÄcy progress dla przyciskĂłw
-      const currentProgress = Math.min((scale.value - 1) / (1.16 - 1), 1);
-      storedButtonTranslateY.value = screenHeight * 0.05 * currentProgress;
-    } else {
-      tooltipVisible.value = 0;
-    }
-  }, [tooltip]);
-
-  const isMounted = useRef(true);
-
-  useEffect(() => {
-    return () => {
-      isMounted.current = false;
-      // Resetowanie wartoĹci animowanych przy odmontowaniu
-      if (scale) cancelAnimation(scale);
-      if (translateX) cancelAnimation(translateX);
-      if (translateY) cancelAnimation(translateY);
-    };
-  }, []);
-  useEffect(() => {
-    return () => {
-      isMounted.current = false;
-
-      // Properly cancel animations on unmount
-      cancelAnimation(scale);
-      cancelAnimation(translateX);
-      cancelAnimation(translateY);
-      cancelAnimation(scaleValue);
-      cancelAnimation(popoverOffset);
-      cancelAnimation(tooltipVisible);
-      cancelAnimation(storedButtonTranslateY);
-    };
-  }, []);
 
   const fullViewRef = useRef<View>(null);
 
