@@ -1665,6 +1665,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     height: BUTTON_SIZE,
+    width: "100%",
   },
   resetButton: {
     width: BUTTON_SIZE,
