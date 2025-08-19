@@ -97,6 +97,14 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
   const queuedAddsRef = useRef<Set<string>>(new Set());
   const queuedRemovesRef = useRef<Set<string>>(new Set());
   const queuedChangedRef = useRef<Set<string>>(new Set());
+  const selectedCountriesActiveSnapshotRef = useRef<string[] | null>(null);
+
+  // Keep an active snapshot only when map is active to avoid propagating large array changes to background tab
+  useEffect(() => {
+    if (isMapActive) {
+      selectedCountriesActiveSnapshotRef.current = visitedCountries || null;
+    }
+  }, [visitedCountries, isMapActive]);
 
   // Helper: shallow unordered equality (Set compare) to skip redundant work
   const areCountryArraysEqual = useCallback(
@@ -172,11 +180,23 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
     (active: boolean) => {
       setIsMapActive(active);
       if (active) {
-        // przy wejściu próbujemy z-flushować zebrane zmiany
         flushQueuedDiffs();
+      } else {
+        // Deaktywacja mapy: natychmiast przerwij animacje/timeouty żeby nie wykonywały się w tle
+        if (updateTimeoutRef.current) {
+          clearTimeout(updateTimeoutRef.current);
+          updateTimeoutRef.current = null;
+        }
+        // Nie chcemy aby po kilku sekundach odpalił się delayed dismiss -> robimy to teraz
+        if (showNewIndicator || recentlyChangedCountries.size > 0) {
+          // Wyciszamy highlighty aby nie generować dalszych re-renderów
+          setShowNewIndicator(false);
+          setIsUpdating(false);
+          setRecentlyChangedCountries(new Set());
+        }
       }
     },
-    [flushQueuedDiffs]
+    [flushQueuedDiffs, showNewIndicator, recentlyChangedCountries]
   );
 
   // NEW: incremental diff application (moved before wrapper to avoid use-before-declare)
@@ -282,7 +302,10 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       translateX,
       translateY,
       resetMapTransform,
-      selectedCountries: visitedCountries,
+      // Only expose live array when map tab active; otherwise last active snapshot -> prevents background re-render storm
+      selectedCountries: isMapActive
+        ? visitedCountries
+        : selectedCountriesActiveSnapshotRef.current,
       isLoadingData,
       isUpdating,
       recentlyChangedCountries,

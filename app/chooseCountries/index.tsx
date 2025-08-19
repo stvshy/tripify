@@ -289,7 +289,7 @@ export default function ChooseCountriesScreen({
   const { visitedCountries, setVisitedCountries } = useCountries();
   const initialVisitedCountriesRef = useRef(new Set(visitedCountries));
   const appState = useRef(AppState.currentState);
-  const { updateAndHighlightCountries } = useMapState();
+  const { updateAndHighlightCountries, applyCountryDiff } = useMapState();
 
   const [localSelectedCountries, setLocalSelectedCountries] = useState(
     () => new Set<string>()
@@ -581,8 +581,21 @@ export default function ChooseCountriesScreen({
     };
   }, [visitedCountries, setLocalCount]);
   // ZASTĄP CAŁĄ FUNKCJĘ `handleSelectCountry` PONIŻSZYM KODEM:
+  const dismissKeyboard = useCallback(() => {
+    searchInputRef.current?.blur();
+    Keyboard.dismiss();
+  }, []);
+
+  const dismissKeyboardAndUnfocus = useCallback(() => {
+    if (searchInputRef.current?.isFocused()) {
+      searchInputRef.current?.blur();
+    }
+    Keyboard.dismiss();
+  }, []);
+  const savingRef = useRef(false);
   const handleSelectCountry = useCallback(
     (countryCode: string) => {
+      if (savingRef.current) return; // blokuj interakcje w trakcie ciężkiego zapisu
       dismissKeyboard();
       setLocalSelectedCountries((currentSelected) => {
         const newSet = new Set(currentSelected);
@@ -591,11 +604,10 @@ export default function ChooseCountriesScreen({
         } else {
           newSet.add(countryCode);
         }
-        // setLocalCount(newSet.size); // <-- USUŃ TĘ LINIĘ
         return newSet;
       });
     },
-    [] // <-- Usuń setLocalCount z zależności, bo już go tu nie używasz
+    [dismissKeyboard]
   );
   const handleViewableItemsChanged = useCallback(() => {
     // Sprawdzamy, czy to pierwsze załadowanie (dzięki ref-owi)
@@ -614,20 +626,21 @@ export default function ChooseCountriesScreen({
     }
   }, [skeletonOpacity]);
   const handleSaveCountries = useCallback(async () => {
+    if (savingRef.current) return;
+    savingRef.current = true;
     const user = auth.currentUser;
     if (!user) {
       console.error("Cannot save, user not authenticated.");
+      savingRef.current = false;
       return;
     }
-
     const initialSet = initialVisitedCountriesRef.current;
     const finalSet = localSelectedCountries;
-
     if (isEqual(initialSet, finalSet)) {
+      savingRef.current = false;
       console.log("No changes to save.");
       return;
     }
-
     const add: string[] = [];
     const remove: string[] = [];
     finalSet.forEach((c) => {
@@ -636,10 +649,7 @@ export default function ChooseCountriesScreen({
     initialSet.forEach((c) => {
       if (!finalSet.has(c)) remove.push(c);
     });
-
-    // Diff-based update (fast, minimal)
-    updateAndHighlightCountries(Array.from(finalSet));
-
+    applyCountryDiff(add, remove, { immediate: true, deferVisual: true });
     try {
       const currentSelectedArray = Array.from(finalSet);
       const userDocRef = doc(db, "users", user.uid);
@@ -648,20 +658,13 @@ export default function ChooseCountriesScreen({
         ...(!fromTab && { firstLoginComplete: true }),
       });
       initialVisitedCountriesRef.current = new Set(currentSelectedArray);
-      if (!fromTab && userProfile) {
-        /* ... */
-      }
       console.log("Countries data sent to Firestore successfully.");
     } catch (error) {
       console.error("Error auto-saving countries:", error);
+    } finally {
+      savingRef.current = false;
     }
-  }, [
-    localSelectedCountries,
-    fromTab,
-    userProfile,
-    setUserProfile,
-    updateAndHighlightCountries,
-  ]);
+  }, [localSelectedCountries, fromTab, applyCountryDiff]);
   const handleSaveRef = useRef(handleSaveCountries);
   useEffect(() => {
     handleSaveRef.current = handleSaveCountries;
@@ -680,7 +683,7 @@ export default function ChooseCountriesScreen({
   //     // Możemy tu nasłuchiwać na zmiany stanu aplikacji.
   //     const subscription = AppState.addEventListener(
   //       "change",
-  //       (nextAppState) => {
+  //       (nextAppState: AppStateStatus) => {
   //         if (
   //           appState.current.match(/active/) &&
   //           (nextAppState === "background" || nextAppState === "inactive")
@@ -701,59 +704,6 @@ export default function ChooseCountriesScreen({
   //       handleSaveRef.current?.();
   //     };
   //   }, []) // Pusta tablica zależności jest tutaj poprawna
-  // );
-  // Function to handle clicking outside the text input
-  const dismissKeyboard = useCallback(() => {
-    // Nie sprawdzamy warunków, po prostu wywołujemy obie akcje.
-    // To jest bardziej niezawodne.
-    searchInputRef.current?.blur();
-    Keyboard.dismiss();
-  }, []);
-
-  const dismissKeyboardAndUnfocus = useCallback(() => {
-    // Sprawdzamy, czy input faktycznie ma focus, żeby niepotrzebnie nie wywoływać
-    if (searchInputRef.current?.isFocused()) {
-      searchInputRef.current?.blur();
-    }
-    // Niezależnie od wszystkiego, chowamy klawiaturę
-    Keyboard.dismiss();
-  }, []);
-  // useFocusEffect(
-  //   useCallback(() => {
-  //     const onAppStateChange = (nextAppState: AppStateStatus) => {
-  //       if (
-  //         appState.current.match(/active/) &&
-  //         (nextAppState === "background" || nextAppState === "inactive")
-  //       ) {
-  //         handleSaveRef.current?.();
-  //       }
-  //       appState.current = nextAppState;
-  //     };
-
-  //     const onBackPress = () => {
-  //       if (searchInputRef.current?.isFocused()) {
-  //         dismissKeyboard();
-  //         return true; // Prevent default action
-  //       }
-  //       return false; // Allow default action
-  //     };
-
-  //     const appStateSubscription = AppState.addEventListener(
-  //       "change",
-  //       onAppStateChange
-  //     );
-  //     const backHandler = BackHandler.addEventListener(
-  //       "hardwareBackPress",
-  //       onBackPress
-  //     );
-
-  //     // Funkcja czyszcząca
-  //     return () => {
-  //       appStateSubscription.remove();
-  //       backHandler.remove();
-  //       handleSaveRef.current?.(); // Zapisz zmiany przy opuszczaniu ekranu
-  //     };
-  //   }, [dismissKeyboard]) // Stabilna zależność
   // );
   // Wklej ten kod do komponentu ChooseCountriesScreen
 

@@ -250,7 +250,7 @@ interface TooltipPosition {
 }
 
 interface InteractiveMapProps {
-  selectedCountries: string[];
+  selectedCountries: string[]; // still accepted for now (legacy) TODO: make optional
   totalCountries: number;
   onCountryPress: (countryCode: string) => void;
   style?: StyleProp<ViewStyle>;
@@ -270,9 +270,11 @@ const InteractiveMapComponent = forwardRef<
     clearHighlights,
     showNewIndicator,
     dismissNewIndicator,
-    instantDismissNewIndicator, // NOWE
-    selectedCountries: selectedCountriesCtx, // <- dodane
-    updateSequence, // NOWE
+    instantDismissNewIndicator,
+    selectedCountries: selectedCountriesCtx,
+    updateSequence,
+    visitedCount,
+    isMapActive,
   } = useMapState();
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
   const theme = useTheme();
@@ -712,18 +714,10 @@ const InteractiveMapComponent = forwardRef<
     },
     () => true
   );
-  const visitedCountries = useMemo(
-    () => (selectedCountriesCtx ? selectedCountriesCtx.length : 0),
-    [selectedCountriesCtx]
-  );
+  const visitedCountries = useMemo(() => visitedCount, [visitedCount]);
   const percentageVisited = useMemo(
-    () =>
-      selectedCountriesCtx &&
-      selectedCountriesCtx.length > 0 &&
-      totalCountries > 0
-        ? visitedCountries / totalCountries
-        : 0,
-    [visitedCountries, totalCountries]
+    () => (totalCountries > 0 ? visitedCount / totalCountries : 0),
+    [visitedCount, totalCountries]
   );
   const clamp = (value: number, min: number, max: number): number => {
     "worklet";
@@ -1064,6 +1058,18 @@ const InteractiveMapComponent = forwardRef<
       };
     }, [showNewIndicator, recentlyChangedCountries, updateSequence])
   );
+
+  useEffect(() => {
+    if (!isMapActive) {
+      // Cancel ongoing reanimated shared value animations when map becomes inactive
+      try {
+        cancelAnimation(scale);
+        cancelAnimation(translateX);
+        cancelAnimation(translateY);
+        cancelAnimation(scaleValue);
+      } catch {}
+    }
+  }, [isMapActive]);
 
   return (
     <GestureHandlerRootView>
@@ -1535,32 +1541,20 @@ const areInteractiveMapPropsEqual = (
   prevProps: InteractiveMapProps,
   nextProps: InteractiveMapProps
 ): boolean => {
-  // Compare selectedCountries (array of strings)
+  // Since coloring now derives from context (visitedCount + diffs), we only need to compare length for legacy prop
   const selectedCountriesEqual =
-    prevProps.selectedCountries.length === nextProps.selectedCountries.length &&
-    prevProps.selectedCountries.every(
-      (country, index) => country === nextProps.selectedCountries[index]
-    );
-
-  // Compare totalCountries (number)
+    prevProps.selectedCountries.length === nextProps.selectedCountries.length;
   const totalCountriesEqual =
     prevProps.totalCountries === nextProps.totalCountries;
-
-  // Compare onCountryPress (function) - stable if memoized in parent
   const onCountryPressEqual =
     prevProps.onCountryPress === nextProps.onCountryPress;
-
-  // Compare style (StyleProp<ViewStyle>) - shallow compare object reference
   const styleEqual = prevProps.style === nextProps.style;
-
-  // Return true if all relevant props are equal, meaning no re-render needed
   return (
     selectedCountriesEqual &&
     totalCountriesEqual &&
     onCountryPressEqual &&
     styleEqual
   );
-  // Add other props to comparison if they exist and affect rendering
 };
 
 // Export the memoized component
