@@ -56,7 +56,7 @@ interface MapContextType {
   // NEW: czy ekran mapy jest aktywny
   isMapActive: boolean;
   setMapActive: (active: boolean) => void;
-  flushQueuedDiffs: (force?: boolean) => void;
+  flushQueuedDiffs: () => void;
 }
 
 const MapContext = createContext<MapContextType | null>(null);
@@ -158,10 +158,10 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
 
   // NEW: funkcja ustawiania aktywności mapy
   const flushQueuedDiffs = useCallback(
-    (force: boolean = false) => {
+    (opts?: { force?: boolean }) => {
+      const force = opts?.force === true;
       if (
         queuedChangedRef.current.size === 0 ||
-        // when force=true, bypass isMapActive guard to pre-prime highlight before first active render
         (!force && !isMapActive) ||
         visitedCountries == null
       )
@@ -175,10 +175,13 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       queuedChangedRef.current.clear();
       queuedAddsRef.current.clear();
       queuedRemovesRef.current.clear();
+
+      // Batch UI flags together for perfectly synced appearance
       setRecentlyChangedCountries(limited);
       setShowNewIndicator(true);
       setIsUpdating(true);
       setUpdateSequence((p) => p + 1);
+
       if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
       updateTimeoutRef.current = setTimeout(() => {
         dismissNewIndicator();
@@ -190,12 +193,12 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
   const setMapActive = useCallback(
     (active: boolean) => {
       if (active) {
-        // Prime highlight before toggling active to avoid a frame with base colors
-        flushQueuedDiffs(true);
+        // Force-flush queued diffs BEFORE toggling map active to ensure
+        // the highlight and "New" button appear immediately on navigation.
+        flushQueuedDiffs({ force: true });
         setIsMapActive(true);
       } else {
-        setIsMapActive(false);
-        // A: szybkie wygaszenie – natychmiast zrezygnuj z pending highlight / przycisku
+        // Fast fade-out of any pending highlight / button when leaving map
         if (updateTimeoutRef.current) {
           clearTimeout(updateTimeoutRef.current);
           updateTimeoutRef.current = null;
@@ -205,6 +208,7 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
           setIsUpdating(false);
           setRecentlyChangedCountries(new Set());
         }
+        setIsMapActive(false);
       }
     },
     [flushQueuedDiffs, showNewIndicator, recentlyChangedCountries]
