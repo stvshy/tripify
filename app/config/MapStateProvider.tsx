@@ -57,6 +57,8 @@ interface MapContextType {
   isMapActive: boolean;
   setMapActive: (active: boolean) => void;
   flushQueuedDiffs: () => void;
+  // NEW: allow reading queued visual diffs to render highlights on first frame
+  peekQueuedChanged: () => string[];
 }
 
 const MapContext = createContext<MapContextType | null>(null);
@@ -100,6 +102,8 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
   const selectedCountriesActiveSnapshotRef = useRef<string[] | null>(null);
   // NEW: limit ilu krajom nadajemy jednocześnie highlight (F)
   const HIGHLIGHT_LIMIT = 50;
+  // NOWE: krótsze okno auto-dismiss aby synchronizować z szybszą animacją przycisku
+  const AUTO_DISMISS_MS = 3300;
 
   // Keep an active snapshot only when map is active to avoid propagating large array changes to background tab
   useEffect(() => {
@@ -157,48 +161,41 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
   }, [clearHighlights]);
 
   // NEW: funkcja ustawiania aktywności mapy
-  const flushQueuedDiffs = useCallback(
-    (opts?: { force?: boolean }) => {
-      const force = opts?.force === true;
-      if (
-        queuedChangedRef.current.size === 0 ||
-        (!force && !isMapActive) ||
-        visitedCountries == null
-      )
-        return;
-      // Respect highlight limit
-      const changedArr = Array.from(queuedChangedRef.current);
-      const limited =
-        changedArr.length > HIGHLIGHT_LIMIT
-          ? new Set(changedArr.slice(0, HIGHLIGHT_LIMIT))
-          : new Set(changedArr);
-      queuedChangedRef.current.clear();
-      queuedAddsRef.current.clear();
-      queuedRemovesRef.current.clear();
+  const flushQueuedDiffs = useCallback(() => {
+    if (queuedChangedRef.current.size === 0 || visitedCountries == null) return;
+    // Respect highlight limit
+    const changedArr = Array.from(queuedChangedRef.current);
+    const limited =
+      changedArr.length > HIGHLIGHT_LIMIT
+        ? new Set(changedArr.slice(0, HIGHLIGHT_LIMIT))
+        : new Set(changedArr);
+    queuedChangedRef.current.clear();
+    queuedAddsRef.current.clear();
+    queuedRemovesRef.current.clear();
+    setRecentlyChangedCountries(limited);
+    setShowNewIndicator(true);
+    setIsUpdating(true);
+    setUpdateSequence((p) => p + 1);
+    if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
+    updateTimeoutRef.current = setTimeout(() => {
+      dismissNewIndicator();
+    }, AUTO_DISMISS_MS);
+  }, [dismissNewIndicator, visitedCountries]);
 
-      // Batch UI flags together for perfectly synced appearance
-      setRecentlyChangedCountries(limited);
-      setShowNewIndicator(true);
-      setIsUpdating(true);
-      setUpdateSequence((p) => p + 1);
-
-      if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
-      updateTimeoutRef.current = setTimeout(() => {
-        dismissNewIndicator();
-      }, 5500);
-    },
-    [dismissNewIndicator, isMapActive, visitedCountries]
-  );
+  // NEW: expose non-mutating view of queued changes for first-render synchronization
+  const peekQueuedChanged = useCallback(() => {
+    return Array.from(queuedChangedRef.current);
+  }, []);
 
   const setMapActive = useCallback(
     (active: boolean) => {
       if (active) {
-        // Force-flush queued diffs BEFORE toggling map active to ensure
-        // the highlight and "New" button appear immediately on navigation.
-        flushQueuedDiffs({ force: true });
+        // Najpierw ustaw highlighty/przycisk, potem przełącz na aktywną mapę
+        flushQueuedDiffs();
         setIsMapActive(true);
       } else {
-        // Fast fade-out of any pending highlight / button when leaving map
+        setIsMapActive(false);
+        // A: szybkie wygaszenie – natychmiast zrezygnuj z pending highlight / przycisku
         if (updateTimeoutRef.current) {
           clearTimeout(updateTimeoutRef.current);
           updateTimeoutRef.current = null;
@@ -208,7 +205,6 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
           setIsUpdating(false);
           setRecentlyChangedCountries(new Set());
         }
-        setIsMapActive(false);
       }
     },
     [flushQueuedDiffs, showNewIndicator, recentlyChangedCountries]
@@ -253,6 +249,7 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
           : changedSet;
 
       if (isMapActive && !deferVisual) {
+        // Natychmiast pokazuj highlighty i przycisk "New" na aktywnej mapie
         setRecentlyChangedCountries(visualChangedSet);
         setShowNewIndicator(true);
         setIsUpdating(true);
@@ -260,12 +257,14 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
         if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
         updateTimeoutRef.current = setTimeout(() => {
           dismissNewIndicator();
-        }, 5500);
+        }, AUTO_DISMISS_MS);
       } else {
         add.forEach((c) => queuedAddsRef.current.add(c));
         remove.forEach((c) => queuedRemovesRef.current.add(c));
         // queue only limited set for visual diff
         visualChangedSet.forEach((c) => queuedChangedRef.current.add(c));
+        // Advance inactive snapshot to reflect the upcoming visited set to prevent flicker
+        selectedCountriesActiveSnapshotRef.current = Array.from(nextSet);
       }
 
       const commit = () => {
@@ -348,6 +347,7 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       isMapActive,
       setMapActive,
       flushQueuedDiffs,
+      peekQueuedChanged,
     }),
     [
       scale,
@@ -369,6 +369,7 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       isMapActive,
       setMapActive,
       flushQueuedDiffs,
+      peekQueuedChanged,
     ]
   );
   return <MapContext.Provider value={value}>{children}</MapContext.Provider>;

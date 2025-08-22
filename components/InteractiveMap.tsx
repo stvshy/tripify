@@ -37,6 +37,7 @@ import {
 import * as Sharing from "expo-sharing";
 import Animated, {
   cancelAnimation,
+  clamp,
   Easing,
   runOnJS,
   useAnimatedStyle,
@@ -275,6 +276,8 @@ const InteractiveMapComponent = forwardRef<
     updateSequence,
     visitedCount,
     isMapActive,
+    setMapActive,
+    flushQueuedDiffs,
   } = useMapState();
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
   const theme = useTheme();
@@ -284,19 +287,25 @@ const InteractiveMapComponent = forwardRef<
   const [isSharing, setIsSharing] = useState(false);
   const [tooltip, setTooltip] = useState<TooltipPosition | null>(null);
   const scaleValue = useSharedValue(1);
-  // B: visitedSet (must be defined before first usage)
-  const visitedSet = useMemo(
-    () => new Set(selectedCountries),
-    [selectedCountries]
+  // B: visitedSet (prefer context list to keep timing with highlights; fallback to prop for legacy)
+  const visitedList = useMemo(
+    () => selectedCountriesCtx ?? selectedCountries ?? [],
+    [selectedCountriesCtx, selectedCountries]
   );
-  // Helper clamp (was below, keep here for ordering)
-  const clamp = useCallback(
-    (value: number, min: number, max: number): number => {
-      "worklet";
-      return Math.min(Math.max(value, min), max);
-    },
-    []
-  );
+  const visitedSet = useMemo(() => new Set(visitedList), [visitedList]);
+
+  // Szybkie włączenie aktywności mapy i flush queued diffs przed pierwszym rysowaniem
+  useLayoutEffect(() => {
+    setMapActive(true);
+    // Natychmiastowe ustawienie widoczności warstwy New (bez animacji) przy pierwszym wejściu
+    if (showNewIndicator) {
+      toggleProgress.value = 1;
+    }
+    return () => {
+      setMapActive(false);
+    };
+  }, []);
+
   // Preserve previous percentageVisited logic after introducing visitedSet
   const visitedCountries = useMemo(() => visitedCount, [visitedCount]);
   const percentageVisited = useMemo(
@@ -350,18 +359,25 @@ const InteractiveMapComponent = forwardRef<
   const toggleProgress = useSharedValue(showNewIndicator ? 1 : 0);
 
   useEffect(() => {
-    // płynne przejście między trybami
+    // Natychmiastowe pojawienie na wejściu (bez opóźnienia), szybkie wygaszanie
+    const appearing = !prevShowRef.current && showNewIndicator;
     toggleProgress.value = withTiming(showNewIndicator ? 1 : 0, {
-      duration: 220,
+      duration: showNewIndicator ? (appearing ? 0 : 140) : 160,
+      easing: Easing.out(Easing.ease),
     });
-    if (showNewIndicator) {
-      setConfettiKey(Date.now()); // tylko gdy pojawia się "New"
+    prevShowRef.current = showNewIndicator;
+  }, [showNewIndicator]);
+
+  // Layout-efekt, który w pierwszej klatce po ustawieniu showNewIndicator ustawia widok bez animacji
+  useLayoutEffect(() => {
+    if (showNewIndicator && !prevShowRef.current) {
+      toggleProgress.value = 1;
     }
   }, [showNewIndicator]);
 
   const newContainerAnimatedStyle = useAnimatedStyle(() => ({
     opacity: toggleProgress.value, // 0..1
-    transform: [{ scale: 0.8 + 0.2 * toggleProgress.value }], // 0.8 -> 1.0
+    transform: [{ scale: 0.86 + 0.14 * toggleProgress.value }], // 0.86 -> 1.0
   }));
 
   const regularButtonsAnimatedStyle = useAnimatedStyle(() => ({
@@ -1005,24 +1021,24 @@ const InteractiveMapComponent = forwardRef<
   }, [resetMapTransform]);
 
   const handlePressNew = useCallback(() => {
-    clearHighlights();
-    instantDismissNewIndicator(); // to przełączy showNewIndicator -> resztę zrobi efekt z toggleProgress
-  }, [clearHighlights, instantDismissNewIndicator]);
+    // Wygaszamy przycisk New animacją, a highlighty/konfetti czyścimy natychmiast – wszystko znika razem
+    dismissNewIndicator();
+    toggleProgress.value = withTiming(0, {
+      duration: 140,
+      easing: Easing.out(Easing.ease),
+    });
+  }, [dismissNewIndicator]);
 
-  // Reset tooltip & New indicator when leaving this screen
+  // Reset tooltip & zarządzanie aktywnością mapy na fokus/blur ekranu
   useFocusEffect(
     useCallback(() => {
-      // Przy wejściu na ekran jeśli jest aktywny showNewIndicator i są highlighty uruchamiamy konfetti (klucz po updateSequence)
-      if (showNewIndicator && recentlyChangedCountries.size > 0) {
-        setConfettiKey(updateSequence); // nowy klucz -> restart animacji
-      }
+      // Oznacz mapę jako aktywną natychmiast po wejściu – spowoduje flushQueuedDiffs()
+      setMapActive(true);
       return () => {
         setTooltip(null);
-        // NIE wyłączamy od razu showNewIndicator żeby użytkownik zobaczył po powrocie jeśli nadal trwa okno 9s
-        // Jeśli chcesz zawsze resetować tu wskaźnik odkomentuj poniższą linię:
-        // dismissNewIndicator();
+        setMapActive(false);
       };
-    }, [showNewIndicator, recentlyChangedCountries, updateSequence])
+    }, [setMapActive])
   );
 
   useEffect(() => {
@@ -1378,19 +1394,23 @@ const InteractiveMapComponent = forwardRef<
               styles.centeredContent,
               newContainerAnimatedStyle,
             ]}
-            // Klikalne tylko gdy faktycznie widoczne (gdy showNewIndicator true)
-            pointerEvents={showNewIndicator ? "auto" : "none"}
+            // Nie blokuj dotyku poza przyciskiem New
+            pointerEvents={showNewIndicator ? "box-none" : "none"}
           >
-            <ConfettiCannon
-              key={confettiKey}
-              ref={confettiRef}
-              count={120}
-              origin={{ x: screenWidth / 2, y: 0 }}
-              fadeOut
-              explosionSpeed={300}
-              fallSpeed={2500}
-              autoStart
-            />
+            <View pointerEvents="none">
+              {showNewIndicator && (
+                <ConfettiCannon
+                  key={confettiKey}
+                  ref={confettiRef}
+                  count={120}
+                  origin={{ x: screenWidth / 2, y: 0 }}
+                  fadeOut
+                  explosionSpeed={300}
+                  fallSpeed={2500}
+                  autoStart
+                />
+              )}
+            </View>
             <TouchableOpacity
               style={styles.newButtonWrapper}
               activeOpacity={0.85}
