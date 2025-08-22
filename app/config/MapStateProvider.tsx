@@ -56,7 +56,7 @@ interface MapContextType {
   // NEW: czy ekran mapy jest aktywny
   isMapActive: boolean;
   setMapActive: (active: boolean) => void;
-  flushQueuedDiffs: () => void;
+  flushQueuedDiffs: (force?: boolean) => void;
 }
 
 const MapContext = createContext<MapContextType | null>(null);
@@ -157,38 +157,44 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
   }, [clearHighlights]);
 
   // NEW: funkcja ustawiania aktywności mapy
-  const flushQueuedDiffs = useCallback(() => {
-    if (
-      queuedChangedRef.current.size === 0 ||
-      !isMapActive ||
-      visitedCountries == null
-    )
-      return;
-    // Respect highlight limit
-    const changedArr = Array.from(queuedChangedRef.current);
-    const limited =
-      changedArr.length > HIGHLIGHT_LIMIT
-        ? new Set(changedArr.slice(0, HIGHLIGHT_LIMIT))
-        : new Set(changedArr);
-    queuedChangedRef.current.clear();
-    queuedAddsRef.current.clear();
-    queuedRemovesRef.current.clear();
-    setRecentlyChangedCountries(limited);
-    setShowNewIndicator(true);
-    setIsUpdating(true);
-    setUpdateSequence((p) => p + 1);
-    if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
-    updateTimeoutRef.current = setTimeout(() => {
-      dismissNewIndicator();
-    }, 5500);
-  }, [dismissNewIndicator, isMapActive, visitedCountries]);
+  const flushQueuedDiffs = useCallback(
+    (force: boolean = false) => {
+      if (
+        queuedChangedRef.current.size === 0 ||
+        // when force=true, bypass isMapActive guard to pre-prime highlight before first active render
+        (!force && !isMapActive) ||
+        visitedCountries == null
+      )
+        return;
+      // Respect highlight limit
+      const changedArr = Array.from(queuedChangedRef.current);
+      const limited =
+        changedArr.length > HIGHLIGHT_LIMIT
+          ? new Set(changedArr.slice(0, HIGHLIGHT_LIMIT))
+          : new Set(changedArr);
+      queuedChangedRef.current.clear();
+      queuedAddsRef.current.clear();
+      queuedRemovesRef.current.clear();
+      setRecentlyChangedCountries(limited);
+      setShowNewIndicator(true);
+      setIsUpdating(true);
+      setUpdateSequence((p) => p + 1);
+      if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
+      updateTimeoutRef.current = setTimeout(() => {
+        dismissNewIndicator();
+      }, 5500);
+    },
+    [dismissNewIndicator, isMapActive, visitedCountries]
+  );
 
   const setMapActive = useCallback(
     (active: boolean) => {
-      setIsMapActive(active);
       if (active) {
-        flushQueuedDiffs();
+        // Prime highlight before toggling active to avoid a frame with base colors
+        flushQueuedDiffs(true);
+        setIsMapActive(true);
       } else {
+        setIsMapActive(false);
         // A: szybkie wygaszenie – natychmiast zrezygnuj z pending highlight / przycisku
         if (updateTimeoutRef.current) {
           clearTimeout(updateTimeoutRef.current);
