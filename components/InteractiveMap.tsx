@@ -1091,6 +1091,8 @@ const InteractiveMapComponent = forwardRef<
     } catch {}
     confettiOpacity.value = 0; // hide particles immediately
     suppressRegularButtons.value = 1; // prevent functional buttons from flashing
+    // Clear highlights and hide indicator immediately to keep map visuals in sync
+    instantDismissNewIndicator();
     toggleProgress.value = withTiming(
       0,
       {
@@ -1098,8 +1100,7 @@ const InteractiveMapComponent = forwardRef<
         easing: Easing.out(Easing.ease),
       },
       (finished) => {
-        // After the fade-out completes, clear state and show functional buttons
-        runOnJS(instantDismissNewIndicator)();
+        // After the fade-out completes, show functional buttons
         suppressRegularButtons.value = 0;
       }
     );
