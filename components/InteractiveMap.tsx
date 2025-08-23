@@ -339,68 +339,55 @@ const InteractiveMapComponent = forwardRef<
   // For scale animation
   const newButtonScale = useSharedValue(1);
   const CONFETTI_SHIFT_X_RATIO = 0.12; // subtle left shift for origin centering
-  const CONFETTI_ORIGIN_Y_RATIO = 3.76; // near bottom of button (0=top,1=bottom of button rect)
+  const CONFETTI_ORIGIN_Y_RATIO = 0.92; // anchor inside button height: 0=top, 1=bottom
   const FALLBACK_ORIGIN = { x: screenWidth / 2, y: screenHeight * 0.08 };
 
-  // Fire confetti and animate button scale exactly when New appears
-  const handleNewButtonLayout = useCallback(
-    (e: any) => {
-      if (!showNewIndicator) return;
-      newButtonRef.current?.measureInWindow((x, y, width, height) => {
-        const centerX = x + width / 2 - width * CONFETTI_SHIFT_X_RATIO;
-        // y from bottom of screen; take a point close to bottom edge of the button
-        const bottomFromScreen = Math.max(
-          0,
-          screenHeight - (y + height * CONFETTI_ORIGIN_Y_RATIO)
-        );
-        const origin = { x: centerX, y: bottomFromScreen };
-        setConfettiOrigin(origin);
-        // Animate button scale in sync
-        newButtonScale.value = 1.0;
-        newButtonScale.value = withSequence(
-          withTiming(1.13, { duration: 120, easing: Easing.out(Easing.ease) }),
-          withTiming(1.0, { duration: 180, easing: Easing.out(Easing.ease) })
-        );
-        // Start cannon immediately (no remount)
-        confettiRef.current?.start?.();
-      });
-    },
-    [showNewIndicator]
-  );
+  // Helper to compute corrected confetti origin immediately (no layout measurement)
+  const computeConfettiOrigin = useCallback(() => {
+    const buttonWidth = BUTTON_SIZE * 2.2; // styles.newButtonWrapper.width
+    const originX = screenWidth / 2 - buttonWidth * CONFETTI_SHIFT_X_RATIO;
+
+    // Convert anchor position to bottom-from-screen coordinates expected by ConfettiCannon
+    const containerBottomOffset = screenHeight * 0.08; // styles.buttonContainer.bottom
+    const containerHeight = BUTTON_SIZE; // styles.buttonContainer.height
+    const wrapperHeight = BUTTON_SIZE * 1.05; // styles.newButtonWrapper.height
+    const wrapperTop =
+      screenHeight -
+      containerBottomOffset -
+      containerHeight +
+      (containerHeight - wrapperHeight) / 2;
+    const anchorTopY = wrapperTop + wrapperHeight * CONFETTI_ORIGIN_Y_RATIO;
+    const bottomFromScreen = Math.max(0, screenHeight - anchorTopY);
+
+    return { x: originX, y: bottomFromScreen };
+  }, []);
+
+  // Synchronize: when showNewIndicator becomes true, compute origin immediately and start animations
+  useLayoutEffect(() => {
+    if (!showNewIndicator) return;
+    const origin = computeConfettiOrigin();
+
+    // Start button scale and confetti at the same time
+    newButtonScale.value = 1.0;
+    newButtonScale.value = withSequence(
+      withTiming(1.13, { duration: 120, easing: Easing.out(Easing.ease) }),
+      withTiming(1.0, { duration: 180, easing: Easing.out(Easing.ease) })
+    );
+    // Ensure ConfettiCannon has mounted with correct origin; run on next microtask
+    Promise.resolve().then(() => confettiRef.current?.start?.());
+  }, [showNewIndicator, computeConfettiOrigin]);
 
   // Animate scale also when showNewIndicator changes (fallback for first mount)
-  useEffect(() => {
-    if (showNewIndicator) {
-      const measureAndFire = () => {
-        newButtonRef.current?.measureInWindow((x, y, width, height) => {
-          const centerX = x + width / 2 - width * CONFETTI_SHIFT_X_RATIO;
-          const bottomFromScreen = Math.max(
-            0,
-            screenHeight - (y + height * CONFETTI_ORIGIN_Y_RATIO)
-          );
-          setConfettiOrigin({ x: centerX, y: bottomFromScreen });
-          // Fire immediately here as well (covers first mount before onLayout fires on some devices)
-          // Use rAF to ensure ref is attached
-          requestAnimationFrame(() => confettiRef.current?.start?.());
-        });
-      };
-      measureAndFire();
-      requestAnimationFrame(measureAndFire);
-
-      newButtonScale.value = 1.0;
-      newButtonScale.value = withSequence(
-        withTiming(1.13, { duration: 120, easing: Easing.out(Easing.ease) }),
-        withTiming(1.0, { duration: 180, easing: Easing.out(Easing.ease) })
-      );
-    }
-  }, [showNewIndicator]);
+  // REPLACED by useLayoutEffect above to ensure zero delay and perfect sync
+  // useEffect(() => {
+  //   if (showNewIndicator) { /* removed */ }
+  // }, [showNewIndicator]);
 
   // If origin updates while visible, fire again (safety)
-  useEffect(() => {
-    if (showNewIndicator && confettiOrigin) {
-      requestAnimationFrame(() => confettiRef.current?.start?.());
-    }
-  }, [confettiOrigin, showNewIndicator]);
+  // REMOVED to prevent late re-fires and keep single, immediate start
+  // useEffect(() => {
+  //   if (showNewIndicator && confettiOrigin) { /* removed */ }
+  // }, [confettiOrigin, showNewIndicator]);
 
   const newButtonAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: newButtonScale.value }],
@@ -1465,7 +1452,7 @@ const InteractiveMapComponent = forwardRef<
                 <ConfettiCannon
                   ref={confettiRef}
                   count={140}
-                  origin={confettiOrigin ?? FALLBACK_ORIGIN}
+                  origin={computeConfettiOrigin() || FALLBACK_ORIGIN}
                   colors={["#00AEF5", theme.colors.primary]}
                   fadeOut
                   autoStart={false}
@@ -1480,7 +1467,7 @@ const InteractiveMapComponent = forwardRef<
                 style={styles.newButtonWrapper}
                 activeOpacity={0.85}
                 onPress={handlePressNew}
-                onLayout={handleNewButtonLayout}
+                // onLayout removed to avoid delayed measurement-based start
               >
                 <LinearGradient
                   colors={[
