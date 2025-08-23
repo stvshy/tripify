@@ -131,7 +131,7 @@ const { countries, countryCentroids } = (() => {
 const data: CountriesData = { countries: uniqueCountries };
 
 /**
- * Funkcje sĹuĹźÄce do obliczania centroidu kraju na podstawie jego ĹcieĹźki SVG.
+ * Funkcje sĹ‚uĹźÄce do obliczania centroidu kraju na podstawie jego ĹcieĹźki SVG.
  */
 function extractPoints(d: string): { x: number; y: number }[] {
   const points: { x: number; y: number }[] = [];
@@ -329,30 +329,82 @@ const InteractiveMapComponent = forwardRef<
   const animatedToggleStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scaleValue.value }],
   }));
-  const [confettiKey, setConfettiKey] = useState(() =>
-    showNewIndicator ? 1 : 0
-  );
+  // --- Confetti firing and New button scale animation ---
   const confettiRef = useRef<ConfettiCannon>(null);
-  // Inicjalizujemy na podstawie showNewIndicator aby uniknąć opóźnienia pierwszej klatki
-  // const [newButtonRevealed, setNewButtonRevealed] = useState(
-  //   () => !showNewIndicator
-  // );
-  // Flaga do natychmiastowego ukrycia (bez animacji) przy kliknięciu New
-  const suppressHideAnimationRef = useRef(false);
-  // Wartości animowane do płynnego przejścia
-  // const newButtonOpacity = useSharedValue(showNewIndicator ? 1 : 0);
-  // const newButtonScale = useSharedValue(showNewIndicator ? 1 : 0.8);
-  // const regularButtonsOpacity = useSharedValue(showNewIndicator ? 0 : 1);
+  const newButtonRef = useRef<View>(null);
+  const [confettiOrigin, setConfettiOrigin] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  // For scale animation
+  const newButtonScale = useSharedValue(1);
+  const CONFETTI_SHIFT_X_RATIO = 0.12; // subtle left shift for origin centering
+  const CONFETTI_ORIGIN_Y_RATIO = 3.76; // near bottom of button (0=top,1=bottom of button rect)
+  const FALLBACK_ORIGIN = { x: screenWidth / 2, y: screenHeight * 0.08 };
 
-  // KROK 2: Funkcja odsłaniająca standardowe przyciski
-  // Używamy useCallback, aby uniknąć niepotrzebnych re-renderów.
-  // const revealRegularButtons = useCallback(() => {
-  //   if (newButtonRevealed) return;
-  //   setNewButtonRevealed(true);
-  //   newButtonOpacity.value = withTiming(0, { duration: 250 });
-  //   newButtonScale.value = withTiming(0.8, { duration: 250 });
-  //   regularButtonsOpacity.value = withTiming(1, { duration: 250 });
-  // }, [newButtonRevealed]);
+  // Fire confetti and animate button scale exactly when New appears
+  const handleNewButtonLayout = useCallback(
+    (e: any) => {
+      if (!showNewIndicator) return;
+      newButtonRef.current?.measureInWindow((x, y, width, height) => {
+        const centerX = x + width / 2 - width * CONFETTI_SHIFT_X_RATIO;
+        // y from bottom of screen; take a point close to bottom edge of the button
+        const bottomFromScreen = Math.max(
+          0,
+          screenHeight - (y + height * CONFETTI_ORIGIN_Y_RATIO)
+        );
+        const origin = { x: centerX, y: bottomFromScreen };
+        setConfettiOrigin(origin);
+        // Animate button scale in sync
+        newButtonScale.value = 1.0;
+        newButtonScale.value = withSequence(
+          withTiming(1.13, { duration: 120, easing: Easing.out(Easing.ease) }),
+          withTiming(1.0, { duration: 180, easing: Easing.out(Easing.ease) })
+        );
+        // Start cannon immediately (no remount)
+        confettiRef.current?.start?.();
+      });
+    },
+    [showNewIndicator]
+  );
+
+  // Animate scale also when showNewIndicator changes (fallback for first mount)
+  useEffect(() => {
+    if (showNewIndicator) {
+      const measureAndFire = () => {
+        newButtonRef.current?.measureInWindow((x, y, width, height) => {
+          const centerX = x + width / 2 - width * CONFETTI_SHIFT_X_RATIO;
+          const bottomFromScreen = Math.max(
+            0,
+            screenHeight - (y + height * CONFETTI_ORIGIN_Y_RATIO)
+          );
+          setConfettiOrigin({ x: centerX, y: bottomFromScreen });
+          // Fire immediately here as well (covers first mount before onLayout fires on some devices)
+          // Use rAF to ensure ref is attached
+          requestAnimationFrame(() => confettiRef.current?.start?.());
+        });
+      };
+      measureAndFire();
+      requestAnimationFrame(measureAndFire);
+
+      newButtonScale.value = 1.0;
+      newButtonScale.value = withSequence(
+        withTiming(1.13, { duration: 120, easing: Easing.out(Easing.ease) }),
+        withTiming(1.0, { duration: 180, easing: Easing.out(Easing.ease) })
+      );
+    }
+  }, [showNewIndicator]);
+
+  // If origin updates while visible, fire again (safety)
+  useEffect(() => {
+    if (showNewIndicator && confettiOrigin) {
+      requestAnimationFrame(() => confettiRef.current?.start?.());
+    }
+  }, [confettiOrigin, showNewIndicator]);
+
+  const newButtonAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: newButtonScale.value }],
+  }));
 
   // Logika przejść PO pierwszym renderze – natychmiastowe pojawienie się przycisku New (bez opóźnienia animacji)
   const prevShowRef = useRef(showNewIndicator);
@@ -1394,59 +1446,78 @@ const InteractiveMapComponent = forwardRef<
               styles.centeredContent,
               newContainerAnimatedStyle,
             ]}
-            // Nie blokuj dotyku poza przyciskiem New
             pointerEvents={showNewIndicator ? "box-none" : "none"}
           >
-            <View pointerEvents="none">
+            {/* Confetti is rendered directly under the New button, so it's visually below the button */}
+            <View
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                top: 0,
+                bottom: 0,
+                justifyContent: "center",
+                alignItems: "center",
+                pointerEvents: "none",
+              }}
+            >
               {showNewIndicator && (
                 <ConfettiCannon
-                  key={confettiKey}
                   ref={confettiRef}
-                  count={120}
-                  origin={{ x: screenWidth / 2, y: 0 }}
+                  count={140}
+                  origin={confettiOrigin ?? FALLBACK_ORIGIN}
+                  colors={["#00AEF5", theme.colors.primary]}
                   fadeOut
-                  explosionSpeed={300}
-                  fallSpeed={2500}
-                  autoStart
+                  autoStart={false}
+                  explosionSpeed={550}
+                  fallSpeed={2400}
                 />
               )}
             </View>
-            <TouchableOpacity
-              style={styles.newButtonWrapper}
-              activeOpacity={0.85}
-              onPress={handlePressNew}
-            >
-              <LinearGradient
-                colors={[theme.colors.primary, "#00AEF5", theme.colors.primary]}
-                start={{ x: 0, y: 0.5 }}
-                end={{ x: 1, y: 0.5 }}
-                style={styles.newButtonBorder}
+            <Animated.View style={newButtonAnimatedStyle}>
+              <TouchableOpacity
+                ref={newButtonRef as any}
+                style={styles.newButtonWrapper}
+                activeOpacity={0.85}
+                onPress={handlePressNew}
+                onLayout={handleNewButtonLayout}
               >
-                <View
-                  style={[
-                    styles.newButtonInner,
-                    {
-                      backgroundColor: isDarkTheme
-                        ? "rgba(0, 0, 0, 0.17)"
-                        : "rgba(255, 255, 255, 0.83)",
-                    },
+                <LinearGradient
+                  colors={[
+                    theme.colors.primary,
+                    "#00AEF5",
+                    theme.colors.primary,
                   ]}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={styles.newButtonBorder}
                 >
-                  <Text
+                  <View
                     style={[
-                      styles.newButtonText,
+                      styles.newButtonInner,
                       {
-                        color: isDarkTheme
-                          ? theme.colors.onPrimary
-                          : theme.colors.primary,
+                        backgroundColor: isDarkTheme
+                          ? "rgba(0, 0, 0, 0.17)"
+                          : "rgba(255, 255, 255, 0.83)",
                       },
                     ]}
                   >
-                    New
-                  </Text>
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
+                    <Text
+                      style={[
+                        styles.newButtonText,
+                        {
+                          color: isDarkTheme
+                            ? theme.colors.onPrimary
+                            : theme.colors.primary,
+                        },
+                      ]}
+                    >
+                      New
+                    </Text>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            </Animated.View>
           </Animated.View>
 
           {/* Standardowe przyciski - zawsze renderowane, kontrolowane przez animację */}
