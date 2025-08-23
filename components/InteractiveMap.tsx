@@ -339,7 +339,7 @@ const InteractiveMapComponent = forwardRef<
   // For scale animation
   const newButtonScale = useSharedValue(1);
   const CONFETTI_SHIFT_X_RATIO = 0.12; // subtle left shift for origin centering
-  const CONFETTI_ORIGIN_Y_RATIO = 0.92; // anchor inside button height: 0=top, 1=bottom
+  const CONFETTI_ORIGIN_Y_RATIO = 2.06; // anchor inside button height: 0=top, 1=bottom
   const FALLBACK_ORIGIN = { x: screenWidth / 2, y: screenHeight * 0.08 };
 
   // Helper to compute corrected confetti origin immediately (no layout measurement)
