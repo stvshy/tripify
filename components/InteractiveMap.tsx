@@ -435,6 +435,46 @@ const InteractiveMapComponent = forwardRef<
     }
   }, [showNewIndicator]);
 
+  // Gwarantuj widoczność warstwy "New" po powrocie na ekran mapy.
+  // Kiedy byliśmy poza ekranem, Reanimated mógł wstrzymać animacje i toggleProgress
+  // mógł pozostać na 0 mimo że showNewIndicator jest true. Na fokusie wymuś 1.
+  useEffect(() => {
+    if (isMapActive && showNewIndicator) {
+      toggleProgress.value = 1; // natychmiast pokaż
+      prevShowRef.current = true; // zsynchronizuj stan poprzedni
+    }
+  }, [isMapActive, showNewIndicator, updateSequence]);
+
+  // Fallback: jeśli flushQueuedDiffs ustawił showNewIndicator na true w tle,
+  // po powrocie odpal animację skali i konfetti dla aktualnej sekwencji.
+  const lastAnimSeqRef = useRef<number>(-1);
+  useEffect(() => {
+    if (!isMapActive || !showNewIndicator) return;
+    // Jeśli właśnie nastąpiła zmiana false->true, podstawowy layout effect już odpalił animacje
+    if (!prevShowRef.current) return;
+    if (lastAnimSeqRef.current === updateSequence) return;
+    lastAnimSeqRef.current = updateSequence;
+    // Upewnij się, że warstwa jest widoczna
+    toggleProgress.value = 1;
+    // Zresetuj i odpal efekt przycisku + konfetti
+    try {
+      cancelAnimation(newButtonScale);
+      cancelAnimation(confettiOpacity);
+    } catch {}
+    confettiOpacity.value = 0;
+    newButtonScale.value = 1.0;
+    newButtonScale.value = withSequence(
+      withTiming(1.13, { duration: 120, easing: Easing.out(Easing.ease) }),
+      withTiming(1.0, { duration: 180, easing: Easing.out(Easing.ease) })
+    );
+    if (confettiRef.current) {
+      confettiRef.current.start();
+    }
+    setTimeout(() => {
+      confettiOpacity.value = withTiming(1, { duration: 0 });
+    }, 16);
+  }, [isMapActive, showNewIndicator, updateSequence]);
+
   const newContainerAnimatedStyle = useAnimatedStyle(() => ({
     opacity: toggleProgress.value, // 0..1
     transform: [{ scale: 0.86 + 0.14 * toggleProgress.value }], // 0.86 -> 1.0
