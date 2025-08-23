@@ -190,9 +190,9 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
   const setMapActive = useCallback(
     (active: boolean) => {
       if (active) {
-        // Najpierw ustaw highlighty/przycisk, potem przełącz na aktywną mapę
-        flushQueuedDiffs();
+        // Najpierw oznacz mapę jako aktywną, następnie odpal flush queued diffs
         setIsMapActive(true);
+        flushQueuedDiffs();
       } else {
         setIsMapActive(false);
         // A: szybkie wygaszenie – natychmiast zrezygnuj z pending highlight / przycisku
@@ -265,6 +265,8 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
         visualChangedSet.forEach((c) => queuedChangedRef.current.add(c));
         // Advance inactive snapshot to reflect the upcoming visited set to prevent flicker
         selectedCountriesActiveSnapshotRef.current = Array.from(nextSet);
+        // Ensure the New indicator will be shown next time the map becomes active
+        setShowNewIndicator(true);
       }
 
       const commit = () => {
