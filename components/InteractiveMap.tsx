@@ -351,6 +351,8 @@ const InteractiveMapComponent = forwardRef<
   const confettiWrapperStyle = useAnimatedStyle(() => ({
     opacity: confettiOpacity.value,
   }));
+  // During dismissal, keep regular buttons hidden to avoid flash
+  const suppressRegularButtons = useSharedValue(0);
   const CONFETTI_SHIFT_X_RATIO = 0.12; // subtle left shift for origin centering
   const CONFETTI_ORIGIN_Y_RATIO = 2.06; // anchor inside button height: 0=top, 1=bottom
   const FALLBACK_ORIGIN = { x: screenWidth / 2, y: screenHeight * 0.08 };
@@ -438,9 +440,11 @@ const InteractiveMapComponent = forwardRef<
     transform: [{ scale: 0.86 + 0.14 * toggleProgress.value }], // 0.86 -> 1.0
   }));
 
-  const regularButtonsAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: 1 - toggleProgress.value, // komplementarnie
-  }));
+  const regularButtonsAnimatedStyle = useAnimatedStyle(() => {
+    const base = 1 - toggleProgress.value;
+    const suppressed = 1 - suppressRegularButtons.value;
+    return { opacity: base * suppressed };
+  });
 
   const handleToggleTheme = () => {
     scaleValue.value = withTiming(1.2, { duration: 100 }, () => {
@@ -1079,17 +1083,26 @@ const InteractiveMapComponent = forwardRef<
   }, [resetMapTransform]);
 
   const handlePressNew = useCallback(() => {
-    // Natychmiastowe zamknięcie bez animacji i zwolnienie zasobów, by umożliwić szybkie przejście dalej
+    // Fade out the New layer quickly, while keeping regular buttons hidden to avoid any flash
     try {
       cancelAnimation(toggleProgress);
       cancelAnimation(newButtonScale);
       cancelAnimation(confettiOpacity);
     } catch {}
-    // Szybkie ukrycie warstwy i konfetti
-    toggleProgress.value = 0;
-    confettiOpacity.value = 0;
-    // Natychmiastowe czyszczenie highlightów / timeoutów i ukrycie przycisku
-    instantDismissNewIndicator();
+    confettiOpacity.value = 0; // hide particles immediately
+    suppressRegularButtons.value = 1; // prevent functional buttons from flashing
+    toggleProgress.value = withTiming(
+      0,
+      {
+        duration: 120,
+        easing: Easing.out(Easing.ease),
+      },
+      (finished) => {
+        // After the fade-out completes, clear state and show functional buttons
+        runOnJS(instantDismissNewIndicator)();
+        suppressRegularButtons.value = 0;
+      }
+    );
   }, [instantDismissNewIndicator]);
 
   // Reset tooltip & zarządzanie aktywnością mapy na fokus/blur ekranu
