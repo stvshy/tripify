@@ -278,6 +278,7 @@ const InteractiveMapComponent = forwardRef<
     isMapActive,
     setMapActive,
     flushQueuedDiffs,
+    peekQueuedChanged,
   } = useMapState();
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
   const theme = useTheme();
@@ -301,6 +302,13 @@ const InteractiveMapComponent = forwardRef<
     if (showNewIndicator) {
       toggleProgress.value = 1;
     }
+    // If there were queued diffs before entering the map, show layer instantly
+    try {
+      const queued = peekQueuedChanged?.() || [];
+      if (queued.length > 0) {
+        toggleProgress.value = 1;
+      }
+    } catch {}
     return () => {
       setMapActive(false);
     };
@@ -338,6 +346,11 @@ const InteractiveMapComponent = forwardRef<
   } | null>(null);
   // For scale animation
   const newButtonScale = useSharedValue(1);
+  // Confetti: control initial visibility to avoid one-frame clump flash
+  const confettiOpacity = useSharedValue(0);
+  const confettiWrapperStyle = useAnimatedStyle(() => ({
+    opacity: confettiOpacity.value,
+  }));
   const CONFETTI_SHIFT_X_RATIO = 0.12; // subtle left shift for origin centering
   const CONFETTI_ORIGIN_Y_RATIO = 2.06; // anchor inside button height: 0=top, 1=bottom
   const FALLBACK_ORIGIN = { x: screenWidth / 2, y: screenHeight * 0.08 };
@@ -365,17 +378,23 @@ const InteractiveMapComponent = forwardRef<
   // Synchronize: when showNewIndicator becomes true, compute origin immediately and start animations
   useLayoutEffect(() => {
     if (!showNewIndicator) return;
-    const origin = computeConfettiOrigin();
 
-    // Start button scale and confetti at the same time
+    // Hide confetti just for the initial frame, then show once particles are moving
+    confettiOpacity.value = 0;
+    // Start button scale animation immediately
     newButtonScale.value = 1.0;
     newButtonScale.value = withSequence(
       withTiming(1.13, { duration: 120, easing: Easing.out(Easing.ease) }),
       withTiming(1.0, { duration: 180, easing: Easing.out(Easing.ease) })
     );
-    // Ensure ConfettiCannon has mounted with correct origin; run on next microtask
-    Promise.resolve().then(() => confettiRef.current?.start?.());
-  }, [showNewIndicator, computeConfettiOrigin]);
+    // Fire confetti now; reveal in the next frame so it's already in-flight
+    if (confettiRef.current) {
+      confettiRef.current.start();
+    }
+    setTimeout(() => {
+      confettiOpacity.value = withTiming(1, { duration: 0 });
+    }, 16);
+  }, [showNewIndicator]);
 
   // Animate scale also when showNewIndicator changes (fallback for first mount)
   // REPLACED by useLayoutEffect above to ensure zero delay and perfect sync
@@ -1060,13 +1079,18 @@ const InteractiveMapComponent = forwardRef<
   }, [resetMapTransform]);
 
   const handlePressNew = useCallback(() => {
-    // Wygaszamy przycisk New animacją, a highlighty/konfetti czyścimy natychmiast – wszystko znika razem
-    dismissNewIndicator();
-    toggleProgress.value = withTiming(0, {
-      duration: 140,
-      easing: Easing.out(Easing.ease),
-    });
-  }, [dismissNewIndicator]);
+    // Natychmiastowe zamknięcie bez animacji i zwolnienie zasobów, by umożliwić szybkie przejście dalej
+    try {
+      cancelAnimation(toggleProgress);
+      cancelAnimation(newButtonScale);
+      cancelAnimation(confettiOpacity);
+    } catch {}
+    // Szybkie ukrycie warstwy i konfetti
+    toggleProgress.value = 0;
+    confettiOpacity.value = 0;
+    // Natychmiastowe czyszczenie highlightów / timeoutów i ukrycie przycisku
+    instantDismissNewIndicator();
+  }, [instantDismissNewIndicator]);
 
   // Reset tooltip & zarządzanie aktywnością mapy na fokus/blur ekranu
   useFocusEffect(
@@ -1436,19 +1460,23 @@ const InteractiveMapComponent = forwardRef<
             pointerEvents={showNewIndicator ? "box-none" : "none"}
           >
             {/* Confetti is rendered directly under the New button, so it's visually below the button */}
-            <View
-              style={{
-                position: "absolute",
-                left: 0,
-                right: 0,
-                top: 0,
-                bottom: 0,
-                justifyContent: "center",
-                alignItems: "center",
-                pointerEvents: "none",
-              }}
+            <Animated.View
+              // @ts-ignore reanimated style
+              style={[
+                {
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  justifyContent: "center",
+                  alignItems: "center",
+                },
+                confettiWrapperStyle,
+              ]}
+              pointerEvents="none"
             >
-              {showNewIndicator && (
+              {showNewIndicator ? (
                 <ConfettiCannon
                   ref={confettiRef}
                   count={140}
@@ -1462,11 +1490,12 @@ const InteractiveMapComponent = forwardRef<
                   ]}
                   fadeOut
                   autoStart={false}
-                  explosionSpeed={550}
+                  autoStartDelay={0}
+                  explosionSpeed={700}
                   fallSpeed={2400}
                 />
-              )}
-            </View>
+              ) : null}
+            </Animated.View>
             <Animated.View style={newButtonAnimatedStyle}>
               <TouchableOpacity
                 ref={newButtonRef as any}
