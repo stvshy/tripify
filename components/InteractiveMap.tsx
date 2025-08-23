@@ -1453,7 +1453,13 @@ const InteractiveMapComponent = forwardRef<
                   ref={confettiRef}
                   count={140}
                   origin={computeConfettiOrigin() || FALLBACK_ORIGIN}
-                  colors={["#00AEF5", theme.colors.primary]}
+                  colors={[
+                    "#00AEF5",
+                    theme.colors.primary,
+                    "#2bc3ffff",
+                    "#d400d4ff",
+                    "#7ecc61",
+                  ]}
                   fadeOut
                   autoStart={false}
                   explosionSpeed={550}
