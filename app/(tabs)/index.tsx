@@ -27,9 +27,9 @@ export default function IndexScreen() {
     useCallback(() => {
       // Ta funkcja zostanie wykonana za każdym razem, gdy ekran (zakładka)
       // stanie się aktywny.
-      resetMapTransform();
-      setMapActive(true);
-      flushQueuedDiffs();
+      setMapActive(true); // activate first so UI (New/confetti) can show instantly
+      flushQueuedDiffs(); // apply any queued visual diffs immediately
+      resetMapTransform(); // then reset camera
 
       return () => {
         setMapActive(false);

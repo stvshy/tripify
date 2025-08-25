@@ -95,6 +95,10 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
   const [isPending, startTransition] = useTransition();
   // NEW: aktywność ekranu mapy
   const [isMapActive, setIsMapActive] = useState(false);
+  // NEW: optimistic visited count for immediate progress updates
+  const [optimisticVisitedCount, setOptimisticVisitedCount] = useState<
+    number | null
+  >(null);
   // NEW: kolejki diffa gdy mapa nieaktywna
   const queuedAddsRef = useRef<Set<string>>(new Set());
   const queuedRemovesRef = useRef<Set<string>>(new Set());
@@ -129,6 +133,8 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (visitedCountries) {
       setSelectedCountries(visitedCountries);
+      // Sync optimistic count with backend when it arrives
+      setOptimisticVisitedCount(visitedCountries.length);
       if (isLoadingData) {
         setIsLoadingData(false);
       }
@@ -198,6 +204,17 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
         // Najpierw oznacz mapę jako aktywną, następnie odpal flush queued diffs
         setIsMapActive(true);
         flushQueuedDiffs();
+        // If visual state was prepared while inactive, ensure animations/timeouts start now
+        if (
+          showNewIndicator &&
+          recentlyChangedCountries.size > 0 &&
+          !updateTimeoutRef.current
+        ) {
+          setUpdateSequence((p) => p + 1);
+          updateTimeoutRef.current = setTimeout(() => {
+            dismissNewIndicator();
+          }, AUTO_DISMISS_MS);
+        }
       } else {
         setIsMapActive(false);
         // A: szybkie wygaszenie – natychmiast zrezygnuj z pending highlight / przycisku
@@ -264,17 +281,24 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
           dismissNewIndicator();
         }, AUTO_DISMISS_MS);
       } else {
+        // When map is not active, still update the visual state immediately.
+        // The effects (confetti, timer) will only trigger on the map screen based on `isMapActive`.
+        setRecentlyChangedCountries(visualChangedSet);
+        setShowNewIndicator(true);
+        setIsUpdating(true);
+        setUpdateSequence((p) => p + 1);
+
+        // Queue data changes to be applied to the global state.
         add.forEach((c) => queuedAddsRef.current.add(c));
         remove.forEach((c) => queuedRemovesRef.current.add(c));
-        // queue only limited set for visual diff
-        visualChangedSet.forEach((c) => queuedChangedRef.current.add(c));
-        // Advance inactive snapshot to reflect the upcoming visited set to prevent flicker
+        // Advance inactive snapshot to reflect the upcoming visited set to prevent flicker.
         selectedCountriesActiveSnapshotRef.current = Array.from(nextSet);
-        // Don't toggle UI state while map is inactive; showNewIndicator will be set on flushQueuedDiffs() during focus
       }
 
       const commit = () => {
         const nextArr = Array.from(nextSet);
+        // Update optimistic count immediately so progress bar is instant
+        setOptimisticVisitedCount(nextArr.length);
         if (immediate || noDefer) {
           setVisitedCountries(nextArr);
         } else {
@@ -349,7 +373,12 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       instantDismissNewIndicator,
       updateSequence,
       isPending,
-      visitedCount: visitedCountries ? visitedCountries.length : 0,
+      visitedCount:
+        optimisticVisitedCount != null
+          ? optimisticVisitedCount
+          : visitedCountries
+            ? visitedCountries.length
+            : 0,
       isMapActive,
       setMapActive,
       flushQueuedDiffs,
@@ -372,6 +401,7 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       instantDismissNewIndicator,
       updateSequence,
       isPending,
+      optimisticVisitedCount,
       isMapActive,
       setMapActive,
       flushQueuedDiffs,

@@ -288,6 +288,11 @@ const InteractiveMapComponent = forwardRef<
   const [isSharing, setIsSharing] = useState(false);
   const [tooltip, setTooltip] = useState<TooltipPosition | null>(null);
   const scaleValue = useSharedValue(1);
+  // Local highlight buffer for first-frame coloring before provider flush lands
+  const [pendingHighlights, setPendingHighlights] =
+    useState<Set<string> | null>(null);
+  // Force-show New overlay immediately on first frame if we detected queued diffs
+  const [forceNewVisible, setForceNewVisible] = useState(false);
   // B: visitedSet (prefer context list to keep timing with highlights; fallback to prop for legacy)
   const visitedList = useMemo(
     () => selectedCountriesCtx ?? selectedCountries ?? [],
@@ -297,22 +302,55 @@ const InteractiveMapComponent = forwardRef<
 
   // Szybkie włączenie aktywności mapy i flush queued diffs przed pierwszym rysowaniem
   useLayoutEffect(() => {
-    setMapActive(true);
-    // Natychmiastowe ustawienie widoczności warstwy New (bez animacji) przy pierwszym wejściu
-    if (showNewIndicator) {
-      toggleProgress.value = 1;
-    }
-    // If there were queued diffs before entering the map, show layer instantly
+    // 1) Peek queued diffs BEFORE activation, so provider flush won't clear them first
     try {
       const queued = peekQueuedChanged?.() || [];
       if (queued.length > 0) {
-        toggleProgress.value = 1;
+        setPendingHighlights(new Set(queued));
+        toggleProgress.value = 1; // ensure New container visibility sync
+        // Show New overlay immediately and pre-fire confetti if provider flag isn't set yet
+        if (!showNewIndicator) {
+          setForceNewVisible(true);
+          try {
+            cancelAnimation(newButtonScale);
+            cancelAnimation(confettiOpacity);
+          } catch {}
+          confettiOpacity.value = 0;
+          newButtonScale.value = 1.0;
+          newButtonScale.value = withSequence(
+            withTiming(1.13, {
+              duration: 120,
+              easing: Easing.out(Easing.ease),
+            }),
+            withTiming(1.0, { duration: 180, easing: Easing.out(Easing.ease) })
+          );
+          if (confettiRef.current) {
+            confettiRef.current.start();
+          }
+          setTimeout(() => {
+            confettiOpacity.value = withTiming(1, { duration: 0 });
+          }, 16);
+        }
       }
     } catch {}
+    // 2) Activate map -> provider will flush queued diffs and set global highlights
+    setMapActive(true);
+    // 3) If already visible flag is true, ensure container visible instantly
+    if (showNewIndicator) {
+      toggleProgress.value = 1;
+    }
     return () => {
       setMapActive(false);
+      setPendingHighlights(null);
     };
   }, []);
+
+  // When provider flag flips to true, stop forcing local visibility
+  useEffect(() => {
+    if (showNewIndicator && forceNewVisible) {
+      setForceNewVisible(false);
+    }
+  }, [showNewIndicator, forceNewVisible]);
 
   // Preserve previous percentageVisited logic after introducing visitedSet
   const visitedCountries = useMemo(() => visitedCount, [visitedCount]);
@@ -765,7 +803,10 @@ const InteractiveMapComponent = forwardRef<
     (countryCode: string) => {
       const isVisited = visitedSet.has(countryCode);
       const isHighlighted = tooltip && tooltip.country.id === countryCode;
-      if (recentlyChangedCountries.has(countryCode)) {
+      const isRecentlyChanged =
+        recentlyChangedCountries.has(countryCode) ||
+        (pendingHighlights ? pendingHighlights.has(countryCode) : false);
+      if (isRecentlyChanged) {
         return theme.colors.primary;
       }
       if (isHighlighted) {
@@ -773,7 +814,13 @@ const InteractiveMapComponent = forwardRef<
       }
       return isVisited ? "rgba(0,174,245,255)" : "#b2b7bf";
     },
-    [visitedSet, tooltip, theme.colors.primary, recentlyChangedCountries]
+    [
+      visitedSet,
+      tooltip,
+      theme.colors.primary,
+      recentlyChangedCountries,
+      pendingHighlights,
+    ]
   );
 
   // Zaktualizuj isCountryHighlighted
@@ -787,12 +834,32 @@ const InteractiveMapComponent = forwardRef<
   const countryColors = useMemo(() => {
     return countries.map((c) => {
       const id = c.id;
-      if (recentlyChangedCountries.has(id)) return theme.colors.primary;
+      const isRecentlyChanged =
+        recentlyChangedCountries.has(id) ||
+        (pendingHighlights ? pendingHighlights.has(id) : false);
+      if (isRecentlyChanged) return theme.colors.primary;
       if (tooltip && tooltip.country.id === id)
         return applyTransparency(theme.colors.primary, 0.75);
       return visitedSet.has(id) ? "rgba(0,174,245,255)" : "#b2b7bf";
     });
-  }, [visitedSet, recentlyChangedCountries, tooltip, theme.colors.primary]);
+  }, [
+    visitedSet,
+    recentlyChangedCountries,
+    pendingHighlights,
+    tooltip,
+    theme.colors.primary,
+  ]);
+
+  // Clear local pending buffer once provider delivers highlights
+  useEffect(() => {
+    if (
+      pendingHighlights &&
+      pendingHighlights.size > 0 &&
+      recentlyChangedCountries.size > 0
+    ) {
+      setPendingHighlights(null);
+    }
+  }, [recentlyChangedCountries, pendingHighlights]);
 
   // Zmieniono: uproszczona wersja bez React.memo – koszty per render mniejsze dzięki prekomputacji countryColors
   const SkiaVisibleCountries = () => {
@@ -1162,11 +1229,17 @@ const InteractiveMapComponent = forwardRef<
   // Reset tooltip & zarządzanie aktywnością mapy na fokus/blur ekranu
   useFocusEffect(
     useCallback(() => {
-      // Oznacz mapę jako aktywną natychmiast po wejściu – spowoduje flushQueuedDiffs()
+      // Peek queued highlights BEFORE activation to color on first frame
+      try {
+        const queued = peekQueuedChanged?.() || [];
+        if (queued.length > 0) setPendingHighlights(new Set(queued));
+      } catch {}
+      // Oznacz mapę jako aktywną – spowoduje flushQueuedDiffs()
       setMapActive(true);
       return () => {
         setTooltip(null);
         setMapActive(false);
+        setPendingHighlights(null);
       };
     }, [setMapActive])
   );
@@ -1543,11 +1616,13 @@ const InteractiveMapComponent = forwardRef<
               // Ensure this overlay is always visually on top on Android
               { zIndex: 2, elevation: 2 },
               // If indicator flag is true, force immediate visibility to avoid any paused-animation edge cases
-              showNewIndicator
+              showNewIndicator || forceNewVisible
                 ? { opacity: 1, transform: [{ scale: 1 }] }
                 : null,
             ]}
-            pointerEvents={showNewIndicator ? "box-none" : "none"}
+            pointerEvents={
+              showNewIndicator || forceNewVisible ? "box-none" : "none"
+            }
           >
             {/* Confetti is rendered directly under the New button, so it's visually below the button */}
             <Animated.View

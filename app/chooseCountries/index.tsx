@@ -649,7 +649,8 @@ export default function ChooseCountriesScreen({
     initialSet.forEach((c) => {
       if (!finalSet.has(c)) remove.push(c);
     });
-    applyCountryDiff(add, remove, { immediate: true, deferVisual: true });
+    // Trigger instant local update AND immediate visual highlight/New button on the map
+    applyCountryDiff(add, remove, { immediate: true });
     try {
       const currentSelectedArray = Array.from(finalSet);
       const userDocRef = doc(db, "users", user.uid);
