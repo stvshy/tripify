@@ -168,7 +168,8 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
 
   // NEW: funkcja ustawiania aktywności mapy
   const flushQueuedDiffs = useCallback(() => {
-    if (queuedChangedRef.current.size === 0 || visitedCountries == null) return;
+    // Flush visual diffs as soon as possible; do not block on visitedCountries
+    if (queuedChangedRef.current.size === 0) return;
     // Respect highlight limit
     const changedArr = Array.from(queuedChangedRef.current);
     const limited =
@@ -191,7 +192,14 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       // Keep visual state queued; it will be applied on focus
       limited.forEach((c) => queuedChangedRef.current.add(c));
     }
-  }, [dismissNewIndicator, visitedCountries, isMapActive]);
+  }, [dismissNewIndicator, isMapActive]);
+
+  // If data arrives slightly later while map is active, ensure queued visuals are flushed immediately
+  useEffect(() => {
+    if (isMapActive && queuedChangedRef.current.size > 0) {
+      flushQueuedDiffs();
+    }
+  }, [isMapActive, visitedCountries, flushQueuedDiffs]);
 
   // NEW: expose non-mutating view of queued changes for first-render synchronization
   const peekQueuedChanged = useCallback(() => {
@@ -281,14 +289,10 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
           dismissNewIndicator();
         }, AUTO_DISMISS_MS);
       } else {
-        // When map is not active, still update the visual state immediately.
-        // The effects (confetti, timer) will only trigger on the map screen based on `isMapActive`.
-        setRecentlyChangedCountries(visualChangedSet);
-        setShowNewIndicator(true);
-        setIsUpdating(true);
-        setUpdateSequence((p) => p + 1);
-
-        // Queue data changes to be applied to the global state.
+        // Map not active (or visuals explicitly deferred): queue visual diffs only.
+        // Do NOT trigger highlights/New/confetti yet – apply on focus via flushQueuedDiffs.
+        visualChangedSet.forEach((c) => queuedChangedRef.current.add(c));
+        // Queue data changes to be applied to the global state (for possible future use).
         add.forEach((c) => queuedAddsRef.current.add(c));
         remove.forEach((c) => queuedRemovesRef.current.add(c));
         // Advance inactive snapshot to reflect the upcoming visited set to prevent flicker.
@@ -300,7 +304,12 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
         // Update optimistic count immediately so progress bar is instant
         setOptimisticVisitedCount(nextArr.length);
         if (immediate || noDefer) {
-          setVisitedCountries(nextArr);
+          // When not on the map, prefer non-blocking update to avoid jank on other screens
+          if (isMapActive) {
+            setVisitedCountries(nextArr);
+          } else {
+            startTransition(() => setVisitedCountries(nextArr));
+          }
         } else {
           startTransition(() => setVisitedCountries(nextArr));
         }

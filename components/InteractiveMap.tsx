@@ -459,10 +459,10 @@ const InteractiveMapComponent = forwardRef<
   const showNewSV = useSharedValue(showNewIndicator ? 1 : 0);
 
   useEffect(() => {
-    // Natychmiastowe pojawienie na wejściu (bez opóźnienia), szybkie wygaszanie
+    // Natychmiastowe pojawienie na wejściu (zero ms), szybkie wygaszanie
     const appearing = !prevShowRef.current && showNewIndicator;
     toggleProgress.value = withTiming(showNewIndicator ? 1 : 0, {
-      duration: showNewIndicator ? (appearing ? 0 : 140) : 160,
+      duration: showNewIndicator ? (appearing ? 0 : 120) : 140,
       easing: Easing.out(Easing.ease),
     });
     prevShowRef.current = showNewIndicator;
@@ -472,7 +472,24 @@ const InteractiveMapComponent = forwardRef<
   // Layout-efekt, który w pierwszej klatce po ustawieniu showNewIndicator ustawia widok bez animacji
   useLayoutEffect(() => {
     if (showNewIndicator && !prevShowRef.current) {
+      // Zero-delay show and immediate confetti start to perfectly sync with highlights
       toggleProgress.value = 1;
+      try {
+        cancelAnimation(newButtonScale);
+        cancelAnimation(confettiOpacity);
+      } catch {}
+      confettiOpacity.value = 0;
+      newButtonScale.value = 1.0;
+      newButtonScale.value = withSequence(
+        withTiming(1.13, { duration: 100, easing: Easing.out(Easing.ease) }),
+        withTiming(1.0, { duration: 140, easing: Easing.out(Easing.ease) })
+      );
+      if (confettiRef.current) {
+        confettiRef.current.start();
+      }
+      setTimeout(() => {
+        confettiOpacity.value = withTiming(1, { duration: 0 });
+      }, 0);
     }
   }, [showNewIndicator]);
 
