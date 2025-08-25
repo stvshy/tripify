@@ -417,6 +417,8 @@ const InteractiveMapComponent = forwardRef<
   // Logika przejść PO pierwszym renderze – natychmiastowe pojawienie się przycisku New (bez opóźnienia animacji)
   const prevShowRef = useRef(showNewIndicator);
   const toggleProgress = useSharedValue(showNewIndicator ? 1 : 0);
+  // Shared flag that mirrors showNewIndicator for UI-thread usage
+  const showNewSV = useSharedValue(showNewIndicator ? 1 : 0);
 
   useEffect(() => {
     // Natychmiastowe pojawienie na wejściu (bez opóźnienia), szybkie wygaszanie
@@ -426,6 +428,7 @@ const InteractiveMapComponent = forwardRef<
       easing: Easing.out(Easing.ease),
     });
     prevShowRef.current = showNewIndicator;
+    showNewSV.value = showNewIndicator ? 1 : 0;
   }, [showNewIndicator]);
 
   // Layout-efekt, który w pierwszej klatce po ustawieniu showNewIndicator ustawia widok bez animacji
@@ -442,6 +445,7 @@ const InteractiveMapComponent = forwardRef<
     if (isMapActive && showNewIndicator) {
       toggleProgress.value = 1; // natychmiast pokaż
       prevShowRef.current = true; // zsynchronizuj stan poprzedni
+      showNewSV.value = 1;
     }
   }, [isMapActive, showNewIndicator, updateSequence]);
 
@@ -475,16 +479,28 @@ const InteractiveMapComponent = forwardRef<
     }, 16);
   }, [isMapActive, showNewIndicator, updateSequence]);
 
-  const newContainerAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: toggleProgress.value, // 0..1
-    transform: [{ scale: 0.86 + 0.14 * toggleProgress.value }], // 0.86 -> 1.0
-  }));
+  const newContainerAnimatedStyle = useAnimatedStyle(() => {
+    if (showNewSV.value === 1) {
+      return { opacity: 1, transform: [{ scale: 1 }] };
+    }
+    return {
+      opacity: toggleProgress.value, // 0..1
+      transform: [{ scale: 0.86 + 0.14 * toggleProgress.value }], // 0.86 -> 1.0
+    };
+  });
 
   const regularButtonsAnimatedStyle = useAnimatedStyle(() => {
     const base = 1 - toggleProgress.value;
     const suppressed = 1 - suppressRegularButtons.value;
     return { opacity: base * suppressed };
   });
+
+  // When New appears, immediately suppress regular buttons to avoid overlap
+  useEffect(() => {
+    if (showNewIndicator) {
+      suppressRegularButtons.value = 1;
+    }
+  }, [showNewIndicator]);
 
   const handleToggleTheme = () => {
     scaleValue.value = withTiming(1.2, { duration: 100 }, () => {
@@ -1133,17 +1149,14 @@ const InteractiveMapComponent = forwardRef<
     suppressRegularButtons.value = 1; // prevent functional buttons from flashing
     // Clear highlights and hide indicator immediately to keep map visuals in sync
     instantDismissNewIndicator();
-    toggleProgress.value = withTiming(
-      0,
-      {
-        duration: 120,
-        easing: Easing.out(Easing.ease),
-      },
-      (finished) => {
-        // After the fade-out completes, show functional buttons
-        suppressRegularButtons.value = 0;
-      }
-    );
+    toggleProgress.value = withTiming(0, {
+      duration: 140,
+      easing: Easing.out(Easing.ease),
+    });
+    // Defer enabling regular buttons slightly after the fade completes to avoid any overlap
+    setTimeout(() => {
+      suppressRegularButtons.value = 0;
+    }, 160);
   }, [instantDismissNewIndicator]);
 
   // Reset tooltip & zarządzanie aktywnością mapy na fokus/blur ekranu
@@ -1167,8 +1180,25 @@ const InteractiveMapComponent = forwardRef<
         cancelAnimation(translateY);
         cancelAnimation(scaleValue);
       } catch {}
+      // Also reset overlay animation state so it can re-show cleanly next time
+      try {
+        cancelAnimation(toggleProgress);
+        cancelAnimation(newButtonScale);
+        cancelAnimation(confettiOpacity);
+      } catch {}
+      toggleProgress.value = 0;
+      confettiOpacity.value = 0;
+      suppressRegularButtons.value = 0;
+      newButtonScale.value = 1;
     }
   }, [isMapActive]);
+
+  // Keep regular buttons suppressed while New indicator is visible to avoid overlap/see-through
+  useEffect(() => {
+    try {
+      suppressRegularButtons.value = showNewIndicator ? 1 : 0;
+    } catch {}
+  }, [showNewIndicator]);
 
   return (
     <GestureHandlerRootView>
@@ -1510,6 +1540,12 @@ const InteractiveMapComponent = forwardRef<
               StyleSheet.absoluteFill,
               styles.centeredContent,
               newContainerAnimatedStyle,
+              // Ensure this overlay is always visually on top on Android
+              { zIndex: 2, elevation: 2 },
+              // If indicator flag is true, force immediate visibility to avoid any paused-animation edge cases
+              showNewIndicator
+                ? { opacity: 1, transform: [{ scale: 1 }] }
+                : null,
             ]}
             pointerEvents={showNewIndicator ? "box-none" : "none"}
           >
@@ -1603,6 +1639,9 @@ const InteractiveMapComponent = forwardRef<
               styles.centeredContent,
               { flexDirection: "row" }, // zapewnia poziome ułożenie
               regularButtonsAnimatedStyle, // Używamy stylu animowanego
+              { zIndex: 1, elevation: 1 },
+              // Also hard-hide regular buttons when New is visible to avoid overlap while animations catch up
+              showNewIndicator ? { opacity: 0 } : null,
             ]}
             pointerEvents={showNewIndicator ? "none" : "auto"} // Klikalne gdy warstwa New wygaszona
           >

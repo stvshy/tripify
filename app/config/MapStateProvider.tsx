@@ -102,8 +102,8 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
   const selectedCountriesActiveSnapshotRef = useRef<string[] | null>(null);
   // NEW: limit ilu krajom nadajemy jednocześnie highlight (F)
   const HIGHLIGHT_LIMIT = 50;
-  // NOWE: krótsze okno auto-dismiss aby synchronizować z szybszą animacją przycisku
-  const AUTO_DISMISS_MS = 3300;
+  // Auto-dismiss duration for the New indicator/highlights while map is active
+  const AUTO_DISMISS_MS = 5000;
 
   // Keep an active snapshot only when map is active to avoid propagating large array changes to background tab
   useEffect(() => {
@@ -172,15 +172,20 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
     queuedChangedRef.current.clear();
     queuedAddsRef.current.clear();
     queuedRemovesRef.current.clear();
-    setRecentlyChangedCountries(limited);
-    setShowNewIndicator(true);
-    setIsUpdating(true);
-    setUpdateSequence((p) => p + 1);
-    if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
-    updateTimeoutRef.current = setTimeout(() => {
-      dismissNewIndicator();
-    }, AUTO_DISMISS_MS);
-  }, [dismissNewIndicator, visitedCountries]);
+    if (isMapActive) {
+      setRecentlyChangedCountries(limited);
+      setShowNewIndicator(true);
+      setIsUpdating(true);
+      setUpdateSequence((p) => p + 1);
+      if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
+      updateTimeoutRef.current = setTimeout(() => {
+        dismissNewIndicator();
+      }, AUTO_DISMISS_MS);
+    } else {
+      // Keep visual state queued; it will be applied on focus
+      limited.forEach((c) => queuedChangedRef.current.add(c));
+    }
+  }, [dismissNewIndicator, visitedCountries, isMapActive]);
 
   // NEW: expose non-mutating view of queued changes for first-render synchronization
   const peekQueuedChanged = useCallback(() => {
@@ -265,8 +270,7 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
         visualChangedSet.forEach((c) => queuedChangedRef.current.add(c));
         // Advance inactive snapshot to reflect the upcoming visited set to prevent flicker
         selectedCountriesActiveSnapshotRef.current = Array.from(nextSet);
-        // Ensure the New indicator will be shown next time the map becomes active
-        setShowNewIndicator(true);
+        // Don't toggle UI state while map is inactive; showNewIndicator will be set on flushQueuedDiffs() during focus
       }
 
       const commit = () => {
