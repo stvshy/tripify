@@ -306,6 +306,7 @@ const InteractiveMapComponent = forwardRef<
     try {
       const queued = peekQueuedChanged?.() || [];
       if (queued.length > 0) {
+        setMapActive(true);
         setPendingHighlights(new Set(queued));
         toggleProgress.value = 1; // ensure New container visibility sync
         // Show New overlay immediately and pre-fire confetti if provider flag isn't set yet
@@ -346,11 +347,11 @@ const InteractiveMapComponent = forwardRef<
   }, []);
 
   // When provider flag flips to true, stop forcing local visibility
-  useEffect(() => {
-    if (showNewIndicator && forceNewVisible) {
-      setForceNewVisible(false);
-    }
-  }, [showNewIndicator, forceNewVisible]);
+  // useEffect(() => {
+  //   if (showNewIndicator && forceNewVisible) {
+  //     setForceNewVisible(false);
+  //   }
+  // }, [showNewIndicator, forceNewVisible]);
 
   // Preserve previous percentageVisited logic after introducing visitedSet
   const visitedCountries = useMemo(() => visitedCount, [visitedCount]);

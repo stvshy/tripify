@@ -168,8 +168,7 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
 
   // NEW: funkcja ustawiania aktywności mapy
   const flushQueuedDiffs = useCallback(() => {
-    // Flush visual diffs as soon as possible; do not block on visitedCountries
-    if (queuedChangedRef.current.size === 0) return;
+    if (queuedChangedRef.current.size === 0 || visitedCountries == null) return;
     // Respect highlight limit
     const changedArr = Array.from(queuedChangedRef.current);
     const limited =
@@ -179,27 +178,22 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
     queuedChangedRef.current.clear();
     queuedAddsRef.current.clear();
     queuedRemovesRef.current.clear();
-    if (isMapActive) {
-      setRecentlyChangedCountries(limited);
-      setShowNewIndicator(true);
-      setIsUpdating(true);
-      setUpdateSequence((p) => p + 1);
-      if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
-      updateTimeoutRef.current = setTimeout(() => {
-        dismissNewIndicator();
-      }, AUTO_DISMISS_MS);
-    } else {
-      // Keep visual state queued; it will be applied on focus
-      limited.forEach((c) => queuedChangedRef.current.add(c));
-    }
-  }, [dismissNewIndicator, isMapActive]);
+    setRecentlyChangedCountries(limited);
+    setShowNewIndicator(true);
+    setIsUpdating(true);
+    setUpdateSequence((p) => p + 1);
+    if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
+    updateTimeoutRef.current = setTimeout(() => {
+      dismissNewIndicator();
+    }, AUTO_DISMISS_MS);
+  }, [dismissNewIndicator, visitedCountries]);
 
-  // If data arrives slightly later while map is active, ensure queued visuals are flushed immediately
-  useEffect(() => {
-    if (isMapActive && queuedChangedRef.current.size > 0) {
-      flushQueuedDiffs();
-    }
-  }, [isMapActive, visitedCountries, flushQueuedDiffs]);
+  // // If data arrives slightly later while map is active, ensure queued visuals are flushed immediately
+  // useEffect(() => {
+  //   if (isMapActive && queuedChangedRef.current.size > 0) {
+  //     flushQueuedDiffs();
+  //   }
+  // }, [isMapActive, visitedCountries, flushQueuedDiffs]);
 
   // NEW: expose non-mutating view of queued changes for first-render synchronization
   const peekQueuedChanged = useCallback(() => {
@@ -212,17 +206,6 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
         // Najpierw oznacz mapę jako aktywną, następnie odpal flush queued diffs
         setIsMapActive(true);
         flushQueuedDiffs();
-        // If visual state was prepared while inactive, ensure animations/timeouts start now
-        if (
-          showNewIndicator &&
-          recentlyChangedCountries.size > 0 &&
-          !updateTimeoutRef.current
-        ) {
-          setUpdateSequence((p) => p + 1);
-          updateTimeoutRef.current = setTimeout(() => {
-            dismissNewIndicator();
-          }, AUTO_DISMISS_MS);
-        }
       } else {
         setIsMapActive(false);
         // A: szybkie wygaszenie – natychmiast zrezygnuj z pending highlight / przycisku
@@ -301,15 +284,8 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
 
       const commit = () => {
         const nextArr = Array.from(nextSet);
-        // Update optimistic count immediately so progress bar is instant
-        setOptimisticVisitedCount(nextArr.length);
         if (immediate || noDefer) {
-          // When not on the map, prefer non-blocking update to avoid jank on other screens
-          if (isMapActive) {
-            setVisitedCountries(nextArr);
-          } else {
-            startTransition(() => setVisitedCountries(nextArr));
-          }
+          setVisitedCountries(nextArr);
         } else {
           startTransition(() => setVisitedCountries(nextArr));
         }
