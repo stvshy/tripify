@@ -1716,7 +1716,7 @@ const InteractiveMapComponent = forwardRef<
                     style={{
                       ...StyleSheet.absoluteFillObject,
                       borderRadius: BUTTON_SIZE / 2,
-                      borderWidth: 2.3,
+                      borderWidth: 1.9,
                       borderColor: theme.colors.primary,
                     }}
                   />
@@ -1757,7 +1757,7 @@ const InteractiveMapComponent = forwardRef<
                       styles.newButtonInner,
                       {
                         backgroundColor: isDarkTheme
-                          ? "rgba(0, 0, 0, 0.17)"
+                          ? "rgba(0, 0, 0, 0.16)"
                           : "rgba(255, 255, 255, 0.83)",
                       },
                     ]}
@@ -1767,7 +1767,7 @@ const InteractiveMapComponent = forwardRef<
                         styles.newButtonText,
                         {
                           color: isDarkTheme
-                            ? theme.colors.onPrimary
+                            ? "rgb(198, 145, 254)"
                             : theme.colors.primary,
                         },
                       ]}
