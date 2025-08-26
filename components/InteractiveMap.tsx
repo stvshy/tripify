@@ -457,7 +457,7 @@ const InteractiveMapComponent = forwardRef<
   const borderShift = useSharedValue(0);
   useEffect(() => {
     borderShift.value = withRepeat(
-      withTiming(1, { duration: 2400, easing: Easing.linear }),
+      withTiming(1, { duration: 1900, easing: Easing.linear }),
       -1,
       true
     );

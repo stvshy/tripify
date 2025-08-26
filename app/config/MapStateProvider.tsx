@@ -105,7 +105,7 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
   const queuedChangedRef = useRef<Set<string>>(new Set());
   const selectedCountriesActiveSnapshotRef = useRef<string[] | null>(null);
   // NEW: limit ilu krajom nadajemy jednocześnie highlight (F)
-  const HIGHLIGHT_LIMIT = 50;
+  const HIGHLIGHT_LIMIT = 218;
   // Auto-dismiss duration for the New indicator/highlights while map is active
   const AUTO_DISMISS_MS = 5000;
 
