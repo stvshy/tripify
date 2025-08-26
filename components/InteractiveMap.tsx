@@ -453,21 +453,62 @@ const InteractiveMapComponent = forwardRef<
     transform: [{ scale: newButtonScale.value }],
   }));
 
-  // Animated moving gradient for New button border
-  const borderShift = useSharedValue(0);
-  useEffect(() => {
-    borderShift.value = withRepeat(
-      withTiming(1, { duration: 1900, easing: Easing.linear }),
+  // Animated moving gradient for New button border (2D random motion, reverse loop, overscanned)
+  const borderShiftX = useSharedValue(0);
+  const borderShiftY = useSharedValue(0);
+  const restartGradientMotion = useCallback(() => {
+    try {
+      cancelAnimation(borderShiftX);
+      cancelAnimation(borderShiftY);
+    } catch {}
+    const totalWidth = BUTTON_SIZE * 2.2;
+    const travelX = totalWidth * (0.55 + Math.random() * 0.2); // 55%..75% width
+    const travelY = BUTTON_SIZE * (0.1 + Math.random() * 0.12); // 10%..22% height
+    const durX = Math.round(1300 + Math.random() * 700);
+    const durY = Math.round(1200 + Math.random() * 600);
+    borderShiftX.value = -travelX;
+    borderShiftY.value = -travelY;
+    borderShiftX.value = withRepeat(
+      withTiming(travelX, {
+        duration: durX,
+        easing: Easing.inOut(Easing.ease),
+      }),
       -1,
       true
     );
-  }, []);
+    borderShiftY.value = withRepeat(
+      withTiming(travelY, {
+        duration: durY,
+        easing: Easing.inOut(Easing.ease),
+      }),
+      -1,
+      true
+    );
+  }, [borderShiftX, borderShiftY]);
+  useEffect(() => {
+    restartGradientMotion();
+  }, [restartGradientMotion]);
+  useEffect(() => {
+    if (showNewIndicator || forceNewVisible) restartGradientMotion();
+  }, [
+    showNewIndicator,
+    forceNewVisible,
+    restartGradientMotion,
+    updateSequence,
+  ]);
+  useEffect(() => {
+    if (isMapActive && (showNewIndicator || forceNewVisible))
+      restartGradientMotion();
+  }, [isMapActive, showNewIndicator, forceNewVisible, restartGradientMotion]);
   const movingBorderStyle = useAnimatedStyle(() => {
-    const totalWidth = BUTTON_SIZE * 2.2;
-    // Keep gradient edges away from the ring edges to avoid any glimpse of background
-    const travel = totalWidth * 0.8; // 80% of full width
-    const translateX = (borderShift.value * 2 - 1) * travel; // -travel..+travel
-    return { transform: [{ translateX }] };
+    // Ease-in the motion scale a bit to reduce any stepping artifacts
+    const damp = 0.98;
+    return {
+      transform: [
+        { translateX: borderShiftX.value * damp },
+        { translateY: borderShiftY.value * damp },
+      ],
+    };
   });
 
   // Logika przejść PO pierwszym renderze – natychmiastowe pojawienie się przycisku New (bez opóźnienia animacji)
@@ -499,8 +540,8 @@ const InteractiveMapComponent = forwardRef<
       confettiOpacity.value = 0;
       newButtonScale.value = 1.0;
       newButtonScale.value = withSequence(
-        withTiming(1.13, { duration: 100, easing: Easing.out(Easing.ease) }),
-        withTiming(1.0, { duration: 140, easing: Easing.out(Easing.ease) })
+        withTiming(1.08, { duration: 80, easing: Easing.out(Easing.ease) }),
+        withTiming(1.0, { duration: 110, easing: Easing.out(Easing.ease) })
       );
       if (confettiRef.current) {
         confettiRef.current.start();
@@ -540,16 +581,19 @@ const InteractiveMapComponent = forwardRef<
     } catch {}
     confettiOpacity.value = 0;
     newButtonScale.value = 1.0;
+    // Ultra-fast scale to avoid blocking JS and RN bridge
     newButtonScale.value = withSequence(
-      withTiming(1.13, { duration: 120, easing: Easing.out(Easing.ease) }),
-      withTiming(1.0, { duration: 180, easing: Easing.out(Easing.ease) })
+      withTiming(1.08, { duration: 90, easing: Easing.out(Easing.ease) }),
+      withTiming(1.0, { duration: 120, easing: Easing.out(Easing.ease) })
     );
+    // Fire confetti immediately
     if (confettiRef.current) {
       confettiRef.current.start();
     }
+    // Reveal confetti on next frame
     setTimeout(() => {
       confettiOpacity.value = withTiming(1, { duration: 0 });
-    }, 16);
+    }, 0);
   }, [isMapActive, showNewIndicator, updateSequence]);
 
   const newContainerAnimatedStyle = useAnimatedStyle(() => {
@@ -1684,6 +1728,7 @@ const InteractiveMapComponent = forwardRef<
             >
               {showNewIndicator ? (
                 <ConfettiCannon
+                  key={`confetti-${updateSequence}-${isMapActive ? 1 : 0}`}
                   ref={confettiRef}
                   count={140}
                   origin={computeConfettiOrigin() || FALLBACK_ORIGIN}
@@ -1732,10 +1777,10 @@ const InteractiveMapComponent = forwardRef<
                       style={[
                         {
                           position: "absolute",
-                          left: -(BUTTON_SIZE * 4.4),
-                          top: 0,
-                          height: BUTTON_SIZE * 1.05,
-                          width: BUTTON_SIZE * 8.8,
+                          left: -(BUTTON_SIZE * 3.8),
+                          top: -(BUTTON_SIZE * 0.8),
+                          height: BUTTON_SIZE * 2.6, // vertical overscan (safe)
+                          width: BUTTON_SIZE * 7.6, // horizontal overscan (safe)
                         },
                         movingBorderStyle,
                       ]}
@@ -1758,7 +1803,7 @@ const InteractiveMapComponent = forwardRef<
                       {
                         backgroundColor: isDarkTheme
                           ? "rgba(0, 0, 0, 0.16)"
-                          : "rgba(255, 255, 255, 0.83)",
+                          : "rrgba(255, 255, 255, 0.86)",
                       },
                     ]}
                   >
@@ -1767,7 +1812,7 @@ const InteractiveMapComponent = forwardRef<
                         styles.newButtonText,
                         {
                           color: isDarkTheme
-                            ? "rgb(198, 145, 254)"
+                            ? "rrgb(198, 145, 254)"
                             : theme.colors.primary,
                         },
                       ]}
