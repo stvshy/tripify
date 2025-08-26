@@ -31,6 +31,7 @@ import {
   ActivityIndicator,
   AppState,
   AppStateStatus,
+  InteractionManager,
 } from "react-native";
 import { TextInput as PaperTextInput, useTheme } from "react-native-paper";
 import { AntDesign, FontAwesome, MaterialIcons } from "@expo/vector-icons";
@@ -651,20 +652,28 @@ export default function ChooseCountriesScreen({
     });
     // Trigger instant local update AND immediate visual highlight/New button on the map
     applyCountryDiff(add, remove, { immediate: true });
-    try {
-      const currentSelectedArray = Array.from(finalSet);
-      const userDocRef = doc(db, "users", user.uid);
-      await updateDoc(userDocRef, {
-        countriesVisited: currentSelectedArray,
-        ...(!fromTab && { firstLoginComplete: true }),
-      });
-      initialVisitedCountriesRef.current = new Set(currentSelectedArray);
-      console.log("Countries data sent to Firestore successfully.");
-    } catch (error) {
-      console.error("Error auto-saving countries:", error);
-    } finally {
-      savingRef.current = false;
-    }
+    // Update local snapshot immediately to prevent redundant re-saves
+    initialVisitedCountriesRef.current = new Set(finalSet);
+    // Offload Firestore write to background to avoid blocking UI/new-indicator
+    const currentSelectedArray = Array.from(finalSet);
+    const userDocRef = doc(db, "users", user.uid);
+    InteractionManager.runAfterInteractions(() => {
+      // Defer to next tick to ensure navigation/UI work is prioritized
+      setTimeout(() => {
+        updateDoc(userDocRef, {
+          countriesVisited: currentSelectedArray,
+          ...(!fromTab && { firstLoginComplete: true }),
+        })
+          .then(() => {
+            console.log("Countries data sent to Firestore successfully.");
+          })
+          .catch((error) => {
+            console.error("Error auto-saving countries:", error);
+          });
+      }, 0);
+    });
+    // Release saving lock immediately so UI remains responsive
+    savingRef.current = false;
   }, [localSelectedCountries, fromTab, applyCountryDiff]);
   const handleSaveRef = useRef(handleSaveCountries);
   useEffect(() => {

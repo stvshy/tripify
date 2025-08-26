@@ -45,11 +45,11 @@ import Animated, {
   withSequence,
   withSpring,
   withTiming,
+  withRepeat,
 } from "react-native-reanimated";
 import { Feather, MaterialIcons } from "@expo/vector-icons";
 import { useTheme, MD3Theme } from "react-native-paper";
 import logoImage from "../assets/images/logo-tripify-tekstowe2.png";
-import * as Progress from "react-native-progress";
 import logoTextImage from "../assets/images/logo-tripify-tekst.png";
 import logoTextImageDesaturated from "../assets/images/logo-tripify-tekst2.png";
 import CountryFlag from "react-native-country-flag";
@@ -453,6 +453,23 @@ const InteractiveMapComponent = forwardRef<
     transform: [{ scale: newButtonScale.value }],
   }));
 
+  // Animated moving gradient for New button border
+  const borderShift = useSharedValue(0);
+  useEffect(() => {
+    borderShift.value = withRepeat(
+      withTiming(1, { duration: 2400, easing: Easing.linear }),
+      -1,
+      true
+    );
+  }, []);
+  const movingBorderStyle = useAnimatedStyle(() => {
+    const totalWidth = BUTTON_SIZE * 2.2;
+    // Keep gradient edges away from the ring edges to avoid any glimpse of background
+    const travel = totalWidth * 0.8; // 80% of full width
+    const translateX = (borderShift.value * 2 - 1) * travel; // -travel..+travel
+    return { transform: [{ translateX }] };
+  });
+
   // Logika przejść PO pierwszym renderze – natychmiastowe pojawienie się przycisku New (bez opóźnienia animacji)
   const prevShowRef = useRef(showNewIndicator);
   const toggleProgress = useSharedValue(showNewIndicator ? 1 : 0);
@@ -536,13 +553,8 @@ const InteractiveMapComponent = forwardRef<
   }, [isMapActive, showNewIndicator, updateSequence]);
 
   const newContainerAnimatedStyle = useAnimatedStyle(() => {
-    if (showNewSV.value === 1) {
-      return { opacity: 1, transform: [{ scale: 1 }] };
-    }
-    return {
-      opacity: toggleProgress.value, // 0..1
-      transform: [{ scale: 0.86 + 0.14 * toggleProgress.value }], // 0.86 -> 1.0
-    };
+    // Show/hide instantly; keep scale constant. Only border gradient moves.
+    return { opacity: showNewSV.value, transform: [{ scale: 1 }] };
   });
 
   const regularButtonsAnimatedStyle = useAnimatedStyle(() => {
@@ -613,6 +625,18 @@ const InteractiveMapComponent = forwardRef<
     }),
     []
   );
+
+  // Animated progress width (smoothly interpolate to new percentage)
+  const progressSV = useSharedValue(percentageVisited);
+  useEffect(() => {
+    progressSV.value = withTiming(percentageVisited, {
+      duration: 2000,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [percentageVisited]);
+  const progressFillAnimatedStyle = useAnimatedStyle(() => ({
+    width: clamp(progressSV.value, 0, 1) * (screenWidth * 0.8),
+  }));
 
   const MemoizedSkiaCountryPaths = React.memo(
     () => {
@@ -1439,12 +1463,11 @@ const InteractiveMapComponent = forwardRef<
             />
 
             {/* Widok przycinający dla gradientu wypełnienia ORAZ BLURA */}
-            <View
-              style={{
-                width: `${percentageVisited * 100}%`, // Szerokość dynamiczna
-                height: "100%",
-                overflow: "hidden", // Kluczowe: przycina wewnętrzny gradient I BLUR
-              }}
+            <Animated.View
+              style={[
+                { height: "100%", overflow: "hidden" },
+                progressFillAnimatedStyle,
+              ]}
             >
               {/* Gradient WYPEŁNIENIA (pełne kolory) */}
               <LinearGradient
@@ -1473,7 +1496,7 @@ const InteractiveMapComponent = forwardRef<
                   intensity={8} // Dostosuj
                 />
               )}
-            </View>
+            </Animated.View>
             {/* Teksty postępu (muszą być NAD gradientami i blurem) */}
             {/* Upewnij się, że style progressTextLeft/Right mają zIndex: 1 */}
             <View style={styles.progressTextLeft}>
@@ -1687,16 +1710,48 @@ const InteractiveMapComponent = forwardRef<
                 onPress={handlePressNew}
                 // onLayout removed to avoid delayed measurement-based start
               >
-                <LinearGradient
-                  colors={[
-                    theme.colors.primary,
-                    "#00AEF5",
-                    theme.colors.primary,
-                  ]}
-                  start={{ x: 0, y: 0.5 }}
-                  end={{ x: 1, y: 0.5 }}
-                  style={styles.newButtonBorder}
-                >
+                <View style={styles.newButtonBorder}>
+                  {/* Static base stroke to avoid any perceived gap */}
+                  <View
+                    style={{
+                      ...StyleSheet.absoluteFillObject,
+                      borderRadius: BUTTON_SIZE / 2,
+                      borderWidth: 2.3,
+                      borderColor: theme.colors.primary,
+                    }}
+                  />
+                  {/* Animated gradient border */}
+                  <Animated.View
+                    style={{
+                      ...StyleSheet.absoluteFillObject,
+                      overflow: "hidden",
+                      borderRadius: BUTTON_SIZE / 2,
+                    }}
+                  >
+                    <Animated.View
+                      style={[
+                        {
+                          position: "absolute",
+                          left: -(BUTTON_SIZE * 4.4),
+                          top: 0,
+                          height: BUTTON_SIZE * 1.05,
+                          width: BUTTON_SIZE * 8.8,
+                        },
+                        movingBorderStyle,
+                      ]}
+                    >
+                      <LinearGradient
+                        colors={[
+                          theme.colors.primary,
+                          "#00AEF5",
+                          theme.colors.primary,
+                        ]}
+                        start={{ x: 0, y: 0.5 }}
+                        end={{ x: 1, y: 0.5 }}
+                        style={{ flex: 1 }}
+                      />
+                    </Animated.View>
+                  </Animated.View>
                   <View
                     style={[
                       styles.newButtonInner,
@@ -1720,7 +1775,7 @@ const InteractiveMapComponent = forwardRef<
                       New
                     </Text>
                   </View>
-                </LinearGradient>
+                </View>
               </TouchableOpacity>
             </Animated.View>
           </Animated.View>

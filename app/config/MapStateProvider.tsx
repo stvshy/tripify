@@ -261,6 +261,11 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
           ? new Set(Array.from(changedSet).slice(0, HIGHLIGHT_LIMIT))
           : changedSet;
 
+      // Optimistically reflect the new visited count instantly for UI (progress bar)
+      try {
+        setOptimisticVisitedCount(nextSet.size);
+      } catch {}
+
       if (isMapActive && !deferVisual) {
         // Natychmiast pokazuj highlighty i przycisk "New" na aktywnej mapie
         setRecentlyChangedCountries(visualChangedSet);
