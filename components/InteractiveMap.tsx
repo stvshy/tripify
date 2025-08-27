@@ -47,6 +47,7 @@ import Animated, {
   withTiming,
   withRepeat,
 } from "react-native-reanimated";
+import { useAnimatedReaction } from "react-native-reanimated";
 import { Feather, MaterialIcons } from "@expo/vector-icons";
 import { useTheme, MD3Theme } from "react-native-paper";
 import logoImage from "../assets/images/logo-tripify-tekstowe2.png";
@@ -72,6 +73,7 @@ import { BlurView } from "expo-blur";
 import ConfettiCannon from "react-native-confetti-cannon";
 
 import { useMapState } from "@/app/config/MapStateProvider";
+import FloatingActionMenu from "./FloatingActionMenu";
 
 export interface Country {
   id: string;
@@ -287,6 +289,7 @@ const InteractiveMapComponent = forwardRef<
   const baseMapRef = useRef<View>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [tooltip, setTooltip] = useState<TooltipPosition | null>(null);
+  const pendingTooltipRef = useRef<TooltipPosition | null>(null);
   const scaleValue = useSharedValue(1);
   // Local highlight buffer for first-frame coloring before provider flush lands
   const [pendingHighlights, setPendingHighlights] =
@@ -1212,6 +1215,8 @@ const InteractiveMapComponent = forwardRef<
     return { transform: [{ translateY }] };
   });
 
+  // Menu odseparowane do komponentu FloatingActionMenu
+
   const tooltipAnimatedStyle = useAnimatedStyle(() => {
     try {
       return {
@@ -1238,15 +1243,22 @@ const InteractiveMapComponent = forwardRef<
       const { pageX, pageY } = event.nativeEvent;
       const localX = pageX - containerOffset.x;
       const localY = pageY - containerOffset.y;
-      setTooltip({
+      const nextTooltip: TooltipPosition = {
         x: localX,
         y: localY,
         country,
         position: localY > 100 ? "top" : "bottom",
-      });
+      };
+      // If a Popover is already visible, queue the next one and close current first
+      if (tooltip) {
+        pendingTooltipRef.current = nextTooltip;
+        setTooltip(null);
+      } else {
+        setTooltip(nextTooltip);
+      }
       onCountryPress(countryCode);
     },
-    [containerOffset, onCountryPress]
+    [containerOffset, onCountryPress, tooltip]
   );
 
   interface CountryPathProps {
@@ -1540,6 +1552,13 @@ const InteractiveMapComponent = forwardRef<
                   isVisible={tooltip !== null}
                   from={new Rect(tooltip.x, tooltip.y, 1, 1)}
                   onRequestClose={() => setTooltip(null)}
+                  onCloseComplete={() => {
+                    if (pendingTooltipRef.current) {
+                      const next = pendingTooltipRef.current;
+                      pendingTooltipRef.current = null;
+                      setTooltip(next);
+                    }
+                  }}
                   popoverStyle={styles.popoverContainer}
                   arrowSize={{ width: 11.2, height: 11 }}
                   backgroundStyle={{ backgroundColor: "transparent" }}
@@ -1912,76 +1931,25 @@ const InteractiveMapComponent = forwardRef<
             </Animated.View>
           </Animated.View>
 
-          {/* Standardowe przyciski - zawsze renderowane, kontrolowane przez animację */}
           <Animated.View
             style={[
               StyleSheet.absoluteFill,
               styles.centeredContent,
-              { flexDirection: "row" }, // zapewnia poziome ułożenie
-              regularButtonsAnimatedStyle, // Używamy stylu animowanego
+              regularButtonsAnimatedStyle,
               { zIndex: 1, elevation: 1 },
-              // Also hard-hide regular buttons when New is visible to avoid overlap while animations catch up
               showNewIndicator ? { opacity: 0 } : null,
             ]}
-            pointerEvents={showNewIndicator ? "none" : "auto"} // Klikalne gdy warstwa New wygaszona
+            pointerEvents={showNewIndicator ? "none" : "auto"}
           >
-            <TouchableOpacity
-              style={[
-                styles.resetButton,
-                { backgroundColor: theme.colors.primary },
-              ]}
-              onPress={resetMap}
-              activeOpacity={0.7}
-            >
-              <Feather
-                name="code"
-                size={ICON_SIZE}
-                style={styles.resetIcon}
-                color={theme.colors.onPrimary}
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.shareButton,
-                { backgroundColor: theme.colors.primary },
-              ]}
-              onPress={shareMap}
-              activeOpacity={0.7}
-              disabled={isSharing}
-            >
-              {isSharing ? (
-                <ActivityIndicator
-                  size="small"
-                  color={theme.colors.onPrimary}
-                />
-              ) : (
-                <Feather
-                  name="share-2"
-                  size={ICON_SIZE}
-                  color={theme.colors.onPrimary}
-                />
-              )}
-            </TouchableOpacity>
-
-            <Animated.View
-              style={[styles.toggleButtonContainer, animatedToggleStyle]}
-            >
-              <TouchableOpacity
-                onPress={handleToggleTheme}
-                style={[
-                  styles.toggleButton,
-                  { backgroundColor: theme.colors.primary },
-                ]}
-                activeOpacity={0.7}
-              >
-                <MaterialIcons
-                  name={isDarkTheme ? "dark-mode" : "light-mode"}
-                  size={ICON_SIZE}
-                  color={theme.colors.onPrimary}
-                />
-              </TouchableOpacity>
-            </Animated.View>
+            <FloatingActionMenu
+              scale={scale}
+              isDarkTheme={isDarkTheme}
+              onZoomOut={resetMap}
+              onShare={shareMap}
+              onToggleTheme={handleToggleTheme}
+              isSharing={isSharing}
+              disabled={!!(showNewIndicator || forceNewVisible)}
+            />
           </Animated.View>
         </Animated.View>
       </View>
