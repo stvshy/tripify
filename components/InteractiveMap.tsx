@@ -325,9 +325,7 @@ const InteractiveMapComponent = forwardRef<
             }),
             withTiming(1.0, { duration: 180, easing: Easing.out(Easing.ease) })
           );
-          if (confettiRef.current) {
-            confettiRef.current.start();
-          }
+          // Confetti will autoStart on mount
           setTimeout(() => {
             confettiOpacity.value = withTiming(1, { duration: 0 });
           }, 16);
@@ -428,10 +426,7 @@ const InteractiveMapComponent = forwardRef<
       withTiming(1.13, { duration: 120, easing: Easing.out(Easing.ease) }),
       withTiming(1.0, { duration: 180, easing: Easing.out(Easing.ease) })
     );
-    // Fire confetti now; reveal in the next frame so it's already in-flight
-    if (confettiRef.current) {
-      confettiRef.current.start();
-    }
+    // Confetti will autoStart on mount; just reveal next frame
     setTimeout(() => {
       confettiOpacity.value = withTiming(1, { duration: 0 });
     }, 16);
@@ -586,11 +581,7 @@ const InteractiveMapComponent = forwardRef<
       withTiming(1.08, { duration: 90, easing: Easing.out(Easing.ease) }),
       withTiming(1.0, { duration: 120, easing: Easing.out(Easing.ease) })
     );
-    // Fire confetti immediately
-    if (confettiRef.current) {
-      confettiRef.current.start();
-    }
-    // Reveal confetti on next frame
+    // Confetti will autoStart on mount; reveal on next frame
     setTimeout(() => {
       confettiOpacity.value = withTiming(1, { duration: 0 });
     }, 0);
@@ -1726,9 +1717,9 @@ const InteractiveMapComponent = forwardRef<
               ]}
               pointerEvents="none"
             >
-              {showNewIndicator ? (
+              {showNewIndicator || forceNewVisible ? (
                 <ConfettiCannon
-                  key={`confetti-${updateSequence}-${isMapActive ? 1 : 0}`}
+                  key={`confetti-${updateSequence}-${isMapActive ? 1 : 0}-${showNewIndicator ? 1 : 0}-${forceNewVisible ? 1 : 0}`}
                   ref={confettiRef}
                   count={140}
                   origin={computeConfettiOrigin() || FALLBACK_ORIGIN}
@@ -1740,7 +1731,7 @@ const InteractiveMapComponent = forwardRef<
                     "#7ecc61",
                   ]}
                   fadeOut
-                  autoStart={false}
+                  autoStart
                   autoStartDelay={0}
                   explosionSpeed={700}
                   fallSpeed={2400}
