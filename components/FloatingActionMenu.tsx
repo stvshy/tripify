@@ -98,7 +98,7 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
       {
         // Transparent to let gradient below show through
         backgroundColor: "transparent",
-        borderWidth: 1.4,
+        borderWidth: 0.1,
         borderColor: theme.colors.primary,
       },
     ],
@@ -215,7 +215,7 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
           style={[StyleSheet.absoluteFill, styles.center, menuIconOpacity]}
           pointerEvents="none"
         >
-          <Feather name="menu" size={ICON_SIZE} color={theme.colors.primary} />
+          <Feather name="menu" size={ICON_SIZE} color={theme.colors.surface} />
         </Animated.View>
         <Animated.View
           style={[StyleSheet.absoluteFill, styles.center, zoomIconOpacity]}
