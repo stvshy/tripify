@@ -105,7 +105,7 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
   const queuedChangedRef = useRef<Set<string>>(new Set());
   const selectedCountriesActiveSnapshotRef = useRef<string[] | null>(null);
   // NEW: limit ilu krajom nadajemy jednocześnie highlight (F)
-  const HIGHLIGHT_LIMIT = 218;
+  const HIGHLIGHT_LIMIT = 50;
   // Auto-dismiss duration for the New indicator/highlights while map is active
   const AUTO_DISMISS_MS = 5000;
 
@@ -261,10 +261,8 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
           ? new Set(Array.from(changedSet).slice(0, HIGHLIGHT_LIMIT))
           : changedSet;
 
-      // Optimistically reflect the new visited count instantly for UI (progress bar)
-      try {
-        setOptimisticVisitedCount(nextSet.size);
-      } catch {}
+      // Immediately update optimistic count for instant progress bar animation
+      setOptimisticVisitedCount(nextSet.size);
 
       if (isMapActive && !deferVisual) {
         // Natychmiast pokazuj highlighty i przycisk "New" na aktywnej mapie

@@ -316,7 +316,7 @@ const InteractiveMapComponent = forwardRef<
             cancelAnimation(newButtonScale);
             cancelAnimation(confettiOpacity);
           } catch {}
-          confettiOpacity.value = 0;
+          // Keep confetti visible without pre-hiding to avoid cluster flash
           newButtonScale.value = 1.0;
           newButtonScale.value = withSequence(
             withTiming(1.13, {
@@ -325,10 +325,7 @@ const InteractiveMapComponent = forwardRef<
             }),
             withTiming(1.0, { duration: 180, easing: Easing.out(Easing.ease) })
           );
-          // Confetti will autoStart on mount
-          setTimeout(() => {
-            confettiOpacity.value = withTiming(1, { duration: 0 });
-          }, 16);
+          confettiOpacity.value = 1;
         }
       }
     } catch {}
@@ -377,14 +374,15 @@ const InteractiveMapComponent = forwardRef<
   // --- Confetti firing and New button scale animation ---
   const confettiRef = useRef<ConfettiCannon>(null);
   const newButtonRef = useRef<View>(null);
+  const [confettiArmed, setConfettiArmed] = useState(false);
   const [confettiOrigin, setConfettiOrigin] = useState<{
     x: number;
     y: number;
   } | null>(null);
   // For scale animation
   const newButtonScale = useSharedValue(1);
-  // Confetti: control initial visibility to avoid one-frame clump flash
-  const confettiOpacity = useSharedValue(0);
+  // Confetti: start hidden; reveal next frame to avoid initial clump at origin
+  const confettiOpacity = useSharedValue(1);
   const confettiWrapperStyle = useAnimatedStyle(() => ({
     opacity: confettiOpacity.value,
   }));
@@ -414,23 +412,35 @@ const InteractiveMapComponent = forwardRef<
     return { x: originX, y: bottomFromScreen };
   }, []);
 
-  // Synchronize: when showNewIndicator becomes true, compute origin immediately and start animations
+  // Synchronize: when showNewIndicator becomes true, start animations and mount confetti next frame
   useLayoutEffect(() => {
     if (!showNewIndicator) return;
-
-    // Hide confetti just for the initial frame, then show once particles are moving
-    confettiOpacity.value = 0;
+    // Arm confetti on next frame to avoid stationary first frame
+    setConfettiArmed(false);
+    requestAnimationFrame(() => setConfettiArmed(true));
     // Start button scale animation immediately
     newButtonScale.value = 1.0;
     newButtonScale.value = withSequence(
       withTiming(1.13, { duration: 120, easing: Easing.out(Easing.ease) }),
       withTiming(1.0, { duration: 180, easing: Easing.out(Easing.ease) })
     );
-    // Confetti will autoStart on mount; just reveal next frame
-    setTimeout(() => {
-      confettiOpacity.value = withTiming(1, { duration: 0 });
-    }, 16);
   }, [showNewIndicator]);
+
+  // Also handle the local forced visibility path (before provider flips)
+  useLayoutEffect(() => {
+    if (!forceNewVisible) return;
+    setConfettiArmed(false);
+    requestAnimationFrame(() => setConfettiArmed(true));
+  }, [forceNewVisible]);
+
+  // When neither global nor forced visibility is active, unmount confetti cannon
+  useEffect(() => {
+    if (!showNewIndicator && !forceNewVisible) {
+      setConfettiArmed(false);
+    }
+  }, [showNewIndicator, forceNewVisible]);
+
+  // Remove extra delayed start – rely on remount + autoStart
 
   // Animate scale also when showNewIndicator changes (fallback for first mount)
   // REPLACED by useLayoutEffect above to ensure zero delay and perfect sync
@@ -532,18 +542,13 @@ const InteractiveMapComponent = forwardRef<
         cancelAnimation(newButtonScale);
         cancelAnimation(confettiOpacity);
       } catch {}
-      confettiOpacity.value = 0;
+      // no pre-hide of button; confetti wrapper managed separately
       newButtonScale.value = 1.0;
       newButtonScale.value = withSequence(
         withTiming(1.08, { duration: 80, easing: Easing.out(Easing.ease) }),
         withTiming(1.0, { duration: 110, easing: Easing.out(Easing.ease) })
       );
-      if (confettiRef.current) {
-        confettiRef.current.start();
-      }
-      setTimeout(() => {
-        confettiOpacity.value = withTiming(1, { duration: 0 });
-      }, 0);
+      // rely on ConfettiCannon autoStart on remount
     }
   }, [showNewIndicator]);
 
@@ -563,8 +568,8 @@ const InteractiveMapComponent = forwardRef<
   const lastAnimSeqRef = useRef<number>(-1);
   useEffect(() => {
     if (!isMapActive || !showNewIndicator) return;
-    // Jeśli właśnie nastąpiła zmiana false->true, podstawowy layout effect już odpalił animacje
-    if (!prevShowRef.current) return;
+    // Jeśli już było true, nie duplikuj animacji (useLayoutEffect już obsłużył)
+    if (prevShowRef.current) return;
     if (lastAnimSeqRef.current === updateSequence) return;
     lastAnimSeqRef.current = updateSequence;
     // Upewnij się, że warstwa jest widoczna
@@ -574,32 +579,21 @@ const InteractiveMapComponent = forwardRef<
       cancelAnimation(newButtonScale);
       cancelAnimation(confettiOpacity);
     } catch {}
-    confettiOpacity.value = 0;
+    // no pre-hide of button; confetti wrapper managed separately
     newButtonScale.value = 1.0;
     // Ultra-fast scale to avoid blocking JS and RN bridge
     newButtonScale.value = withSequence(
       withTiming(1.08, { duration: 90, easing: Easing.out(Easing.ease) }),
       withTiming(1.0, { duration: 120, easing: Easing.out(Easing.ease) })
     );
-    // Confetti will autoStart on mount; reveal on next frame
-    setTimeout(() => {
-      confettiOpacity.value = withTiming(1, { duration: 0 });
-    }, 0);
+    // rely on autoStart on remount
   }, [isMapActive, showNewIndicator, updateSequence]);
 
   // Safety: ensure Confetti starts after remount in all edge-cases
   useEffect(() => {
     if (!isMapActive) return;
     if (!(showNewIndicator || forceNewVisible)) return;
-    const id = setTimeout(() => {
-      try {
-        if (confettiRef.current) {
-          confettiRef.current.start();
-        }
-      } catch {}
-      confettiOpacity.value = withTiming(1, { duration: 0 });
-    }, 0);
-    return () => clearTimeout(id);
+    // nothing; confetti runs itself on mount
   }, [updateSequence, isMapActive, showNewIndicator, forceNewVisible]);
 
   const newContainerAnimatedStyle = useAnimatedStyle(() => {
@@ -680,7 +674,7 @@ const InteractiveMapComponent = forwardRef<
   const progressSV = useSharedValue(percentageVisited);
   useEffect(() => {
     progressSV.value = withTiming(percentageVisited, {
-      duration: 2000,
+      duration: 800,
       easing: Easing.out(Easing.cubic),
     });
   }, [percentageVisited]);
@@ -1304,7 +1298,7 @@ const InteractiveMapComponent = forwardRef<
       cancelAnimation(newButtonScale);
       cancelAnimation(confettiOpacity);
     } catch {}
-    confettiOpacity.value = 0; // hide particles immediately
+    confettiOpacity.value = 1; // keep visible; cannon will unmount on dismiss
     suppressRegularButtons.value = 1; // prevent functional buttons from flashing
     // Clear highlights and hide indicator immediately to keep map visuals in sync
     instantDismissNewIndicator();
@@ -1324,7 +1318,35 @@ const InteractiveMapComponent = forwardRef<
       // Peek queued highlights BEFORE activation to color on first frame
       try {
         const queued = peekQueuedChanged?.() || [];
-        if (queued.length > 0) setPendingHighlights(new Set(queued));
+        if (queued.length > 0) {
+          setPendingHighlights(new Set(queued));
+          // Force immediate New layer + confetti if provider hasn't flipped yet
+          if (!showNewIndicator) {
+            setForceNewVisible(true);
+            toggleProgress.value = 1;
+            try {
+              cancelAnimation(newButtonScale);
+              cancelAnimation(confettiOpacity);
+            } catch {}
+            newButtonScale.value = 1.0;
+            newButtonScale.value = withSequence(
+              withTiming(1.08, {
+                duration: 90,
+                easing: Easing.out(Easing.ease),
+              }),
+              withTiming(1.0, {
+                duration: 120,
+                easing: Easing.out(Easing.ease),
+              })
+            );
+            try {
+              setTimeout(() => {
+                if (confettiRef.current) confettiRef.current.start();
+              }, 100);
+            } catch {}
+            confettiOpacity.value = withTiming(1, { duration: 0 });
+          }
+        }
       } catch {}
       // Oznacz mapę jako aktywną – spowoduje flushQueuedDiffs()
       setMapActive(true);
@@ -1333,7 +1355,7 @@ const InteractiveMapComponent = forwardRef<
         setMapActive(false);
         setPendingHighlights(null);
       };
-    }, [setMapActive])
+    }, [setMapActive, showNewIndicator])
   );
 
   useEffect(() => {
@@ -1352,7 +1374,7 @@ const InteractiveMapComponent = forwardRef<
         cancelAnimation(confettiOpacity);
       } catch {}
       toggleProgress.value = 0;
-      confettiOpacity.value = 0;
+      confettiOpacity.value = 1;
       suppressRegularButtons.value = 0;
       newButtonScale.value = 1;
     }
@@ -1364,6 +1386,28 @@ const InteractiveMapComponent = forwardRef<
       suppressRegularButtons.value = showNewIndicator ? 1 : 0;
     } catch {}
   }, [showNewIndicator]);
+
+  // Keep regular buttons suppressed and New layer visible while forcing immediate show
+  useEffect(() => {
+    if (!forceNewVisible) return;
+    try {
+      suppressRegularButtons.value = 1;
+      toggleProgress.value = 1;
+    } catch {}
+    try {
+      setTimeout(() => {
+        if (confettiRef.current) confettiRef.current.start();
+      }, 100);
+    } catch {}
+    confettiOpacity.value = withTiming(1, { duration: 0 });
+  }, [forceNewVisible]);
+
+  // When provider flag catches up, stop forcing local visibility
+  useEffect(() => {
+    if (showNewIndicator && forceNewVisible) {
+      setForceNewVisible(false);
+    }
+  }, [showNewIndicator, forceNewVisible]);
 
   return (
     <GestureHandlerRootView>
@@ -1732,7 +1776,7 @@ const InteractiveMapComponent = forwardRef<
               ]}
               pointerEvents="none"
             >
-              {showNewIndicator || forceNewVisible ? (
+              {confettiArmed ? (
                 <ConfettiCannon
                   key={`confetti-${updateSequence}-${isMapActive ? 1 : 0}-${showNewIndicator ? 1 : 0}-${forceNewVisible ? 1 : 0}`}
                   ref={confettiRef}
