@@ -1805,7 +1805,7 @@ const InteractiveMapComponent = forwardRef<
                   left: 0,
                   right: 0,
                   top: 0,
-                  bottom: 0,
+                  bottom: -15.5, // Extend below screen to allow confetti to fall further
                   justifyContent: "center",
                   alignItems: "center",
                 },
