@@ -290,9 +290,23 @@ const InteractiveMapComponent = forwardRef<
   const scaleValue = useSharedValue(1);
   // Local highlight buffer for first-frame coloring before provider flush lands
   const [pendingHighlights, setPendingHighlights] =
-    useState<Set<string> | null>(null);
+    useState<Set<string> | null>(() => {
+      try {
+        const queued = peekQueuedChanged?.() || [];
+        return queued.length > 0 ? new Set(queued) : null;
+      } catch {
+        return null;
+      }
+    });
   // Force-show New overlay immediately on first frame if we detected queued diffs
-  const [forceNewVisible, setForceNewVisible] = useState(false);
+  const [forceNewVisible, setForceNewVisible] = useState<boolean>(() => {
+    try {
+      const queued = peekQueuedChanged?.() || [];
+      return queued.length > 0 && !showNewIndicator;
+    } catch {
+      return false;
+    }
+  });
   // B: visitedSet (prefer context list to keep timing with highlights; fallback to prop for legacy)
   const visitedList = useMemo(
     () => selectedCountriesCtx ?? selectedCountries ?? [],
@@ -302,36 +316,9 @@ const InteractiveMapComponent = forwardRef<
 
   // Szybkie włączenie aktywności mapy i flush queued diffs przed pierwszym rysowaniem
   useLayoutEffect(() => {
-    // 1) Peek queued diffs BEFORE activation, so provider flush won't clear them first
-    try {
-      const queued = peekQueuedChanged?.() || [];
-      if (queued.length > 0) {
-        setMapActive(true);
-        setPendingHighlights(new Set(queued));
-        toggleProgress.value = 1; // ensure New container visibility sync
-        // Show New overlay immediately and pre-fire confetti if provider flag isn't set yet
-        if (!showNewIndicator) {
-          setForceNewVisible(true);
-          try {
-            cancelAnimation(newButtonScale);
-            cancelAnimation(confettiOpacity);
-          } catch {}
-          // Keep confetti visible without pre-hiding to avoid cluster flash
-          newButtonScale.value = 1.0;
-          newButtonScale.value = withSequence(
-            withTiming(1.13, {
-              duration: 120,
-              easing: Easing.out(Easing.ease),
-            }),
-            withTiming(1.0, { duration: 180, easing: Easing.out(Easing.ease) })
-          );
-          confettiOpacity.value = 1;
-        }
-      }
-    } catch {}
-    // 2) Activate map -> provider will flush queued diffs and set global highlights
+    // Pre-arm already handled in lazy state initializers; just ensure map active
     setMapActive(true);
-    // 3) If already visible flag is true, ensure container visible instantly
+    // If already visible flag is true, ensure container visible instantly
     if (showNewIndicator) {
       toggleProgress.value = 1;
     }
@@ -374,7 +361,6 @@ const InteractiveMapComponent = forwardRef<
   // --- Confetti firing and New button scale animation ---
   const confettiRef = useRef<ConfettiCannon>(null);
   const newButtonRef = useRef<View>(null);
-  const [confettiArmed, setConfettiArmed] = useState(false);
   const [confettiOrigin, setConfettiOrigin] = useState<{
     x: number;
     y: number;
@@ -412,12 +398,9 @@ const InteractiveMapComponent = forwardRef<
     return { x: originX, y: bottomFromScreen };
   }, []);
 
-  // Synchronize: when showNewIndicator becomes true, start animations and mount confetti next frame
+  // Synchronize: when showNewIndicator becomes true, start animations immediately
   useLayoutEffect(() => {
     if (!showNewIndicator) return;
-    // Arm confetti on next frame to avoid stationary first frame
-    setConfettiArmed(false);
-    requestAnimationFrame(() => setConfettiArmed(true));
     // Start button scale animation immediately
     newButtonScale.value = 1.0;
     newButtonScale.value = withSequence(
@@ -429,16 +412,47 @@ const InteractiveMapComponent = forwardRef<
   // Also handle the local forced visibility path (before provider flips)
   useLayoutEffect(() => {
     if (!forceNewVisible) return;
-    setConfettiArmed(false);
-    requestAnimationFrame(() => setConfettiArmed(true));
+    // Immediate scale pop without waiting a frame
+    try {
+      cancelAnimation(newButtonScale);
+      cancelAnimation(confettiOpacity);
+    } catch {}
+    toggleProgress.value = 1;
+    newButtonScale.value = 1.0;
+    newButtonScale.value = withSequence(
+      withTiming(1.08, { duration: 80, easing: Easing.out(Easing.ease) }),
+      withTiming(1.0, { duration: 110, easing: Easing.out(Easing.ease) })
+    );
+    // Start confetti immediately after mount
+    try {
+      confettiRef.current?.start();
+    } catch {}
   }, [forceNewVisible]);
 
-  // When neither global nor forced visibility is active, unmount confetti cannon
+  // When neither global nor forced visibility is active, nothing to do here now
   useEffect(() => {
     if (!showNewIndicator && !forceNewVisible) {
-      setConfettiArmed(false);
+      // no-op
     }
   }, [showNewIndicator, forceNewVisible]);
+
+  // Fire confetti exactly when the overlay becomes visible; rely on manual start for perfect sync
+  useLayoutEffect(() => {
+    if (!(showNewIndicator || forceNewVisible)) return;
+    // Start immediately after mount (ref should be set post-commit)
+    try {
+      confettiRef.current?.start();
+    } catch {}
+  }, [showNewIndicator, forceNewVisible, updateSequence]);
+
+  // Kick progress animation at the same moment the New overlay appears (provider or forced)
+  useLayoutEffect(() => {
+    if (!(showNewIndicator || forceNewVisible)) return;
+    progressSV.value = withTiming(percentageVisited, {
+      duration: 1500,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [showNewIndicator, forceNewVisible, percentageVisited]);
 
   // Remove extra delayed start – rely on remount + autoStart
 
@@ -518,9 +532,11 @@ const InteractiveMapComponent = forwardRef<
 
   // Logika przejść PO pierwszym renderze – natychmiastowe pojawienie się przycisku New (bez opóźnienia animacji)
   const prevShowRef = useRef(showNewIndicator);
-  const toggleProgress = useSharedValue(showNewIndicator ? 1 : 0);
-  // Shared flag that mirrors showNewIndicator for UI-thread usage
-  const showNewSV = useSharedValue(showNewIndicator ? 1 : 0);
+  const toggleProgress = useSharedValue(
+    showNewIndicator || forceNewVisible ? 1 : 0
+  );
+  // Shared flag that mirrors showNewIndicator/forced for UI-thread usage
+  const showNewSV = useSharedValue(showNewIndicator || forceNewVisible ? 1 : 0);
 
   useEffect(() => {
     // Natychmiastowe pojawienie na wejściu (zero ms), szybkie wygaszanie
@@ -674,8 +690,8 @@ const InteractiveMapComponent = forwardRef<
   const progressSV = useSharedValue(percentageVisited);
   useEffect(() => {
     progressSV.value = withTiming(percentageVisited, {
-      duration: 800,
-      easing: Easing.out(Easing.cubic),
+      duration: 1500,
+      easing: Easing.inOut(Easing.cubic),
     });
   }, [percentageVisited]);
   const progressFillAnimatedStyle = useAnimatedStyle(() => ({
@@ -1339,11 +1355,6 @@ const InteractiveMapComponent = forwardRef<
                 easing: Easing.out(Easing.ease),
               })
             );
-            try {
-              setTimeout(() => {
-                if (confettiRef.current) confettiRef.current.start();
-              }, 100);
-            } catch {}
             confettiOpacity.value = withTiming(1, { duration: 0 });
           }
         }
@@ -1394,13 +1405,39 @@ const InteractiveMapComponent = forwardRef<
       suppressRegularButtons.value = 1;
       toggleProgress.value = 1;
     } catch {}
-    try {
-      setTimeout(() => {
-        if (confettiRef.current) confettiRef.current.start();
-      }, 100);
-    } catch {}
     confettiOpacity.value = withTiming(1, { duration: 0 });
   }, [forceNewVisible]);
+
+  // If provider already painted highlights (recentlyChangedCountries > 0), but overlay isn't up yet,
+  // force-show New/confetti/progress immediately to keep everything in perfect sync with the purple highlight.
+  useEffect(() => {
+    if (!isMapActive) return;
+    if (showNewIndicator || forceNewVisible) return;
+    if (recentlyChangedCountries.size > 0) {
+      setForceNewVisible(true);
+      toggleProgress.value = 1;
+      try {
+        cancelAnimation(newButtonScale);
+        cancelAnimation(confettiOpacity);
+      } catch {}
+      newButtonScale.value = 1.0;
+      newButtonScale.value = withSequence(
+        withTiming(1.08, { duration: 80, easing: Easing.out(Easing.ease) }),
+        withTiming(1.0, { duration: 110, easing: Easing.out(Easing.ease) })
+      );
+      // Also sync progress width immediately (slower)
+      progressSV.value = withTiming(percentageVisited, {
+        duration: 1500,
+        easing: Easing.inOut(Easing.cubic),
+      });
+    }
+  }, [
+    recentlyChangedCountries,
+    isMapActive,
+    showNewIndicator,
+    forceNewVisible,
+    percentageVisited,
+  ]);
 
   // When provider flag catches up, stop forcing local visibility
   useEffect(() => {
@@ -1776,7 +1813,7 @@ const InteractiveMapComponent = forwardRef<
               ]}
               pointerEvents="none"
             >
-              {confettiArmed ? (
+              {showNewIndicator || forceNewVisible ? (
                 <ConfettiCannon
                   key={`confetti-${updateSequence}-${isMapActive ? 1 : 0}-${showNewIndicator ? 1 : 0}-${forceNewVisible ? 1 : 0}`}
                   ref={confettiRef}
@@ -1790,7 +1827,7 @@ const InteractiveMapComponent = forwardRef<
                     "#7ecc61",
                   ]}
                   fadeOut
-                  autoStart
+                  autoStart={false}
                   autoStartDelay={0}
                   explosionSpeed={700}
                   fallSpeed={2400}
