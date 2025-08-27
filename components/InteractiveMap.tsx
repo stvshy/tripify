@@ -587,6 +587,21 @@ const InteractiveMapComponent = forwardRef<
     }, 0);
   }, [isMapActive, showNewIndicator, updateSequence]);
 
+  // Safety: ensure Confetti starts after remount in all edge-cases
+  useEffect(() => {
+    if (!isMapActive) return;
+    if (!(showNewIndicator || forceNewVisible)) return;
+    const id = setTimeout(() => {
+      try {
+        if (confettiRef.current) {
+          confettiRef.current.start();
+        }
+      } catch {}
+      confettiOpacity.value = withTiming(1, { duration: 0 });
+    }, 0);
+    return () => clearTimeout(id);
+  }, [updateSequence, isMapActive, showNewIndicator, forceNewVisible]);
+
   const newContainerAnimatedStyle = useAnimatedStyle(() => {
     // Show/hide instantly; keep scale constant. Only border gradient moves.
     return { opacity: showNewSV.value, transform: [{ scale: 1 }] };
@@ -1794,7 +1809,7 @@ const InteractiveMapComponent = forwardRef<
                       {
                         backgroundColor: isDarkTheme
                           ? "rgba(0, 0, 0, 0.16)"
-                          : "rrgba(255, 255, 255, 0.86)",
+                          : "rgba(255, 255, 255, 0.86)",
                       },
                     ]}
                   >
@@ -1803,7 +1818,7 @@ const InteractiveMapComponent = forwardRef<
                         styles.newButtonText,
                         {
                           color: isDarkTheme
-                            ? "rrgb(198, 145, 254)"
+                            ? "rgb(198, 145, 254)"
                             : theme.colors.primary,
                         },
                       ]}
