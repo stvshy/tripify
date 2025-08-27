@@ -16,6 +16,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { AntDesign, Feather, MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "react-native-paper";
+import { LinearGradient } from "expo-linear-gradient";
 
 const windowWidth = Dimensions.get("window").width;
 const windowHeight = Dimensions.get("window").height;
@@ -95,13 +96,26 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
     () => [
       styles.mainButton,
       {
-        backgroundColor: "#ffffff",
-        borderWidth: 2,
+        // Transparent to let gradient below show through
+        backgroundColor: "transparent",
+        borderWidth: 1.4,
         borderColor: theme.colors.primary,
       },
     ],
     [theme.colors.primary]
   );
+
+  // Static gradient matching the progress bar styling
+  const PINK_HEX = theme.colors.primary;
+  const TURQUOISE_HEX = "#00AEF5";
+  const gradientColors = [
+    PINK_HEX,
+    PINK_HEX,
+    TURQUOISE_HEX,
+    PINK_HEX,
+    PINK_HEX,
+  ];
+  const gradientLocations = [0, 0.18, 0.5, 0.82, 1];
 
   return (
     <View
@@ -182,15 +196,26 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
         }}
         activeOpacity={0.85}
       >
+        <LinearGradient
+          colors={gradientColors}
+          locations={gradientLocations}
+          // Extend gradient beyond the button height for a more stretched vertical look
+          start={{ x: 0.5, y: -7 }}
+          end={{ x: 0.5, y: 2.7 }}
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              borderRadius: BUTTON_SIZE / 2,
+              transform: [{ rotate: "45deg" }],
+            },
+          ]}
+          pointerEvents="none"
+        />
         <Animated.View
           style={[StyleSheet.absoluteFill, styles.center, menuIconOpacity]}
           pointerEvents="none"
         >
-          <AntDesign
-            name="menuunfold"
-            size={ICON_SIZE}
-            color={theme.colors.primary}
-          />
+          <Feather name="menu" size={ICON_SIZE} color={theme.colors.primary} />
         </Animated.View>
         <Animated.View
           style={[StyleSheet.absoluteFill, styles.center, zoomIconOpacity]}
@@ -199,7 +224,7 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
           <AntDesign
             name="shrink"
             size={ICON_SIZE}
-            color={theme.colors.primary}
+            color={"theme.colors.primary"}
           />
         </Animated.View>
       </TouchableOpacity>
