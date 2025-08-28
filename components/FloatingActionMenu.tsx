@@ -262,10 +262,11 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
           style={[StyleSheet.absoluteFill, styles.center, zoomIconOpacity]}
           pointerEvents="none"
         >
-          <AntDesign
-            name="shrink"
-            size={ICON_SIZE}
+          <Feather
+            name="code"
+            size={ICON_SIZE * 1.02}
             color={theme.colors.primary}
+            style={{ transform: [{ rotate: "-45deg" }] }}
           />
         </Animated.View>
       </TouchableOpacity>
