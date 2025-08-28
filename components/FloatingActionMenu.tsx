@@ -22,12 +22,13 @@ import {
 } from "@expo/vector-icons";
 import { useTheme } from "react-native-paper";
 import { LinearGradient } from "expo-linear-gradient";
-import { rgbaColor } from "react-native-reanimated/lib/typescript/reanimated2/Colors";
 
 const windowWidth = Dimensions.get("window").width;
 const windowHeight = Dimensions.get("window").height;
 const BUTTON_SIZE = Math.min(windowWidth, windowHeight) * 0.08;
 const ICON_SIZE = BUTTON_SIZE * 0.5;
+// Visible ring thickness for the gradient border (slightly thinner)
+const RING = Math.max(1, Math.round(BUTTON_SIZE * 0.03));
 
 export interface FloatingActionMenuProps {
   scale: SharedValue<number>;
@@ -217,6 +218,21 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
           ]}
           pointerEvents="none"
         />
+        {/* Inner fill to show gradient only as a ring on the edges */}
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            top: RING,
+            right: RING,
+            bottom: RING,
+            left: RING,
+            borderRadius: BUTTON_SIZE / 2 - RING,
+            backgroundColor: isDarkTheme
+              ? theme.colors.surface
+              : "rgba(255, 255, 255, 0.96)",
+          }}
+        />
         <Animated.View
           style={[StyleSheet.absoluteFill, styles.center, menuIconOpacity]}
           pointerEvents="none"
@@ -225,7 +241,7 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
             name="menu"
             size={BUTTON_SIZE * 0.5}
             color={
-              isDarkTheme ? "rgba(221, 213, 230, 1)" : "rgba(242, 222, 242, 1)" // kolor dla trybu jasnego
+              isDarkTheme ? "rgba(221, 213, 230, 1)" : "rgba(194, 0, 228, 1)" // kolor dla trybu jasnego
             }
           />
         </Animated.View>
@@ -236,7 +252,7 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
           <AntDesign
             name="shrink"
             size={ICON_SIZE}
-            color={"theme.colors.primary"}
+            color={theme.colors.primary}
           />
         </Animated.View>
       </TouchableOpacity>
