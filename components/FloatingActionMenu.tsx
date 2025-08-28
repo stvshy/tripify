@@ -28,7 +28,7 @@ const windowHeight = Dimensions.get("window").height;
 const BUTTON_SIZE = Math.min(windowWidth, windowHeight) * 0.08;
 const ICON_SIZE = BUTTON_SIZE * 0.5;
 // Visible ring thickness for the gradient border (slightly thinner)
-const RING = Math.max(1, Math.round(BUTTON_SIZE * 0.03));
+const RING = Math.max(1, Math.round(BUTTON_SIZE * 0.05));
 
 export interface FloatingActionMenuProps {
   scale: SharedValue<number>;
@@ -108,8 +108,16 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
         borderWidth: 0.1,
         borderColor: theme.colors.primary,
       },
+      // In light theme remove the shadow/elevation for the main button
+      !theme.dark && {
+        elevation: 0,
+        shadowColor: "transparent",
+        shadowOpacity: 0,
+        shadowRadius: 0,
+        shadowOffset: { width: 0, height: 0 },
+      },
     ],
-    [theme.colors.primary]
+    [theme.colors.primary, theme.dark]
   );
 
   // Static gradient matching the progress bar styling
