@@ -14,9 +14,15 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { AntDesign, Feather, MaterialIcons } from "@expo/vector-icons";
+import {
+  AntDesign,
+  Feather,
+  Ionicons,
+  MaterialIcons,
+} from "@expo/vector-icons";
 import { useTheme } from "react-native-paper";
 import { LinearGradient } from "expo-linear-gradient";
+import { rgbaColor } from "react-native-reanimated/lib/typescript/reanimated2/Colors";
 
 const windowWidth = Dimensions.get("window").width;
 const windowHeight = Dimensions.get("window").height;
@@ -76,11 +82,11 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
 
   // Side buttons slide horizontally from center on same Y level
   const leftItemStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: -(BUTTON_SIZE + 12) * menuProgress.value }],
+    transform: [{ translateX: -(BUTTON_SIZE + 10.6) * menuProgress.value }],
     opacity: menuProgress.value,
   }));
   const rightItemStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: (BUTTON_SIZE + 12) * menuProgress.value }],
+    transform: [{ translateX: (BUTTON_SIZE + 10.6) * menuProgress.value }],
     opacity: menuProgress.value,
   }));
 
@@ -215,7 +221,13 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
           style={[StyleSheet.absoluteFill, styles.center, menuIconOpacity]}
           pointerEvents="none"
         >
-          <Feather name="menu" size={ICON_SIZE} color={theme.colors.surface} />
+          <Feather
+            name="menu"
+            size={BUTTON_SIZE * 0.5}
+            color={
+              isDarkTheme ? "rgba(221, 213, 230, 1)" : "rgba(242, 222, 242, 1)" // kolor dla trybu jasnego
+            }
+          />
         </Animated.View>
         <Animated.View
           style={[StyleSheet.absoluteFill, styles.center, zoomIconOpacity]}
