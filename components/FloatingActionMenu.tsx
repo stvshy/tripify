@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
+  PixelRatio,
 } from "react-native";
 import Animated, {
   Easing,
@@ -27,8 +28,12 @@ const windowWidth = Dimensions.get("window").width;
 const windowHeight = Dimensions.get("window").height;
 const BUTTON_SIZE = Math.min(windowWidth, windowHeight) * 0.08;
 const ICON_SIZE = BUTTON_SIZE * 0.5;
-// Visible ring thickness for the gradient border (slightly thinner)
-const RING = Math.max(1, Math.round(BUTTON_SIZE * 0.05));
+// Visible ring thickness for the gradient border: fine-grained using device pixels
+const RING_RATIO = 0.053; // in-between 0.05 and 0.06 as requested
+const RING = Math.max(
+  StyleSheet.hairlineWidth,
+  PixelRatio.roundToNearestPixel(BUTTON_SIZE * RING_RATIO)
+);
 
 export interface FloatingActionMenuProps {
   scale: SharedValue<number>;
