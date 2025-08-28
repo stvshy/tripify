@@ -74,6 +74,7 @@ import ConfettiCannon from "react-native-confetti-cannon";
 
 import { useMapState } from "@/app/config/MapStateProvider";
 import FloatingActionMenu from "./FloatingActionMenu";
+import NewOverlay from "./NewOverlay";
 
 export interface Country {
   id: string;
@@ -1815,120 +1816,13 @@ const InteractiveMapComponent = forwardRef<
               showNewIndicator || forceNewVisible ? "box-none" : "none"
             }
           >
-            {/* Confetti is rendered directly under the New button, so it's visually below the button */}
-            <Animated.View
-              // @ts-ignore reanimated style
-              style={[
-                {
-                  position: "absolute",
-                  left: 0,
-                  right: 0,
-                  top: 0,
-                  bottom: -15.5, // Extend below screen to allow confetti to fall further
-                  justifyContent: "center",
-                  alignItems: "center",
-                },
-                confettiWrapperStyle,
-              ]}
-              pointerEvents="none"
-            >
-              {showNewIndicator || forceNewVisible ? (
-                <ConfettiCannon
-                  key={`confetti-${updateSequence}-${isMapActive ? 1 : 0}-${showNewIndicator ? 1 : 0}-${forceNewVisible ? 1 : 0}`}
-                  ref={confettiRef}
-                  count={140}
-                  origin={computeConfettiOrigin() || FALLBACK_ORIGIN}
-                  colors={[
-                    "#00AEF5",
-                    theme.colors.primary,
-                    "#2bc3ffff",
-                    "#d400d4ff",
-                    "#7ecc61",
-                  ]}
-                  fadeOut
-                  autoStart={false}
-                  autoStartDelay={0}
-                  explosionSpeed={700}
-                  fallSpeed={2400}
-                />
-              ) : null}
-            </Animated.View>
-            <Animated.View style={newButtonAnimatedStyle}>
-              <TouchableOpacity
-                ref={newButtonRef as any}
-                style={styles.newButtonWrapper}
-                activeOpacity={0.85}
-                onPress={handlePressNew}
-                // onLayout removed to avoid delayed measurement-based start
-              >
-                <View style={styles.newButtonBorder}>
-                  {/* Static base stroke to avoid any perceived gap */}
-                  <View
-                    style={{
-                      ...StyleSheet.absoluteFillObject,
-                      borderRadius: BUTTON_SIZE / 2,
-                      borderWidth: 1.9,
-                      borderColor: theme.colors.primary,
-                    }}
-                  />
-                  {/* Animated gradient border */}
-                  <Animated.View
-                    style={{
-                      ...StyleSheet.absoluteFillObject,
-                      overflow: "hidden",
-                      borderRadius: BUTTON_SIZE / 2,
-                    }}
-                  >
-                    <Animated.View
-                      style={[
-                        {
-                          position: "absolute",
-                          left: -(BUTTON_SIZE * 3.8),
-                          top: -(BUTTON_SIZE * 0.8),
-                          height: BUTTON_SIZE * 2.6, // vertical overscan (safe)
-                          width: BUTTON_SIZE * 7.6, // horizontal overscan (safe)
-                        },
-                        movingBorderStyle,
-                      ]}
-                    >
-                      <LinearGradient
-                        colors={[
-                          theme.colors.primary,
-                          "#00AEF5",
-                          theme.colors.primary,
-                        ]}
-                        start={{ x: 0, y: 0.5 }}
-                        end={{ x: 1, y: 0.5 }}
-                        style={{ flex: 1 }}
-                      />
-                    </Animated.View>
-                  </Animated.View>
-                  <View
-                    style={[
-                      styles.newButtonInner,
-                      {
-                        backgroundColor: isDarkTheme
-                          ? "rgba(0, 0, 0, 0.16)"
-                          : "rgba(255, 255, 255, 0.86)",
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.newButtonText,
-                        {
-                          color: isDarkTheme
-                            ? "rgb(198, 145, 254)"
-                            : theme.colors.primary,
-                        },
-                      ]}
-                    >
-                      New
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            </Animated.View>
+            <NewOverlay
+              visible={showNewIndicator || forceNewVisible}
+              isDarkTheme={isDarkTheme}
+              isMapActive={isMapActive}
+              updateSequence={updateSequence}
+              onPressNew={handlePressNew}
+            />
           </Animated.View>
 
           <Animated.View
