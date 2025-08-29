@@ -1,5 +1,5 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef } from "react";
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useMemo, useRef } from "react";
+import { Dimensions, StyleSheet, TouchableOpacity, View } from "react-native";
 import Animated, {
   cancelAnimation,
   Easing,
@@ -48,13 +48,62 @@ function computeConfettiOrigin() {
   return { x: originX, y: bottomFromScreen };
 }
 
-const NewOverlay: React.FC<Props> = ({ visible, isDarkTheme, isMapActive, updateSequence, onPressNew }) => {
+const NewOverlay: React.FC<Props> = ({
+  visible,
+  isDarkTheme,
+  isMapActive,
+  updateSequence,
+  onPressNew,
+}) => {
   const theme = useTheme();
 
-  // Scale pop for "New" button
+  // Morph progress 0..1: from menu-like circle to New pill
+  const morphProgress = useSharedValue(0);
+
+  // Scale pop for "New" button (runs after morph finishes)
   const newButtonScale = useSharedValue(1);
   const newButtonAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: newButtonScale.value }],
+  }));
+
+  // Animated size/shape for morphing frame
+  const frameStyle = useAnimatedStyle(() => {
+    const w0 = BUTTON_SIZE;
+    const h0 = BUTTON_SIZE;
+    const w1 = BUTTON_SIZE * 2.2;
+    const h1 = BUTTON_SIZE * 1.05;
+    const w = w0 + (w1 - w0) * morphProgress.value;
+    const h = h0 + (h1 - h0) * morphProgress.value;
+    const r = BUTTON_SIZE / 2; // must match original button radius
+    return { width: w, height: h, borderRadius: r } as const;
+  });
+  const borderRadiusStyle = useAnimatedStyle(() => {
+    const r = BUTTON_SIZE / 2;
+    return { borderRadius: r } as const;
+  });
+
+  // Inner gradient is present from the beginning; overlay controls perceived transparency
+  const innerGradientRevealStyle = useAnimatedStyle(() => ({ opacity: 1 }));
+  // Tie text visibility to the same decreasing-transparency curve as the overlay
+  const textOpacityStyle = useAnimatedStyle(() => {
+    const target = isDarkTheme
+      ? TARGET_OVERLAY_ALPHA_DARK
+      : TARGET_OVERLAY_ALPHA_LIGHT;
+    const denom = 1 - target;
+    const progress = denom > 0 ? (1 - overlayOpacity.value) / denom : 1;
+    const clamped = Math.max(0, Math.min(1, progress));
+    return { opacity: clamped } as const;
+  });
+
+  // Overlay that covers inner gradient, like original inner fill
+  // Target alpha mirrors earlier parity: dark ~0.16, light ~0.86
+  const TARGET_OVERLAY_ALPHA_DARK = 0.16;
+  const TARGET_OVERLAY_ALPHA_LIGHT = 0.86;
+  const overlayOpacity = useSharedValue(
+    isDarkTheme ? TARGET_OVERLAY_ALPHA_DARK : TARGET_OVERLAY_ALPHA_LIGHT
+  );
+  const overlayStyle = useAnimatedStyle(() => ({
+    opacity: overlayOpacity.value,
   }));
 
   // Animated moving gradient around the button
@@ -82,43 +131,90 @@ const NewOverlay: React.FC<Props> = ({ visible, isDarkTheme, isMapActive, update
     borderShiftX.value = -travelX;
     borderShiftY.value = -travelY;
     borderShiftX.value = withRepeat(
-      withTiming(travelX, { duration: durationX, easing: Easing.inOut(Easing.quad) }),
+      withTiming(travelX, {
+        duration: durationX,
+        easing: Easing.inOut(Easing.quad),
+      }),
       -1,
       true
     );
     borderShiftY.value = withRepeat(
-      withTiming(travelY, { duration: durationY, easing: Easing.inOut(Easing.quad) }),
+      withTiming(travelY, {
+        duration: durationY,
+        easing: Easing.inOut(Easing.quad),
+      }),
       -1,
       true
     );
   };
 
-  // Kick animations as soon as overlay is visible
-  useLayoutEffect(() => {
-    if (!visible) return;
-    newButtonScale.value = 1;
-    newButtonScale.value = withSequence(
-      withTiming(1.1, { duration: 90, easing: Easing.out(Easing.ease) }),
-      withTiming(1.0, { duration: 110, easing: Easing.out(Easing.ease) })
-    );
-  }, [visible]);
+  // Kick morph, then pop + confetti once morph completes
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const MORPH_DURATION = 380;
+    if (visible) {
+      // reset
+      try {
+        cancelAnimation(morphProgress);
+        cancelAnimation(overlayOpacity);
+      } catch {}
+      morphProgress.value = 0;
+      newButtonScale.value = 1;
+      // Start fully covering, then decrease to target during widening
+      overlayOpacity.value = 1;
+      // start morph
+      morphProgress.value = withTiming(1, {
+        duration: MORPH_DURATION,
+        easing: Easing.out(Easing.cubic),
+      });
+      // Decrease transparency to target to match original final state
+      overlayOpacity.value = withTiming(
+        isDarkTheme ? TARGET_OVERLAY_ALPHA_DARK : TARGET_OVERLAY_ALPHA_LIGHT,
+        {
+          duration: MORPH_DURATION,
+          easing: Easing.out(Easing.cubic),
+        }
+      );
+      // after morph completes, pop + confetti
+      t = setTimeout(() => {
+        newButtonScale.value = withSequence(
+          withTiming(1.1, { duration: 110, easing: Easing.out(Easing.ease) }),
+          withTiming(1.0, { duration: 140, easing: Easing.out(Easing.ease) })
+        );
+        try {
+          confettiRef.current?.start();
+        } catch {}
+      }, MORPH_DURATION);
+    } else {
+      // reset when hidden
+      morphProgress.value = 0;
+      newButtonScale.value = 1;
+    }
+    return () => {
+      if (t) clearTimeout(t);
+    };
+  }, [visible, updateSequence]);
 
   useEffect(() => {
-    if (visible && isMapActive) restartGradientMotion();
-  }, [visible, isMapActive]);
+    if (visible) {
+      restartGradientMotion();
+    } else {
+      try {
+        cancelAnimation(borderShiftX);
+        cancelAnimation(borderShiftY);
+      } catch {}
+    }
+  }, [visible]);
 
   // Confetti control
   const confettiRef = useRef<ConfettiCannon>(null);
 
-  useLayoutEffect(() => {
-    if (!visible) return;
-    try {
-      confettiRef.current?.start();
-    } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, updateSequence]);
+  // confetti start handled after morph in the effect above
 
-  const confettiOrigin = useMemo(() => computeConfettiOrigin() || FALLBACK_ORIGIN, [updateSequence]);
+  const confettiOrigin = useMemo(
+    () => computeConfettiOrigin() || FALLBACK_ORIGIN,
+    [updateSequence]
+  );
 
   return (
     <Animated.View
@@ -149,7 +245,13 @@ const NewOverlay: React.FC<Props> = ({ visible, isDarkTheme, isMapActive, update
             ref={confettiRef}
             count={140}
             origin={confettiOrigin}
-            colors={["#00AEF5", theme.colors.primary, "#2bc3ffff", "#d400d4ff", "#7ecc61"]}
+            colors={[
+              "#00AEF5",
+              theme.colors.primary,
+              "#2bc3ffff",
+              "#d400d4ff",
+              "#7ecc61",
+            ]}
             fadeOut
             autoStart={false}
             autoStartDelay={0}
@@ -159,25 +261,34 @@ const NewOverlay: React.FC<Props> = ({ visible, isDarkTheme, isMapActive, update
         ) : null}
       </View>
 
-      <Animated.View style={newButtonAnimatedStyle}>
-        <TouchableOpacity style={styles.newButtonWrapper} activeOpacity={0.85} onPress={onPressNew}>
-          <View style={styles.newButtonBorder}>
-            {/* Static base stroke to avoid any perceived gap */}
-            <View
-              style={{
-                ...StyleSheet.absoluteFillObject,
-                borderRadius: BUTTON_SIZE / 2,
-                borderWidth: 1.9,
-                borderColor: theme.colors.primary,
-              }}
-            />
-            {/* Animated gradient border */}
+      {/* Morphing New button */}
+      <Animated.View style={[newButtonAnimatedStyle, frameStyle]}>
+        <TouchableOpacity
+          style={[styles.newButtonWrapper, { width: "100%", height: "100%" }]}
+          activeOpacity={0.85}
+          onPress={onPressNew}
+        >
+          {/* Hit shape */}
+          <Animated.View style={[StyleSheet.absoluteFill, borderRadiusStyle]} />
+
+          {/* Outer border with moving gradient */}
+          <Animated.View style={[styles.newButtonBorder, borderRadiusStyle]}>
+            {/* Static base stroke */}
             <Animated.View
-              style={{
-                ...StyleSheet.absoluteFillObject,
-                overflow: "hidden",
-                borderRadius: BUTTON_SIZE / 2,
-              }}
+              style={[
+                StyleSheet.absoluteFillObject,
+                borderRadiusStyle,
+                { borderWidth: 1.9, borderColor: theme.colors.primary },
+              ]}
+            />
+
+            {/* Animated gradient border plane */}
+            <Animated.View
+              style={[
+                StyleSheet.absoluteFillObject,
+                { overflow: "hidden" },
+                borderRadiusStyle,
+              ]}
             >
               <Animated.View
                 style={[
@@ -192,7 +303,11 @@ const NewOverlay: React.FC<Props> = ({ visible, isDarkTheme, isMapActive, update
                 ]}
               >
                 <LinearGradient
-                  colors={[theme.colors.primary, "#00AEF5", theme.colors.primary]}
+                  colors={[
+                    theme.colors.primary,
+                    "#00AEF5",
+                    theme.colors.primary,
+                  ]}
                   start={{ x: 0, y: 0.5 }}
                   end={{ x: 1, y: 0.5 }}
                   style={{ flex: 1 }}
@@ -200,24 +315,74 @@ const NewOverlay: React.FC<Props> = ({ visible, isDarkTheme, isMapActive, update
               </Animated.View>
             </Animated.View>
 
-            <View
+            {/* Inner content: menu-like gradient revealed from center, then covered */}
+            <Animated.View
               style={[
                 styles.newButtonInner,
-                {
-                  backgroundColor: isDarkTheme ? "rgba(0, 0, 0, 0.16)" : "rgba(255, 255, 255, 0.86)",
-                },
+                borderRadiusStyle,
+                { backgroundColor: "transparent" },
               ]}
             >
-              <Text
+              {/* Inner gradient fill: same moving gradient family as border, revealed via opacity during widening */}
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  StyleSheet.absoluteFill,
+                  borderRadiusStyle,
+                  { overflow: "hidden" },
+                  innerGradientRevealStyle,
+                ]}
+              >
+                <Animated.View
+                  style={[
+                    {
+                      position: "absolute",
+                      left: -(BUTTON_SIZE * 3.8),
+                      top: -(BUTTON_SIZE * 0.8),
+                      height: BUTTON_SIZE * 2.6,
+                      width: BUTTON_SIZE * 7.6,
+                    },
+                    movingBorderStyle,
+                  ]}
+                >
+                  <LinearGradient
+                    colors={[
+                      theme.colors.primary,
+                      "#00AEF5",
+                      theme.colors.primary,
+                    ]}
+                    start={{ x: 0, y: 0.5 }}
+                    end={{ x: 1, y: 0.5 }}
+                    style={{ flex: 1 }}
+                  />
+                </Animated.View>
+              </Animated.View>
+              {/* Cover layer to match original transparency over gradient */}
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  StyleSheet.absoluteFill,
+                  borderRadiusStyle,
+                  overlayStyle,
+                  { backgroundColor: isDarkTheme ? "#000" : "#fff" },
+                ]}
+              />
+              {/* Label */}
+              <Animated.Text
                 style={[
                   styles.newButtonText,
-                  { color: isDarkTheme ? "rgb(198, 145, 254)" : theme.colors.primary },
+                  {
+                    color: isDarkTheme
+                      ? "rgb(198, 145, 254)"
+                      : theme.colors.primary,
+                  },
+                  textOpacityStyle,
                 ]}
               >
                 New
-              </Text>
-            </View>
-          </View>
+              </Animated.Text>
+            </Animated.View>
+          </Animated.View>
         </TouchableOpacity>
       </Animated.View>
     </Animated.View>
