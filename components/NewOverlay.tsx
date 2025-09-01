@@ -86,21 +86,25 @@ const NewOverlay: React.FC<Props> = ({
 
   // Inner gradient is present from the beginning; overlay controls perceived transparency
   const innerGradientRevealStyle = useAnimatedStyle(() => ({ opacity: 1 }));
-  // Text stays invisible for the first ~15% of morph, then fades in to 1
+  // Text stays invisible initially, then eases in smoothly (delayed + smoothstep)
   const textOpacityStyle = useAnimatedStyle(() => {
-    const start = 0.15; // delay before showing text
     const p = morphProgress.value;
-    const opacity = Math.max(0, Math.min(1, (p - start) / (1 - start)));
-    return { opacity } as const;
+    const start = 0.28; // delay start a bit more to avoid early visibility
+    const end = 0.92; // finish fade slightly before morph end
+    let t = (p - start) / (end - start);
+    // clamp 0..1
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    // smoothstep easing: t*t*(3 - 2*t) -> gentle start
+    const smooth = t * t * (3 - 2 * t);
+    return { opacity: smooth } as const;
   });
 
   // Overlay that covers inner gradient, like original inner fill
   // Target alpha mirrors earlier parity: dark ~0.16, light ~0.86
   const TARGET_OVERLAY_ALPHA_DARK = 0.16;
   const TARGET_OVERLAY_ALPHA_LIGHT = 0.86;
-  const overlayOpacity = useSharedValue(
-    isDarkTheme ? TARGET_OVERLAY_ALPHA_DARK : TARGET_OVERLAY_ALPHA_LIGHT
-  );
+  // Start fully covered to avoid first-frame gradient peek; animate down to target
+  const overlayOpacity = useSharedValue(1);
   const overlayStyle = useAnimatedStyle(() => ({
     opacity: overlayOpacity.value,
   }));
@@ -203,6 +207,7 @@ const NewOverlay: React.FC<Props> = ({
 
   useEffect(() => {
     if (visible) {
+      // Start immediately so gradient is moving from the very beginning
       restartGradientMotion();
     } else {
       try {
@@ -216,6 +221,44 @@ const NewOverlay: React.FC<Props> = ({
     () => computeConfettiOrigin() || FALLBACK_ORIGIN,
     [updateSequence]
   );
+
+  // Memoized colors to avoid re-alloc each render
+  const gradientColors = useMemo(
+    () => [theme.colors.primary, "#00AEF5", theme.colors.primary],
+    [theme.colors.primary]
+  );
+  const confettiColors = useMemo(
+    () => [
+      "#00AEF5",
+      theme.colors.primary,
+      "#2bc3ffff",
+      "#d400d4ff",
+      "#7ecc61",
+    ],
+    [theme.colors.primary]
+  );
+
+  // Cancel animations on unmount to avoid cross-screen lag if user navigates away mid-animation
+  useEffect(() => {
+    return () => {
+      try {
+        cancelAnimation(borderShiftX);
+        cancelAnimation(borderShiftY);
+        cancelAnimation(morphProgress);
+        cancelAnimation(overlayOpacity);
+        cancelAnimation(newButtonScale);
+      } catch {}
+    };
+  }, []);
+
+  // Reusable base style for the moving gradient plane
+  const gradientPlaneBaseStyle = {
+    position: "absolute" as const,
+    left: -(BUTTON_SIZE * 3.8),
+    top: -(BUTTON_SIZE * 0.8),
+    height: BUTTON_SIZE * 2.6,
+    width: BUTTON_SIZE * 7.6,
+  };
 
   return (
     <Animated.View
@@ -245,13 +288,7 @@ const NewOverlay: React.FC<Props> = ({
             key={`confetti-${updateSequence}-${isMapActive ? 1 : 0}-${visible ? 1 : 0}`}
             count={140}
             origin={confettiOrigin}
-            colors={[
-              "#00AEF5",
-              theme.colors.primary,
-              "#2bc3ffff",
-              "#d400d4ff",
-              "#7ecc61",
-            ]}
+            colors={confettiColors}
             fadeOut
             autoStart
             autoStartDelay={MORPH_DURATION}
@@ -291,23 +328,10 @@ const NewOverlay: React.FC<Props> = ({
               ]}
             >
               <Animated.View
-                style={[
-                  {
-                    position: "absolute",
-                    left: -(BUTTON_SIZE * 3.8),
-                    top: -(BUTTON_SIZE * 0.8),
-                    height: BUTTON_SIZE * 2.6,
-                    width: BUTTON_SIZE * 7.6,
-                  },
-                  movingBorderStyle,
-                ]}
+                style={[gradientPlaneBaseStyle, movingBorderStyle]}
               >
                 <LinearGradient
-                  colors={[
-                    theme.colors.primary,
-                    "#00AEF5",
-                    theme.colors.primary,
-                  ]}
+                  colors={gradientColors}
                   start={{ x: 0, y: 0.5 }}
                   end={{ x: 1, y: 0.5 }}
                   style={{ flex: 1 }}
@@ -334,23 +358,10 @@ const NewOverlay: React.FC<Props> = ({
                 ]}
               >
                 <Animated.View
-                  style={[
-                    {
-                      position: "absolute",
-                      left: -(BUTTON_SIZE * 3.8),
-                      top: -(BUTTON_SIZE * 0.8),
-                      height: BUTTON_SIZE * 2.6,
-                      width: BUTTON_SIZE * 7.6,
-                    },
-                    movingBorderStyle,
-                  ]}
+                  style={[gradientPlaneBaseStyle, movingBorderStyle]}
                 >
                   <LinearGradient
-                    colors={[
-                      theme.colors.primary,
-                      "#00AEF5",
-                      theme.colors.primary,
-                    ]}
+                    colors={gradientColors}
                     start={{ x: 0, y: 0.5 }}
                     end={{ x: 1, y: 0.5 }}
                     style={{ flex: 1 }}
@@ -364,8 +375,11 @@ const NewOverlay: React.FC<Props> = ({
                   StyleSheet.absoluteFill,
                   borderRadiusStyle,
                   overlayStyle,
-                  { backgroundColor: isDarkTheme ? "#000" : "#fff" },
+                  { backgroundColor: theme.colors.surface },
                 ]}
+                collapsable={false}
+                renderToHardwareTextureAndroid
+                needsOffscreenAlphaCompositing
               />
               {/* Label */}
               <Animated.Text
