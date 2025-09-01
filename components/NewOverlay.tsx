@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo } from "react";
 import { Dimensions, StyleSheet, TouchableOpacity, View } from "react-native";
 import Animated, {
   cancelAnimation,
   Easing,
+  withDelay,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -24,6 +25,7 @@ type Props = {
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 const BUTTON_SIZE = Math.min(screenWidth, screenHeight) * 0.08;
 const ICON_SIZE = BUTTON_SIZE * 0.5;
+const MORPH_DURATION = 380; // centralize to sync confetti delay
 
 // Confetti origin tuning (mirrors InteractiveMap defaults)
 const CONFETTI_SHIFT_X_RATIO = 0.12;
@@ -84,15 +86,12 @@ const NewOverlay: React.FC<Props> = ({
 
   // Inner gradient is present from the beginning; overlay controls perceived transparency
   const innerGradientRevealStyle = useAnimatedStyle(() => ({ opacity: 1 }));
-  // Tie text visibility to the same decreasing-transparency curve as the overlay
+  // Text stays invisible for the first ~15% of morph, then fades in to 1
   const textOpacityStyle = useAnimatedStyle(() => {
-    const target = isDarkTheme
-      ? TARGET_OVERLAY_ALPHA_DARK
-      : TARGET_OVERLAY_ALPHA_LIGHT;
-    const denom = 1 - target;
-    const progress = denom > 0 ? (1 - overlayOpacity.value) / denom : 1;
-    const clamped = Math.max(0, Math.min(1, progress));
-    return { opacity: clamped } as const;
+    const start = 0.15; // delay before showing text
+    const p = morphProgress.value;
+    const opacity = Math.max(0, Math.min(1, (p - start) / (1 - start)));
+    return { opacity } as const;
   });
 
   // Overlay that covers inner gradient, like original inner fill
@@ -151,7 +150,6 @@ const NewOverlay: React.FC<Props> = ({
   // Kick morph, then pop + confetti once morph completes
   useEffect(() => {
     let t: ReturnType<typeof setTimeout> | undefined;
-    const MORPH_DURATION = 380;
     if (visible) {
       // reset
       try {
@@ -162,28 +160,36 @@ const NewOverlay: React.FC<Props> = ({
       newButtonScale.value = 1;
       // Start fully covering, then decrease to target during widening
       overlayOpacity.value = 1;
-      // start morph
-      morphProgress.value = withTiming(1, {
-        duration: MORPH_DURATION,
-        easing: Easing.out(Easing.cubic),
+      // start morph & overlay easing on next frame to avoid jumpy first frames
+      requestAnimationFrame(() => {
+        // start morph
+        morphProgress.value = withDelay(
+          16,
+          withTiming(1, {
+            duration: MORPH_DURATION,
+            easing: Easing.out(Easing.cubic),
+          })
+        );
+        // Decrease transparency to target to match original final state
+        overlayOpacity.value = withDelay(
+          16,
+          withTiming(
+            isDarkTheme
+              ? TARGET_OVERLAY_ALPHA_DARK
+              : TARGET_OVERLAY_ALPHA_LIGHT,
+            {
+              duration: MORPH_DURATION,
+              easing: Easing.out(Easing.cubic),
+            }
+          )
+        );
       });
-      // Decrease transparency to target to match original final state
-      overlayOpacity.value = withTiming(
-        isDarkTheme ? TARGET_OVERLAY_ALPHA_DARK : TARGET_OVERLAY_ALPHA_LIGHT,
-        {
-          duration: MORPH_DURATION,
-          easing: Easing.out(Easing.cubic),
-        }
-      );
-      // after morph completes, pop + confetti
+      // after morph completes, do pop (confetti is now auto-started via delay)
       t = setTimeout(() => {
         newButtonScale.value = withSequence(
           withTiming(1.1, { duration: 110, easing: Easing.out(Easing.ease) }),
           withTiming(1.0, { duration: 140, easing: Easing.out(Easing.ease) })
         );
-        try {
-          confettiRef.current?.start();
-        } catch {}
       }, MORPH_DURATION);
     } else {
       // reset when hidden
@@ -205,11 +211,6 @@ const NewOverlay: React.FC<Props> = ({
       } catch {}
     }
   }, [visible]);
-
-  // Confetti control
-  const confettiRef = useRef<ConfettiCannon>(null);
-
-  // confetti start handled after morph in the effect above
 
   const confettiOrigin = useMemo(
     () => computeConfettiOrigin() || FALLBACK_ORIGIN,
@@ -242,7 +243,6 @@ const NewOverlay: React.FC<Props> = ({
         {visible ? (
           <ConfettiCannon
             key={`confetti-${updateSequence}-${isMapActive ? 1 : 0}-${visible ? 1 : 0}`}
-            ref={confettiRef}
             count={140}
             origin={confettiOrigin}
             colors={[
@@ -253,8 +253,8 @@ const NewOverlay: React.FC<Props> = ({
               "#7ecc61",
             ]}
             fadeOut
-            autoStart={false}
-            autoStartDelay={0}
+            autoStart
+            autoStartDelay={MORPH_DURATION}
             explosionSpeed={700}
             fallSpeed={2400}
           />
