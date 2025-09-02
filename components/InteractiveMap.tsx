@@ -67,9 +67,7 @@ import {
   Skia,
   Path as SkiaPathDrawing,
 } from "@shopify/react-native-skia";
-import { LinearGradient } from "expo-linear-gradient";
-// import { BlurView } from "@react-native-community/blur";
-import { BlurView } from "expo-blur";
+import ProgressBar from "./ProgressBar";
 import ConfettiCannon from "react-native-confetti-cannon";
 
 import { useMapState } from "@/app/config/MapStateProvider";
@@ -449,14 +447,7 @@ const InteractiveMapComponent = forwardRef<
     } catch {}
   }, [showNewIndicator, forceNewVisible, updateSequence]);
 
-  // Kick progress animation at the same moment the New overlay appears (provider or forced)
-  useLayoutEffect(() => {
-    if (!(showNewIndicator || forceNewVisible)) return;
-    progressSV.value = withTiming(percentageVisited, {
-      duration: 1500,
-      easing: Easing.out(Easing.cubic),
-    });
-  }, [showNewIndicator, forceNewVisible, percentageVisited]);
+  // Progress bar animation is handled inside ProgressBar component
 
   // Remove extra delayed start – rely on remount + autoStart
 
@@ -640,67 +631,7 @@ const InteractiveMapComponent = forwardRef<
     });
     toggleTheme();
   };
-  const PINK_HEX = theme.colors.primary;
-  const TURQUOISE_HEX = "#00AEF5"; // Turkusowy
-
-  // Bazowa definicja kolorów dla gradientu
-  // Fioletowy -> Fioletowy -> Turkusowy
-  // Oznacza to, że fioletowy będzie jednolity na początku, a potem przejdzie w turkus
-  const gradientColorsBase = [
-    PINK_HEX, // Fiolet
-    PINK_HEX,
-    TURQUOISE_HEX, // Turkusowy
-    PINK_HEX, // Fiolet
-    PINK_HEX,
-  ];
-
-  // Rozmieszczenie kolorów w gradiencie dla symetrycznego przejścia:
-  // 0.0: Początek (Fioletowy)
-  // 0.5: Środek (Turkusowy) - gładkie przejście Fioletowy -> Turkusowy
-  // 1.0: Koniec (Fioletowy) - gładkie przejście Turkusowy -> Fioletowy
-  const gradientLocations = [0, 0.18, 0.5, 0.82, 1];
-
-  const hexToRgba = (hex: string, alpha: number): string => {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    if (isNaN(r) || isNaN(g) || isNaN(b)) {
-      if (hex.toLowerCase().startsWith("rgba")) return hex;
-      console.warn(`Invalid hex color: ${hex} in hexToRgba`);
-      return `rgba(0,0,0,${alpha})`;
-    }
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  };
-
-  // Kolory dla WYPEŁNIONEJ części paska (pełna nieprzezroczystość)
-  const filledGradientColors = gradientColorsBase.map((color) =>
-    hexToRgba(color, 1)
-  );
-
-  // Kolory dla TŁA (NIEWYPEŁNIONEJ części paska) - bardziej przezroczyste
-  const backgroundAlpha = 0.25;
-  const backgroundGradientColors = gradientColorsBase.map((color) =>
-    hexToRgba(color, backgroundAlpha)
-  );
-
-  const progressBarWrapperStyle = useMemo(
-    () => ({
-      ...styles.progressBarWrapper,
-    }),
-    []
-  );
-
-  // Animated progress width (smoothly interpolate to new percentage)
-  const progressSV = useSharedValue(percentageVisited);
-  useEffect(() => {
-    progressSV.value = withTiming(percentageVisited, {
-      duration: 1500,
-      easing: Easing.inOut(Easing.cubic),
-    });
-  }, [percentageVisited]);
-  const progressFillAnimatedStyle = useAnimatedStyle(() => ({
-    width: clamp(progressSV.value, 0, 1) * (screenWidth * 0.8),
-  }));
+  // ProgressBar is imported statically at the top for simplicity and tree-shaking
 
   const MemoizedSkiaCountryPaths = React.memo(
     () => {
@@ -1438,11 +1369,7 @@ const InteractiveMapComponent = forwardRef<
         withTiming(1.08, { duration: 80, easing: Easing.out(Easing.ease) }),
         withTiming(1.0, { duration: 110, easing: Easing.out(Easing.ease) })
       );
-      // Also sync progress width immediately (slower)
-      progressSV.value = withTiming(percentageVisited, {
-        duration: 1500,
-        easing: Easing.inOut(Easing.cubic),
-      });
+      // Progress width will be handled by ProgressBar internally
     }
   }, [
     recentlyChangedCountries,
@@ -1601,70 +1528,14 @@ const InteractiveMapComponent = forwardRef<
             </View>
           </Animated.View>
         </GestureDetector>
-        {/* Dolna sekcja z paskiem postÄ™pu */}
+        {/* Dolna sekcja z paskiem postępu */}
         <Animated.View style={[styles.bottomSection, bottomTextAnimatedStyle]}>
-          <View style={progressBarWrapperStyle}>
-            {/* Gradient TŁA (bardziej przezroczysty) - na CAŁEJ szerokości wrappera */}
-            <LinearGradient
-              colors={backgroundGradientColors}
-              locations={gradientLocations} // Dodane locations
-              start={{ x: 0, y: 0.5 }}
-              end={{ x: 1, y: 0.5 }}
-              style={StyleSheet.absoluteFill} // Rozciąga się na cały progressBarWrapper
-            />
-
-            {/* Widok przycinający dla gradientu wypełnienia ORAZ BLURA */}
-            <Animated.View
-              style={[
-                { height: "100%", overflow: "hidden" },
-                progressFillAnimatedStyle,
-              ]}
-            >
-              {/* Gradient WYPEŁNIENIA (pełne kolory) */}
-              <LinearGradient
-                colors={filledGradientColors}
-                locations={gradientLocations} // Dodane locations
-                start={{ x: 0, y: 0.5 }}
-                end={{ x: 1, y: 0.5 }}
-                style={{
-                  width: screenWidth * 0.8, // Pełna szerokość paska, aby gradient był spójny
-                  height: "100%",
-                }}
-              />
-              {/* Warstwa Blur - TERAZ WEWNĄTRZ PRZYCIĘTEGO WIDOKU */}
-              {/* Umieszczona nad gradientem wypełnienia, aby go rozmywać */}
-              {!isDarkTheme && (
-                <BlurView
-                  style={StyleSheet.absoluteFillObject}
-                  tint="light"
-                  intensity={23} // Dostosuj
-                />
-              )}
-              {isDarkTheme && (
-                <BlurView
-                  style={StyleSheet.absoluteFillObject}
-                  tint="dark"
-                  intensity={8} // Dostosuj
-                />
-              )}
-            </Animated.View>
-            {/* Teksty postępu (muszą być NAD gradientami i blurem) */}
-            {/* Upewnij się, że style progressTextLeft/Right mają zIndex: 1 */}
-            <View style={styles.progressTextLeft}>
-              <Text
-                style={[styles.progressText, { color: theme.colors.onSurface }]}
-              >
-                {(percentageVisited * 100).toFixed(1)}%
-              </Text>
-            </View>
-            <View style={styles.progressTextRight}>
-              <Text
-                style={[styles.progressText, { color: theme.colors.onSurface }]}
-              >
-                {visitedCountries}/{totalCountries}
-              </Text>
-            </View>
-          </View>
+          <ProgressBar
+            percentage={percentageVisited}
+            visited={visitedCountries}
+            total={totalCountries}
+            isDarkTheme={isDarkTheme}
+          />
         </Animated.View>
         {/* Ukryta bazowa mapa do udostÄpniania */}
         <View
@@ -1742,57 +1613,13 @@ const InteractiveMapComponent = forwardRef<
               right: 0,
             }}
           >
-            <View style={styles.progressBarWrapper}>
-              <LinearGradient
-                colors={backgroundGradientColors}
-                locations={gradientLocations}
-                start={{ x: 0, y: 0.5 }}
-                end={{ x: 1, y: 0.5 }}
-                style={StyleSheet.absoluteFill}
-              />
-              <View
-                style={{
-                  width: `${percentageVisited * 100}%`,
-                  height: "100%",
-                  overflow: "hidden",
-                }}
-              >
-                <LinearGradient
-                  colors={filledGradientColors}
-                  locations={gradientLocations}
-                  start={{ x: 0, y: 0.5 }}
-                  end={{ x: 1, y: 0.5 }}
-                  style={{ width: screenWidth * 0.8, height: "100%" }}
-                />
-                {!isDarkTheme && (
-                  <BlurView
-                    style={StyleSheet.absoluteFillObject}
-                    tint="light"
-                    intensity={15}
-                  />
-                )}
-              </View>
-              <View style={styles.progressTextLeft}>
-                <Text
-                  style={[
-                    styles.progressText,
-                    { color: theme.colors.onSurface },
-                  ]}
-                >
-                  {(percentageVisited * 100).toFixed(1)}%
-                </Text>
-              </View>
-              <View style={styles.progressTextRight}>
-                <Text
-                  style={[
-                    styles.progressText,
-                    { color: theme.colors.onSurface },
-                  ]}
-                >
-                  {visitedCountries}/{totalCountries}
-                </Text>
-              </View>
-            </View>
+            <ProgressBar
+              percentage={percentageVisited}
+              visited={visitedCountries}
+              total={totalCountries}
+              isDarkTheme={isDarkTheme}
+              animated={false}
+            />
           </View>
         </View>
         {/* Kontener przycisków */}
@@ -1897,15 +1724,6 @@ const styles = StyleSheet.create({
     height: undefined,
     aspectRatio: 3,
   },
-  progressBarWrapper: {
-    width: screenWidth * 0.8,
-    height: 20,
-    position: "relative",
-    justifyContent: "center",
-    overflow: "hidden",
-    borderRadius: 10,
-    // backgroundColor: theme.colors.surfaceVariant,
-  },
   popoverContainer: {
     backgroundColor: "rgba(0, 0, 0, 0.77)",
     padding: 8,
@@ -1934,26 +1752,6 @@ const styles = StyleSheet.create({
     color: "#000",
     fontSize: 12,
     fontWeight: "600", // Less bold but bolder than normal
-  },
-  progressTextLeft: {
-    position: "absolute",
-    left: 10,
-    top: 0,
-    bottom: 0,
-    justifyContent: "center",
-    zIndex: 1,
-  },
-  progressTextRight: {
-    position: "absolute",
-    right: 10,
-    top: 0,
-    bottom: 0,
-    justifyContent: "center",
-    zIndex: 1,
-  },
-  progressText: {
-    fontSize: 12,
-    fontFamily: "DMSans-SemiBold",
   },
   mapContainer: {
     justifyContent: "center",
