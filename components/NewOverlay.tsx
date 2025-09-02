@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useCallback } from "react";
+import React, { useEffect, useMemo, useCallback, useState } from "react";
 import {
   Dimensions,
   StyleSheet,
@@ -15,6 +15,7 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
+  runOnJS,
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import ConfettiCannon from "react-native-confetti-cannon";
@@ -26,12 +27,14 @@ type Props = {
   isMapActive: boolean;
   updateSequence: number; // used to remount confetti for exact timing
   onPressNew: () => void;
+  onReverseComplete?: () => void;
 };
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 const BUTTON_SIZE = Math.min(screenWidth, screenHeight) * 0.08;
 const ICON_SIZE = BUTTON_SIZE * 0.5;
 const MORPH_DURATION = 380; // centralize to sync confetti delay
+const COLLAPSE_DURATION = 260; // quick, smooth reverse morph
 
 // Confetti origin tuning (mirrors InteractiveMap defaults)
 const CONFETTI_SHIFT_X_RATIO = 0.12;
@@ -116,8 +119,13 @@ const NewOverlay: React.FC<Props> = ({
   isMapActive,
   updateSequence,
   onPressNew,
+  onReverseComplete,
 }) => {
   const theme = useTheme();
+
+  // Local collapsing state to play reverse morph even if parent hides us
+  const [collapsing, setCollapsing] = useState(false);
+  const effectiveVisible = visible || collapsing;
 
   // Morph progress 0..1: from menu-like circle to New pill
   const morphProgress = useSharedValue(0);
@@ -170,6 +178,14 @@ const NewOverlay: React.FC<Props> = ({
     opacity: overlayOpacity.value,
   }));
 
+  // Confetti quick fade/"suck-in" wrapper
+  const confettiOpacity = useSharedValue(1);
+  const confettiScale = useSharedValue(1);
+  const confettiWrapperAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: confettiOpacity.value,
+    transform: [{ scale: confettiScale.value }],
+  }));
+
   // Animated moving gradient around the button
   const borderShiftX = useSharedValue(0);
   const borderShiftY = useSharedValue(0);
@@ -214,15 +230,21 @@ const NewOverlay: React.FC<Props> = ({
   // Kick morph, then pop + confetti once morph completes
   useEffect(() => {
     if (visible) {
+      // If collapsing, ignore re-show triggers to avoid flicker/restart
+      if (collapsing) return;
       // reset
       try {
         cancelAnimation(morphProgress);
         cancelAnimation(overlayOpacity);
+        cancelAnimation(newButtonScale);
       } catch {}
       morphProgress.value = 0;
       newButtonScale.value = 1;
       // Start fully covering, then decrease to target during widening
       overlayOpacity.value = 1;
+      // Reset confetti wrapper in case previous collapse faded it
+      confettiOpacity.value = 1;
+      confettiScale.value = 1;
       // start morph & overlay easing on next frame to avoid jumpy first frames
       requestAnimationFrame(() => {
         // start morph
@@ -256,12 +278,14 @@ const NewOverlay: React.FC<Props> = ({
         );
       });
     } else {
-      // reset when hidden
-      morphProgress.value = 0;
-      newButtonScale.value = 1;
+      // reset when hidden, but don't interrupt local reverse animation
+      if (!collapsing) {
+        morphProgress.value = 0;
+        newButtonScale.value = 1;
+      }
     }
     return () => {};
-  }, [visible, isDarkTheme]);
+  }, [visible, isDarkTheme, collapsing]);
 
   useEffect(() => {
     if (visible) {
@@ -325,27 +349,76 @@ const NewOverlay: React.FC<Props> = ({
         StyleSheet.absoluteFill,
         styles.centeredContent,
         { zIndex: 2, elevation: 2 },
-        visible ? { opacity: 1, transform: [{ scale: 1 }] } : { opacity: 0 },
+        effectiveVisible
+          ? { opacity: 1, transform: [{ scale: 1 }] }
+          : { opacity: 0 },
       ]}
-      pointerEvents={visible ? "box-none" : "none"}
+      pointerEvents={effectiveVisible ? "box-none" : "none"}
     >
       {/* Confetti below the button */}
-      <View pointerEvents="none" style={CONFETTI_CONTAINER_STYLE}>
+      <Animated.View
+        pointerEvents="none"
+        style={[CONFETTI_CONTAINER_STYLE, confettiWrapperAnimatedStyle]}
+      >
         <ConfettiWrapper
-          visible={visible}
+          visible={effectiveVisible}
           origin={confettiOrigin}
           colors={confettiColors}
           updateSequence={updateSequence}
           isMapActive={isMapActive}
         />
-      </View>
+      </Animated.View>
 
       {/* Morphing New button */}
       <Animated.View style={[newButtonAnimatedStyle, frameStyle]}>
         <TouchableOpacity
           style={[styles.newButtonWrapper, { width: "100%", height: "100%" }]}
           activeOpacity={0.85}
-          onPress={onPressNew}
+          onPress={() => {
+            // Start reverse morph immediately; independent from map/confetti removal
+            if (!collapsing) {
+              setCollapsing(true);
+              // Stop any ongoing widen/pop animations to prevent jumps
+              try {
+                cancelAnimation(morphProgress);
+                cancelAnimation(overlayOpacity);
+                cancelAnimation(newButtonScale);
+              } catch {}
+              // Fade/suck confetti quickly
+              confettiOpacity.value = withTiming(0, {
+                duration: 140,
+                easing: Easing.out(Easing.ease),
+              });
+              confettiScale.value = withTiming(0.82, {
+                duration: 160,
+                easing: Easing.in(Easing.cubic),
+              });
+              // Cover inner gradient during collapse to avoid flash
+              overlayOpacity.value = withTiming(1, {
+                duration: 180,
+                easing: Easing.out(Easing.ease),
+              });
+              // Reverse morph to menu-sized circle
+              morphProgress.value = withTiming(
+                0,
+                {
+                  duration: COLLAPSE_DURATION,
+                  easing: Easing.inOut(Easing.cubic),
+                },
+                () => {
+                  // end of collapse on UI thread -> flip JS state safely
+                  runOnJS(setCollapsing)(false);
+                  if (onReverseComplete) {
+                    runOnJS(onReverseComplete)();
+                  }
+                }
+              );
+              // Let parent clear highlights/dismiss immediately (in parallel)
+              try {
+                onPressNew();
+              } catch {}
+            }
+          }}
         >
           {/* Hit shape */}
           <Animated.View style={[StyleSheet.absoluteFill, borderRadiusStyle]} />
