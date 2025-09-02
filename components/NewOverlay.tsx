@@ -153,7 +153,6 @@ const NewOverlay: React.FC<Props> = ({
 
   // Kick morph, then pop + confetti once morph completes
   useEffect(() => {
-    let t: ReturnType<typeof setTimeout> | undefined;
     if (visible) {
       // reset
       try {
@@ -187,23 +186,22 @@ const NewOverlay: React.FC<Props> = ({
             }
           )
         );
-      });
-      // after morph completes, do pop (confetti is now auto-started via delay)
-      t = setTimeout(() => {
-        newButtonScale.value = withSequence(
-          withTiming(1.1, { duration: 110, easing: Easing.out(Easing.ease) }),
-          withTiming(1.0, { duration: 140, easing: Easing.out(Easing.ease) })
+        // Schedule pop purely on UI thread to avoid JS timer jitter
+        newButtonScale.value = withDelay(
+          MORPH_DURATION,
+          withSequence(
+            withTiming(1.1, { duration: 110, easing: Easing.out(Easing.ease) }),
+            withTiming(1.0, { duration: 140, easing: Easing.out(Easing.ease) })
+          )
         );
-      }, MORPH_DURATION);
+      });
     } else {
       // reset when hidden
       morphProgress.value = 0;
       newButtonScale.value = 1;
     }
-    return () => {
-      if (t) clearTimeout(t);
-    };
-  }, [visible, updateSequence]);
+    return () => {};
+  }, [visible, isDarkTheme]);
 
   useEffect(() => {
     if (visible) {
