@@ -1,5 +1,11 @@
-import React, { useEffect, useMemo } from "react";
-import { Dimensions, StyleSheet, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useMemo, useCallback } from "react";
+import {
+  Dimensions,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+  ViewStyle,
+} from "react-native";
 import Animated, {
   cancelAnimation,
   Easing,
@@ -31,6 +37,60 @@ const MORPH_DURATION = 380; // centralize to sync confetti delay
 const CONFETTI_SHIFT_X_RATIO = 0.12;
 const CONFETTI_ORIGIN_Y_RATIO = 2.06;
 const FALLBACK_ORIGIN = { x: screenWidth / 2, y: screenHeight * 0.08 };
+
+// Hoisted static styles/constants to avoid reallocating every render
+const BORDER_RADIUS = BUTTON_SIZE / 2;
+const GRADIENT_PLANE_BASE_STYLE = {
+  position: "absolute" as const,
+  left: -(BUTTON_SIZE * 3.8),
+  top: -(BUTTON_SIZE * 0.8),
+  height: BUTTON_SIZE * 2.6,
+  width: BUTTON_SIZE * 7.6,
+};
+
+// Hoisted frequently-reused style objects
+const CONFETTI_CONTAINER_STYLE: ViewStyle = {
+  position: "absolute",
+  left: 0,
+  right: 0,
+  top: 0,
+  bottom: -15.5,
+  justifyContent: "center",
+  alignItems: "center",
+};
+
+const FLEX_ONE = { flex: 1 } as const;
+
+type ConfettiProps = {
+  visible: boolean;
+  origin: { x: number; y: number };
+  colors: string[];
+  updateSequence: number;
+  isMapActive: boolean;
+};
+
+const ConfettiWrapper = React.memo(function ConfettiWrapper({
+  visible,
+  origin,
+  colors,
+  updateSequence,
+  isMapActive,
+}: ConfettiProps) {
+  if (!visible) return null;
+  return (
+    <ConfettiCannon
+      key={`confetti-${updateSequence}-${isMapActive ? 1 : 0}-${visible ? 1 : 0}`}
+      count={140}
+      origin={origin}
+      colors={colors}
+      fadeOut
+      autoStart
+      autoStartDelay={MORPH_DURATION}
+      explosionSpeed={700}
+      fallSpeed={2400}
+    />
+  );
+});
 
 function computeConfettiOrigin() {
   const buttonWidth = BUTTON_SIZE * 2.2;
@@ -85,7 +145,8 @@ const NewOverlay: React.FC<Props> = ({
   });
 
   // Inner gradient is present from the beginning; overlay controls perceived transparency
-  const innerGradientRevealStyle = useAnimatedStyle(() => ({ opacity: 1 }));
+  // This is static (always opaque) — use a plain object to avoid an animated hook
+  const innerGradientRevealStyle = useMemo(() => ({ opacity: 1 }) as const, []);
   // Text stays invisible initially, then eases in smoothly (delayed + smoothstep)
   const textOpacityStyle = useAnimatedStyle(() => {
     const p = morphProgress.value;
@@ -121,8 +182,7 @@ const NewOverlay: React.FC<Props> = ({
       ],
     };
   });
-
-  const restartGradientMotion = () => {
+  const restartGradientMotion = useCallback(() => {
     try {
       cancelAnimation(borderShiftX);
       cancelAnimation(borderShiftY);
@@ -149,7 +209,7 @@ const NewOverlay: React.FC<Props> = ({
       -1,
       true
     );
-  };
+  }, [borderShiftX, borderShiftY]);
 
   // Kick morph, then pop + confetti once morph completes
   useEffect(() => {
@@ -236,6 +296,16 @@ const NewOverlay: React.FC<Props> = ({
     [theme.colors.primary]
   );
 
+  // Memoized theme-dependent style pieces to avoid per-render allocation
+  const borderStrokeStyle = useMemo(
+    () => ({ borderWidth: 1.9, borderColor: theme.colors.primary }),
+    [theme.colors.primary]
+  );
+  const labelColor = useMemo(
+    () => (isDarkTheme ? "rgb(198, 145, 254)" : theme.colors.primary),
+    [isDarkTheme, theme.colors.primary]
+  );
+
   // Cancel animations on unmount to avoid cross-screen lag if user navigates away mid-animation
   useEffect(() => {
     return () => {
@@ -249,15 +319,6 @@ const NewOverlay: React.FC<Props> = ({
     };
   }, []);
 
-  // Reusable base style for the moving gradient plane
-  const gradientPlaneBaseStyle = {
-    position: "absolute" as const,
-    left: -(BUTTON_SIZE * 3.8),
-    top: -(BUTTON_SIZE * 0.8),
-    height: BUTTON_SIZE * 2.6,
-    width: BUTTON_SIZE * 7.6,
-  };
-
   return (
     <Animated.View
       style={[
@@ -269,31 +330,14 @@ const NewOverlay: React.FC<Props> = ({
       pointerEvents={visible ? "box-none" : "none"}
     >
       {/* Confetti below the button */}
-      <View
-        pointerEvents="none"
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          top: 0,
-          bottom: -15.5,
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        {visible ? (
-          <ConfettiCannon
-            key={`confetti-${updateSequence}-${isMapActive ? 1 : 0}-${visible ? 1 : 0}`}
-            count={140}
-            origin={confettiOrigin}
-            colors={confettiColors}
-            fadeOut
-            autoStart
-            autoStartDelay={MORPH_DURATION}
-            explosionSpeed={700}
-            fallSpeed={2400}
-          />
-        ) : null}
+      <View pointerEvents="none" style={CONFETTI_CONTAINER_STYLE}>
+        <ConfettiWrapper
+          visible={visible}
+          origin={confettiOrigin}
+          colors={confettiColors}
+          updateSequence={updateSequence}
+          isMapActive={isMapActive}
+        />
       </View>
 
       {/* Morphing New button */}
@@ -326,13 +370,13 @@ const NewOverlay: React.FC<Props> = ({
               ]}
             >
               <Animated.View
-                style={[gradientPlaneBaseStyle, movingBorderStyle]}
+                style={[GRADIENT_PLANE_BASE_STYLE, movingBorderStyle]}
               >
                 <LinearGradient
                   colors={gradientColors}
                   start={{ x: 0, y: 0.5 }}
                   end={{ x: 1, y: 0.5 }}
-                  style={{ flex: 1 }}
+                  style={FLEX_ONE}
                 />
               </Animated.View>
             </Animated.View>
@@ -356,13 +400,13 @@ const NewOverlay: React.FC<Props> = ({
                 ]}
               >
                 <Animated.View
-                  style={[gradientPlaneBaseStyle, movingBorderStyle]}
+                  style={[GRADIENT_PLANE_BASE_STYLE, movingBorderStyle]}
                 >
                   <LinearGradient
                     colors={gradientColors}
                     start={{ x: 0, y: 0.5 }}
                     end={{ x: 1, y: 0.5 }}
-                    style={{ flex: 1 }}
+                    style={FLEX_ONE}
                   />
                 </Animated.View>
               </Animated.View>
@@ -383,11 +427,7 @@ const NewOverlay: React.FC<Props> = ({
               <Animated.Text
                 style={[
                   styles.newButtonText,
-                  {
-                    color: isDarkTheme
-                      ? "rgb(198, 145, 254)"
-                      : theme.colors.primary,
-                  },
+                  { color: labelColor },
                   textOpacityStyle,
                 ]}
               >
