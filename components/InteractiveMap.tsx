@@ -1670,6 +1670,7 @@ const InteractiveMapComponent = forwardRef<
               onToggleTheme={handleToggleTheme}
               isSharing={isSharing}
               disabled={!!(showNewIndicator || forceNewVisible)}
+              isMapActive={isMapActive}
             />
           </Animated.View>
         </Animated.View>

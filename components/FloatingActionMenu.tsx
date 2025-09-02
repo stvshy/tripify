@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState, useEffect } from "react";
 import {
   Dimensions,
   StyleSheet,
@@ -43,6 +43,7 @@ export interface FloatingActionMenuProps {
   onToggleTheme: () => void;
   isSharing?: boolean;
   disabled?: boolean; // disables pointer events when overlay covers
+  isMapActive?: boolean;
 }
 
 export default function FloatingActionMenu(props: FloatingActionMenuProps) {
@@ -54,6 +55,7 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
     onToggleTheme,
     isSharing,
     disabled,
+    isMapActive,
   } = props;
   const theme = useTheme();
 
@@ -85,6 +87,17 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
       easing: Easing.out(Easing.ease),
     });
   }, [menuOpen]);
+
+  // Close the menu automatically when the map/view becomes inactive
+  useEffect(() => {
+    if (isMapActive === false && menuOpen) {
+      setMenuOpen(false);
+      menuProgress.value = withTiming(0, {
+        duration: 160,
+        easing: Easing.out(Easing.ease),
+      });
+    }
+  }, [isMapActive, menuOpen, menuProgress]);
 
   // Side buttons slide horizontally from center on same Y level
   const leftItemStyle = useAnimatedStyle(() => ({
