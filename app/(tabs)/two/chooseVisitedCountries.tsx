@@ -267,7 +267,14 @@ export default function ChooseVisitedCountriesScreen() {
       (grouped[continent] ||= []).push(c);
     });
     return Object.entries(grouped)
-      .map(([title, data]) => ({ title, data }))
+      .map(([title, data]) => ({
+        title,
+        data: data
+          .slice()
+          .sort((a, b) =>
+            a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+          ),
+      }))
       .sort((a, b) => a.title.localeCompare(b.title));
   }, [visitedCountriesData]);
 
