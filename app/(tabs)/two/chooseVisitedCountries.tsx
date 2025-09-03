@@ -180,30 +180,25 @@ export default function ChooseVisitedCountriesScreen() {
   const { toggleTheme, isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme();
   const scaleValue = useSharedValue(1) as SharedValue<number>;
-  const { setVisitedCountries } = useCountries();
+  const { visitedCountries: visitedCountriesCtx, setVisitedCountries } =
+    useCountries();
 
-  const [visitedCountriesData, setVisitedCountriesData] = useState<string[]>(
-    []
+  const [visitedCountriesData, setVisitedCountriesData] =
+    useState<string[]>(visitedCountriesCtx);
+  const [isLoading, setIsLoading] = useState<boolean>(
+    visitedCountriesCtx.length === 0
   );
   const [selectedCountryCode, setSelectedCountryCode] = useState<string | null>(
     null
   );
   const [removeModalVisible, setRemoveModalVisible] = useState(false);
   const [countryToRemove, setCountryToRemove] = useState<string | null>(null);
-  // ─── 2. FETCH DATA ─────────────────────────────────────────────
+  // ─── 2. HYDRATE FROM CONTEXT ──────────────────────────────────
+  // Sync local data from CountryContext; skip loader if we already have data.
   useEffect(() => {
-    (async () => {
-      const user = auth.currentUser;
-      if (!user) return;
-      const docRef = doc(db, "users", user.uid);
-      const snap = await getDoc(docRef);
-      if (snap.exists()) {
-        const arr = snap.data().countriesVisited || [];
-        setVisitedCountriesData(arr);
-        setVisitedCountries(arr);
-      }
-    })();
-  }, [setVisitedCountries]);
+    setVisitedCountriesData(visitedCountriesCtx);
+    setIsLoading(false);
+  }, [visitedCountriesCtx]);
 
   // ─── 3. CALLBACKI ────────────────────────────────────────────
   const handleLongPress = useCallback((code: string) => {
@@ -307,6 +302,54 @@ export default function ChooseVisitedCountriesScreen() {
     [theme.colors.surface, theme.colors.primary]
   );
 
+  // Lightweight skeletons to avoid flashing empty state during initial load
+  const SkeletonItem = useCallback(() => {
+    const flagBorderColor = theme.colors.outline;
+    const placeholderColor = theme.colors.surfaceVariant;
+    return (
+      <View
+        style={[
+          styles.countryItem,
+          {
+            backgroundColor: theme.colors.surface,
+            borderBottomColor: theme.colors.outline,
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.flagContainer,
+            styles.flagWithBorder,
+            { borderColor: flagBorderColor },
+          ]}
+        >
+          <View
+            style={[styles.skeletonFlag, { backgroundColor: placeholderColor }]}
+          />
+        </View>
+        <View style={{ marginLeft: 5, flex: 1 }}>
+          <View
+            style={[styles.skeletonLine, { backgroundColor: placeholderColor }]}
+          />
+        </View>
+        <View
+          style={[styles.skeletonCircle, { backgroundColor: placeholderColor }]}
+        />
+      </View>
+    );
+  }, [theme.colors.outline, theme.colors.surface, theme.colors.surfaceVariant]);
+
+  const ListSkeleton = useCallback(() => {
+    const count = Math.max(6, Math.floor(height / 52));
+    return (
+      <View style={{ paddingTop: 8 }}>
+        {Array.from({ length: count }).map((_, i) => (
+          <SkeletonItem key={i} />
+        ))}
+      </View>
+    );
+  }, [SkeletonItem]);
+
   // ─── 6. JSX ───────────────────────────────────────────────────
   return (
     <>
@@ -318,25 +361,34 @@ export default function ChooseVisitedCountriesScreen() {
           activeOpacity={1}
           onPress={() => setSelectedCountryCode(null)}
         >
-          <SectionList
-            sections={processedCountries}
-            keyExtractor={(item) => item.cca3}
-            renderItem={renderCountryItem}
-            renderSectionHeader={renderSectionHeader}
-            contentContainerStyle={{ paddingBottom: 20 }}
-            ListEmptyComponent={() => (
-              <View style={styles.emptyContainer}>
-                <Text
-                  style={[
-                    styles.emptyText,
-                    { color: theme.colors.onSurfaceVariant },
-                  ]}
-                >
-                  You haven’t visited any countries yet.
-                </Text>
-              </View>
-            )}
-          />
+          {isLoading ? (
+            <ListSkeleton />
+          ) : (
+            <SectionList
+              sections={processedCountries}
+              keyExtractor={(item) => item.cca3}
+              renderItem={renderCountryItem}
+              renderSectionHeader={renderSectionHeader}
+              contentContainerStyle={{ paddingBottom: 20 }}
+              initialNumToRender={30}
+              maxToRenderPerBatch={40}
+              windowSize={10}
+              updateCellsBatchingPeriod={50}
+              removeClippedSubviews
+              ListEmptyComponent={() => (
+                <View style={styles.emptyContainer}>
+                  <Text
+                    style={[
+                      styles.emptyText,
+                      { color: theme.colors.onSurfaceVariant },
+                    ]}
+                  >
+                    You haven’t visited any countries yet.
+                  </Text>
+                </View>
+              )}
+            />
+          )}
           <Modal
             visible={removeModalVisible}
             transparent
@@ -367,7 +419,7 @@ export default function ChooseVisitedCountriesScreen() {
                     style={[
                       styles.modalButtonCancel,
                       {
-                        backgroundColor: isDarkTheme ? "#dbc9f2" : "#f5e9fc",
+                        backgroundColor: theme.colors.surface,
                       },
                     ]}
                   >
@@ -522,11 +574,27 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 20,
-    borderWidth: 0.19,
+    borderWidth: 1.2,
     borderColor: "#9d23ea",
   },
   modalButtonText: {
     fontSize: 16,
     fontWeight: "bold",
+  },
+  skeletonFlag: {
+    width: 25,
+    height: 18,
+    borderRadius: 3,
+  },
+  skeletonLine: {
+    width: "60%",
+    height: 14,
+    borderRadius: 4,
+  },
+  skeletonCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    marginRight: 7,
   },
 });
