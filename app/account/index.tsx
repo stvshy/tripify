@@ -1,4 +1,10 @@
-import React, { useContext, useState, useMemo, useCallback } from "react";
+import React, {
+  useContext,
+  useState,
+  useMemo,
+  useCallback,
+  useEffect,
+} from "react";
 import {
   View,
   Text,
@@ -26,6 +32,8 @@ import { Ionicons } from "@expo/vector-icons";
 import countriesData from "../../assets/maps/countries.json";
 import CountryFlag from "react-native-country-flag";
 import RankingItem from "../../components/RankItem";
+import { storage } from "../config/storage";
+import { useAuthStore } from "../store/authStore";
 
 interface Country {
   id: string;
@@ -56,18 +64,41 @@ export default function AccountScreen() {
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
   const theme = useTheme();
   const router = useRouter();
-  const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>([]);
+  const authUser = auth.currentUser;
+  const storeUserProfile = useAuthStore((s) => s.userProfile);
+
+  // Helpers for MMKV cache keys
+  const cacheKeys = useMemo(() => {
+    const uid = authUser?.uid;
+    return uid
+      ? {
+          ranking: `user:${uid}:ranking`,
+          notes: `user:${uid}:notes`,
+          nickname: `user:${uid}:nickname`,
+          email: `user:${uid}:email`,
+        }
+      : null;
+  }, [authUser?.uid]);
+
+  // Countries mapping for ranking slots
   const [activeRankingItemId, setActiveRankingItemId] = useState<string | null>(
     null
   );
-  const [userName, setUserName] = useState<string>("Error: No nickname");
-  const [userEmail, setUserEmail] = useState<string>("user@error.com");
-  const [notes, setNotes] = useState<Note[]>([]);
-  const { width, height } = Dimensions.get("window");
-  const [isNotePreviewVisible, setIsNotePreviewVisible] =
-    useState<boolean>(false);
-  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
-
+  const [userName, setUserName] = useState<string>(() => {
+    // Prefer nickname from auth store; fallback to cached value; else empty
+    const fromStore = useAuthStore.getState().userProfile?.nickname;
+    if (fromStore) return fromStore;
+    const key = auth.currentUser
+      ? `user:${auth.currentUser.uid}:nickname`
+      : null;
+    return key ? storage.getString(key) || "" : "";
+  });
+  const [userEmail, setUserEmail] = useState<string>(() => {
+    const email = auth.currentUser?.email;
+    if (email) return email;
+    const key = auth.currentUser ? `user:${auth.currentUser.uid}:email` : null;
+    return key ? storage.getString(key) || "" : "";
+  });
   const mappedCountries: Country[] = useMemo(() => {
     return countriesData.countries.map((country) => ({
       ...country,
@@ -79,6 +110,53 @@ export default function AccountScreen() {
     }));
   }, []);
 
+  const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>(() => {
+    // Seed ranking from cache synchronously
+    const uid = auth.currentUser?.uid;
+    if (!uid) return [];
+    const raw = storage.getString(`user:${uid}:ranking`);
+    if (!raw) return [];
+    try {
+      const rankingArr: string[] = JSON.parse(raw);
+      return rankingArr.map((cca2, index) => {
+        const country = mappedCountries.find((c) => c.cca2 === cca2) || null;
+        return { id: generateUniqueId(), rank: index + 1, country };
+      });
+    } catch {
+      return [];
+    }
+  });
+  const [notes, setNotes] = useState<Note[]>(() => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return [];
+    const raw = storage.getString(`user:${uid}:notes`);
+    if (!raw) return [];
+    try {
+      const parsed: Note[] = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+  const { width, height } = Dimensions.get("window");
+  const [isNotePreviewVisible, setIsNotePreviewVisible] =
+    useState<boolean>(false);
+  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+
+  // Keep userName in sync with auth store updates (e.g., after nickname set)
+  useEffect(() => {
+    if (storeUserProfile?.nickname) {
+      setUserName(storeUserProfile.nickname);
+      if (cacheKeys) storage.set(cacheKeys.nickname, storeUserProfile.nickname);
+    }
+  }, [storeUserProfile?.nickname, cacheKeys]);
+  useEffect(() => {
+    if (authUser?.email) {
+      setUserEmail(authUser.email);
+      if (cacheKeys) storage.set(cacheKeys.email, authUser.email);
+    }
+  }, [authUser?.email, cacheKeys]);
+
   const fetchUserData = useCallback(async () => {
     const currentUser = auth.currentUser;
     if (currentUser) {
@@ -89,9 +167,15 @@ export default function AccountScreen() {
         const rankingData: string[] = userData.ranking || [];
         const nickname: string | undefined = userData.nickname;
         const email: string | null | undefined = currentUser.email;
-
-        setUserName(nickname || "Error: No nickname");
-        setUserEmail(email || "user@error.com");
+        // Update text fields and persist
+        if (nickname) {
+          setUserName(nickname);
+          if (cacheKeys) storage.set(cacheKeys.nickname, nickname);
+        }
+        if (email) {
+          setUserEmail(email);
+          if (cacheKeys) storage.set(cacheKeys.email, email);
+        }
 
         // Create initial ranking slots with unique IDs
         const initialSlots: RankingSlot[] = rankingData.map((cca2, index) => {
@@ -105,6 +189,11 @@ export default function AccountScreen() {
         });
 
         setRankingSlots(initialSlots);
+        // Persist ranking for instant next load
+        try {
+          if (cacheKeys)
+            storage.set(cacheKeys.ranking, JSON.stringify(rankingData));
+        } catch {}
 
         // Fetch user notes
         const notesCollectionRef = collection(
@@ -121,13 +210,18 @@ export default function AccountScreen() {
           createdAt: doc.data().createdAt,
         }));
         setNotes(notesList);
+        // Persist notes
+        try {
+          if (cacheKeys)
+            storage.set(cacheKeys.notes, JSON.stringify(notesList));
+        } catch {}
       } else {
         console.log("User document does not exist.");
       }
     } else {
       console.log("No current user.");
     }
-  }, [mappedCountries]);
+  }, [mappedCountries, cacheKeys]);
 
   useFocusEffect(
     useCallback(() => {
@@ -164,6 +258,10 @@ export default function AccountScreen() {
     if (currentUser) {
       const userDocRef = doc(db, "users", currentUser.uid);
       await updateDoc(userDocRef, { ranking: ranking });
+      // Update cache optimistically
+      try {
+        storage.set(`user:${currentUser.uid}:ranking`, JSON.stringify(ranking));
+      } catch {}
       Alert.alert("Success", "Ranking has been saved successfully.");
     }
   };
