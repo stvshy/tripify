@@ -371,6 +371,7 @@ const TabLayoutContent: React.FC = () => {
       <Tabs
         initialRouteName="index"
         backBehavior="none"
+        sceneContainerStyle={{ backgroundColor: theme.colors.background }}
         screenOptions={{
           tabBarIconStyle: {
             marginTop: TAB_ICON_MARGIN_TOP, // Stała wartość zamiast window.height * 0.014
