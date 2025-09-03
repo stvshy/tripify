@@ -1,11 +1,18 @@
 // app/country/CountryExtraInfo.tsx
 import React, { useEffect } from "react";
-import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  ActivityIndicator,
+  StyleSheet,
+  Linking,
+} from "react-native";
 // Importujemy Image z expo-image (dla czytelności nazywamy go ExpoImage)
 import FastImage from "@d11/react-native-fast-image";
 import { useWeatherData } from "./useWeatherData";
 import MonthlyTemperaturesSection from "./MonthlyTemperaturesSection";
 import { CountryProfileData } from "./[cid]";
+import { useTheme } from "react-native-paper";
 
 interface Props {
   country: CountryProfileData;
@@ -22,6 +29,7 @@ const CountryExtraInfo: React.FC<Props> = ({
   drivingSideUrl,
   outletCardImageSize,
 }) => {
+  const theme = useTheme();
   const { data: weatherData, loading: weatherLoading } = useWeatherData(
     country.capitalLatitude,
     country.capitalLongitude
@@ -46,6 +54,15 @@ const CountryExtraInfo: React.FC<Props> = ({
   const getOutletCaption = (filename: string): string => {
     const match = filename.match(/type-([A-Za-z]+)\./);
     return match && match[1] ? match[1].toUpperCase() : "";
+  };
+
+  const handleReportPress = () => {
+    const email = "tripify.travelapp@gmail.com";
+    const subject = `Country Profile - ${country.name}`;
+    const mailtoUrl = `mailto:${email}?subject=${encodeURIComponent(subject)}`;
+    Linking.openURL(mailtoUrl).catch(() => {
+      // Swallow errors silently; optionally could show a toast/snackbar
+    });
   };
 
   return (
@@ -231,6 +248,16 @@ const CountryExtraInfo: React.FC<Props> = ({
           <Text style={styles.infoCardValue}>{country.travelTips}</Text>
         </View>
       </View>
+
+      {/* Report link */}
+      <View style={styles.reportContainer}>
+        <Text
+          style={[styles.reportText, { color: theme.colors.primary }]}
+          onPress={handleReportPress}
+        >
+          Report
+        </Text>
+      </View>
     </>
   );
 };
@@ -357,6 +384,15 @@ const styles = StyleSheet.create({
     color: "red",
     fontSize: 16,
     fontFamily: "Figtree-Regular",
+  },
+  reportContainer: {
+    alignItems: "center",
+    marginTop: 6,
+    marginBottom: 12,
+  },
+  reportText: {
+    fontSize: 14,
+    fontFamily: "Figtree-Medium",
   },
 });
 
