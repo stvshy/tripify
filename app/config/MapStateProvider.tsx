@@ -168,8 +168,14 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
 
   // NEW: funkcja ustawiania aktywności mapy
   const flushQueuedDiffs = useCallback(() => {
-    if (queuedChangedRef.current.size === 0 || visitedCountries == null) return;
-    // Respect highlight limit
+    if (visitedCountries == null) return;
+    // If there are no queued visual additions, just clear any stale queues and exit
+    if (queuedChangedRef.current.size === 0) {
+      queuedAddsRef.current.clear();
+      queuedRemovesRef.current.clear();
+      return;
+    }
+    // Respect highlight limit (queuedChangedRef holds ONLY additions for visuals)
     const changedArr = Array.from(queuedChangedRef.current);
     const limited =
       changedArr.length > HIGHLIGHT_LIMIT
@@ -178,14 +184,17 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
     queuedChangedRef.current.clear();
     queuedAddsRef.current.clear();
     queuedRemovesRef.current.clear();
-    setRecentlyChangedCountries(limited);
-    setShowNewIndicator(true);
-    setIsUpdating(true);
-    setUpdateSequence((p) => p + 1);
-    if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
-    updateTimeoutRef.current = setTimeout(() => {
-      dismissNewIndicator();
-    }, AUTO_DISMISS_MS);
+    // Show highlights/indicator only when there are additions
+    if (limited.size > 0) {
+      setRecentlyChangedCountries(limited);
+      setShowNewIndicator(true);
+      setIsUpdating(true);
+      setUpdateSequence((p) => p + 1);
+      if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
+      updateTimeoutRef.current = setTimeout(() => {
+        dismissNewIndicator();
+      }, AUTO_DISMISS_MS);
+    }
   }, [dismissNewIndicator, visitedCountries]);
 
   // // If data arrives slightly later while map is active, ensure queued visuals are flushed immediately
@@ -254,30 +263,36 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
         if (!changed) return;
       }
 
-      const changedSet = new Set<string>([...add, ...remove]);
-      // Limit visual highlight size (F)
-      const visualChangedSet =
-        changedSet.size > HIGHLIGHT_LIMIT
-          ? new Set(Array.from(changedSet).slice(0, HIGHLIGHT_LIMIT))
-          : changedSet;
+      // Visuals should reflect ONLY newly added countries, not removals
+      const addSet = new Set<string>(add);
+      const visualAddsSet =
+        addSet.size > HIGHLIGHT_LIMIT
+          ? new Set(Array.from(addSet).slice(0, HIGHLIGHT_LIMIT))
+          : addSet;
 
       // Immediately update optimistic count for instant progress bar animation
       setOptimisticVisitedCount(nextSet.size);
 
       if (isMapActive && !deferVisual) {
-        // Natychmiast pokazuj highlighty i przycisk "New" na aktywnej mapie
-        setRecentlyChangedCountries(visualChangedSet);
-        setShowNewIndicator(true);
-        setIsUpdating(true);
-        setUpdateSequence((p) => p + 1);
-        if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
-        updateTimeoutRef.current = setTimeout(() => {
-          dismissNewIndicator();
-        }, AUTO_DISMISS_MS);
+        // On active map, show highlights/"New" only when there are additions
+        if (visualAddsSet.size > 0) {
+          setRecentlyChangedCountries(visualAddsSet);
+          setShowNewIndicator(true);
+          setIsUpdating(true);
+          setUpdateSequence((p) => p + 1);
+          if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
+          updateTimeoutRef.current = setTimeout(() => {
+            dismissNewIndicator();
+          }, AUTO_DISMISS_MS);
+        } else {
+          // Removals-only: do not show highlights or New/confetti
+          setRecentlyChangedCountries(new Set());
+        }
       } else {
         // Map not active (or visuals explicitly deferred): queue visual diffs only.
         // Do NOT trigger highlights/New/confetti yet – apply on focus via flushQueuedDiffs.
-        visualChangedSet.forEach((c) => queuedChangedRef.current.add(c));
+        // Queue ONLY additions for visual highlights on next focus
+        visualAddsSet.forEach((c) => queuedChangedRef.current.add(c));
         // Queue data changes to be applied to the global state (for possible future use).
         add.forEach((c) => queuedAddsRef.current.add(c));
         remove.forEach((c) => queuedRemovesRef.current.add(c));

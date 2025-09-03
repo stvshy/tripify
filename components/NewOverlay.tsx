@@ -138,6 +138,17 @@ const NewOverlay: React.FC<Props> = ({
     transform: [{ scale: newButtonScale.value }],
   }));
 
+  // Base initial frame to avoid a first-frame flash at full pill width
+  const initialFrameBaseStyle = useMemo(
+    () =>
+      ({
+        width: BUTTON_SIZE,
+        height: BUTTON_SIZE,
+        borderRadius: BORDER_RADIUS,
+      }) as const,
+    []
+  );
+
   // Animated size/shape for morphing frame
   const frameStyle = useAnimatedStyle(() => {
     const w0 = BUTTON_SIZE;
@@ -297,6 +308,16 @@ const NewOverlay: React.FC<Props> = ({
         newButtonScale.value = 1;
         overlayOpacity.value = 1;
       }
+    } else {
+      // Ensure animated values are reset while hidden to avoid re-show at full width
+      try {
+        cancelAnimation(morphProgress);
+        cancelAnimation(overlayOpacity);
+        cancelAnimation(newButtonScale);
+      } catch {}
+      morphProgress.value = 0;
+      newButtonScale.value = 1;
+      overlayOpacity.value = 1;
     }
     return () => {};
   }, [visible, isDarkTheme, collapsing]);
@@ -385,7 +406,7 @@ const NewOverlay: React.FC<Props> = ({
 
       {/* Morphing New button */}
       <Animated.View
-        style={[newButtonAnimatedStyle, frameStyle]}
+        style={[initialFrameBaseStyle, newButtonAnimatedStyle, frameStyle]}
         renderToHardwareTextureAndroid
         needsOffscreenAlphaCompositing
         collapsable={false}
