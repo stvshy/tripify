@@ -35,13 +35,13 @@ const BUTTON_SIZE = Math.min(screenWidth, screenHeight) * 0.08;
 const ICON_SIZE = BUTTON_SIZE * 0.5;
 const MORPH_DURATION = 380; // centralize to sync confetti delay
 const COLLAPSE_DURATION = 260; // quick, smooth reverse morph
+// Stop reverse morph slightly above circle size to speed perceived transition (~102%)
+const COLLAPSE_TARGET = 0.02 / 1.03; // (1.02-1.0)/(2.2-1.0) = 0.016666...
 
 // Confetti origin tuning (mirrors InteractiveMap defaults)
 const CONFETTI_SHIFT_X_RATIO = 0.12;
 const CONFETTI_ORIGIN_Y_RATIO = 2.06;
 const FALLBACK_ORIGIN = { x: screenWidth / 2, y: screenHeight * 0.08 };
-
-// Hoisted static styles/constants to avoid reallocating every render
 const BORDER_RADIUS = BUTTON_SIZE / 2;
 const GRADIENT_PLANE_BASE_STYLE = {
   position: "absolute" as const,
@@ -129,6 +129,8 @@ const NewOverlay: React.FC<Props> = ({
 
   // Morph progress 0..1: from menu-like circle to New pill
   const morphProgress = useSharedValue(0);
+  // UI-thread collapse flag to drive derived opacity during reverse morph
+  const collapsingSV = useSharedValue(0);
 
   // Scale pop for "New" button (runs after morph finishes)
   const newButtonScale = useSharedValue(1);
@@ -174,9 +176,19 @@ const NewOverlay: React.FC<Props> = ({
   const TARGET_OVERLAY_ALPHA_LIGHT = 0.86;
   // Start fully covered to avoid first-frame gradient peek; animate down to target
   const overlayOpacity = useSharedValue(1);
-  const overlayStyle = useAnimatedStyle(() => ({
-    opacity: overlayOpacity.value,
-  }));
+  const overlayStyle = useAnimatedStyle(() => {
+    // During collapse drive opacity from morphProgress for perfect sync
+    if (collapsingSV.value) {
+      const target = isDarkTheme
+        ? TARGET_OVERLAY_ALPHA_DARK
+        : TARGET_OVERLAY_ALPHA_LIGHT;
+      const p = morphProgress.value; // 0..1
+      // Map p (1->0) to opacity (target->1)
+      const opacity = target + (1 - target) * (1 - p);
+      return { opacity } as const;
+    }
+    return { opacity: overlayOpacity.value } as const;
+  });
 
   // Confetti quick fade/"suck-in" wrapper
   const confettiOpacity = useSharedValue(1);
@@ -229,6 +241,8 @@ const NewOverlay: React.FC<Props> = ({
 
   // Kick morph, then pop + confetti once morph completes
   useEffect(() => {
+    if (collapsing) return; // Prevent interruption of collapse animation
+
     if (visible) {
       // If collapsing, ignore re-show triggers to avoid flicker/restart
       if (collapsing) return;
@@ -277,11 +291,11 @@ const NewOverlay: React.FC<Props> = ({
           )
         );
       });
-    } else {
       // reset when hidden, but don't interrupt local reverse animation
       if (!collapsing) {
         morphProgress.value = 0;
         newButtonScale.value = 1;
+        overlayOpacity.value = 1;
       }
     }
     return () => {};
@@ -370,7 +384,12 @@ const NewOverlay: React.FC<Props> = ({
       </Animated.View>
 
       {/* Morphing New button */}
-      <Animated.View style={[newButtonAnimatedStyle, frameStyle]}>
+      <Animated.View
+        style={[newButtonAnimatedStyle, frameStyle]}
+        renderToHardwareTextureAndroid
+        needsOffscreenAlphaCompositing
+        collapsable={false}
+      >
         <TouchableOpacity
           style={[styles.newButtonWrapper, { width: "100%", height: "100%" }]}
           activeOpacity={0.85}
@@ -393,21 +412,23 @@ const NewOverlay: React.FC<Props> = ({
                 duration: 160,
                 easing: Easing.in(Easing.cubic),
               });
-              // Cover inner gradient during collapse to avoid flash
+              // Gradually cover inner gradient during collapse to match morph timing
               overlayOpacity.value = withTiming(1, {
-                duration: 180,
-                easing: Easing.out(Easing.ease),
+                duration: 360,
+                easing: Easing.inOut(Easing.cubic),
               });
-              // Reverse morph to menu-sized circle
+              // Reverse morph to near-circle (stop slightly above 1.0 to accelerate hand-off)
               morphProgress.value = withTiming(
-                0,
+                COLLAPSE_TARGET,
                 {
-                  duration: COLLAPSE_DURATION,
+                  duration: 240,
                   easing: Easing.inOut(Easing.cubic),
                 },
                 () => {
                   // end of collapse on UI thread -> flip JS state safely
                   runOnJS(setCollapsing)(false);
+                  // restart moving border after collapse completes for next show
+                  runOnJS(restartGradientMotion)();
                   if (onReverseComplete) {
                     runOnJS(onReverseComplete)();
                   }
@@ -424,7 +445,12 @@ const NewOverlay: React.FC<Props> = ({
           <Animated.View style={[StyleSheet.absoluteFill, borderRadiusStyle]} />
 
           {/* Outer border with moving gradient */}
-          <Animated.View style={[styles.newButtonBorder, borderRadiusStyle]}>
+          <Animated.View
+            style={[styles.newButtonBorder, borderRadiusStyle]}
+            renderToHardwareTextureAndroid
+            needsOffscreenAlphaCompositing
+            collapsable={false}
+          >
             {/* Static base stroke */}
             <Animated.View
               style={[
@@ -444,6 +470,8 @@ const NewOverlay: React.FC<Props> = ({
             >
               <Animated.View
                 style={[GRADIENT_PLANE_BASE_STYLE, movingBorderStyle]}
+                renderToHardwareTextureAndroid
+                collapsable={false}
               >
                 <LinearGradient
                   colors={gradientColors}
@@ -474,6 +502,8 @@ const NewOverlay: React.FC<Props> = ({
               >
                 <Animated.View
                   style={[GRADIENT_PLANE_BASE_STYLE, movingBorderStyle]}
+                  renderToHardwareTextureAndroid
+                  collapsable={false}
                 >
                   <LinearGradient
                     colors={gradientColors}
