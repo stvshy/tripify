@@ -223,9 +223,7 @@ const UserInfoPanel = React.memo(
           size={100}
           color={theme.colors.primary}
         />
-        <Text
-          style={[profileStyles.userName, { color: theme.colors.onBackground }]}
-        >
+        <Text style={[profileStyles.userName, { color: theme.colors.primary }]}>
           {userProfile.nickname}
         </Text>
 
@@ -959,9 +957,9 @@ const profileStyles = StyleSheet.create({
     marginBottom: 25,
   },
   userName: {
-    marginTop: -4,
-    marginBottom: 6.3,
-    fontSize: 18,
+    marginTop: -7.2,
+    marginBottom: 4.5,
+    fontSize: 17.5,
     fontWeight: "500",
     fontFamily: "PlusJakartaSans-Bold",
   },
@@ -1068,7 +1066,7 @@ const profileStyles = StyleSheet.create({
     fontSize: 14.5,
     color: "gray",
     marginLeft: -4,
-    marginBottom: -7,
+    marginBottom: -6,
     fontFamily: "Figtree-Regular",
   },
   visitedList: {
