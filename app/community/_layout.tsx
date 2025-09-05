@@ -1,15 +1,19 @@
 // app/community/_layout.tsx
-import React, { useContext, useCallback } from "react";
+import React, { useCallback } from "react";
 import { Stack, useFocusEffect } from "expo-router";
-import { useTheme, IconButton } from "react-native-paper";
+import { useTheme } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
-import { ThemeContext } from "../config/ThemeContext";
-import { TouchableOpacity, View, Dimensions, Text } from "react-native";
+import {
+  TouchableOpacity,
+  View,
+  Dimensions,
+  Text,
+  Pressable,
+} from "react-native";
 import { useRouter } from "expo-router";
-import { useCommunityStore } from "../store/communityStore";
+import { useCommunityStore, IncomingRequest } from "../store/communityStore";
 
 export default function CommunityLayout() {
-  const { toggleTheme, isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme();
   const router = useRouter();
   const { height } = Dimensions.get("window");
@@ -18,6 +22,17 @@ export default function CommunityLayout() {
     (state) => state.listenForCommunityData
   );
   const cleanup = useCommunityStore((state) => state.cleanup);
+  const incomingRequests = useCommunityStore((state) => state.incomingRequests);
+  const acceptFriendRequest = useCommunityStore(
+    (state) => state.acceptFriendRequest
+  );
+
+  const handleAcceptAll = useCallback(async () => {
+    if (!incomingRequests || incomingRequests.length === 0) return;
+    for (const req of incomingRequests as IncomingRequest[]) {
+      await acceptFriendRequest(req);
+    }
+  }, [incomingRequests, acceptFriendRequest]);
 
   useFocusEffect(
     useCallback(() => {
@@ -38,6 +53,7 @@ export default function CommunityLayout() {
         headerTitleStyle: {
           fontSize: 19,
           fontWeight: "600",
+          fontFamily: "Figtree-Regular",
         },
         headerLeft: () => (
           <TouchableOpacity onPress={() => router.back()}>
@@ -97,6 +113,7 @@ export default function CommunityLayout() {
                     style={{
                       fontSize: 19,
                       fontWeight: "600",
+                      fontFamily: "Figtree-Regular",
                       color: theme.colors.onSurface,
                     }}
                   >
@@ -104,28 +121,32 @@ export default function CommunityLayout() {
                   </Text>
                 </View>
 
-                {/* Prawa strona - Przycisk Zmiany Motywu */}
+                {/* Prawa strona - Akceptuj wszystkie */}
                 <View style={{ flex: 1, alignItems: "flex-end" }}>
-                  <IconButton
-                    icon={() =>
-                      isDarkTheme ? (
-                        <Ionicons
-                          name="sunny"
-                          size={24}
-                          color={theme.colors.onSurface}
-                        />
-                      ) : (
-                        <Ionicons
-                          name="moon"
-                          size={24}
-                          color={theme.colors.onSurface}
-                        />
-                      )
+                  <Pressable
+                    onPress={handleAcceptAll}
+                    disabled={
+                      !incomingRequests || incomingRequests.length === 0
                     }
-                    onPress={toggleTheme}
-                    accessibilityLabel="Change Theme"
-                    style={{ margin: -10 }} // Ujemny margines, aby powiększyć obszar dotyku
-                  />
+                    style={({ pressed }) => ({
+                      opacity:
+                        !incomingRequests || incomingRequests.length === 0
+                          ? 0.4
+                          : pressed
+                            ? 0.6
+                            : 1,
+                      padding: 6,
+                      marginRight: -6,
+                    })}
+                    accessibilityRole="button"
+                    accessibilityLabel="Accept all friend requests"
+                  >
+                    <Ionicons
+                      name="checkmark-done"
+                      size={24}
+                      color={theme.colors.onSurface}
+                    />
+                  </Pressable>
                 </View>
               </View>
             );

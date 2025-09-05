@@ -47,8 +47,21 @@ const FriendRequestItem = ({
           { borderBottomColor: theme.colors.outline },
         ]}
       >
-        <Text style={{ color: theme.colors.onBackground, fontSize: 14.4 }}>
-          <Text style={{ fontWeight: "500", color: theme.colors.primary }}>
+        <Text
+          style={{
+            color: theme.colors.onBackground,
+            fontSize: 14.4,
+            fontFamily: "Figtree-Regular",
+          }}
+        >
+          <Text
+            style={{
+              fontWeight: "500",
+              color: theme.colors.primary,
+              fontFamily: "Figtree-SemiBold",
+              fontSize: 16.1,
+            }}
+          >
             {senderNickname}
           </Text>{" "}
           wants to be your friend
@@ -59,6 +72,7 @@ const FriendRequestItem = ({
             style={[
               styles.iconButton,
               { backgroundColor: theme.colors.primary },
+              { marginTop: 2 },
             ]}
           >
             <AntDesign name="check" size={16} color="#fff" />
@@ -67,7 +81,11 @@ const FriendRequestItem = ({
             onPress={() => onReject(request)}
             style={[
               styles.iconButton,
-              { backgroundColor: "rgba(116, 116, 116, 0.3)", marginLeft: 6 },
+              {
+                backgroundColor: "rgba(116, 116, 116, 0.3)",
+                marginLeft: 6,
+                marginTop: 2,
+              },
             ]}
           >
             <AntDesign name="close" size={16} color="#fff" />
@@ -95,9 +113,21 @@ const OutgoingRequestItem: React.FC<{
           { borderBottomColor: theme.colors.outline },
         ]}
       >
-        <Text style={{ color: theme.colors.onBackground }}>
+        <Text
+          style={{
+            color: theme.colors.onBackground,
+            fontFamily: "Figtree-Regular",
+            fontSize: 14.4,
+          }}
+        >
           Friend request sent to{" "}
-          <Text style={{ fontWeight: "500", color: theme.colors.primary }}>
+          <Text
+            style={{
+              fontWeight: "500",
+              color: theme.colors.primary,
+              fontFamily: "Figtree-SemiBold",
+            }}
+          >
             {receiverNickname}
           </Text>
         </Text>
@@ -221,7 +251,12 @@ export default function FriendRequestsScreen() {
         )}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={{ color: theme.colors.onBackground }}>
+            <Text
+              style={{
+                color: theme.colors.onBackground,
+                fontFamily: "Figtree-Regular",
+              }}
+            >
               No incoming friend requests.
             </Text>
           </View>
@@ -238,12 +273,12 @@ export default function FriendRequestsScreen() {
         ]}
       >
         <Text style={styles.outgoingButtonText}>Sent Requests</Text>
-        <MaterialIcons
+        {/* <MaterialIcons
           name="keyboard-arrow-up"
           size={16}
           color="#fff"
           style={{ marginLeft: 4 }}
-        />
+        /> */}
       </TouchableOpacity>
 
       {/* ✅ CAŁKOWICIE NOWA, UPROSZCZONA LOGIKA PANELU ✅ */}
@@ -285,7 +320,12 @@ export default function FriendRequestsScreen() {
           )}
           ListEmptyComponent={
             <View style={styles.emptyListContainer}>
-              <Text style={{ color: theme.colors.onBackground }}>
+              <Text
+                style={{
+                  color: theme.colors.onBackground,
+                  fontFamily: "Figtree-Regular",
+                }}
+              >
                 No sent requests.
               </Text>
             </View>
@@ -365,17 +405,18 @@ const styles = StyleSheet.create({
   },
   outgoingButtonText: {
     color: "#fff",
-    marginLeft: 6,
-    fontWeight: "bold",
-    fontSize: 13.5,
+    // marginLeft: 6,
+    // fontWeight: "bold",
+    fontSize: 13,
+    fontFamily: "DMSans-SemiBold",
   },
   outgoingPanel: {
     position: "absolute",
     bottom: 0, // Przyklejony do dołu
     left: 0,
     right: 0,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.15,
