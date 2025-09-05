@@ -2,7 +2,7 @@
 import React, { useCallback } from "react";
 import { Stack, useFocusEffect } from "expo-router";
 import { useTheme } from "react-native-paper";
-import { Ionicons } from "@expo/vector-icons";
+import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import {
   TouchableOpacity,
   View,
@@ -98,11 +98,11 @@ export default function CommunityLayout() {
                 {/* Lewa strona - Przycisk Wstecz */}
                 <View style={{ flex: 1, alignItems: "flex-start" }}>
                   <TouchableOpacity onPress={() => navigation.goBack()}>
-                    <Ionicons
-                      name="arrow-back"
-                      size={26}
+                    <MaterialIcons
+                      name="arrow-back-ios"
+                      size={21}
                       color={theme.colors.onSurface}
-                      style={{ marginLeft: -3 }}
+                      style={{ marginTop: -0.2 }}
                     />
                   </TouchableOpacity>
                 </View>
