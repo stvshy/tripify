@@ -118,6 +118,7 @@ const RankingModal = React.forwardRef<RankingModalHandles, RankingModalProps>(
                   style={({ pressed }) => ({
                     opacity: pressed ? 0.6 : 1,
                     marginRight: -5,
+                    marginTop: 4,
                   })}
                 >
                   <Ionicons
@@ -1134,9 +1135,9 @@ const modalStyles = StyleSheet.create({
     fontFamily: "PlusJakartaSans-Bold",
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 21,
     fontWeight: "600",
-    fontFamily: "PlusJakartaSans-Bold",
+    fontFamily: "Figtree-SemiBold",
   },
   modalScrollContent: {
     paddingHorizontal: 16.5,
