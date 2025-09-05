@@ -87,8 +87,9 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14.2,
     marginLeft: 4,
+    fontFamily: "Figtree-Regular",
   },
   modeToggleContainer: {
     flex: 1.1,
@@ -155,6 +156,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 14,
     fontWeight: "500",
+    fontFamily: "Figtree-Regular",
   },
   searchItem: {
     flexDirection: "row",
@@ -227,8 +229,9 @@ const FriendListItem: React.FC<FriendListItemProps> = memo(
         <Text
           style={{
             color: theme.colors.onBackground,
-            fontSize: 15,
+            fontSize: 15.2,
             marginLeft: 1.4,
+            fontFamily: "Figtree-Regular",
           }}
         >
           {item.nickname}
@@ -336,7 +339,14 @@ const SearchResultItem: React.FC<SearchResultItemProps> = memo(
           ? "rgba(171, 109, 197, 0.4)"
           : "rgba(143, 73, 179, 0.37)";
         buttonContent = (
-          <Text style={{ color: "#fff", fontSize: 14, fontWeight: "500" }}>
+          <Text
+            style={{
+              color: "#fff",
+              fontSize: 14,
+              fontWeight: "500",
+              fontFamily: "Figtree-Regular",
+            }}
+          >
             Friend
           </Text>
         );
@@ -376,7 +386,13 @@ const SearchResultItem: React.FC<SearchResultItemProps> = memo(
         style={[styles.searchItem, { borderBottomColor: theme.colors.outline }]}
         activeOpacity={0.8} // Dajmy jakiś feedback dla całego wiersza
       >
-        <Text style={{ color: theme.colors.onBackground, fontSize: 15 }}>
+        <Text
+          style={{
+            color: theme.colors.onBackground,
+            fontSize: 15.8,
+            fontFamily: "Figtree-Regular",
+          }}
+        >
           {item.nickname}
         </Text>
         {renderButton()}
@@ -636,7 +652,12 @@ export default function CommunityScreen() {
                 >
                   {friends.length === 0 && !searchText ? (
                     <View style={styles.empty}>
-                      <Text style={{ color: theme.colors.onBackground }}>
+                      <Text
+                        style={{
+                          color: theme.colors.onBackground,
+                          fontFamily: "Figtree-Regular",
+                        }}
+                      >
                         You have no friends yet.
                       </Text>
                     </View>
@@ -702,13 +723,23 @@ export default function CommunityScreen() {
                     />
                   ) : searchAttempted && searchText.trim().length >= 3 ? (
                     <View style={styles.noResults}>
-                      <Text style={{ color: theme.colors.onBackground }}>
+                      <Text
+                        style={{
+                          color: theme.colors.onBackground,
+                          fontFamily: "Figtree-Regular",
+                        }}
+                      >
                         No users found with this nickname.
                       </Text>
                     </View>
                   ) : (
                     <View style={styles.empty}>
-                      <Text style={{ color: theme.colors.onBackground }}>
+                      <Text
+                        style={{
+                          color: theme.colors.onBackground,
+                          fontFamily: "Figtree-Regular",
+                        }}
+                      >
                         Enter at least 3 characters to search for users.
                       </Text>
                     </View>
