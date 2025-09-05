@@ -255,6 +255,7 @@ export default function FriendRequestsScreen() {
               style={{
                 color: theme.colors.onBackground,
                 fontFamily: "Figtree-Regular",
+                fontSize: 15,
               }}
             >
               No incoming friend requests.

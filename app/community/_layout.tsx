@@ -97,7 +97,11 @@ export default function CommunityLayout() {
               >
                 {/* Lewa strona - Przycisk Wstecz */}
                 <View style={{ flex: 1, alignItems: "flex-start" }}>
-                  <TouchableOpacity onPress={() => navigation.goBack()}>
+                  <TouchableOpacity
+                    onPress={() => navigation.goBack()}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    style={{ padding: 8, marginLeft: -6 }}
+                  >
                     <MaterialIcons
                       name="arrow-back-ios"
                       size={21}
@@ -111,7 +115,7 @@ export default function CommunityLayout() {
                 <View style={{ flex: 3, alignItems: "center" }}>
                   <Text
                     style={{
-                      fontSize: 19,
+                      fontSize: 18.5,
                       fontWeight: "600",
                       fontFamily: "Figtree-Regular",
                       color: theme.colors.onSurface,
