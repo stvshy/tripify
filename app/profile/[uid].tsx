@@ -220,7 +220,7 @@ const UserInfoPanel = React.memo(
       <View style={profileStyles.userPanel}>
         <Ionicons
           name="person-circle"
-          size={100}
+          size={103}
           color={theme.colors.primary}
         />
         <Text style={[profileStyles.userName, { color: theme.colors.primary }]}>
@@ -957,11 +957,11 @@ const profileStyles = StyleSheet.create({
     marginBottom: 25,
   },
   userName: {
-    marginTop: -7.2,
-    marginBottom: 4.5,
+    marginTop: -6.6,
+    marginBottom: 4.2,
     fontSize: 17.5,
     fontWeight: "500",
-    fontFamily: "PlusJakartaSans-Bold",
+    fontFamily: "Figtree-SemiBold",
   },
   friendActionButtons: {
     flexDirection: "row",
