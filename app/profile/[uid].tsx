@@ -33,9 +33,6 @@ import { MotiView, AnimatePresence } from "moti";
 import ShineMask from "@/components/ShineMask";
 import CountryFlag from "react-native-country-flag";
 import { useCountryStore } from "../store/countryStore";
-import { useCountries } from "../config/CountryContext";
-import { storage } from "../config/storage";
-import { useAuthStore } from "../store/authStore";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import VisitedCountriesSkeleton from "@/components/VisitedCountriesSkeleton";
 import ConfirmationModal from "../../components/ConfirmationModal";
@@ -321,8 +318,6 @@ type ListItem =
     };
 
 export default function ProfileScreen() {
-  const { visitedCountries } = useCountries();
-  const storeProfile = useAuthStore((s) => s.userProfile);
   useFocusEffect(
     useCallback(() => {
       // Pobieramy funkcje ze store'u wewnątrz callbacka
@@ -355,7 +350,7 @@ export default function ProfileScreen() {
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
   const [screenPhase, setScreenPhase] = useState<
     "loading" | "presenting" | "error"
-  >("presenting");
+  >("loading");
   // const [isRankingModalVisible, setIsRankingModalVisible] = useState(false);
   // const [canRenderModalContent, setCanRenderModalContent] = useState(false);
   const [listData, setListData] = useState<ListItem[]>([]);
@@ -417,122 +412,42 @@ export default function ProfileScreen() {
   // --- WSTAW TĘ WERSJĘ ---
   // app/profile/[uid].tsx
 
-  // Hydrate immediately from local cache/context for own profile; refresh from Firestore in background
+  // --- WSTAW TĘ NOWĄ, POPRAWIONĄ WERSJĘ useEffect ---
   useEffect(() => {
     if (!profileUid) {
       setScreenPhase("error");
       return;
     }
 
-    const currentCountriesMap = useCountryStore.getState().countriesMap;
-    const currentUser = auth.currentUser;
-    const isOwnProfile = currentUser?.uid === profileUid;
+    // Funkcja do pobrania i przetworzenia danych
+    const fetchAndProcessProfile = async () => {
+      // Krok 1: Resetuj stany przed nowym pobraniem
+      setScreenPhase("loading");
+      setIsListProcessing(true); // Loader dla listy krajów jest włączony
+      setRawUserProfile(null);
+      setListData([]);
+      setRankingSlots([]);
+      setVisitedCount(0);
 
-    // 1) Immediate seed for own profile
-    if (isOwnProfile) {
-      const nickname =
-        storeProfile?.nickname ||
-        storage.getString(`user:${profileUid}:nickname`) ||
-        "";
-      const cachedRankingRaw = storage.getString(`user:${profileUid}:ranking`);
-      const rankingArr: string[] = cachedRankingRaw
-        ? (() => {
-            try {
-              return JSON.parse(cachedRankingRaw) as string[];
-            } catch {
-              return [];
-            }
-          })()
-        : [];
-      const visitedCodes = visitedCountries || [];
-
-      const seededProfile: UserProfile = {
-        uid: profileUid,
-        nickname: nickname || "",
-        ranking: rankingArr,
-        countriesVisited: visitedCodes,
-      };
-      setRawUserProfile(seededProfile);
-
-      if (currentCountriesMap) {
-        // Seed ranking slots immediately
-        const seededRankingSlots: RankingSlot[] = rankingArr
-          .filter((code) => visitedCodes.includes(code))
-          .map((cca2, idx) => ({
-            id: generateUniqueId(),
-            rank: idx + 1,
-            country: currentCountriesMap.get(cca2) || null,
-          }));
-        setRankingSlots(seededRankingSlots);
-
-        // Seed visited list
-        const newCountriesVisited = Array.from(new Set(visitedCodes))
-          .map((code) => currentCountriesMap.get(code))
-          .filter((c): c is Country => c !== undefined);
-
-        const groupedByContinent = newCountriesVisited.reduce(
-          (acc, country) => {
-            const continent = country.continent || "Other";
-            if (!acc[continent]) acc[continent] = [];
-            acc[continent].push(country);
-            return acc;
-          },
-          {} as Record<string, Country[]>
-        );
-
-        let cumulativePillCount = 0;
-        const finalData: ListItem[] = [];
-        Object.entries(groupedByContinent)
-          .sort(([a], [b]) => a.localeCompare(b))
-          .forEach(([continent, countriesInContinent]) => {
-            finalData.push({
-              type: "header",
-              id: continent,
-              continent,
-              count: countriesInContinent.length,
-            });
-            finalData.push({
-              type: "countries_row",
-              id: `${continent}-row`,
-              countries: countriesInContinent,
-              startingPillIndex: cumulativePillCount,
-            });
-            cumulativePillCount += countriesInContinent.length;
-          });
-
-        setVisitedCount(newCountriesVisited.length);
-        setListData(finalData);
-        setIsListProcessing(false);
-        setScreenPhase("presenting");
-      } else {
-        // Countries map not yet initialized; still show header and ranking if any
-        setScreenPhase("presenting");
-      }
-    }
-
-    // 2) Background refresh from Firestore (works for any profile)
-    const refresh = async () => {
       try {
         const userRef = doc(db, "users", profileUid);
         const snap = await getDoc(userRef);
-        const countriesMap = useCountryStore.getState().countriesMap;
-        if (!snap.exists() || !countriesMap) return;
+
+        const currentCountriesMap = useCountryStore.getState().countriesMap;
+
+        if (!snap.exists() || !currentCountriesMap) {
+          setScreenPhase("error");
+          setIsListProcessing(false);
+          return;
+        }
 
         const data = snap.data() as UserProfile;
         setRawUserProfile(data);
 
-        // Persist nickname and ranking for own profile
-        if (isOwnProfile) {
-          if (data.nickname)
-            storage.set(`user:${profileUid}:nickname`, data.nickname);
-          try {
-            storage.set(
-              `user:${profileUid}:ranking`,
-              JSON.stringify(data.ranking || [])
-            );
-          } catch {}
-        }
-
+        // ==========================================================
+        // ETAP 1: Błyskawiczne przetwarzanie lekkich danych (ranking)
+        // Robimy to NATYCHMIAST, bez setTimeout.
+        // ==========================================================
         const rankingRaw = data.ranking || [];
         const visitedForRanking = data.countriesVisited || [];
         const newRankingSlots = rankingRaw
@@ -540,14 +455,20 @@ export default function ProfileScreen() {
           .map((cca2, idx) => ({
             id: generateUniqueId(),
             rank: idx + 1,
-            country: countriesMap.get(cca2) || null,
+            country: currentCountriesMap.get(cca2) || null,
           }));
-        setRankingSlots(newRankingSlots);
 
+        setRankingSlots(newRankingSlots); // Ustaw dane rankingu od razu
+        setScreenPhase("presenting"); // Pokaż ekran z już załadowanym rankingiem
+
+        // ==========================================================
+        // ETAP 2: Odroczone przetwarzanie ciężkich danych (lista krajów)
+        // Używamy setTimeout, aby dać UI czas na oddech.
+        // ==========================================================
         setTimeout(() => {
           const visitedCodesRaw = data.countriesVisited || [];
           const newCountriesVisited = Array.from(new Set(visitedCodesRaw))
-            .map((code) => countriesMap.get(code))
+            .map((code) => currentCountriesMap.get(code))
             .filter((c): c is Country => c !== undefined);
 
           const groupedByContinent = newCountriesVisited.reduce(
@@ -582,17 +503,20 @@ export default function ProfileScreen() {
 
           setVisitedCount(newCountriesVisited.length);
           setListData(finalData);
-          setIsListProcessing(false);
-          setScreenPhase("presenting");
-        }, 100);
+          setIsListProcessing(false); // Wyłącz loader dla listy krajów
+        }, 150); // Minimalne opóźnienie (150ms) dla płynności
       } catch (error) {
-        console.error("Error refreshing profile data:", error);
+        console.error("Error fetching profile data:", error);
+        setScreenPhase("error");
+        setIsListProcessing(false);
       }
     };
 
-    refresh();
+    fetchAndProcessProfile();
+
+    // Ponieważ nie ma subskrypcji, funkcja czyszcząca jest pusta
     return () => {};
-  }, [profileUid, visitedCountries, storeProfile?.nickname]);
+  }, [profileUid]); // Efekt uruchamia się tylko, gdy zmieni się UID profilu
   // --- Handlers (POPRAWIONE) ---
   // const handleAdd = () => {
   //   if (rawUserProfile) {
