@@ -658,10 +658,21 @@ export default function ProfileScreen() {
         case "header":
           const headerText = (
             <Text style={profileStyles.continentTitle}>
-              <Text style={{ color: isDarkTheme ? "#e6b3ff" : "#a821b5" }}>
+              <Text
+                style={[
+                  profileStyles.continentTitle,
+                  { color: isDarkTheme ? "#e6b3ff" : "#a821b5" },
+                ]}
+              >
                 {item.continent}
               </Text>
-              <Text style={{ color: "gray", fontSize: 14, fontWeight: "400" }}>
+              <Text
+                style={{
+                  color: "gray",
+                  fontSize: 14,
+                  fontFamily: "Figtree-Regular",
+                }}
+              >
                 {" "}
                 ({item.count})
               </Text>
@@ -848,6 +859,7 @@ export default function ProfileScreen() {
               style={{
                 color: theme.colors.onBackground,
                 marginTop: 8, // Drobny margines, aby oddzielić od nagłówka, tak jak w liście
+                fontFamily: "Figtree-Regular",
               }}
             >
               No countries visited yet.
@@ -924,13 +936,16 @@ const profileStyles = StyleSheet.create({
   continentTitle: {
     fontSize: 15,
     fontWeight: "500",
-    marginBottom: 8,
+    marginBottom: 5,
     marginLeft: 4,
     // color: "pink",
+    fontFamily: "PlusJakartaSans-Bold",
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: "600",
+    fontFamily: "Figtree-Medium",
+    marginLeft: 2,
   },
   visitedListContainer: {
     flexDirection: "row",
@@ -943,10 +958,11 @@ const profileStyles = StyleSheet.create({
     marginBottom: 25,
   },
   userName: {
-    marginTop: -2,
-    marginBottom: 7,
+    marginTop: -4,
+    marginBottom: 6.3,
     fontSize: 18,
     fontWeight: "500",
+    fontFamily: "PlusJakartaSans-Bold",
   },
   friendActionButtons: {
     flexDirection: "row",
@@ -976,6 +992,7 @@ const profileStyles = StyleSheet.create({
   buttonText: {
     color: "#fff",
     fontWeight: "600",
+    fontFamily: "Inter-SemiBold",
   },
   addFriendButton: {
     marginTop: 5,
@@ -996,9 +1013,10 @@ const profileStyles = StyleSheet.create({
     color: "#fff",
     fontWeight: "600",
     fontSize: 14,
+    fontFamily: "Inter-SemiBold",
   },
   rankingContainer: {
-    marginBottom: 25,
+    marginBottom: 12,
   },
   rankingHeader: {
     flexDirection: "row",
@@ -1006,15 +1024,17 @@ const profileStyles = StyleSheet.create({
     alignItems: "center",
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "600",
     marginBottom: 10,
     marginLeft: 2,
+    fontFamily: "PlusJakartaSans-Bold",
   },
   showAllRankingButton: {
-    fontSize: 14,
+    fontSize: 14.5,
     textDecorationLine: "none",
-    marginBottom: 6,
+    marginBottom: 4.5,
+    fontFamily: "Figtree-SemiBold",
   },
   rankingItemContainer: {
     flexDirection: "row",
@@ -1035,19 +1055,20 @@ const profileStyles = StyleSheet.create({
     fontSize: 14,
   },
   visitedContainer: {
-    marginBottom: 20,
+    marginBottom: 10,
   },
   visitedHeader: {
     flexDirection: "row",
     // justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: -9,
+    marginBottom: -11,
   },
   visitedCount: {
     fontSize: 14.5,
     color: "gray",
     marginLeft: -4,
-    // marginBottom: 10,
+    marginBottom: -7,
+    fontFamily: "Figtree-Regular",
   },
   visitedList: {
     // flexDirection: "row",
@@ -1076,6 +1097,7 @@ const profileStyles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     marginLeft: 1,
+    fontFamily: "Figtree-Medium",
   },
   flag: {
     width: 20,
@@ -1109,10 +1131,12 @@ const modalStyles = StyleSheet.create({
     paddingTop: 16, // Zmniejszony odstęp na górze (dostosuj wg uznania)
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "rgba(0,0,0,0.1)",
+    fontFamily: "PlusJakartaSans-Bold",
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: "600",
+    fontFamily: "PlusJakartaSans-Bold",
   },
   modalScrollContent: {
     paddingHorizontal: 16.5,
