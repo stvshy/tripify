@@ -84,8 +84,8 @@ export default function CommunityLayout() {
               <View
                 style={{
                   backgroundColor: theme.colors.surface,
-                  paddingTop: height * 0.05, // <-- Twój upragniony padding
-                  paddingBottom: 12,
+                  paddingTop: height * 0.046, // <-- Twój upragniony padding
+                  paddingBottom: 10,
                   paddingHorizontal: 16,
                   flexDirection: "row",
                   alignItems: "center",
