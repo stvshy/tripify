@@ -448,26 +448,42 @@ export default function NotesScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        {/* Header */}
-        <View style={[styles.header, { paddingTop: height * 0.018 }]}>
+        {/* Header aligned with Friend Requests style */}
+        <View
+          style={[
+            styles.header,
+            {
+              paddingTop: height * 0.0238,
+              paddingBottom: 10,
+              marginHorizontal: -4.5,
+            },
+          ]}
+        >
           <TouchableOpacity
             onPress={() => router.back()}
-            style={[styles.headerButton, { marginLeft: -19 }]}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={{ padding: 8, marginLeft: -10 }}
           >
-            <Ionicons
-              name="arrow-back"
-              size={26}
+            <MaterialIcons
+              name="arrow-back-ios"
+              size={21}
               color={theme.colors.onBackground}
+              style={{ marginTop: -0.2 }}
             />
           </TouchableOpacity>
           <Text
-            style={[styles.headerTitle, { color: theme.colors.onBackground }]}
+            style={{
+              fontSize: 19.5,
+              fontWeight: "600",
+              fontFamily: "Figtree-Regular",
+              color: theme.colors.onBackground,
+            }}
           >
             Notes
           </Text>
           <TouchableOpacity
             onPress={handleToggleTheme}
-            style={[styles.headerButton, { marginRight: -16 }]}
+            style={{ padding: 6, marginRight: -10 }}
           >
             <Ionicons
               name={isDarkTheme ? "sunny" : "moon"}

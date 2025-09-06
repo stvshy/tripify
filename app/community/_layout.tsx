@@ -87,9 +87,9 @@ export default function CommunityLayout() {
               <View
                 style={{
                   backgroundColor: theme.colors.surface,
-                  paddingTop: height * 0.046, // <-- Twój upragniony padding
+                  paddingTop: height * 0.045,
                   paddingBottom: 10,
-                  paddingHorizontal: 16,
+                  paddingHorizontal: 21,
                   flexDirection: "row",
                   alignItems: "center",
                   justifyContent: "space-between",
@@ -100,7 +100,7 @@ export default function CommunityLayout() {
                   <TouchableOpacity
                     onPress={() => navigation.goBack()}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    style={{ padding: 8, marginLeft: -6 }}
+                    style={{ padding: 8, marginLeft: -10 }}
                   >
                     <MaterialIcons
                       name="arrow-back-ios"
@@ -140,14 +140,14 @@ export default function CommunityLayout() {
                             ? 0.6
                             : 1,
                       padding: 6,
-                      marginRight: -6,
+                      marginRight: -10,
                     })}
                     accessibilityRole="button"
                     accessibilityLabel="Accept all friend requests"
                   >
                     <Ionicons
                       name="checkmark-done"
-                      size={24}
+                      size={24.5}
                       color={theme.colors.onSurface}
                     />
                   </Pressable>

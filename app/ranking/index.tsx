@@ -25,7 +25,7 @@ import { ThemeContext } from "../config/ThemeContext";
 import { useTheme } from "react-native-paper";
 import { getDoc, doc, updateDoc, onSnapshot } from "firebase/firestore";
 import { db, auth } from "../config/firebaseConfig";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import countriesData from "../../assets/maps/countries.json";
 import CountryFlag from "react-native-country-flag";
 import DraggableFlatList, {
@@ -335,26 +335,42 @@ export default function RankingScreen() {
     <View
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      {/* Nagłówek z przyciskiem powrotu i przełącznikiem motywu */}
-      <View style={[styles.header, { paddingTop: height * 0.018 }]}>
+      {/* Header aligned with Friend Requests style */}
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop: height * 0.0238,
+            paddingBottom: 10,
+            marginHorizontal: -4.5,
+          },
+        ]}
+      >
         <TouchableOpacity
           onPress={handleGoBack}
-          style={[styles.headerButton, { marginLeft: -19 }]}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          style={{ padding: 8, marginLeft: -10 }}
         >
-          <Ionicons
-            name="arrow-back"
-            size={26}
+          <MaterialIcons
+            name="arrow-back-ios"
+            size={21}
             color={theme.colors.onBackground}
+            style={{ marginTop: -0.2 }}
           />
         </TouchableOpacity>
         <Text
-          style={[styles.headerTitle, { color: theme.colors.onBackground }]}
+          style={{
+            fontSize: 19.5,
+            fontWeight: "600",
+            fontFamily: "Figtree-Regular",
+            color: theme.colors.onBackground,
+          }}
         >
           Rank Countries
         </Text>
         <TouchableOpacity
           onPress={toggleTheme}
-          style={[styles.headerButton, { marginRight: -16 }]}
+          style={{ padding: 6, marginRight: -10 }}
         >
           <Ionicons
             name={isDarkTheme ? "sunny" : "moon"}
