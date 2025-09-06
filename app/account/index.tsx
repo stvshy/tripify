@@ -29,6 +29,12 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../config/firebaseConfig";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import RightSlideMenu, {
+  RightSlideMenuHandles,
+  RightSlideMenuItem,
+} from "../../components/RightSlideMenu";
+import ConfirmationModal from "../../components/ConfirmationModal";
+import { Linking } from "react-native";
 import countriesData from "../../assets/maps/countries.json";
 import CountryFlag from "react-native-country-flag";
 import RankingItem from "../../components/RankItem";
@@ -61,11 +67,13 @@ const generateUniqueId = () =>
   `rank-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 export default function AccountScreen() {
-  const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
+  const { isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme();
   const router = useRouter();
   const authUser = auth.currentUser;
   const storeUserProfile = useAuthStore((s) => s.userProfile);
+  const menuRef = React.useRef<RightSlideMenuHandles>(null);
+  const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
 
   // Helpers for MMKV cache keys
   const cacheKeys = useMemo(() => {
@@ -111,7 +119,6 @@ export default function AccountScreen() {
   }, []);
 
   const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>(() => {
-    // Seed ranking from cache synchronously
     const uid = auth.currentUser?.uid;
     if (!uid) return [];
     const raw = storage.getString(`user:${uid}:ranking`);
@@ -126,6 +133,7 @@ export default function AccountScreen() {
       return [];
     }
   });
+
   const [notes, setNotes] = useState<Note[]>(() => {
     const uid = auth.currentUser?.uid;
     if (!uid) return [];
@@ -138,6 +146,22 @@ export default function AccountScreen() {
       return [];
     }
   });
+
+  const openMailTo = useCallback(
+    (subject: string) => {
+      const nickname =
+        userName ||
+        useAuthStore.getState().userProfile?.nickname ||
+        auth.currentUser?.uid ||
+        "unknown";
+      const mailto = `mailto:tripify.travelapp@gmail.com?subject=${encodeURIComponent(subject.replace("{nickname}", String(nickname)))}`;
+      Linking.openURL(mailto).catch(() => {
+        Alert.alert("Error", "Could not open the mail app.");
+      });
+    },
+    [userName]
+  );
+
   const { width, height } = Dimensions.get("window");
   const [isNotePreviewVisible, setIsNotePreviewVisible] =
     useState<boolean>(false);
@@ -284,6 +308,81 @@ export default function AccountScreen() {
     }
   };
 
+  // Account deletion flow
+  const triggerDeleteFlow = useCallback(() => {
+    setConfirmDeleteVisible(true);
+  }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    setConfirmDeleteVisible(false);
+    const user = auth.currentUser;
+    if (!user) {
+      Alert.alert("Not signed in", "Please sign in again and retry.");
+      return;
+    }
+    try {
+      // Note: Firestore user doc cleanup could be added here if desired
+      await user.delete();
+      Alert.alert("Account deleted", "Your account has been removed.");
+      router.replace("/welcome");
+    } catch (err: any) {
+      // Common case: requires recent login
+      if (err?.code === "auth/requires-recent-login") {
+        Alert.alert(
+          "Reauthentication required",
+          "For security, please sign in again and then delete your account."
+        );
+      } else {
+        console.error("Delete account error:", err);
+        Alert.alert("Error", "Could not delete the account. Please try again.");
+      }
+    }
+  }, [router]);
+
+  const menuItems = React.useMemo<RightSlideMenuItem[]>(
+    () => [
+      {
+        key: "delete-account",
+        label: "Delete your account",
+        danger: true,
+        icon: (
+          <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
+        ),
+        onPress: triggerDeleteFlow,
+      },
+      {
+        key: "report-bug",
+        label: "Report a bug",
+        icon: (
+          <Ionicons
+            name="bug-outline"
+            size={20}
+            color={theme.colors.onBackground}
+          />
+        ),
+        onPress: () => openMailTo("Bug report from {nickname}"),
+      },
+      {
+        key: "contact-us",
+        label: "Contact us",
+        icon: (
+          <Ionicons
+            name="mail-outline"
+            size={20}
+            color={theme.colors.onBackground}
+          />
+        ),
+        onPress: () => openMailTo("Contact from {nickname}"),
+      },
+    ],
+    [
+      theme.colors.error,
+      theme.colors.onBackground,
+      triggerDeleteFlow,
+      openMailTo,
+    ]
+  );
+
   return (
     <View
       style={[styles.container, { backgroundColor: theme.colors.background }]}
@@ -329,12 +428,13 @@ export default function AccountScreen() {
                 Account
               </Text>
               <TouchableOpacity
-                onPress={toggleTheme}
-                style={{ padding: 6, marginRight: -10 }}
+                onPress={() => menuRef.current?.toggle()}
+                style={{ padding: 8, marginRight: -10 }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <Ionicons
-                  name={isDarkTheme ? "sunny" : "moon"}
-                  size={24}
+                  name="ellipsis-vertical"
+                  size={21}
                   color={theme.colors.onBackground}
                 />
               </TouchableOpacity>
@@ -631,6 +731,18 @@ export default function AccountScreen() {
           </View>
         </View>
       </Modal>
+      {/* Right slide-out menu */}
+      <RightSlideMenu ref={menuRef} items={menuItems} />
+      {/* Confirm delete dialog */}
+      <ConfirmationModal
+        visible={confirmDeleteVisible}
+        title="Delete account"
+        message="This action is permanent and will remove your account. Continue?"
+        onCancel={() => setConfirmDeleteVisible(false)}
+        onConfirm={handleConfirmDelete}
+        confirmText="Delete"
+        isDestructive
+      />
     </View>
   );
 }
