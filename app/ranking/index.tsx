@@ -69,6 +69,9 @@ export default function RankingScreen() {
   ); // Nowy stan
 
   const { width, height } = Dimensions.get("window");
+  // Colors for cohesive ranking container & dividers
+  const outerBorderColor = isDarkTheme ? "#262626" : "#E0E0E0";
+  const dividerColor = isDarkTheme ? "#333333" : "#F0F0F0";
 
   const mappedCountries: Country[] = useMemo(() => {
     return countriesData.countries.map((country) => ({
@@ -217,12 +220,8 @@ export default function RankingScreen() {
               isActive || activeRankingItemId === item.id
                 ? isDarkTheme
                   ? "#333333"
-                  : "#e3e3e3"
+                  : "#e9e9e9"
                 : theme.colors.surface,
-            paddingVertical: height * 0.011,
-            paddingHorizontal: width * 0.04,
-            marginBottom: 7, // Zmniejszenie marginesu dolnego
-            borderRadius: 15, // Zwiększone zaokrąglenie
           },
         ]}
         onLongPress={() => setActiveRankingItemId(item.id)}
@@ -243,15 +242,14 @@ export default function RankingScreen() {
             <View style={styles.countryInfoContainer}>
               <CountryFlag
                 isoCode={item.country.cca2}
-                size={20}
+                size={22}
                 style={styles.flag}
               />
               <Text
-                style={{
-                  color: theme.colors.onSurface,
-                  marginLeft: 6,
-                  fontSize: 14,
-                }}
+                style={[
+                  styles.countryNameText,
+                  { color: theme.colors.onSurface, marginLeft: 8 },
+                ]}
               >
                 {item.country.name}
               </Text>
@@ -289,6 +287,7 @@ export default function RankingScreen() {
           </Animated.View>
           <TouchableOpacity
             style={styles.dragHandle}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             onPressIn={() => {
               setActiveRankingItemId(null); // Resetowanie aktywnego elementu podczas przeciągania
               drag();
@@ -382,7 +381,7 @@ export default function RankingScreen() {
 
       {/* Visited Countries */}
       {countriesVisited.length > 0 && (
-        <View style={[styles.visitedContainer, { marginTop: height * 0.03 }]}>
+        <View style={[styles.visitedContainer, { marginTop: 5 }]}>
           <Text
             style={[
               styles.sectionTitle,
@@ -407,13 +406,16 @@ export default function RankingScreen() {
                 style={[
                   styles.visitedItemContainer,
                   {
-                    backgroundColor: isDarkTheme ? "#171717" : "#fff",
+                    backgroundColor: isDarkTheme
+                      ? "#171717"
+                      : theme.colors.surface,
+                    borderColor: isDarkTheme ? "#1f1f1f" : "#e0e0e0",
                   },
                 ]}
               >
                 <CountryFlag
                   isoCode={item.cca2}
-                  size={20}
+                  size={24}
                   style={styles.flag}
                 />
                 <Text
@@ -445,7 +447,7 @@ export default function RankingScreen() {
           styles.rankingContainer,
           {
             marginTop:
-              countriesVisited.length > 0 ? height * 0.024 : height * 0.02,
+              countriesVisited.length > 0 ? height * 0.012 : height * 0.012,
             flex: 1,
           },
         ]}
@@ -455,16 +457,28 @@ export default function RankingScreen() {
         >
           Ranking
         </Text>
-        <DraggableFlatList
-          data={rankingSlots}
-          keyExtractor={(item) => item.id}
-          renderItem={renderRankingItem}
-          onDragEnd={handleDragEnd}
-          activationDistance={20}
-          scrollEnabled={true}
-          showsVerticalScrollIndicator={true}
-          contentContainerStyle={{ paddingBottom: 5 }}
-        />
+        <View
+          style={[
+            styles.rankingListWrapper,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: outerBorderColor,
+            },
+          ]}
+        >
+          <DraggableFlatList
+            data={rankingSlots}
+            keyExtractor={(item) => item.id}
+            renderItem={renderRankingItem}
+            onDragEnd={handleDragEnd}
+            activationDistance={20}
+            scrollEnabled={true}
+            showsVerticalScrollIndicator={true}
+            ItemSeparatorComponent={() => (
+              <View style={{ height: 1, backgroundColor: dividerColor }} />
+            )}
+          />
+        </View>
       </View>
     </View>
   );
@@ -491,8 +505,9 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 17.2, // Zwiększenie rozmiaru fontu
-    marginBottom: 13, // Zwiększenie marginesu
-    fontWeight: "600",
+    marginBottom: 10, // Zwiększenie marginesu
+    // fontWeight: "600",
+    fontFamily: "PlusJakartaSans-Bold",
     marginLeft: 1,
   },
   visitedContainer: {
@@ -510,20 +525,19 @@ const styles = StyleSheet.create({
   visitedItemContainer: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12, // Zwiększenie poziomego paddingu
-    paddingVertical: 8, // Zwiększenie pionowego paddingu
-    marginLeft: 6,
-    marginRight: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginLeft: 4,
+    marginRight: 4,
     borderRadius: 8, // Zwiększenie promienia
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    borderWidth: 1,
+    // Switch to border styling to match app style; avoid heavy shadows
+    elevation: 0,
   },
   visitedItemText: {
     fontSize: 14, // Zwiększenie rozmiaru fontu
-    fontWeight: "600",
+    // fontWeight: "600",
+    fontFamily: "Figtree-SemiBold",
   },
   addButtonIcon: {
     marginLeft: 10, // Zwiększenie marginesu
@@ -533,21 +547,24 @@ const styles = StyleSheet.create({
     marginBottom: -13, // Zachowany margines dolny
     flex: 1, // Pozwól na rozciąganie
   },
+  rankingListWrapper: {
+    borderWidth: 1,
+    borderRadius: 10,
+    overflow: "hidden",
+    marginBottom: 10,
+  },
   rankingSlot: {
     flexDirection: "row", // Ustawienie elementów w wierszu
     alignItems: "center",
-    paddingVertical: 12, // Zwiększenie pionowego paddingu
-    paddingHorizontal: 16, // Zwiększenie poziomego paddingu
-    marginBottom: 7, // Zmniejszenie marginesu dolnego
-    borderRadius: 15, // Zwiększone zaokrąglenie
-    borderWidth: 1,
+    paddingVertical: 3,
+    paddingHorizontal: 12,
+    marginBottom: 0,
+    borderRadius: 0,
+    borderWidth: 0,
     justifyContent: "space-between", // Rozłożenie przestrzeni między elementami
     backgroundColor: "#fff",
-    elevation: 3, // Zwiększenie wysokości cienia
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
+    // Remove heavy shadows; use borders for consistency
+    elevation: 0,
     maxWidth: "100%", // Opcjonalnie: Ustawienie maksymalnej szerokości
   },
   slotContent: {
@@ -556,9 +573,10 @@ const styles = StyleSheet.create({
     flex: 1, // Pozwól na rozciąganie
   },
   rankNumber: {
-    fontSize: 20, // Zwiększenie rozmiaru fontu
+    fontSize: 15.5,
     marginRight: 12, // Zwiększenie marginesu
-    fontWeight: "bold",
+    // fontWeight: "bold",
+    fontFamily: "Figtree-SemiBold",
   },
   countryInfoContainer: {
     flexDirection: "row",
@@ -566,9 +584,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   flag: {
-    width: 20, // Zwiększenie rozmiaru flagi
-    height: 15,
+    width: 22,
+    height: 16,
     borderRadius: 2,
+  },
+  countryNameText: {
+    fontFamily: "Figtree-SemiBold",
+    fontSize: 15.5,
   },
   actionContainer: {
     flexDirection: "row",
@@ -578,7 +600,7 @@ const styles = StyleSheet.create({
     marginRight: 8, // Zwiększenie marginesu po prawej stronie
   },
   dragHandle: {
-    padding: 4, // Zmniejszenie paddingu
+    padding: 10, // Większy obszar dotyku
     marginLeft: 4, // Zmniejszenie marginesu
   },
 });
