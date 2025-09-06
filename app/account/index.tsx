@@ -868,14 +868,15 @@ const styles = StyleSheet.create({
   noteHeader: {
     flexDirection: "row",
     alignItems: "flex-start", // Align items to the top
-    marginBottom: 8,
+    marginBottom: 10,
+    marginTop: -2,
   },
   noteFlag: {
     marginRight: 8,
     borderRadius: 4,
     width: 25,
     height: 15,
-    marginTop: 3, // Adjust to align with multi-line text
+    marginTop: 0, // Adjust to align with multi-line text
   },
   noteCountryName: {
     fontSize: 15,
@@ -884,6 +885,7 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     maxWidth: "90%",
     fontFamily: "Figtree-SemiBold",
+    marginTop: -1.2, // Slightly adjust to align with flag
   },
   noteText: {
     fontSize: 14,
