@@ -347,9 +347,7 @@ export default function AccountScreen() {
                 size={100}
                 color={theme.colors.primary}
               />
-              <Text
-                style={[styles.userName, { color: theme.colors.onBackground }]}
-              >
+              <Text style={[styles.userName, { color: theme.colors.primary }]}>
                 {userName}
               </Text>
               <Text style={[styles.userEmail, { color: "gray" }]}>
@@ -387,7 +385,7 @@ export default function AccountScreen() {
                   name="chevron-forward"
                   size={15}
                   color={theme.colors.primary}
-                  style={{ marginRight: -11 }}
+                  style={{ marginRight: -11, marginBottom: -7 }}
                 />
               </TouchableOpacity>
             </View>
@@ -460,7 +458,7 @@ export default function AccountScreen() {
                   name="chevron-forward"
                   size={15}
                   color={theme.colors.primary}
-                  style={{ marginRight: -11 }}
+                  style={{ marginRight: -11, marginBottom: -7 }}
                 />
               </TouchableOpacity>
             </View>
@@ -663,10 +661,10 @@ const styles = StyleSheet.create({
   userPanel: {
     alignItems: "center",
     marginBottom: 30,
-    marginTop: 10,
+    marginTop: 0,
   },
   userName: {
-    marginTop: 3,
+    marginTop: -7,
     fontSize: 20,
     fontWeight: "600",
     fontFamily: "Figtree-SemiBold",
@@ -698,9 +696,10 @@ const styles = StyleSheet.create({
   },
   editButtonText: {
     // color: "#6200ee",
-    fontSize: 14,
+    fontSize: 14.2,
     marginRight: 4,
     fontFamily: "Figtree-Regular",
+    marginBottom: -4.5,
   },
   horizontalRankingContainer: {
     marginBottom: 20,
