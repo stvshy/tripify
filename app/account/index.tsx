@@ -298,6 +298,38 @@ export default function AccountScreen() {
     setSelectedNote(note);
     setIsNotePreviewVisible(true);
   };
+
+  // Render note text with clickable links and selectable text in preview
+  const renderNoteText = useCallback(
+    (text: string) => {
+      // Basic URL regex (http/https)
+      const urlRegex =
+        /(https?:\/\/[\w.-]+(?:\/[\w\-._~:/?#[\]@!$&'()*+,;=%]*)?)/gi;
+      const parts = text.split(urlRegex);
+      return parts.map((part, idx) => {
+        if (urlRegex.test(part)) {
+          // Reset lastIndex for subsequent tests
+          urlRegex.lastIndex = 0;
+          return (
+            <Text
+              key={`link-${idx}`}
+              style={{ color: theme.colors.primary }}
+              onPress={() => {
+                const url = part.startsWith("http") ? part : `https://${part}`;
+                Linking.openURL(url).catch(() => {
+                  Alert.alert("Error", "Could not open the link.");
+                });
+              }}
+            >
+              {part}
+            </Text>
+          );
+        }
+        return <Text key={`text-${idx}`}>{part}</Text>;
+      });
+    },
+    [theme.colors.primary]
+  );
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -678,25 +710,10 @@ export default function AccountScreen() {
                 { backgroundColor: theme.colors.surface },
               ]}
             >
-              {/* Close Button */}
-              <TouchableOpacity
-                onPress={() => setIsNotePreviewVisible(false)}
-                style={styles.modalCloseButton}
-              >
-                <Ionicons
-                  name="close"
-                  size={24}
-                  color={theme.colors.onSurface}
-                />
-              </TouchableOpacity>
-
-              {/* Modal interior */}
-              <ScrollView
-                contentContainerStyle={styles.modalScrollContent}
-                showsVerticalScrollIndicator={false}
-              >
+              {/* Header row with flag+country and close button aligned */}
+              <View style={styles.modalHeaderRow}>
                 {selectedNote && (
-                  <View style={styles.modalHeaderContainer}>
+                  <View style={styles.modalHeaderLeft}>
                     {mappedCountries.find(
                       (c) => c.cca2 === selectedNote.countryCca2
                     ) && (
@@ -711,6 +728,7 @@ export default function AccountScreen() {
                         styles.modalHeader,
                         { color: theme.colors.onSurface },
                       ]}
+                      numberOfLines={2}
                     >
                       {mappedCountries.find(
                         (c) => c.cca2 === selectedNote.countryCca2
@@ -718,13 +736,31 @@ export default function AccountScreen() {
                     </Text>
                   </View>
                 )}
+                <TouchableOpacity
+                  onPress={() => setIsNotePreviewVisible(false)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons
+                    name="close"
+                    size={22}
+                    color={theme.colors.onSurface}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {/* Modal interior */}
+              <ScrollView
+                contentContainerStyle={styles.modalScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
                 <Text
+                  selectable
                   style={[
                     styles.modalNoteText,
                     { color: theme.colors.onSurface },
                   ]}
                 >
-                  {selectedNote ? selectedNote.noteText : ""}
+                  {selectedNote ? renderNoteText(selectedNote.noteText) : ""}
                 </Text>
               </ScrollView>
             </View>
@@ -862,13 +898,16 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 16,
     marginRight: 10,
+    height: 72, // Niższa stała wysokość kafelka notatki
+    overflow: "hidden",
+    // paddingBottom: 0,
     // Remove shadows
     // Instead, use border to match ranking items
   },
   noteHeader: {
     flexDirection: "row",
     alignItems: "flex-start", // Align items to the top
-    marginBottom: 10,
+    marginBottom: 8,
     marginTop: -2,
   },
   noteFlag: {
@@ -924,20 +963,22 @@ const styles = StyleSheet.create({
   modalContent: {
     borderRadius: 10,
     padding: 20,
-    paddingTop: 40, // Aby uwzględnić przycisk zamknięcia
-    maxHeight: "86%", // Maksymalna wysokość modala
-    width: "90%", // Szerokość modala
+    paddingTop: 20,
+    maxHeight: "97%", // Prawie pełna wysokość widoku
+    minHeight: 20, // Jeszcze mniejsza minimalna wysokość
+    width: "95%",
   },
-  modalCloseButton: {
-    position: "absolute",
-    top: 10,
-    right: 10,
-    zIndex: 1,
-  },
-  modalHeaderContainer: {
+  modalHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 20,
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  modalHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    paddingRight: 8,
   },
   modalFlag: {
     marginRight: 8,
@@ -953,6 +994,7 @@ const styles = StyleSheet.create({
   modalNoteText: {
     fontSize: 16,
     fontFamily: "Figtree-Regular",
+    marginBottom: -20,
   },
   modalScrollContent: {
     paddingBottom: 20,
