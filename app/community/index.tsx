@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    left: 8,
+    left: 6.9,
   },
   sentButtonText: {
     color: "#fff",
@@ -229,9 +229,10 @@ const FriendListItem: React.FC<FriendListItemProps> = memo(
         <Text
           style={{
             color: theme.colors.onBackground,
-            fontSize: 15.2,
+            fontSize: 15.7,
             marginLeft: 1.4,
             fontFamily: "Figtree-Regular",
+            marginTop: -2.3,
           }}
         >
           {item.nickname}

@@ -23,6 +23,7 @@ import { db, auth } from "../config/firebaseConfig";
 import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import { useTheme } from "react-native-paper"; // Added MD3DarkTheme, MD3LightTheme
 import { Ionicons } from "@expo/vector-icons";
+import { MaterialIcons } from "@expo/vector-icons";
 import RankingList from "../../components/RankingList";
 import { ThemeContext } from "../config/ThemeContext";
 import { useCommunityStore } from "../store/communityStore";
@@ -171,26 +172,30 @@ const ProfileTopBar = React.memo(
       <View
         style={[
           profileStyles.header,
-          { paddingTop: Dimensions.get("window").height * 0.018 },
+          { paddingTop: Dimensions.get("window").height * 0.02 },
         ]}
       >
         <TouchableOpacity
           onPress={onBack}
-          style={[
-            profileStyles.headerButton,
-            { marginLeft: -11, marginRight: -1 },
-          ]}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          style={[profileStyles.headerButton, { marginLeft: -6, padding: 8 }]}
         >
-          <Ionicons
-            name="arrow-back"
-            size={26}
+          <MaterialIcons
+            name="arrow-back-ios"
+            size={21}
             color={theme.colors.onBackground}
+            style={{ marginTop: -0.2 }}
           />
         </TouchableOpacity>
         <Text
           style={[
             profileStyles.headerTitle,
-            { color: theme.colors.onBackground },
+            {
+              color: theme.colors.onBackground,
+              fontFamily: "Figtree-Regular",
+              fontWeight: "600",
+              fontSize: 19.7,
+            },
           ]}
         >
           Profile

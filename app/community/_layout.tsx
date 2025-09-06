@@ -56,12 +56,16 @@ export default function CommunityLayout() {
           fontFamily: "Figtree-Regular",
         },
         headerLeft: () => (
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons
-              name="arrow-back"
-              size={26}
+          <TouchableOpacity
+            onPress={() => router.back()}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={{ padding: 8, marginLeft: -6 }}
+          >
+            <MaterialIcons
+              name="arrow-back-ios"
+              size={21}
               color={theme.colors.onSurface}
-              style={{ marginLeft: 16 }} // Dodajemy padding dla spójności
+              style={{ marginTop: -0.2 }}
             />
           </TouchableOpacity>
         ),
@@ -71,7 +75,6 @@ export default function CommunityLayout() {
         animation: "slide_from_right",
       }}
     >
-      <Stack.Screen name="index" options={{ title: "Your Friends" }} />
       <Stack.Screen
         name="friendRequests"
         options={{
@@ -90,9 +93,6 @@ export default function CommunityLayout() {
                   flexDirection: "row",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  // Można dodać dolną linię dla estetyki
-                  borderBottomWidth: 0.5,
-                  borderBottomColor: theme.colors.outline,
                 }}
               >
                 {/* Lewa strona - Przycisk Wstecz */}

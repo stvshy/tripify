@@ -442,7 +442,7 @@ const TabLayoutContent: React.FC = () => {
                 style={({ pressed }) => [
                   styles.headerRightContainer,
                   pressed && styles.pressedHeaderRight,
-                  { marginTop: 4.5 },
+                  { marginTop: 1 },
                 ]}
               >
                 <View style={{ position: "relative" }}>
