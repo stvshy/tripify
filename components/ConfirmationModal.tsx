@@ -35,9 +35,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 }) => {
   const theme = useTheme();
 
-  const confirmButtonColor = isDestructive
-    ? theme.colors.error
-    : theme.colors.primary;
+  const confirmButtonColor = theme.colors.primary;
 
   return (
     <Modal

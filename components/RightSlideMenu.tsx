@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import {
   Dimensions,
+  PanResponder,
   Pressable,
   StyleSheet,
   View,
@@ -17,7 +18,7 @@ import {
 import { useTheme } from "react-native-paper";
 import { AnimatePresence, MotiView } from "moti";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 
 export type RightSlideMenuItem = {
   key: string;
@@ -67,6 +68,22 @@ const RightSlideMenu = forwardRef<RightSlideMenuHandles, RightSlideMenuProps>(
       [theme.dark]
     );
 
+    // Pan gesture to close the sheet by swiping right
+    const panHandlers = useMemo(
+      () =>
+        PanResponder.create({
+          onStartShouldSetPanResponder: () => false,
+          onMoveShouldSetPanResponder: (_e, g) =>
+            Math.abs(g.dx) > Math.abs(g.dy) && g.dx > 10,
+          onPanResponderRelease: (_e, g) => {
+            if (g.dx > 50) {
+              close();
+            }
+          },
+        }).panHandlers,
+      [close]
+    );
+
     return (
       <AnimatePresence>
         {visible && (
@@ -96,6 +113,7 @@ const RightSlideMenu = forwardRef<RightSlideMenuHandles, RightSlideMenuProps>(
               animate={{ translateX: 0, opacity: 1 }}
               exit={{ translateX: sheetWidth, opacity: 0.95 }}
               transition={{ type: "timing", duration: 240 }}
+              {...panHandlers}
             >
               <View
                 style={[
@@ -103,6 +121,7 @@ const RightSlideMenu = forwardRef<RightSlideMenuHandles, RightSlideMenuProps>(
                   { borderBottomColor: borderColor },
                 ]}
               >
+                <View style={{ flex: 1 }}>{header}</View>
                 <Pressable
                   onPress={close}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -111,13 +130,12 @@ const RightSlideMenu = forwardRef<RightSlideMenuHandles, RightSlideMenuProps>(
                     { opacity: pressed ? 0.6 : 1 },
                   ]}
                 >
-                  <Ionicons
-                    name="close"
-                    size={22}
+                  <MaterialIcons
+                    name="arrow-forward-ios"
+                    size={18}
                     color={theme.colors.onSurface}
                   />
                 </Pressable>
-                <View style={{ flex: 1 }}>{header}</View>
               </View>
 
               <View>
@@ -197,13 +215,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: 6,
-    marginRight: 6,
+    marginRight: 8,
   },
   itemRow: {
     flexDirection: "row",

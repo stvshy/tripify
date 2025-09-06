@@ -342,15 +342,6 @@ export default function AccountScreen() {
   const menuItems = React.useMemo<RightSlideMenuItem[]>(
     () => [
       {
-        key: "delete-account",
-        label: "Delete your account",
-        danger: true,
-        icon: (
-          <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
-        ),
-        onPress: triggerDeleteFlow,
-      },
-      {
         key: "report-bug",
         label: "Report a bug",
         icon: (
@@ -373,6 +364,15 @@ export default function AccountScreen() {
           />
         ),
         onPress: () => openMailTo("Contact from {nickname}"),
+      },
+      {
+        key: "delete-account",
+        label: "Delete your account",
+        danger: true,
+        icon: (
+          <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
+        ),
+        onPress: triggerDeleteFlow,
       },
     ],
     [
