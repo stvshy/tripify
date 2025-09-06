@@ -17,12 +17,13 @@ import {
   Dimensions,
   BackHandler,
   Alert,
+  Linking,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { db, auth } from "../config/firebaseConfig";
 import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import { useTheme } from "react-native-paper"; // Added MD3DarkTheme, MD3LightTheme
-import { Ionicons } from "@expo/vector-icons";
+import { EvilIcons, Feather, Ionicons, Octicons } from "@expo/vector-icons";
 import { MaterialIcons } from "@expo/vector-icons";
 import RankingList from "../../components/RankingList";
 import { ThemeContext } from "../config/ThemeContext";
@@ -158,15 +159,7 @@ interface UserProfile {
 
 // Komponent 1: Górny pasek nawigacyjny
 const ProfileTopBar = React.memo(
-  ({
-    onBack,
-    onToggleTheme,
-    isDarkTheme,
-  }: {
-    onBack: () => void;
-    onToggleTheme: () => void;
-    isDarkTheme: boolean;
-  }) => {
+  ({ onBack, onReport }: { onBack: () => void; onReport: () => void }) => {
     const theme = useTheme();
     return (
       <View
@@ -201,12 +194,12 @@ const ProfileTopBar = React.memo(
           Profile
         </Text>
         <TouchableOpacity
-          onPress={onToggleTheme}
+          onPress={onReport}
           style={[profileStyles.headerButton, { marginRight: -7 }]}
         >
-          <Ionicons
-            name={isDarkTheme ? "sunny" : "moon"}
-            size={24}
+          <Feather
+            name="alert-circle"
+            size={23.5}
             color={theme.colors.onBackground}
           />
         </TouchableOpacity>
@@ -363,6 +356,9 @@ export default function ProfileScreen() {
   const prevCountriesVisitedRef = useRef<string[]>();
   const prevRankingRef = useRef<string[]>();
   const [visitedCount, setVisitedCount] = useState(0);
+  const [currentUserNickname, setCurrentUserNickname] = useState<string | null>(
+    null
+  );
   const theme = useTheme();
   const router = useRouter();
   const { height } = Dimensions.get("window");
@@ -382,6 +378,7 @@ export default function ProfileScreen() {
     },
     [router]
   );
+  // handleReport is defined after rawUserProfile to avoid hoisting issues
   // WSTAW TO
   // app/profile/[uid].tsx
 
@@ -426,6 +423,38 @@ export default function ProfileScreen() {
   const [rawUserProfile, setRawUserProfile] = useState<UserProfile | null>(
     null
   );
+
+  // Fetch current user's nickname for report subject
+  useEffect(() => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    const fetchNickname = async () => {
+      try {
+        const snap = await getDoc(doc(db, "users", uid));
+        const data = snap.data() as { nickname?: string } | undefined;
+        setCurrentUserNickname(data?.nickname ?? null);
+      } catch (e) {
+        // Silent fail, fallback will be used in handleReport
+      }
+    };
+    fetchNickname();
+  }, []);
+
+  const handleReport = useCallback(() => {
+    const reported = rawUserProfile?.nickname || profileUid || "unknown";
+    const reporter =
+      currentUserNickname ||
+      auth.currentUser?.displayName ||
+      auth.currentUser?.uid ||
+      "unknown";
+    const subject = `User Report: "${reported}" by "${reporter}"`;
+    const mailto = `mailto:tripify.travelapp@gmail.com?subject=${encodeURIComponent(
+      subject
+    )}`;
+    Linking.openURL(mailto).catch(() => {
+      Alert.alert("Error", "Could not open the mail app.");
+    });
+  }, [rawUserProfile, profileUid, currentUserNickname]);
 
   // app/profile/[uid].tsx
 
@@ -745,11 +774,7 @@ export default function ProfileScreen() {
   const ListHeader = useCallback(
     () => (
       <>
-        <ProfileTopBar
-          onBack={handleBack}
-          onToggleTheme={toggleTheme}
-          isDarkTheme={isDarkTheme}
-        />
+        <ProfileTopBar onBack={handleBack} onReport={handleReport} />
         {rawUserProfile && (
           // Przekazujemy tylko dane profilu. Komponent sam zajmie się resztą.
           <UserInfoPanel userProfile={rawUserProfile} />
@@ -792,9 +817,8 @@ export default function ProfileScreen() {
       rawUserProfile,
       rankingSlots,
       visitedCount,
-      isDarkTheme,
       handleBack,
-      toggleTheme,
+      handleReport,
       handleCountryPress,
       handleShowFullRanking,
       isListProcessing,
@@ -832,11 +856,7 @@ export default function ProfileScreen() {
           { backgroundColor: theme.colors.background },
         ]}
       >
-        <ProfileTopBar
-          onBack={handleBack}
-          onToggleTheme={toggleTheme}
-          isDarkTheme={isDarkTheme}
-        />
+        <ProfileTopBar onBack={handleBack} onReport={handleReport} />
         <Text
           style={{
             color: theme.colors.onBackground,
