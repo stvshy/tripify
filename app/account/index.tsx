@@ -549,7 +549,13 @@ export default function AccountScreen() {
       {/* Logout Link */}
       <View style={{ alignItems: "center", marginBottom: -30 }}>
         <TouchableOpacity onPress={handleLogout}>
-          <Text style={{ color: theme.colors.primary, fontSize: 12 }}>
+          <Text
+            style={{
+              color: theme.colors.primary,
+              fontSize: 12,
+              fontFamily: "Figtree-Regular",
+            }}
+          >
             Logout
           </Text>
         </TouchableOpacity>
@@ -662,12 +668,14 @@ const styles = StyleSheet.create({
   userName: {
     marginTop: 3,
     fontSize: 20,
-    fontWeight: "700",
+    fontWeight: "600",
+    fontFamily: "Figtree-SemiBold",
   },
   userEmail: {
     marginTop: 4,
     fontSize: 14,
     color: "gray",
+    fontFamily: "Figtree-Regular",
   },
   rankingWindow: {
     flexDirection: "row",
@@ -682,15 +690,17 @@ const styles = StyleSheet.create({
   rankingTitle: {
     fontSize: 17,
     fontWeight: "600",
+    fontFamily: "PlusJakartaSans-Bold",
   },
   editButton: {
     flexDirection: "row",
     alignItems: "center",
   },
   editButtonText: {
-    color: "#6200ee",
+    // color: "#6200ee",
     fontSize: 14,
     marginRight: 4,
+    fontFamily: "Figtree-Regular",
   },
   horizontalRankingContainer: {
     marginBottom: 20,
@@ -711,7 +721,7 @@ const styles = StyleSheet.create({
   },
   noRankingText: {
     fontSize: 14,
-    fontStyle: "italic",
+    fontFamily: "Figtree-Regular",
   },
   notesContainer: {
     flexDirection: "row",
@@ -726,6 +736,7 @@ const styles = StyleSheet.create({
   notesTitle: {
     fontSize: 17,
     fontWeight: "600",
+    fontFamily: "PlusJakartaSans-Bold",
   },
   horizontalNotesContainer: {
     marginBottom: 20,
@@ -761,9 +772,11 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     flexWrap: "wrap",
     maxWidth: "90%",
+    fontFamily: "Figtree-SemiBold",
   },
   noteText: {
     fontSize: 14,
+    fontFamily: "Figtree-Regular",
   },
   noNotesContainer: {
     alignItems: "center",
@@ -776,7 +789,7 @@ const styles = StyleSheet.create({
   },
   noNotesText: {
     fontSize: 14,
-    fontStyle: "italic",
+    fontFamily: "Figtree-Regular",
   },
   modalBackground: {
     flex: 1,
@@ -822,9 +835,11 @@ const styles = StyleSheet.create({
   modalHeader: {
     fontSize: 18,
     fontWeight: "bold",
+    fontFamily: "Figtree-SemiBold",
   },
   modalNoteText: {
     fontSize: 16,
+    fontFamily: "Figtree-Regular",
   },
   modalScrollContent: {
     paddingBottom: 20,

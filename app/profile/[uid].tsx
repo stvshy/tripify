@@ -256,6 +256,8 @@ const RankingPreview = React.memo(
     onCountryPress: (countryId: string) => void;
   }) => {
     const theme = useTheme();
+    const hasRanking = (rankingSlots?.length || 0) > 0;
+    const canShowFull = (rankingSlots?.length || 0) > 5;
     return (
       <View style={profileStyles.rankingContainer}>
         <View style={profileStyles.rankingHeader}>
@@ -267,21 +269,35 @@ const RankingPreview = React.memo(
           >
             Ranking
           </Text>
-          <TouchableOpacity onPress={onShowFull} activeOpacity={0.6}>
-            <Text
-              style={[
-                profileStyles.showAllRankingButton,
-                { color: theme.colors.primary },
-              ]}
-            >
-              Show Full
-            </Text>
-          </TouchableOpacity>
+          {canShowFull && (
+            <TouchableOpacity onPress={onShowFull} activeOpacity={0.6}>
+              <Text
+                style={[
+                  profileStyles.showAllRankingButton,
+                  { color: theme.colors.primary },
+                ]}
+              >
+                Show Full
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
-        <RankingList
-          rankingSlots={rankingSlots.slice(0, 5)}
-          onCountryPress={onCountryPress}
-        />
+        {hasRanking ? (
+          <RankingList
+            rankingSlots={rankingSlots.slice(0, 5)}
+            onCountryPress={onCountryPress}
+          />
+        ) : (
+          <Text
+            style={{
+              color: theme.colors.onBackground,
+              marginTop: 6,
+              fontFamily: "Figtree-Regular",
+            }}
+          >
+            No ranking available
+          </Text>
+        )}
       </View>
     );
   }
