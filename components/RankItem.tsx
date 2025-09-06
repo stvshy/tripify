@@ -1,15 +1,15 @@
 // components/RankingItem.tsx
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Animated,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import CountryFlag from 'react-native-country-flag';
-import { useTheme } from 'react-native-paper';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import CountryFlag from "react-native-country-flag";
+import { useTheme } from "react-native-paper";
 
 interface Country {
   cca2: string;
@@ -71,9 +71,11 @@ const RankingItem: React.FC<RankingItemProps> = ({
     rankingSlot: {
       backgroundColor:
         activeRankingItemId === slot.id
-          ? isDarkTheme ? '#333333' : '#e3e3e3'
+          ? isDarkTheme
+            ? "#333333"
+            : "#e3e3e3"
           : theme.colors.surface,
-      borderColor: isDarkTheme ? '#2b2b2b' : '#ccc',
+      borderColor: isDarkTheme ? "#2b2b2b" : "#ccc",
       borderWidth: 1,
     },
   });
@@ -87,25 +89,52 @@ const RankingItem: React.FC<RankingItemProps> = ({
       activeOpacity={0.8}
     >
       <View style={styles.slotContent}>
-        <Text style={[styles.rankNumber, { color: theme.colors.onSurface, fontSize: 20 }]}>
+        <Text
+          style={[
+            styles.rankNumber,
+            { color: theme.colors.onSurface, fontSize: 16.5 },
+          ]}
+        >
           {slot.rank}.
         </Text>
         {slot.country ? (
           <View style={styles.countryInfoContainer}>
-            <CountryFlag isoCode={slot.country.cca2} size={20} style={styles.flag} />
-            <Text style={{ color: theme.colors.onSurface, marginLeft: 6, fontSize: 14 }}>
+            <CountryFlag
+              isoCode={slot.country.cca2}
+              size={22}
+              style={styles.flag}
+            />
+            <Text
+              style={{
+                color: theme.colors.onSurface,
+                marginLeft: 7,
+                fontSize: 15,
+                fontFamily: "Figtree-Regular",
+              }}
+            >
               {slot.country.name}
             </Text>
           </View>
         ) : (
-          <Text style={{ color: theme.colors.onSurface, fontStyle: 'italic', fontSize: 12 }}>
+          <Text
+            style={{
+              color: theme.colors.onSurface,
+              fontStyle: "italic",
+              fontSize: 12,
+            }}
+          >
             Drop Here
           </Text>
         )}
       </View>
       <View style={styles.actionContainer}>
         {/* Animated "x" button */}
-        <Animated.View style={{ opacity: removeOpacity, transform: [{ scale: removeScale }] }}>
+        <Animated.View
+          style={{
+            opacity: removeOpacity,
+            transform: [{ scale: removeScale }],
+          }}
+        >
           {activeRankingItemId === slot.id && (
             <TouchableOpacity
               onPress={() => onRemove(index)}
@@ -122,38 +151,38 @@ const RankingItem: React.FC<RankingItemProps> = ({
 
 const styles = StyleSheet.create({
   rankingSlot: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     marginRight: 12,
     borderRadius: 15,
-    justifyContent: 'space-between',
-    minWidth: 150,
+    justifyContent: "space-between",
+    minWidth: 120,
   },
   slotContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
   rankNumber: {
-    fontSize: 20,
-    marginRight: 12,
-    fontWeight: 'bold',
+    fontSize: 2,
+    marginRight: 10,
+    fontFamily: "Figtree-SemiBold",
   },
   countryInfoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
   flag: {
-    width: 20,
+    width: 23,
     height: 15,
     borderRadius: 2,
   },
   actionContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   removeButton: {
     marginLeft: 8,

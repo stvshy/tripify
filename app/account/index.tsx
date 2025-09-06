@@ -646,7 +646,7 @@ export default function AccountScreen() {
                             styles.noteText,
                             { color: theme.colors.onSurface },
                           ]}
-                          numberOfLines={3}
+                          numberOfLines={1}
                           ellipsizeMode="tail"
                         >
                           {note.noteText}
