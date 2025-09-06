@@ -814,7 +814,7 @@ const styles = StyleSheet.create({
   userName: {
     marginTop: -7,
     fontSize: 20,
-    fontWeight: "600",
+    // fontWeight: "600",
     fontFamily: "Figtree-SemiBold",
   },
   userEmail: {
@@ -835,7 +835,7 @@ const styles = StyleSheet.create({
   },
   rankingTitle: {
     fontSize: 17,
-    fontWeight: "600",
+    // fontWeight: "600",
     fontFamily: "PlusJakartaSans-Bold",
   },
   editButton: {
@@ -988,7 +988,7 @@ const styles = StyleSheet.create({
   },
   modalHeader: {
     fontSize: 18,
-    fontWeight: "bold",
+    // fontWeight: "bold",
     fontFamily: "Figtree-SemiBold",
   },
   modalNoteText: {
