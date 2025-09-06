@@ -897,7 +897,7 @@ const styles = StyleSheet.create({
     width: 200,
     borderRadius: 10,
     padding: 16,
-    marginRight: 10,
+    marginRight: 8,
     height: 72, // Niższa stała wysokość kafelka notatki
     overflow: "hidden",
     // paddingBottom: 0,

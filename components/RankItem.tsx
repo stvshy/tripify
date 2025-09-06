@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 10,
     paddingHorizontal: 14,
-    marginRight: 12,
+    marginRight: 6,
     borderRadius: 15,
     justifyContent: "space-between",
     minWidth: 120,
