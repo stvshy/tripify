@@ -323,9 +323,9 @@ export default function RankingScreen() {
                 : theme.colors.surface,
           },
         ]}
-        onLongPress={() => setActiveRankingItemId(item.id)}
-        delayLongPress={300}
-        disabled={!item.country}
+        onPress={() =>
+          setActiveRankingItemId((prev) => (prev === item.id ? null : item.id))
+        }
         activeOpacity={0.8}
       >
         <View style={styles.slotContent}>
@@ -387,10 +387,8 @@ export default function RankingScreen() {
           <TouchableOpacity
             style={styles.dragHandle}
             hitSlop={{ top: 16, bottom: 16, left: 6, right: 16 }}
-            onPressIn={() => {
-              setActiveRankingItemId(null);
-              drag();
-            }}
+            onPressIn={drag}
+            delayPressIn={0}
             activeOpacity={0.8}
           >
             <Ionicons
@@ -583,7 +581,6 @@ export default function RankingScreen() {
             keyExtractor={(item) => item.id}
             renderItem={renderRankingItem}
             onDragEnd={handleDragEnd}
-            activationDistance={0} // Wyłącz przypadkową aktywację drag przy minimalnym ruchu; przeciąganie tylko przez uchwyt
             onDragBegin={() => {
               setActiveRankingItemId(null);
             }} // Wyczyść stan aktywnego elementu przy starcie drag
