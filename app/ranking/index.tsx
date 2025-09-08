@@ -149,7 +149,7 @@ export default function RankingScreen() {
     }));
     setRankingSlots(updatedSlots);
     handleSaveRanking(updatedSlots);
-    setActiveRankingItemId(null); // Resetowanie aktywnego elementu po przeciąganiu
+    // Nie resetujemy tutaj aktywnego elementu, aby dłużej utrzymać widoczność przycisku usuwania.
   };
 
   const handleRemoveFromRanking = (index: number) => {
@@ -471,7 +471,8 @@ export default function RankingScreen() {
             keyExtractor={(item) => item.id}
             renderItem={renderRankingItem}
             onDragEnd={handleDragEnd}
-            activationDistance={20}
+            activationDistance={0} // Wyłącz przypadkową aktywację drag przy minimalnym ruchu; przeciąganie tylko przez uchwyt
+            onDragBegin={() => setActiveRankingItemId(null)} // Na wszelki wypadek wyczyść stan aktywnego elementu przy starcie drag
             scrollEnabled={true}
             showsVerticalScrollIndicator={true}
             ItemSeparatorComponent={() => (
