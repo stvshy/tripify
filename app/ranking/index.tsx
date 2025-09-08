@@ -32,6 +32,7 @@ import DraggableFlatList, {
   RenderItemParams,
   DragEndParams,
 } from "react-native-draggable-flatlist";
+import { storage } from "../config/storage";
 
 interface Country {
   id: string;
@@ -62,8 +63,72 @@ export default function RankingScreen() {
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
   const theme = useTheme();
   const router = useRouter();
-  const [countriesVisited, setCountriesVisited] = useState<Country[]>([]);
-  const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>([]);
+  const [countriesVisited, setCountriesVisited] = useState<Country[]>(() => {
+    // Instant hydrate visited countries from cache (minus any cached ranking)
+    try {
+      const uid = auth.currentUser?.uid;
+      if (!uid) return [];
+      const rawVisited = storage.getString(`user:${uid}:visited`);
+      if (!rawVisited) return [];
+      let visitedCodes: string[] = [];
+      try {
+        visitedCodes = JSON.parse(rawVisited) || [];
+      } catch {
+        visitedCodes = [];
+      }
+      let rankingArr: string[] = [];
+      try {
+        const rawRanking = storage.getString(`user:${uid}:ranking`);
+        rankingArr = rawRanking ? JSON.parse(rawRanking) : [];
+      } catch {
+        rankingArr = [];
+      }
+      const byId = new Map(countriesData.countries.map((c: any) => [c.id, c]));
+      const visitedCountries = visitedCodes
+        .filter((code) => !rankingArr.includes(code))
+        .map((cca2) => {
+          const base = byId.get(cca2);
+          return base
+            ? {
+                ...base,
+                cca2: base.id,
+                flag: `https://flagcdn.com/w40/${base.id.toLowerCase()}.png`,
+              }
+            : null;
+        })
+        .filter(Boolean) as Country[];
+      const unique = removeDuplicates(visitedCountries);
+      unique.sort((a, b) => a.name.localeCompare(b.name));
+      return unique;
+    } catch {
+      return [];
+    }
+  });
+  const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>(() => {
+    // Instant hydrate from MMKV cache so the screen doesn't flash empty
+    try {
+      const uid = auth.currentUser?.uid;
+      if (!uid) return [];
+      const raw = storage.getString(`user:${uid}:ranking`);
+      if (!raw) return [];
+      const rankingArr: string[] = JSON.parse(raw);
+      // Build a quick lookup from static countries data
+      const byId = new Map(countriesData.countries.map((c: any) => [c.id, c]));
+      return rankingArr.map((cca2, index) => {
+        const base = byId.get(cca2);
+        const country: Country | null = base
+          ? {
+              ...base,
+              cca2: base.id,
+              flag: `https://flagcdn.com/w40/${base.id.toLowerCase()}.png`,
+            }
+          : null;
+        return { id: generateUniqueId(), rank: index + 1, country };
+      });
+    } catch {
+      return [];
+    }
+  });
   const [activeRankingItemId, setActiveRankingItemId] = useState<string | null>(
     null
   ); // Nowy stan
@@ -103,16 +168,31 @@ export default function RankingScreen() {
     const visited = mappedCountries.filter(
       (c) => visitedCodes.includes(c.cca2) && !rankingFiltered.includes(c.cca2)
     );
-    setCountriesVisited(removeDuplicates(visited));
+    const deduped = removeDuplicates(visited);
+    deduped.sort((a, b) => a.name.localeCompare(b.name));
+    setCountriesVisited(deduped);
+    // Persist visited codes for instant next load
+    try {
+      storage.set(
+        `user:${currentUser.uid}:visited`,
+        JSON.stringify(visitedCodes)
+      );
+    } catch {}
 
     // budujemy rankingSlots z przefiltrowanego rankingFiltered
-    setRankingSlots(
-      rankingFiltered.map((cca2, idx) => ({
-        id: generateUniqueId(),
-        rank: idx + 1,
-        country: mappedCountries.find((c) => c.cca2 === cca2) || null,
-      }))
-    );
+    const newSlots: RankingSlot[] = rankingFiltered.map((cca2, idx) => ({
+      id: generateUniqueId(),
+      rank: idx + 1,
+      country: mappedCountries.find((c) => c.cca2 === cca2) || null,
+    }));
+    setRankingSlots(newSlots);
+    // Keep cache in sync so next open is instant
+    try {
+      storage.set(
+        `user:${currentUser.uid}:ranking`,
+        JSON.stringify(rankingFiltered)
+      );
+    } catch {}
   }, [mappedCountries]);
 
   // 2) wywołujemy przy mount
@@ -139,6 +219,10 @@ export default function RankingScreen() {
     if (currentUser) {
       const userDocRef = doc(db, "users", currentUser.uid);
       await updateDoc(userDocRef, { ranking: ranking });
+      // Optimistically update local cache for instant subsequent loads
+      try {
+        storage.set(`user:${currentUser.uid}:ranking`, JSON.stringify(ranking));
+      } catch {}
     }
   };
 
@@ -158,10 +242,25 @@ export default function RankingScreen() {
     if (slot.country) {
       setCountriesVisited((prev) => {
         // Sprawdź, czy kraj już istnieje w `countriesVisited`
+        let next = prev;
         if (!prev.some((c) => c.id === slot.country!.id)) {
-          return [...prev, slot.country!];
+          next = [...prev, slot.country!];
         }
-        return prev;
+        // Always keep alphabetical order
+        next = removeDuplicates(next)
+          .slice()
+          .sort((a, b) => a.name.localeCompare(b.name));
+        // Persist visited cache for instant next load
+        try {
+          const uid = auth.currentUser?.uid;
+          if (uid) {
+            storage.set(
+              `user:${uid}:visited`,
+              JSON.stringify(next.map((c) => c.cca2))
+            );
+          }
+        } catch {}
+        return next;
       });
       const updatedSlots = [...rankingSlots];
       updatedSlots.splice(index, 1); // Usunięcie slotu
@@ -289,9 +388,10 @@ export default function RankingScreen() {
             style={styles.dragHandle}
             hitSlop={{ top: 16, bottom: 16, left: 6, right: 16 }}
             onPressIn={() => {
-              setActiveRankingItemId(null); // Resetowanie aktywnego elementu podczas przeciągania
-              drag(); // natychmiast rozpocznij przeciąganie przy pierwszym dotknięciu uchwytu
+              setActiveRankingItemId(null);
+              drag();
             }}
+            activeOpacity={0.8}
           >
             <Ionicons
               name="reorder-three"
@@ -324,9 +424,21 @@ export default function RankingScreen() {
     setRankingSlots(updatedSlots);
     handleSaveRanking(updatedSlots);
     // Usuń kraj z listy "Visited Countries" i upewnij się, że nie ma duplikatów
-    setCountriesVisited((prev) =>
-      removeDuplicates(prev.filter((c) => c.id !== country.id))
-    );
+    setCountriesVisited((prev) => {
+      const next = removeDuplicates(prev.filter((c) => c.id !== country.id));
+      next.sort((a, b) => a.name.localeCompare(b.name));
+      // Persist visited cache for instant next load
+      try {
+        const uid = auth.currentUser?.uid;
+        if (uid) {
+          storage.set(
+            `user:${uid}:visited`,
+            JSON.stringify(next.map((c) => c.cca2))
+          );
+        }
+      } catch {}
+      return next;
+    });
     setActiveRankingItemId(null); // Resetowanie aktywnego elementu po dodaniu
   };
 
@@ -472,10 +584,18 @@ export default function RankingScreen() {
             renderItem={renderRankingItem}
             onDragEnd={handleDragEnd}
             activationDistance={0} // Wyłącz przypadkową aktywację drag przy minimalnym ruchu; przeciąganie tylko przez uchwyt
-            onDragBegin={() => setActiveRankingItemId(null)} // Na wszelki wypadek wyczyść stan aktywnego elementu przy starcie drag
+            onDragBegin={() => {
+              setActiveRankingItemId(null);
+            }} // Wyczyść stan aktywnego elementu przy starcie drag
             autoscrollThreshold={60}
             autoscrollSpeed={300}
             showsVerticalScrollIndicator={true}
+            // Render all items up front for instant full list (avoid default ~10)
+            initialNumToRender={rankingSlots.length || 20}
+            maxToRenderPerBatch={rankingSlots.length || 20}
+            windowSize={Math.max(10, Math.ceil((rankingSlots.length || 1) / 5))}
+            updateCellsBatchingPeriod={16}
+            removeClippedSubviews={false}
             ItemSeparatorComponent={() => (
               <View style={{ height: 1, backgroundColor: dividerColor }} />
             )}
