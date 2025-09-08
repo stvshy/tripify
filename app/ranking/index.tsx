@@ -290,7 +290,7 @@ export default function RankingScreen() {
             hitSlop={{ top: 16, bottom: 16, left: 6, right: 16 }}
             onPressIn={() => {
               setActiveRankingItemId(null); // Resetowanie aktywnego elementu podczas przeciągania
-              drag();
+              drag(); // natychmiast rozpocznij przeciąganie przy pierwszym dotknięciu uchwytu
             }}
           >
             <Ionicons
@@ -473,7 +473,8 @@ export default function RankingScreen() {
             onDragEnd={handleDragEnd}
             activationDistance={0} // Wyłącz przypadkową aktywację drag przy minimalnym ruchu; przeciąganie tylko przez uchwyt
             onDragBegin={() => setActiveRankingItemId(null)} // Na wszelki wypadek wyczyść stan aktywnego elementu przy starcie drag
-            scrollEnabled={true}
+            autoscrollThreshold={60}
+            autoscrollSpeed={300}
             showsVerticalScrollIndicator={true}
             ItemSeparatorComponent={() => (
               <View style={{ height: 1, backgroundColor: dividerColor }} />
