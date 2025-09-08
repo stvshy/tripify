@@ -287,7 +287,7 @@ export default function RankingScreen() {
           </Animated.View>
           <TouchableOpacity
             style={styles.dragHandle}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={{ top: 16, bottom: 16, left: 6, right: 16 }}
             onPressIn={() => {
               setActiveRankingItemId(null); // Resetowanie aktywnego elementu podczas przeciągania
               drag();
