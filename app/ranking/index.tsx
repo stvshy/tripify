@@ -180,10 +180,18 @@ export default function RankingScreen() {
     } catch {}
 
     // budujemy rankingSlots z przefiltrowanego rankingFiltered
-    const newSlots: RankingSlot[] = rankingFiltered.map((cca2, idx) => ({
-      id: generateUniqueId(),
+    // Zbuduj sloty tylko dla znanych krajów (usuń potencjalne puste rekordy)
+    const slotsKnown = rankingFiltered
+      .map((cca2) => {
+        const country = mappedCountries.find((c) => c.cca2 === cca2) || null;
+        return country
+          ? ({ id: generateUniqueId(), rank: 0, country } as RankingSlot)
+          : null;
+      })
+      .filter(Boolean) as RankingSlot[];
+    const newSlots: RankingSlot[] = slotsKnown.map((s, idx) => ({
+      ...s,
       rank: idx + 1,
-      country: mappedCountries.find((c) => c.cca2 === cca2) || null,
     }));
     setRankingSlots(newSlots);
     // Keep cache in sync so next open is instant
@@ -315,12 +323,11 @@ export default function RankingScreen() {
         style={[
           styles.rankingSlot,
           {
-            backgroundColor:
-              isActive || activeRankingItemId === item.id
-                ? isDarkTheme
-                  ? "#333333"
-                  : "#e9e9e9"
-                : theme.colors.surface,
+            backgroundColor: isActive
+              ? isDarkTheme
+                ? "#333333"
+                : "#e9e9e9"
+              : theme.colors.surface,
           },
         ]}
       >
@@ -331,16 +338,25 @@ export default function RankingScreen() {
               prev === item.id ? null : item.id
             )
           }
+          onLongPress={drag}
+          delayLongPress={250}
+          disabled={isActive}
           activeOpacity={0.8}
         >
-          <Text
-            style={[
-              styles.rankNumber,
-              { color: theme.colors.onSurface, fontSize: 20 },
-            ]}
-          >
-            {item.rank}.
-          </Text>
+          {/** Wyświetl rank wg bieżącego indexu listy, aby uniknąć dziur w numeracji */}
+          {(() => {
+            const displayRank = index !== undefined ? index + 1 : item.rank;
+            return (
+              <Text
+                style={[
+                  styles.rankNumber,
+                  { color: theme.colors.onSurface, fontSize: 20 },
+                ]}
+              >
+                {displayRank}.
+              </Text>
+            );
+          })()}
           {item.country ? (
             <View style={styles.countryInfoContainer}>
               <CountryFlag
@@ -388,19 +404,6 @@ export default function RankingScreen() {
               </TouchableOpacity>
             )}
           </Animated.View>
-          <TouchableOpacity
-            style={styles.dragHandle}
-            hitSlop={{ top: 16, bottom: 16, left: 6, right: 16 }}
-            onPressIn={drag}
-            delayPressIn={0}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name="reorder-three"
-              size={24}
-              color={theme.colors.onSurface}
-            />
-          </TouchableOpacity>
         </View>
       </View>
     );
@@ -482,11 +485,51 @@ export default function RankingScreen() {
           Rank Countries
         </Text>
         <TouchableOpacity
-          onPress={toggleTheme}
+          onPress={() => {
+            if (rankingSlots.length === 0) return;
+            Alert.alert(
+              "Clear ranking",
+              "Remove all countries from the ranking?",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Clear",
+                  style: "destructive",
+                  onPress: () => {
+                    // Move all ranked countries back to visited (dedup + sort)
+                    const rankedCountries = rankingSlots
+                      .map((s) => s.country)
+                      .filter(Boolean) as Country[];
+                    setRankingSlots([]);
+                    handleSaveRanking([]);
+                    setActiveRankingItemId(null);
+                    setCountriesVisited((prev) => {
+                      const next = removeDuplicates([
+                        ...prev,
+                        ...rankedCountries,
+                      ])
+                        .slice()
+                        .sort((a, b) => a.name.localeCompare(b.name));
+                      try {
+                        const uid = auth.currentUser?.uid;
+                        if (uid) {
+                          storage.set(
+                            `user:${uid}:visited`,
+                            JSON.stringify(next.map((c) => c.cca2))
+                          );
+                        }
+                      } catch {}
+                      return next;
+                    });
+                  },
+                },
+              ]
+            );
+          }}
           style={{ padding: 6, marginRight: -10 }}
         >
           <Ionicons
-            name={isDarkTheme ? "sunny" : "moon"}
+            name="trash-outline"
             size={24}
             color={theme.colors.onBackground}
           />
@@ -496,18 +539,80 @@ export default function RankingScreen() {
       {/* Visited Countries */}
       {countriesVisited.length > 0 && (
         <View style={[styles.visitedContainer, { marginTop: 5 }]}>
-          <Text
-            style={[
-              styles.sectionTitle,
-              {
-                color: theme.colors.onBackground,
-                marginLeft: 4,
-                paddingBottom: -1,
-              },
-            ]}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingRight: 6,
+            }}
           >
-            Visited Countries
-          </Text>
+            <Text
+              style={[
+                styles.sectionTitle,
+                {
+                  color: theme.colors.onBackground,
+                  marginLeft: 4,
+                  paddingBottom: -1,
+                },
+              ]}
+            >
+              Visited Countries
+            </Text>
+            {countriesVisited.length >= 2 && (
+              <TouchableOpacity
+                onPress={() => {
+                  if (countriesVisited.length === 0) return;
+                  // Add all visited to ranking preserving alphabetical order of visited list append
+                  const toAdd = countriesVisited;
+                  const startIndex = rankingSlots.length;
+                  const newSlots: RankingSlot[] = [
+                    ...rankingSlots,
+                    ...toAdd.map((country, i) => ({
+                      id: generateUniqueId(),
+                      rank: startIndex + i + 1,
+                      country,
+                    })),
+                  ];
+                  setRankingSlots(newSlots);
+                  handleSaveRanking(newSlots);
+                  setCountriesVisited([]);
+                  try {
+                    const uid = auth.currentUser?.uid;
+                    if (uid) {
+                      storage.set(`user:${uid}:visited`, JSON.stringify([]));
+                    }
+                  } catch {}
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={{
+                  paddingVertical: 6,
+                  paddingHorizontal: 10,
+                  borderRadius: 8,
+                  backgroundColor: theme.colors.surface,
+                  borderWidth: 1,
+                  borderColor: outerBorderColor,
+                }}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <Ionicons
+                    name="add"
+                    size={16}
+                    color={theme.colors.onBackground}
+                  />
+                  <Text
+                    style={{
+                      marginLeft: 6,
+                      color: theme.colors.onBackground,
+                      fontFamily: "Figtree-SemiBold",
+                    }}
+                  >
+                    Add all
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
           <FlatList
             data={countriesVisited}
             keyExtractor={(country) => `visited-${country.id}`}
@@ -589,8 +694,9 @@ export default function RankingScreen() {
               setActiveRankingItemId(null);
             }} // Wyczyść stan aktywnego elementu przy starcie drag
             activationDistance={0}
-            autoscrollThreshold={60}
-            autoscrollSpeed={300}
+            autoscrollThreshold={80}
+            autoscrollSpeed={500}
+            // dragItemOverflow
             showsVerticalScrollIndicator={true}
             // Render all items up front for instant full list (avoid default ~10)
             initialNumToRender={Math.min(20, rankingSlots.length || 10)}
@@ -680,7 +786,7 @@ const styles = StyleSheet.create({
   rankingSlot: {
     flexDirection: "row", // Ustawienie elementów w wierszu
     alignItems: "center",
-    paddingVertical: 3,
+    paddingVertical: 10,
     paddingHorizontal: 12,
     marginBottom: 0,
     borderRadius: 0,
@@ -697,7 +803,7 @@ const styles = StyleSheet.create({
     flex: 1, // Pozwól na rozciąganie
   },
   rankNumber: {
-    fontSize: 15.5,
+    fontSize: 16,
     marginRight: 12, // Zwiększenie marginesu
     // fontWeight: "bold",
     fontFamily: "Figtree-SemiBold",
@@ -714,7 +820,7 @@ const styles = StyleSheet.create({
   },
   countryNameText: {
     fontFamily: "Figtree-SemiBold",
-    fontSize: 15.5,
+    fontSize: 16,
   },
   actionContainer: {
     flexDirection: "row",
