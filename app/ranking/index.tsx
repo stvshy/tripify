@@ -311,7 +311,7 @@ export default function RankingScreen() {
     });
 
     return (
-      <TouchableOpacity
+      <View
         style={[
           styles.rankingSlot,
           {
@@ -323,12 +323,16 @@ export default function RankingScreen() {
                 : theme.colors.surface,
           },
         ]}
-        onPress={() =>
-          setActiveRankingItemId((prev) => (prev === item.id ? null : item.id))
-        }
-        activeOpacity={0.8}
       >
-        <View style={styles.slotContent}>
+        <TouchableOpacity
+          style={styles.slotContent}
+          onPress={() =>
+            setActiveRankingItemId((prev) =>
+              prev === item.id ? null : item.id
+            )
+          }
+          activeOpacity={0.8}
+        >
           <Text
             style={[
               styles.rankNumber,
@@ -364,7 +368,7 @@ export default function RankingScreen() {
               Drop Here
             </Text>
           )}
-        </View>
+        </TouchableOpacity>
         <View style={styles.actionContainer}>
           {/* Animowany przycisk "x" */}
           <Animated.View
@@ -398,7 +402,7 @@ export default function RankingScreen() {
             />
           </TouchableOpacity>
         </View>
-      </TouchableOpacity>
+      </View>
     );
   };
 
@@ -584,12 +588,13 @@ export default function RankingScreen() {
             onDragBegin={() => {
               setActiveRankingItemId(null);
             }} // Wyczyść stan aktywnego elementu przy starcie drag
+            activationDistance={0}
             autoscrollThreshold={60}
             autoscrollSpeed={300}
             showsVerticalScrollIndicator={true}
             // Render all items up front for instant full list (avoid default ~10)
-            initialNumToRender={rankingSlots.length || 20}
-            maxToRenderPerBatch={rankingSlots.length || 20}
+            initialNumToRender={Math.min(20, rankingSlots.length || 10)}
+            maxToRenderPerBatch={Math.min(20, rankingSlots.length || 10)}
             windowSize={Math.max(10, Math.ceil((rankingSlots.length || 1) / 5))}
             updateCellsBatchingPeriod={16}
             removeClippedSubviews={false}
