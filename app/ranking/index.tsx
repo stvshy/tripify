@@ -588,22 +588,20 @@ export default function RankingScreen() {
                 style={{
                   paddingVertical: 6,
                   paddingHorizontal: 10,
-                  borderRadius: 8,
+                  borderRadius: 20,
                   backgroundColor: theme.colors.surface,
                   borderWidth: 1,
-                  borderColor: outerBorderColor,
+                  borderColor: theme.colors.primary,
+                  marginBottom: 7,
+                  marginRight: -6,
                 }}
               >
                 <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <Ionicons
-                    name="add"
-                    size={16}
-                    color={theme.colors.onBackground}
-                  />
+                  <Ionicons name="add" size={16} color={theme.colors.primary} />
                   <Text
                     style={{
                       marginLeft: 6,
-                      color: theme.colors.onBackground,
+                      color: theme.colors.primary,
                       fontFamily: "Figtree-SemiBold",
                     }}
                   >
