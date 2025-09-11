@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useRef,
   useMemo,
+  memo,
 } from "react";
 import {
   View,
@@ -19,6 +20,7 @@ import {
   LayoutAnimation,
   Platform,
   FlatList,
+  InteractionManager,
 } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { ThemeContext } from "../config/ThemeContext";
@@ -121,12 +123,18 @@ export default function RankingScreen() {
               flag: `https://flagcdn.com/w40/${base.id.toLowerCase()}.png`,
             }
           : null;
-        return { id: generateUniqueId(), rank: index + 1, country };
+        // stable id (country code) to avoid remount jank
+        return {
+          id: country?.cca2 || generateUniqueId(),
+          rank: index + 1,
+          country,
+        };
       });
     } catch {
       return [];
     }
   });
+  const hydrationRef = useRef(false);
   const [activeRankingItemId, setActiveRankingItemId] = useState<string | null>(
     null
   ); // Nowy stan
@@ -194,7 +202,7 @@ export default function RankingScreen() {
       .map((cca2) => {
         const country = mappedCountries.find((c) => c.cca2 === cca2) || null;
         return country
-          ? ({ id: generateUniqueId(), rank: 0, country } as RankingSlot)
+          ? ({ id: country.cca2, rank: 0, country } as RankingSlot)
           : null;
       })
       .filter(Boolean) as RankingSlot[];
@@ -202,7 +210,15 @@ export default function RankingScreen() {
       ...s,
       rank: idx + 1,
     }));
-    setRankingSlots(newSlots);
+    // Defer rankingSlots set to after interactions if already hydrated once - reduces first paint lag
+    if (hydrationRef.current) {
+      setRankingSlots(newSlots);
+    } else {
+      InteractionManager.runAfterInteractions(() => {
+        hydrationRef.current = true;
+        setRankingSlots(newSlots);
+      });
+    }
     // Keep cache in sync so next open is instant
     try {
       storage.set(
@@ -292,131 +308,123 @@ export default function RankingScreen() {
     }
   };
 
-  const renderRankingItem = ({
-    item,
-    getIndex,
-    drag,
-    isActive,
-  }: RenderItemParams<RankingSlot>) => {
-    const index = getIndex(); // Pobranie indeksu za pomocą getIndex()
-    const removeAnim = useRef(new Animated.Value(0)).current; // Animacja dla przycisku "x"
-
-    useEffect(() => {
-      if (activeRankingItemId === item.id) {
+  const RankingRow = memo(
+    ({
+      item,
+      drag,
+      isActive,
+      index,
+    }: {
+      item: RankingSlot;
+      drag: () => void;
+      isActive: boolean;
+      index: number;
+    }) => {
+      const removeAnimRef = useRef<Animated.Value>();
+      if (!removeAnimRef.current) removeAnimRef.current = new Animated.Value(0);
+      const removeAnim = removeAnimRef.current;
+      useEffect(() => {
         Animated.timing(removeAnim, {
-          toValue: 1,
-          duration: 300,
+          toValue: activeRankingItemId === item.id ? 1 : 0,
+          duration: 200,
           useNativeDriver: true,
         }).start();
-      } else {
-        Animated.timing(removeAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }).start();
-      }
-    }, [activeRankingItemId, item.id, removeAnim]);
-
-    const removeOpacity = removeAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0, 1],
-    });
-
-    const removeScale = removeAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0.5, 1],
-    });
-
-    return (
-      <View
-        style={[
-          styles.rankingSlot,
-          {
-            backgroundColor: isActive
-              ? isDarkTheme
-                ? "#333333"
-                : "#e9e9e9"
-              : theme.colors.surface,
-          },
-        ]}
-      >
-        <TouchableOpacity
-          style={styles.slotContent}
-          onPress={() =>
-            setActiveRankingItemId((prev) =>
-              prev === item.id ? null : item.id
-            )
-          }
-          onLongPress={drag}
-          delayLongPress={250}
-          disabled={isActive}
-          activeOpacity={0.8}
+      }, [activeRankingItemId, item.id]);
+      const opacity = removeAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, 1],
+      });
+      const scale = removeAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0.5, 1],
+      });
+      return (
+        <View
+          style={[
+            styles.rankingSlot,
+            {
+              backgroundColor: isActive
+                ? isDarkTheme
+                  ? "#333333"
+                  : "#e9e9e9"
+                : theme.colors.surface,
+            },
+          ]}
         >
-          {/** Wyświetl rank wg bieżącego indexu listy, aby uniknąć dziur w numeracji */}
-          {(() => {
-            const displayRank = index !== undefined ? index + 1 : item.rank;
-            return (
-              <Text
-                style={[
-                  styles.rankNumber,
-                  { color: theme.colors.onSurface, fontSize: 20 },
-                ]}
-              >
-                {displayRank}.
-              </Text>
-            );
-          })()}
-          {item.country ? (
-            <View style={styles.countryInfoContainer}>
-              <CountryFlag
-                isoCode={item.country.cca2}
-                size={22}
-                style={styles.flag}
-              />
-              <Text
-                style={[
-                  styles.countryNameText,
-                  { color: theme.colors.onSurface, marginLeft: 8 },
-                ]}
-              >
-                {item.country.name}
-              </Text>
-            </View>
-          ) : (
-            <Text
-              style={{
-                color: theme.colors.onSurface,
-                fontStyle: "italic",
-                fontSize: 12,
-              }}
-            >
-              Drop Here
-            </Text>
-          )}
-        </TouchableOpacity>
-        <View style={styles.actionContainer}>
-          {/* Animowany przycisk "x" */}
-          <Animated.View
-            style={{
-              opacity: removeOpacity,
-              transform: [{ scale: removeScale }],
-            }}
+          <TouchableOpacity
+            style={styles.slotContent}
+            onPress={() =>
+              setActiveRankingItemId((prev) =>
+                prev === item.id ? null : item.id
+              )
+            }
+            onLongPress={drag}
+            delayLongPress={250}
+            disabled={isActive}
+            activeOpacity={0.8}
           >
-            {activeRankingItemId === item.id && (
-              <TouchableOpacity
-                onPress={() =>
-                  index !== undefined ? handleRemoveFromRanking(index) : null
-                }
-                style={styles.removeButton}
+            <Text
+              style={[
+                styles.rankNumber,
+                { color: theme.colors.onSurface, fontSize: 20 },
+              ]}
+            >
+              {index + 1}.
+            </Text>
+            {item.country ? (
+              <View style={styles.countryInfoContainer}>
+                <CountryFlag
+                  isoCode={item.country.cca2}
+                  size={22}
+                  style={styles.flag}
+                />
+                <Text
+                  style={[
+                    styles.countryNameText,
+                    { color: theme.colors.onSurface, marginLeft: 8 },
+                  ]}
+                >
+                  {item.country.name}
+                </Text>
+              </View>
+            ) : (
+              <Text
+                style={{
+                  color: theme.colors.onSurface,
+                  fontStyle: "italic",
+                  fontSize: 12,
+                }}
               >
-                <Ionicons name="close-circle" size={22} color="red" />
-              </TouchableOpacity>
+                Drop Here
+              </Text>
             )}
-          </Animated.View>
+          </TouchableOpacity>
+          <View style={styles.actionContainer}>
+            <Animated.View style={{ opacity, transform: [{ scale }] }}>
+              {activeRankingItemId === item.id && (
+                <TouchableOpacity
+                  onPress={() => handleRemoveFromRanking(index)}
+                  style={styles.removeButton}
+                >
+                  <Ionicons name="close-circle" size={22} color="red" />
+                </TouchableOpacity>
+              )}
+            </Animated.View>
+          </View>
         </View>
-      </View>
-    );
-  };
+      );
+    }
+  );
+
+  const renderRankingItem = useCallback(
+    ({ item, drag, isActive, getIndex }: RenderItemParams<RankingSlot>) => {
+      const idx = getIndex?.() ?? 0;
+      return (
+        <RankingRow item={item} drag={drag} isActive={isActive} index={idx} />
+      );
+    },
+    [activeRankingItemId, isDarkTheme, theme]
+  );
 
   const handleAddToRanking = (country: Country) => {
     // Opcjonalnie: Zapobiegaj dodawaniu tego samego kraju więcej niż raz
@@ -505,22 +513,31 @@ export default function RankingScreen() {
   // Memoizowana konfiguracja listy dla wydajności i uniknięcia tworzenia nowych obiektów na każdy render
   const listPerfConfig = useMemo(() => {
     const len = rankingSlots.length;
-    const small = len > 0 && len <= 120;
-    const initialNum = small ? len : 18; // trochę większy burst dla płynności
-    const maxBatch = small ? len : 18;
-    const windowSize = small ? Math.max(5, len) : 15; // nigdy 0
+    const full = len > 0 && len <= 160; // pełny render dla rozsądnie małych list
+    const initialNum = full ? len : Math.min(18, len);
+    const maxBatch = full ? len : Math.min(24, len);
+    const windowSize = full
+      ? Math.max(10, len)
+      : Math.max(9, Math.min(25, len + 8));
     return {
       initialNum,
       maxBatch,
       windowSize,
-      removeClipped: !small && len > 40,
+      removeClipped: !full && len > 120,
+      full,
     };
   }, [rankingSlots.length]);
 
   return (
     <>
       <View
-        style={[styles.container, { backgroundColor: theme.colors.background }]}
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.colors.background,
+            paddingBottom: countriesVisited.length === 0 ? 12 : 50,
+          },
+        ]}
       >
         {/* Header aligned with Friend Requests style */}
         <View
@@ -680,6 +697,7 @@ export default function RankingScreen() {
               marginTop:
                 countriesVisited.length > 0 ? height * 0.012 : height * 0.004,
               flex: 1,
+              paddingBottom: countriesVisited.length === 0 ? 6 : 0,
             },
           ]}
         >
@@ -707,19 +725,25 @@ export default function RankingScreen() {
               keyExtractor={(item) => item.id}
               renderItem={renderRankingItem}
               onDragEnd={handleDragEnd}
-              onDragBegin={() => {
-                setActiveRankingItemId(null);
-              }} // Wyczyść stan aktywnego elementu przy starcie drag
+              onDragBegin={() => setActiveRankingItemId(null)}
               activationDistance={0}
-              autoscrollThreshold={80}
-              autoscrollSpeed={500}
+              autoscrollThreshold={90}
+              autoscrollSpeed={560}
               showsVerticalScrollIndicator={true}
-              // Konfiguracja wydajnościowa (zabezpieczenie przed windowSize=0)
               initialNumToRender={listPerfConfig.initialNum}
               maxToRenderPerBatch={listPerfConfig.maxBatch}
               windowSize={listPerfConfig.windowSize}
-              updateCellsBatchingPeriod={rankingSlots.length <= 120 ? 0 : 34}
+              updateCellsBatchingPeriod={listPerfConfig.full ? 0 : 16}
               removeClippedSubviews={listPerfConfig.removeClipped}
+              dragItemOverflow
+              // contentContainerStyle={{
+              //   paddingBottom: countriesVisited.length === 0 ? 28 : 10,
+              // }}
+              // ListFooterComponent={
+              //   <View
+              //     style={{ height: countriesVisited.length === 0 ? 8 : 4 }}
+              //   />
+              // }
               ItemSeparatorComponent={() => (
                 <View style={{ height: 1, backgroundColor: dividerColor }} />
               )}
