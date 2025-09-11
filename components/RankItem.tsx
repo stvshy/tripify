@@ -140,7 +140,7 @@ const RankingItem: React.FC<RankingItemProps> = ({
               onPress={() => onRemove(index)}
               style={styles.removeButton}
             >
-              <Ionicons name="close-circle" size={24} color="red" />
+              <Ionicons name="close-circle" size={18} color="red" />
             </TouchableOpacity>
           )}
         </Animated.View>

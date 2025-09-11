@@ -286,7 +286,6 @@ export default function AccountScreen() {
       try {
         storage.set(`user:${currentUser.uid}:ranking`, JSON.stringify(ranking));
       } catch {}
-      Alert.alert("Success", "Ranking has been saved successfully.");
     }
   };
 

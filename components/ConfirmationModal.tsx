@@ -149,16 +149,18 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   title: {
-    fontSize: 20.5,
-    fontWeight: "600",
+    fontSize: 20,
+    // fontWeight: "600",
     marginBottom: 12,
     textAlign: "center",
+    fontFamily: "PlusJakartaSans-Bold",
   },
   message: {
-    fontSize: 15.5,
+    fontSize: 16.4,
     textAlign: "center",
-    marginBottom: 20.5,
+    marginBottom: 19,
     lineHeight: 22,
+    fontFamily: "Figtree-Regular",
   },
   buttonContainer: {
     flexDirection: "row",
@@ -167,7 +169,7 @@ const styles = StyleSheet.create({
   },
   button: {
     borderRadius: 40,
-    paddingVertical: 8.8,
+    paddingVertical: 7,
     paddingHorizontal: 15,
     minWidth: 103,
     alignItems: "center",
@@ -178,8 +180,10 @@ const styles = StyleSheet.create({
   },
   confirmButton: {},
   buttonText: {
-    fontSize: 15.5,
-    fontWeight: "bold",
+    fontSize: 15,
+    // fontWeight: "bold",
+    fontFamily: "PlusJakartaSans-Bold",
+    marginBottom: 4,
   },
 });
 
