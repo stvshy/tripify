@@ -10,7 +10,7 @@ import {
 import { useTheme } from "react-native-paper";
 import { MotiView, AnimatePresence } from "moti";
 
-const { width } = Dimensions.get("window");
+// const { width } = Dimensions.get("window");
 
 interface ConfirmationModalProps {
   visible: boolean;
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   content: {
-    width: width * 0.85,
+    width: "87%",
     padding: 24,
     borderRadius: 28,
     alignItems: "center",
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   buttonContainer: {
     flexDirection: "row",
     justifyContent: "space-evenly",
-    width: "100%",
+    // width: "100%",
   },
   button: {
     borderRadius: 40,
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     minWidth: 103,
     alignItems: "center",
     justifyContent: "center",
-    marginHorizontal: -5,
+    marginHorizontal: 6.5,
   },
   cancelButton: {
     backgroundColor: "transparent",
