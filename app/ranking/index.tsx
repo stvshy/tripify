@@ -33,6 +33,7 @@ import DraggableFlatList, {
   DragEndParams,
 } from "react-native-draggable-flatlist";
 import { storage } from "../config/storage";
+import ConfirmationModal from "../../components/ConfirmationModal";
 
 interface Country {
   id: string;
@@ -132,6 +133,9 @@ export default function RankingScreen() {
   const [activeRankingItemId, setActiveRankingItemId] = useState<string | null>(
     null
   ); // Nowy stan
+  const [confirmAction, setConfirmAction] = useState<null | "addAll" | "clear">(
+    null
+  );
 
   const { width, height } = Dimensions.get("window");
   // Colors for cohesive ranking container & dividers
@@ -447,268 +451,284 @@ export default function RankingScreen() {
     setActiveRankingItemId(null); // Resetowanie aktywnego elementu po dodaniu
   };
 
+  const handleAddAllVisited = () => {
+    if (countriesVisited.length === 0) return;
+    const toAdd = countriesVisited;
+    const startIndex = rankingSlots.length;
+    const newSlots: RankingSlot[] = [
+      ...rankingSlots,
+      ...toAdd.map((country, i) => ({
+        id: generateUniqueId(),
+        rank: startIndex + i + 1,
+        country,
+      })),
+    ];
+    setRankingSlots(newSlots);
+    handleSaveRanking(newSlots);
+    setCountriesVisited([]);
+    try {
+      const uid = auth.currentUser?.uid;
+      if (uid) storage.set(`user:${uid}:visited`, JSON.stringify([]));
+    } catch {}
+    setActiveRankingItemId(null);
+  };
+
+  const handleClearRanking = () => {
+    if (rankingSlots.length === 0) return;
+    const rankedCountries = rankingSlots
+      .map((s) => s.country)
+      .filter(Boolean) as Country[];
+    setRankingSlots([]);
+    handleSaveRanking([]);
+    setActiveRankingItemId(null);
+    setCountriesVisited((prev) => {
+      const next = removeDuplicates([...prev, ...rankedCountries])
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name));
+      try {
+        const uid = auth.currentUser?.uid;
+        if (uid)
+          storage.set(
+            `user:${uid}:visited`,
+            JSON.stringify(next.map((c) => c.cca2))
+          );
+      } catch {}
+      return next;
+    });
+  };
+
   return (
-    <View
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-    >
-      {/* Header aligned with Friend Requests style */}
+    <>
       <View
-        style={[
-          styles.header,
-          {
-            paddingTop: height * 0.0238,
-            paddingBottom: 10,
-            marginHorizontal: -4.5,
-          },
-        ]}
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
       >
-        <TouchableOpacity
-          onPress={handleGoBack}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          style={{ padding: 8, marginLeft: -10 }}
-        >
-          <MaterialIcons
-            name="arrow-back-ios"
-            size={21}
-            color={theme.colors.onBackground}
-            style={{ marginTop: -0.2 }}
-          />
-        </TouchableOpacity>
-        <Text
-          style={{
-            fontSize: 19.5,
-            fontWeight: "600",
-            fontFamily: "Figtree-Regular",
-            color: theme.colors.onBackground,
-          }}
-        >
-          Rank Countries
-        </Text>
-        <TouchableOpacity
-          onPress={() => {
-            if (rankingSlots.length === 0) return;
-            Alert.alert(
-              "Clear ranking",
-              "Remove all countries from the ranking?",
-              [
-                { text: "Cancel", style: "cancel" },
-                {
-                  text: "Clear",
-                  style: "destructive",
-                  onPress: () => {
-                    // Move all ranked countries back to visited (dedup + sort)
-                    const rankedCountries = rankingSlots
-                      .map((s) => s.country)
-                      .filter(Boolean) as Country[];
-                    setRankingSlots([]);
-                    handleSaveRanking([]);
-                    setActiveRankingItemId(null);
-                    setCountriesVisited((prev) => {
-                      const next = removeDuplicates([
-                        ...prev,
-                        ...rankedCountries,
-                      ])
-                        .slice()
-                        .sort((a, b) => a.name.localeCompare(b.name));
-                      try {
-                        const uid = auth.currentUser?.uid;
-                        if (uid) {
-                          storage.set(
-                            `user:${uid}:visited`,
-                            JSON.stringify(next.map((c) => c.cca2))
-                          );
-                        }
-                      } catch {}
-                      return next;
-                    });
-                  },
-                },
-              ]
-            );
-          }}
-          style={{ padding: 6, marginRight: -10 }}
-        >
-          <Ionicons
-            name="trash-outline"
-            size={24}
-            color={theme.colors.onBackground}
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* Visited Countries */}
-      {countriesVisited.length > 0 && (
-        <View style={[styles.visitedContainer, { marginTop: 5 }]}>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              paddingRight: 6,
-            }}
-          >
-            <Text
-              style={[
-                styles.sectionTitle,
-                {
-                  color: theme.colors.onBackground,
-                  marginLeft: 4,
-                  paddingBottom: -1,
-                },
-              ]}
-            >
-              Visited Countries
-            </Text>
-            {countriesVisited.length >= 2 && (
-              <TouchableOpacity
-                onPress={() => {
-                  if (countriesVisited.length === 0) return;
-                  // Add all visited to ranking preserving alphabetical order of visited list append
-                  const toAdd = countriesVisited;
-                  const startIndex = rankingSlots.length;
-                  const newSlots: RankingSlot[] = [
-                    ...rankingSlots,
-                    ...toAdd.map((country, i) => ({
-                      id: generateUniqueId(),
-                      rank: startIndex + i + 1,
-                      country,
-                    })),
-                  ];
-                  setRankingSlots(newSlots);
-                  handleSaveRanking(newSlots);
-                  setCountriesVisited([]);
-                  try {
-                    const uid = auth.currentUser?.uid;
-                    if (uid) {
-                      storage.set(`user:${uid}:visited`, JSON.stringify([]));
-                    }
-                  } catch {}
-                }}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                style={{
-                  paddingVertical: 6,
-                  paddingHorizontal: 10,
-                  borderRadius: 20,
-                  backgroundColor: theme.colors.surface,
-                  borderWidth: 1,
-                  borderColor: theme.colors.primary,
-                  marginBottom: 7,
-                  marginRight: -6,
-                }}
-              >
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <Ionicons name="add" size={16} color={theme.colors.primary} />
-                  <Text
-                    style={{
-                      marginLeft: 6,
-                      color: theme.colors.primary,
-                      fontFamily: "Figtree-SemiBold",
-                    }}
-                  >
-                    Add all
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
-          </View>
-          <FlatList
-            data={countriesVisited}
-            keyExtractor={(country) => `visited-${country.id}`}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.visitedScrollContainer}
-            renderItem={({ item }) => (
-              <View
-                key={`visited-${item.id}`}
-                style={[
-                  styles.visitedItemContainer,
-                  {
-                    backgroundColor: isDarkTheme
-                      ? "#171717"
-                      : theme.colors.surface,
-                    borderColor: isDarkTheme ? "#1f1f1f" : "#e0e0e0",
-                  },
-                ]}
-              >
-                <CountryFlag
-                  isoCode={item.cca2}
-                  size={24}
-                  style={styles.flag}
-                />
-                <Text
-                  style={[
-                    styles.visitedItemText,
-                    {
-                      color: isDarkTheme ? "#fff" : theme.colors.onSurface,
-                      marginLeft: 6,
-                    },
-                  ]}
-                >
-                  {item.name}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => handleAddToRanking(item)}
-                  style={styles.addButtonIcon}
-                >
-                  <Ionicons name="add-circle" size={23} color="green" />
-                </TouchableOpacity>
-              </View>
-            )}
-          />
-        </View>
-      )}
-
-      {/* Ranking */}
-      <View
-        style={[
-          styles.rankingContainer,
-          {
-            marginTop:
-              countriesVisited.length > 0 ? height * 0.012 : height * 0.012,
-            flex: 1,
-          },
-        ]}
-      >
-        <Text
-          style={[styles.sectionTitle, { color: theme.colors.onBackground }]}
-        >
-          Ranking
-        </Text>
+        {/* Header aligned with Friend Requests style */}
         <View
           style={[
-            styles.rankingListWrapper,
+            styles.header,
             {
-              backgroundColor: theme.colors.surface,
-              borderColor: outerBorderColor,
+              paddingTop: height * 0.0238,
+              paddingBottom: 10,
+              marginHorizontal: -4.5,
             },
           ]}
         >
-          <DraggableFlatList
-            data={rankingSlots}
-            keyExtractor={(item) => item.id}
-            renderItem={renderRankingItem}
-            onDragEnd={handleDragEnd}
-            onDragBegin={() => {
-              setActiveRankingItemId(null);
-            }} // Wyczyść stan aktywnego elementu przy starcie drag
-            activationDistance={0}
-            autoscrollThreshold={80}
-            autoscrollSpeed={500}
-            // dragItemOverflow
-            showsVerticalScrollIndicator={true}
-            // Render all items up front for instant full list (avoid default ~10)
-            initialNumToRender={Math.min(20, rankingSlots.length || 10)}
-            maxToRenderPerBatch={Math.min(20, rankingSlots.length || 10)}
-            windowSize={Math.max(10, Math.ceil((rankingSlots.length || 1) / 5))}
-            updateCellsBatchingPeriod={16}
-            removeClippedSubviews={false}
-            ItemSeparatorComponent={() => (
-              <View style={{ height: 1, backgroundColor: dividerColor }} />
-            )}
-          />
+          <TouchableOpacity
+            onPress={handleGoBack}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={{ padding: 8, marginLeft: -10 }}
+          >
+            <MaterialIcons
+              name="arrow-back-ios"
+              size={21}
+              color={theme.colors.onBackground}
+              style={{ marginTop: -0.2 }}
+            />
+          </TouchableOpacity>
+          <Text
+            style={{
+              fontSize: 19.5,
+              fontWeight: "600",
+              fontFamily: "Figtree-Regular",
+              color: theme.colors.onBackground,
+            }}
+          >
+            Rank Countries
+          </Text>
+          <TouchableOpacity
+            onPress={() => rankingSlots.length && setConfirmAction("clear")}
+            style={{ padding: 6, marginRight: -10 }}
+          >
+            <Ionicons
+              name="trash-outline"
+              size={24}
+              color={theme.colors.onBackground}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Visited Countries */}
+        {countriesVisited.length > 0 && (
+          <View style={[styles.visitedContainer, { marginTop: 5 }]}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingRight: 6,
+              }}
+            >
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  {
+                    color: theme.colors.onBackground,
+                    marginLeft: 4,
+                    paddingBottom: -1,
+                  },
+                ]}
+              >
+                Visited Countries
+              </Text>
+              {countriesVisited.length >= 2 && (
+                <TouchableOpacity
+                  onPress={() => setConfirmAction("addAll")}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={{
+                    paddingVertical: 6,
+                    paddingHorizontal: 10,
+                    borderRadius: 20,
+                    backgroundColor: theme.colors.surface,
+                    borderWidth: 1,
+                    borderColor: theme.colors.primary,
+                    marginBottom: 7,
+                    marginRight: -6,
+                  }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <Ionicons
+                      name="add"
+                      size={16}
+                      color={theme.colors.primary}
+                    />
+                    <Text
+                      style={{
+                        marginLeft: 6,
+                        color: theme.colors.primary,
+                        fontFamily: "Figtree-SemiBold",
+                      }}
+                    >
+                      Add all
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
+            <FlatList
+              data={countriesVisited}
+              keyExtractor={(country) => `visited-${country.id}`}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.visitedScrollContainer}
+              renderItem={({ item }) => (
+                <View
+                  key={`visited-${item.id}`}
+                  style={[
+                    styles.visitedItemContainer,
+                    {
+                      backgroundColor: isDarkTheme
+                        ? "#171717"
+                        : theme.colors.surface,
+                      borderColor: isDarkTheme ? "#1f1f1f" : "#e0e0e0",
+                    },
+                  ]}
+                >
+                  <CountryFlag
+                    isoCode={item.cca2}
+                    size={24}
+                    style={styles.flag}
+                  />
+                  <Text
+                    style={[
+                      styles.visitedItemText,
+                      {
+                        color: isDarkTheme ? "#fff" : theme.colors.onSurface,
+                        marginLeft: 6,
+                      },
+                    ]}
+                  >
+                    {item.name}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => handleAddToRanking(item)}
+                    style={styles.addButtonIcon}
+                  >
+                    <Ionicons name="add-circle" size={23} color="green" />
+                  </TouchableOpacity>
+                </View>
+              )}
+            />
+          </View>
+        )}
+
+        {/* Ranking */}
+        <View
+          style={[
+            styles.rankingContainer,
+            {
+              // Kiedy lista visited jest pusta, ranking bliżej góry
+              marginTop:
+                countriesVisited.length > 0 ? height * 0.012 : height * 0.003,
+              flex: 1,
+            },
+          ]}
+        >
+          <Text
+            style={[styles.sectionTitle, { color: theme.colors.onBackground }]}
+          >
+            Ranking
+          </Text>
+          <View
+            style={[
+              styles.rankingListWrapper,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: outerBorderColor,
+              },
+            ]}
+          >
+            <DraggableFlatList
+              data={rankingSlots}
+              keyExtractor={(item) => item.id}
+              renderItem={renderRankingItem}
+              onDragEnd={handleDragEnd}
+              onDragBegin={() => {
+                setActiveRankingItemId(null);
+              }} // Wyczyść stan aktywnego elementu przy starcie drag
+              activationDistance={0}
+              autoscrollThreshold={80}
+              autoscrollSpeed={500}
+              showsVerticalScrollIndicator={true}
+              // Lżejsza konfiguracja wirtualizacji żeby ekran szybciej działał przy dużych listach
+              initialNumToRender={16}
+              maxToRenderPerBatch={16}
+              windowSize={10}
+              updateCellsBatchingPeriod={40}
+              removeClippedSubviews={false}
+              ItemSeparatorComponent={() => (
+                <View style={{ height: 1, backgroundColor: dividerColor }} />
+              )}
+            />
+          </View>
         </View>
       </View>
-    </View>
+      {/* Confirmation modals for bulk actions */}
+      <ConfirmationModal
+        visible={confirmAction === "addAll"}
+        title="Add all countries"
+        message="Do you want to add all remaining visited countries to the ranking?"
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={() => {
+          handleAddAllVisited();
+          setConfirmAction(null);
+        }}
+        confirmText="Add all"
+        cancelText="Cancel"
+      />
+      <ConfirmationModal
+        visible={confirmAction === "clear"}
+        title="Clear ranking"
+        message="Do you want to remove ALL countries from the ranking? They will return to Visited."
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={() => {
+          handleClearRanking();
+          setConfirmAction(null);
+        }}
+        confirmText="Clear"
+        cancelText="Cancel"
+        isDestructive
+      />
+    </>
   );
 }
 
