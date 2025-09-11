@@ -174,6 +174,7 @@ const styles = StyleSheet.create({
     minWidth: 103,
     alignItems: "center",
     justifyContent: "center",
+    marginHorizontal: -5,
   },
   cancelButton: {
     backgroundColor: "transparent",
