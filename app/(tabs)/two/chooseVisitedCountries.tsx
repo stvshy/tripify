@@ -29,6 +29,7 @@ import { ThemeContext } from "../../config/ThemeContext";
 import filteredCountriesData from "../../../components/filteredCountries.json";
 import { useCountries } from "../../config/CountryContext";
 import { SharedValue, useSharedValue } from "react-native-reanimated";
+import ConfirmationModal from "@/components/ConfirmationModal";
 
 const { width, height } = Dimensions.get("window");
 
@@ -396,69 +397,15 @@ export default function ChooseVisitedCountriesScreen() {
               )}
             />
           )}
-          <Modal
+          <ConfirmationModal
             visible={removeModalVisible}
-            transparent
-            animationType="fade"
-            onRequestClose={cancelRemove}
-          >
-            <View style={styles.modalOverlay}>
-              <View
-                style={[
-                  styles.modalContent,
-                  { backgroundColor: theme.colors.surface },
-                ]}
-              >
-                <Text
-                  style={[styles.modalTitle, { color: theme.colors.primary }]}
-                >
-                  Remove country
-                </Text>
-                <Text
-                  style={[styles.modalText, { color: theme.colors.onSurface }]}
-                >
-                  Are you sure you want to remove this country from your visited
-                  list?
-                </Text>
-                <View style={{ flexDirection: "row", marginTop: 10 }}>
-                  <TouchableOpacity
-                    onPress={cancelRemove}
-                    style={[
-                      styles.modalButtonCancel,
-                      {
-                        backgroundColor: theme.colors.surface,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.modalButtonText,
-                        { color: theme.colors.primary },
-                      ]}
-                    >
-                      Cancel
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={confirmRemoveCountry}
-                    style={[
-                      styles.modalButton,
-                      { backgroundColor: theme.colors.primary, marginLeft: 10 },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.modalButtonText,
-                        { color: theme.colors.onPrimary },
-                      ]}
-                    >
-                      Remove
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </Modal>
+            title="Remove Country"
+            message="Are you sure you want to remove this country from your visited list?"
+            onCancel={() => setRemoveModalVisible(false)}
+            onConfirm={confirmRemoveCountry}
+            confirmText="Remove"
+            isDestructive
+          />
         </TouchableOpacity>
       </SafeAreaView>
     </>
