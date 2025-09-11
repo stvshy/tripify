@@ -65,7 +65,6 @@ export default function RankingScreen() {
   const theme = useTheme();
   const router = useRouter();
   const [countriesVisited, setCountriesVisited] = useState<Country[]>(() => {
-    // Instant hydrate visited countries from cache (minus any cached ranking)
     try {
       const uid = auth.currentUser?.uid;
       if (!uid) return [];
@@ -106,14 +105,12 @@ export default function RankingScreen() {
     }
   });
   const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>(() => {
-    // Instant hydrate from MMKV cache so the screen doesn't flash empty
     try {
       const uid = auth.currentUser?.uid;
       if (!uid) return [];
       const raw = storage.getString(`user:${uid}:ranking`);
       if (!raw) return [];
       const rankingArr: string[] = JSON.parse(raw);
-      // Build a quick lookup from static countries data
       const byId = new Map(countriesData.countries.map((c: any) => [c.id, c]));
       return rankingArr.map((cca2, index) => {
         const base = byId.get(cca2);
@@ -136,6 +133,7 @@ export default function RankingScreen() {
   const [confirmAction, setConfirmAction] = useState<null | "addAll" | "clear">(
     null
   );
+  const rankingVersionRef = useRef<string | null>(null);
 
   const { width, height } = Dimensions.get("window");
   // Colors for cohesive ranking container & dividers
@@ -174,6 +172,13 @@ export default function RankingScreen() {
     );
     const deduped = removeDuplicates(visited);
     deduped.sort((a, b) => a.name.localeCompare(b.name));
+    // Wersja danych (ranking + liczba visited) dla szybkiego porównania
+    const newVersion = `${rankingFiltered.join("|")}::v:${deduped.length}`;
+    if (rankingVersionRef.current === newVersion) {
+      // Nic się nie zmieniło – nie aktualizujemy stanu (utrzymujemy instant render już zamontowanych elementów)
+      return;
+    }
+    rankingVersionRef.current = newVersion;
     setCountriesVisited(deduped);
     // Persist visited codes for instant next load
     try {
@@ -404,7 +409,7 @@ export default function RankingScreen() {
                 }
                 style={styles.removeButton}
               >
-                <Ionicons name="close-circle" size={24} color="red" />
+                <Ionicons name="close-circle" size={22} color="red" />
               </TouchableOpacity>
             )}
           </Animated.View>
@@ -497,6 +502,21 @@ export default function RankingScreen() {
     });
   };
 
+  // Memoizowana konfiguracja listy dla wydajności i uniknięcia tworzenia nowych obiektów na każdy render
+  const listPerfConfig = useMemo(() => {
+    const len = rankingSlots.length;
+    const small = len > 0 && len <= 120;
+    const initialNum = small ? len : 18; // trochę większy burst dla płynności
+    const maxBatch = small ? len : 18;
+    const windowSize = small ? Math.max(5, len) : 15; // nigdy 0
+    return {
+      initialNum,
+      maxBatch,
+      windowSize,
+      removeClipped: !small && len > 40,
+    };
+  }, [rankingSlots.length]);
+
   return (
     <>
       <View
@@ -549,7 +569,7 @@ export default function RankingScreen() {
 
         {/* Visited Countries */}
         {countriesVisited.length > 0 && (
-          <View style={[styles.visitedContainer, { marginTop: 5 }]}>
+          <View style={[styles.visitedContainer, { marginTop: 2 }]}>
             <View
               style={{
                 flexDirection: "row",
@@ -658,16 +678,21 @@ export default function RankingScreen() {
             {
               // Kiedy lista visited jest pusta, ranking bliżej góry
               marginTop:
-                countriesVisited.length > 0 ? height * 0.012 : height * 0.003,
+                countriesVisited.length > 0 ? height * 0.012 : height * 0.004,
               flex: 1,
             },
           ]}
         >
-          <Text
-            style={[styles.sectionTitle, { color: theme.colors.onBackground }]}
-          >
-            Ranking
-          </Text>
+          {countriesVisited.length > 0 && (
+            <Text
+              style={[
+                styles.sectionTitle,
+                { color: theme.colors.onBackground },
+              ]}
+            >
+              Ranking
+            </Text>
+          )}
           <View
             style={[
               styles.rankingListWrapper,
@@ -689,12 +714,12 @@ export default function RankingScreen() {
               autoscrollThreshold={80}
               autoscrollSpeed={500}
               showsVerticalScrollIndicator={true}
-              // Lżejsza konfiguracja wirtualizacji żeby ekran szybciej działał przy dużych listach
-              initialNumToRender={16}
-              maxToRenderPerBatch={16}
-              windowSize={10}
-              updateCellsBatchingPeriod={40}
-              removeClippedSubviews={false}
+              // Konfiguracja wydajnościowa (zabezpieczenie przed windowSize=0)
+              initialNumToRender={listPerfConfig.initialNum}
+              maxToRenderPerBatch={listPerfConfig.maxBatch}
+              windowSize={listPerfConfig.windowSize}
+              updateCellsBatchingPeriod={rankingSlots.length <= 120 ? 0 : 34}
+              removeClippedSubviews={listPerfConfig.removeClipped}
               ItemSeparatorComponent={() => (
                 <View style={{ height: 1, backgroundColor: dividerColor }} />
               )}
