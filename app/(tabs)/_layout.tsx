@@ -158,7 +158,7 @@ function VisitedToggle() {
         style={{
           marginRight: 7,
           color: theme.colors.onSurface,
-          fontSize: 14.3,
+          fontSize: 14.5,
           fontFamily: "Figtree-Regular",
         }}
       >
@@ -166,14 +166,109 @@ function VisitedToggle() {
       </Text>
       <MaterialCommunityIcons
         name={iconName}
-        size={20}
+        size={20.2}
         color={theme.colors.primary}
-        style={{ marginRight: -2 }}
+        style={{ marginRight: -18 }}
       />
     </Pressable>
   );
 }
+const CustomHeader: React.FC = () => {
+  const theme = useTheme();
+  const router = useRouter();
+  const segments = useSegments();
+  const { userProfile } = useAuthStore();
+  const { friendRequestsCount } = useAuthStore();
+  const { localCount } = useLocalCount();
+  const { visitedCountriesCount } = useCountries();
+  const totalCountriesCount = filteredCountriesData.countries.length;
 
+  // Sprawdzamy, która zakładka jest aktywna
+  const activeTab = segments[1] || "index"; // Domyślnie 'index'
+
+  const handleNavigateToAccount = () => router.push("/account");
+
+  // Komponent do renderowania prawej strony nagłówka
+  const renderHeaderRight = () => {
+    switch (activeTab) {
+      case "three": // Zakładka Community
+        return (
+          <Pressable
+            onPress={() => router.push("/community/friendRequests")}
+            style={({ pressed }) => [
+              styles.headerRightContainer,
+              pressed && styles.pressedHeaderRight,
+              { marginRight: 2 },
+            ]}
+          >
+            <View style={{ position: "relative" }}>
+              <Ionicons
+                name="mail-outline"
+                size={23.2}
+                color={theme.colors.onSurface}
+              />
+              <Badge count={friendRequestsCount} />
+            </View>
+          </Pressable>
+        );
+      case "two": // Zakładka Listy
+        return <VisitedToggle />; // Używamy istniejącego komponentu
+      case "index": // Zakładka Mapy
+      default:
+        return (
+          <Pressable
+            onPress={() => {
+              /* TODO: Implement search */
+            }}
+            style={({ pressed }) => [
+              styles.headerRightContainer,
+              pressed && styles.pressedHeaderRight,
+            ]}
+          >
+            <AntDesign
+              name="search1"
+              size={20.1}
+              color={theme.colors.onSurface}
+            />
+          </Pressable>
+        );
+    }
+  };
+
+  return (
+    <View
+      style={[
+        styles.customHeaderContainer,
+        { backgroundColor: theme.colors.surface },
+        (activeTab === "two" || activeTab === "index") && { marginTop: 1.5 },
+      ]}
+    >
+      {/* Lewa strona - Nick użytkownika */}
+      <Pressable
+        onPress={handleNavigateToAccount}
+        style={({ pressed }) => [
+          styles.headerTitleContainer,
+          pressed && styles.pressedHeader,
+        ]}
+      >
+        <AntDesign
+          name="user"
+          size={19.2}
+          color={theme.colors.onSurface}
+          style={styles.userIcon}
+        />
+        <Text
+          style={[styles.headerTitleText, { color: theme.colors.onSurface }]}
+        >
+          {userProfile?.nickname ?? "Welcome"}
+        </Text>
+      </Pressable>
+
+      {/* Prawa strona - dynamicznie renderowane ikony */}
+      {renderHeaderRight()}
+    </View>
+  );
+};
 const TabLayoutContent: React.FC = () => {
   const theme = useTheme();
   // const [user, setUser] = useState<User | null>(auth.currentUser);
@@ -183,6 +278,7 @@ const TabLayoutContent: React.FC = () => {
   const window = useWindowDimensions();
   // const [friendRequestsCount, setFriendRequestsCount] = useState<number>(0);
   const segments = useSegments();
+  const activeTab = segments[1] || "index";
   const {
     firebaseUser,
     userProfile,
@@ -363,157 +459,79 @@ const TabLayoutContent: React.FC = () => {
   const handleNavigateToAccount = () => {
     router.push("/account");
   };
-  const HEADER_HEIGHT = 75; // Stała wysokość headera w pikselach
-  const TAB_BAR_HEIGHT = 50; // Stała wysokość paska zakładek w pikselach
-  const TAB_ICON_MARGIN_TOP = 12; // Stały margines górny ikon w pikselach
+  // const HEADER_HEIGHT = 75; // Stała wysokość headera w pikselach
+  // const TAB_BAR_HEIGHT = 50; // Stała wysokość paska zakładek w pikselach
+  // const TAB_ICON_MARGIN_TOP = 12; // Stały margines górny ikon w pikselach
   return (
-    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <Tabs
-        initialRouteName="index"
-        backBehavior="none"
-        sceneContainerStyle={{ backgroundColor: theme.colors.background }}
-        screenOptions={{
-          tabBarIconStyle: {
-            marginTop: TAB_ICON_MARGIN_TOP, // Stała wartość zamiast window.height * 0.014
-          },
-          tabBarActiveTintColor: theme.colors.primary,
-          tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
-          tabBarStyle: {
-            backgroundColor: theme.colors.surface,
-            height: TAB_BAR_HEIGHT, // Stała wartość zamiast window.height * 0.067
-            borderTopWidth: 0,
-            justifyContent: "center",
-          },
-          tabBarItemStyle: {
-            justifyContent: "center",
-            alignItems: "center",
-            marginTop: TAB_ICON_MARGIN_TOP, // Stała wartość zamiast window.height * 0.014
-          },
-          headerStyle: {
-            backgroundColor: theme.colors.surface,
-            height: HEADER_HEIGHT, // Stała wartość zamiast window.height * 0.108
-            shadowOpacity: 0,
-            elevation: 0,
-          },
-          headerTitle: () => (
-            <SafeAreaView>
-              <Pressable
-                onPress={handleNavigateToAccount}
-                style={({ pressed }) => [
-                  styles.headerTitleContainer,
-                  pressed && styles.pressedHeader,
-                ]}
-              >
-                <AntDesign
-                  name="user"
-                  size={19}
-                  color={theme.colors.onSurface}
-                  style={styles.userIcon}
-                />
-                <Text
-                  style={[
-                    styles.headerTitleText,
-                    { color: theme.colors.onSurface },
-                  ]}
-                >
-                  {userProfile.nickname ? userProfile.nickname : "Welcome"}
-                </Text>
-              </Pressable>
-            </SafeAreaView>
-          ),
-        }}
-      >
-        {/* Three Tab (Community) - Pierwsze miejsce w UI */}
-        <Tabs.Screen
-          name="three"
-          options={{
-            title: "",
-            tabBarButton: (props) => (
-              <CustomTabBarButton onPress={props.onPress}>
-                {props.children}
-              </CustomTabBarButton>
-            ),
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="people" size={26} color={color} />
-            ),
-            headerRight: () => (
-              <Pressable
-                onPress={() => router.push("/community/friendRequests")}
-                style={({ pressed }) => [
-                  styles.headerRightContainer,
-                  pressed && styles.pressedHeaderRight,
-                  { marginTop: 1 },
-                ]}
-              >
-                <View style={{ position: "relative" }}>
-                  <Ionicons
-                    name="mail-outline"
-                    size={23}
-                    color={theme.colors.onSurface}
-                    style={{ marginRight: 2 }}
-                  />
-                  <Badge
-                    count={friendRequestsCount}
-                    style={{ marginRight: 2 }}
-                  />
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.surface }}>
+      <CustomHeader />
+      <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+        <Tabs
+          initialRouteName="index"
+          backBehavior="none"
+          sceneContainerStyle={{ backgroundColor: theme.colors.background }}
+          screenOptions={{
+            // ---> KLUCZOWA ZMIANA <---
+            headerShown: false, // Ukrywamy domyślny, problematyczny nagłówek
+            // Poniższe opcje dotyczą teraz tylko paska tabów na dole
+            tabBarActiveTintColor: theme.colors.primary,
+            tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
+            tabBarStyle: {
+              backgroundColor: theme.colors.surface,
+              borderTopWidth: 0,
+              paddingTop: 4,
+              paddingBottom: 4,
+            },
+            tabBarItemStyle: {
+              justifyContent: "center",
+              alignItems: "center",
+              paddingVertical: 0,
+              marginVertical: 0,
+            },
+            tabBarShowLabel: false,
+          }}
+        >
+          {/* Three Tab (Community) */}
+          <Tabs.Screen
+            name="three"
+            options={{
+              title: "", // Opcje nagłówka już nie są potrzebne
+              tabBarButton: (props) => <CustomTabBarButton {...props} />,
+              tabBarIcon: ({ color }) => (
+                <Ionicons name="people" size={26} color={color} />
+              ),
+              // USUŃ headerRight stąd
+            }}
+          />
+          {/* Index Tab (Main/InteractiveMap) */}
+          <Tabs.Screen
+            name="index"
+            options={{
+              title: "",
+              tabBarButton: (props) => <CustomTabBarButton {...props} />,
+              tabBarIcon: ({ color }) => (
+                <Ionicons name="earth" size={26} color={color} />
+              ),
+              // USUŃ headerRight stąd
+            }}
+          />
+          {/* Two Tab (ChooseCountries) */}
+          <Tabs.Screen
+            name="two"
+            options={{
+              title: "",
+              tabBarButton: (props) => <CustomTabBarButton {...props} />,
+              tabBarIcon: ({ color }) => (
+                <View style={styles.tabIconContainer}>
+                  <FontAwesome6 name="list-check" size={22} color={color} />
                 </View>
-              </Pressable>
-            ),
-          }}
-        />
-        {/* Index Tab (Main/InteractiveMap) - Środkowe miejsce w UI */}
-        <Tabs.Screen
-          name="index"
-          options={{
-            // unmountOnBlur: true,
-            title: "",
-            tabBarButton: (props) => (
-              <CustomTabBarButton onPress={props.onPress}>
-                {props.children}
-              </CustomTabBarButton>
-            ),
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="earth" size={26} color={color} />
-            ),
-            headerRight: () => (
-              <Pressable
-                onPress={() => {
-                  /* TODO: Implement search functionality */
-                }}
-                style={({ pressed }) => [
-                  styles.headerRightContainer,
-                  pressed && styles.pressedHeaderRight,
-                ]}
-              >
-                <AntDesign
-                  name="search1"
-                  size={20.1}
-                  color={theme.colors.onSurface}
-                />
-              </Pressable>
-            ),
-          }}
-        />
-        {/* Two Tab (ChooseCountries) - Trzecie miejsce w UI */}
-        <Tabs.Screen
-          name="two"
-          options={{
-            title: "",
-            tabBarButton: (props) => (
-              <CustomTabBarButton onPress={props.onPress}>
-                {props.children}
-              </CustomTabBarButton>
-            ),
-            tabBarIcon: ({ color }) => (
-              <View style={styles.tabIconContainer}>
-                <FontAwesome6 name="list-check" size={22} color={color} />
-              </View>
-            ),
-            headerRight: () => <VisitedToggle />,
-          }}
-        />
-      </Tabs>
-    </View>
+              ),
+              // USUŃ headerRight stąd
+            }}
+          />
+        </Tabs>
+      </View>
+    </SafeAreaView>
   );
 };
 
@@ -527,13 +545,25 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   headerRightContainer: {
-    marginRight: 16,
+    // marginRight: 16,
   },
   pressedHeaderRight: {
     opacity: 0.6,
   },
   pressedTabButton: {
     opacity: 0.6,
+  },
+  customHeaderContainer: {
+    // height: 75, // <-- TUTAJ MASZ 100% KONTROLI NAD WYSOKOŚCIĄ!
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between", // Rozkłada lewą i prawą stronę
+    paddingTop: 41, // Poziomy padding
+    paddingBottom: 9.5,
+    // Możesz dodać dolną krawędź jeśli chcesz
+    // borderBottomWidth: 1,
+    // borderBottomColor: '#ddd',
+    marginHorizontal: 16,
   },
   customTabButton: {
     flex: 1,
@@ -549,8 +579,10 @@ const styles = StyleSheet.create({
     marginLeft: -4,
   },
   headerTitleText: {
-    fontSize: 17,
+    fontSize: 17.2,
     fontFamily: "Figtree-Regular",
+    // paddingVertical: -5,
+    // marginVertical: -5,
   },
   badgeContainer: {
     position: "absolute",
