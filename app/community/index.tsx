@@ -155,7 +155,7 @@ const styles = ScaledSheet.create({
     borderRadius: "20@ms",
     alignItems: "center",
     justifyContent: "center",
-    left: "6.2@s",
+    left: "6@s",
   },
   sentButtonText: {
     color: "#fff",
