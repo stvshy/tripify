@@ -47,7 +47,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { useCommunityStore } from "../store/communityStore";
 import { LocalCountProvider, useLocalCount } from "../config/LocalCountContext";
-import { moderateScale } from "react-native-size-matters";
+import { moderateScale, ScaledSheet } from "react-native-size-matters";
 const mmkv = new MMKV();
 const db = getFirestore();
 const persister = createSyncStoragePersister({
@@ -159,7 +159,7 @@ function VisitedToggle() {
         style={{
           marginRight: 7,
           color: theme.colors.onSurface,
-          fontSize: 14.5,
+          fontSize: moderateScale(14.3, 0.4),
           fontFamily: "Figtree-Regular",
         }}
       >
@@ -167,7 +167,7 @@ function VisitedToggle() {
       </Text>
       <MaterialCommunityIcons
         name={iconName}
-        size={20.2}
+        size={moderateScale(20, 0.5)}
         color={theme.colors.primary}
         style={{ marginRight: -18 }}
       />
@@ -205,7 +205,7 @@ const CustomHeader: React.FC = () => {
             <View style={{ position: "relative" }}>
               <Ionicons
                 name="mail-outline"
-                size={23.2}
+                size={moderateScale(23, 0.5)}
                 color={theme.colors.onSurface}
               />
               <Badge count={friendRequestsCount} />
@@ -228,7 +228,7 @@ const CustomHeader: React.FC = () => {
           >
             <AntDesign
               name="search1"
-              size={20.1}
+              size={moderateScale(19.9, 0.5)}
               color={theme.colors.onSurface}
             />
           </Pressable>
@@ -254,7 +254,7 @@ const CustomHeader: React.FC = () => {
       >
         <AntDesign
           name="user"
-          size={19.2}
+          size={moderateScale(19.2, 0.5)}
           color={theme.colors.onSurface}
           style={styles.userIcon}
         />
@@ -548,7 +548,7 @@ const TabLayoutContent: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = ScaledSheet.create({
   headerTitleContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -571,12 +571,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between", // Rozkłada lewą i prawą stronę
-    paddingTop: 41, // Poziomy padding
-    paddingBottom: 9.5,
+    paddingTop: "37@mvs0.5", // Poziomy padding
+    paddingBottom: "8.5@mvs0.5",
     // Możesz dodać dolną krawędź jeśli chcesz
     // borderBottomWidth: 1,
     // borderBottomColor: '#ddd',
-    marginHorizontal: 16,
+    marginHorizontal: "16@ms",
   },
   customTabButton: {
     flex: 1,
@@ -588,35 +588,34 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   userIcon: {
-    marginRight: 8,
-    marginLeft: -4,
+    marginRight: "7@ms", // Skalowanie marginesu
+    marginLeft: "-3@ms", // Skalowanie marginesu
   },
   headerTitleText: {
-    fontSize: 17.2,
+    fontSize: "17.2@ms0.4",
     fontFamily: "Figtree-Regular",
     // paddingVertical: -5,
     // marginVertical: -5,
   },
   badgeContainer: {
     position: "absolute",
-    right: -6,
-    top: -3,
-    // backgroundColor: "#8A2BE2",
-    borderRadius: 8,
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    minWidth: 16,
+    right: "-6@ms", // Skalowanie pozycji
+    top: "-3@mvs", // Skalowanie pozycji
+    borderRadius: "8@ms", // Skalowanie zaokrąglenia
+    paddingHorizontal: "4@ms",
+    paddingVertical: "1@mvs",
+    minWidth: "16@ms", // Skalowanie minimalnej szerokości
     alignItems: "center",
     justifyContent: "center",
   },
   badgeText: {
     color: "#fff",
-    fontSize: 10,
+    fontSize: "10@ms0.3", // Delikatne skalowanie czcionki plakietki
     fontWeight: "bold",
   },
   visitedCountriesContainer: {
-    marginRight: 16,
-    borderRadius: 12,
+    marginRight: "16@ms",
+    borderRadius: "12@ms",
   },
   visitedCountriesText: {
     color: "#fff",
