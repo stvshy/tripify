@@ -69,7 +69,7 @@ import {
 } from "@shopify/react-native-skia";
 import ProgressBar from "./ProgressBar";
 import ConfettiCannon from "react-native-confetti-cannon";
-
+import { moderateScale, ScaledSheet } from "react-native-size-matters";
 import { useMapState } from "@/app/config/MapStateProvider";
 import FloatingActionMenu from "./FloatingActionMenu";
 import NewOverlay from "./NewOverlay";
@@ -1701,14 +1701,14 @@ const areInteractiveMapPropsEqual = (
 
 // Export the memoized component
 export default React.memo(InteractiveMapComponent, areInteractiveMapPropsEqual);
-const styles = StyleSheet.create({
+const styles = ScaledSheet.create({
   container: {
     flex: 1,
   },
   fullViewContainer: {
     flex: 1,
     justifyContent: "space-between",
-    padding: 2,
+    // padding: 2,
   },
   topSection: {
     top: 10,
@@ -1718,7 +1718,7 @@ const styles = StyleSheet.create({
   bottomSection: {
     justifyContent: "center",
     alignItems: "center",
-    bottom: "2.5%",
+    bottom: "2.8%",
   },
   logoTextImage: {
     width: "16%",
@@ -1771,7 +1771,7 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     position: "absolute",
-    bottom: "8%",
+    bottom: "50@ms0.5",
     left: 0,
     right: 0,
     flexDirection: "row",

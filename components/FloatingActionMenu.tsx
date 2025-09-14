@@ -23,10 +23,11 @@ import {
 } from "@expo/vector-icons";
 import { useTheme } from "react-native-paper";
 import { LinearGradient } from "expo-linear-gradient";
+import { moderateScale } from "react-native-size-matters";
 
 const windowWidth = Dimensions.get("window").width;
 const windowHeight = Dimensions.get("window").height;
-const BUTTON_SIZE = Math.min(windowWidth, windowHeight) * 0.08;
+const BUTTON_SIZE = moderateScale(29, 0.4);
 const ICON_SIZE = BUTTON_SIZE * 0.5;
 // Visible ring thickness for the gradient border: fine-grained using device pixels
 const RING_RATIO = 0.053; // in-between 0.05 and 0.06 as requested
@@ -101,11 +102,11 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
 
   // Side buttons slide horizontally from center on same Y level
   const leftItemStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: -(BUTTON_SIZE + 10.6) * menuProgress.value }],
+    transform: [{ translateX: -(BUTTON_SIZE + 9.6) * menuProgress.value }],
     opacity: menuProgress.value,
   }));
   const rightItemStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: (BUTTON_SIZE + 10.6) * menuProgress.value }],
+    transform: [{ translateX: (BUTTON_SIZE + 9.6) * menuProgress.value }],
     opacity: menuProgress.value,
   }));
 
@@ -153,8 +154,8 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
   return (
     <View
       style={{
-        width: BUTTON_SIZE * 5,
-        height: BUTTON_SIZE * 2,
+        width: BUTTON_SIZE, // Zmieniamy szerokość na szerokość jednego przycisku
+        height: BUTTON_SIZE, // Wysokość również może być rozmiarem jednego przycisku
         alignItems: "center",
         justifyContent: "center",
         overflow: "visible",
@@ -186,6 +187,7 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
               name="share-2"
               size={ICON_SIZE}
               color={theme.colors.onPrimary}
+              style={{ marginLeft: -1 }}
             />
           )}
         </TouchableOpacity>
@@ -209,8 +211,8 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
           activeOpacity={0.7}
         >
           <MaterialIcons
-            name={isDarkTheme ? "dark-mode" : "light-mode"}
-            size={ICON_SIZE}
+            name={isDarkTheme ? "light-mode" : "dark-mode"}
+            size={ICON_SIZE * 1.05}
             color={theme.colors.onPrimary}
           />
         </TouchableOpacity>

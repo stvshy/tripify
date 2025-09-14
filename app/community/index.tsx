@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
     fontFamily: "Figtree-Regular",
   },
   modeToggleContainer: {
-    flex: 1.1,
+    width: 78,
     flexDirection: "row",
     marginLeft: 5,
   },

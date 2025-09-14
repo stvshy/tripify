@@ -10,6 +10,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "react-native-paper";
 // Use expo-blur to match 'tint' and 'intensity' props used in existing code
 import { BlurView } from "expo-blur";
+import { scale, ScaledSheet } from "react-native-size-matters";
 
 type Props = {
   percentage: number; // 0..1
@@ -17,18 +18,18 @@ type Props = {
   total: number;
   isDarkTheme: boolean;
   animated?: boolean;
-  width?: number; // defaults to 80% of screen width
+  width?: number;
 };
 
 const { width: screenWidth } = Dimensions.get("window");
-
+const DEFAULT_WIDTH = scale(282);
 const ProgressBar: React.FC<Props> = ({
   percentage,
   visited,
   total,
   isDarkTheme,
   animated = true,
-  width = screenWidth * 0.8,
+  width = DEFAULT_WIDTH,
 }) => {
   const theme = useTheme();
 
@@ -134,17 +135,17 @@ const ProgressBar: React.FC<Props> = ({
 
 export default React.memo(ProgressBar);
 
-const styles = StyleSheet.create({
+const styles = ScaledSheet.create({
   wrapper: {
-    height: 20,
+    height: "18.8@mvs0.5",
     position: "relative",
     justifyContent: "center",
     overflow: "hidden",
-    borderRadius: 10,
+    borderRadius: "14@ms",
   },
   textLeft: {
     position: "absolute",
-    left: 10,
+    left: "10@ms",
     top: 0,
     bottom: 0,
     justifyContent: "center",
@@ -152,14 +153,14 @@ const styles = StyleSheet.create({
   },
   textRight: {
     position: "absolute",
-    right: 10,
+    right: "10@ms",
     top: 0,
     bottom: 0,
     justifyContent: "center",
     zIndex: 1,
   },
   text: {
-    fontSize: 12,
+    fontSize: "12@ms0.3",
     fontFamily: "DMSans-SemiBold",
   },
 });
