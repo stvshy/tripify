@@ -102,11 +102,11 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
 
   // Side buttons slide horizontally from center on same Y level
   const leftItemStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: -(BUTTON_SIZE + 9.6) * menuProgress.value }],
+    transform: [{ translateX: -(BUTTON_SIZE + 9.1) * menuProgress.value }],
     opacity: menuProgress.value,
   }));
   const rightItemStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: (BUTTON_SIZE + 9.6) * menuProgress.value }],
+    transform: [{ translateX: (BUTTON_SIZE + 9.1) * menuProgress.value }],
     opacity: menuProgress.value,
   }));
 
