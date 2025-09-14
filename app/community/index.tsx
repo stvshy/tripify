@@ -353,6 +353,7 @@ const SearchResultItem: React.FC<SearchResultItemProps> = memo(
               fontSize: moderateScale(14, 0.4),
               fontWeight: "500",
               fontFamily: "Figtree-Regular",
+              transform: [{ translateY: moderateScale(-0.7, 0.5) }],
             }}
           >
             Friend
