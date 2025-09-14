@@ -47,6 +47,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { useCommunityStore } from "../store/communityStore";
 import { LocalCountProvider, useLocalCount } from "../config/LocalCountContext";
+import { moderateScale } from "react-native-size-matters";
 const mmkv = new MMKV();
 const db = getFirestore();
 const persister = createSyncStoragePersister({
@@ -498,7 +499,11 @@ const TabLayoutContent: React.FC = () => {
               title: "", // Opcje nagłówka już nie są potrzebne
               tabBarButton: (props) => <CustomTabBarButton {...props} />,
               tabBarIcon: ({ color }) => (
-                <Ionicons name="people" size={26} color={color} />
+                <Ionicons
+                  name="people"
+                  size={moderateScale(25.5, 0.5)}
+                  color={color}
+                />
               ),
               // USUŃ headerRight stąd
             }}
@@ -510,7 +515,11 @@ const TabLayoutContent: React.FC = () => {
               title: "",
               tabBarButton: (props) => <CustomTabBarButton {...props} />,
               tabBarIcon: ({ color }) => (
-                <Ionicons name="earth" size={26} color={color} />
+                <Ionicons
+                  name="earth"
+                  size={moderateScale(25.5, 0.5)}
+                  color={color}
+                />
               ),
               // USUŃ headerRight stąd
             }}
@@ -523,7 +532,11 @@ const TabLayoutContent: React.FC = () => {
               tabBarButton: (props) => <CustomTabBarButton {...props} />,
               tabBarIcon: ({ color }) => (
                 <View style={styles.tabIconContainer}>
-                  <FontAwesome6 name="list-check" size={22} color={color} />
+                  <FontAwesome6
+                    name="list-check"
+                    size={moderateScale(21.5, 0.5)}
+                    color={color}
+                  />
                 </View>
               ),
               // USUŃ headerRight stąd
