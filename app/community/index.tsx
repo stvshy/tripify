@@ -37,19 +37,24 @@ import {
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../config/firebaseConfig";
 import ConfirmationModal from "../../components/ConfirmationModal";
+import { moderateScale, ScaledSheet } from "react-native-size-matters";
 if (
   Platform.OS === "android" &&
   UIManager.setLayoutAnimationEnabledExperimental
 ) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
+const ADD_CIRCLE_DIAMETER = moderateScale(26);
+const ADD_CIRCLE_BORDER_RADIUS = moderateScale(20);
 
+// Grubość "sztucznego" obramowania, również skalowalna
+const BORDER_THICKNESS = moderateScale(2.94);
 const DEBOUNCE_DELAY = 190;
-const styles = StyleSheet.create({
+const styles = ScaledSheet.create({
   container: {
     flex: 1,
-    padding: 10,
-    paddingTop: 4,
+    padding: "10@ms",
+    paddingTop: "4@mvs",
   },
   keyboardAvoidingView: {
     flex: 1,
@@ -58,7 +63,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 10,
+    marginBottom: "4@mvs",
   },
   visibleList: {
     flex: 1,
@@ -72,61 +77,61 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderRadius: 25,
-    paddingLeft: 40,
-    paddingRight: 40,
-    height: 45,
+    borderRadius: "25@ms",
+    paddingLeft: "40@s",
+    paddingRight: "40@s",
+    height: "45@mvs0.5",
   },
   searchIcon: {
     position: "absolute",
-    left: 16,
+    left: "16@s",
   },
   clearIcon: {
     position: "absolute",
-    right: 16,
+    right: "14@s",
   },
   input: {
     flex: 1,
-    fontSize: 14.2,
-    marginLeft: 4,
+    fontSize: "14.19@ms0.4",
+    marginLeft: "3.8@s",
     fontFamily: "Figtree-Regular",
   },
   modeToggleContainer: {
-    width: 78,
+    width: "78@s",
     flexDirection: "row",
-    marginLeft: 5,
+    marginLeft: "5@s",
   },
   modeButton: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
+    paddingVertical: "12@mvs",
   },
   friendItem: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 11,
-    borderBottomWidth: 1,
-    borderRadius: 15,
-    marginBottom: 7,
+    paddingVertical: "14.4@mvs",
+    paddingHorizontal: "11@s",
+    borderBottomWidth: 1, // Zostawiamy 1, skalowanie może go zepsuć
+    borderRadius: "15@ms",
+    // marginBottom: "7@mvs",
   },
   friendInfo: {
     flexDirection: "row",
     alignItems: "center",
-    marginLeft: 4.8,
+    marginLeft: "4.8@s",
   },
   friendIcon: {
-    marginRight: 10,
+    marginRight: "10@s",
   },
   removeButton: {
-    padding: 4,
+    // padding: "4@ms",
   },
   addCircle: {
-    width: 27,
-    height: 27,
-    borderRadius: 20,
+    width: ADD_CIRCLE_DIAMETER, // <--- Użyj stałej
+    height: ADD_CIRCLE_DIAMETER, // <--- Użyj stałej
+    borderRadius: ADD_CIRCLE_BORDER_RADIUS, // <--- Użyj stałej
     alignItems: "center",
     justifyContent: "center",
     elevation: 2,
@@ -134,48 +139,49 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
-    marginRight: 10,
+    marginRight: "10@s",
   },
   sentButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
+    paddingVertical: "4.6@mvs",
+    paddingHorizontal: "10@s",
+    borderRadius: "20@ms",
     alignItems: "center",
     justifyContent: "center",
-    left: 2.7,
+    left: "0.5@s",
   },
   friendButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
+    paddingVertical: "5.6@mvs",
+    paddingHorizontal: "11@s",
+    borderRadius: "20@ms",
     alignItems: "center",
     justifyContent: "center",
-    left: 6.9,
+    left: "6.2@s",
   },
   sentButtonText: {
     color: "#fff",
-    fontSize: 14,
+    fontSize: "14@ms0.4",
     fontWeight: "500",
     fontFamily: "Figtree-Regular",
+    transform: [{ translateY: moderateScale(-0.7, 0.5) }],
   },
   searchItem: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    marginLeft: 4,
+    paddingVertical: "10.5@mvs",
+    paddingHorizontal: "16@s",
+    borderBottomWidth: 1, // Zostawiamy 1
+    marginLeft: "4@s",
   },
   noResults: {
     alignItems: "center",
-    marginTop: 20,
+    marginTop: "20@mvs",
   },
   empty: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingBottom: 25,
+    paddingBottom: "25@mvs",
   },
   loading: {
     flex: 1,
@@ -222,17 +228,17 @@ const FriendListItem: React.FC<FriendListItemProps> = memo(
       <View style={styles.friendInfo}>
         <AntDesign
           name="smileo"
-          size={18.3}
+          size={moderateScale(17.8, 0.5)}
           color={theme.colors.primary}
           style={styles.friendIcon}
         />
         <Text
           style={{
             color: theme.colors.onBackground,
-            fontSize: 15.7,
-            marginLeft: 1.4,
+            fontSize: moderateScale(15.4, 0.4), // <--- ZMIANA
+            marginLeft: moderateScale(1), // <--- ZMIANA
             fontFamily: "Figtree-Regular",
-            marginTop: -2.3,
+            marginTop: moderateScale(-2.6), // <--- ZMIANA
           }}
         >
           {item.nickname}
@@ -245,7 +251,7 @@ const FriendListItem: React.FC<FriendListItemProps> = memo(
         >
           <Ionicons
             name="close-circle"
-            size={24}
+            size={moderateScale(22, 0.5)}
             color={theme.colors.primary}
           />
         </TouchableOpacity>
@@ -285,40 +291,42 @@ const SearchResultItem: React.FC<SearchResultItemProps> = memo(
 
     // Funkcja pomocnicza do renderowania przycisku
     const renderButton = () => {
-      // === PRZYPADEK 1: OTRZYMANO ZAPROSZENIE (z nową, kuloodporną logiką) ===
+      // === PRZYPADEK 1: OTRZYMANO ZAPROSZENIE ===
       if (hasReceivedRequest) {
         return (
           <Pressable
             onPress={() => onNavigateToProfile(item.uid)}
-            // Funkcja stylu dla Pressable, aby uzyskać efekt naciśnięcia
             style={({ pressed }) => ({
-              opacity: pressed ? 0.6 : 1, // Prosty efekt przyciemnienia
+              opacity: pressed ? 0.6 : 1,
             })}
           >
-            {/* "Sztuczne" obramowanie */}
-            {/* Zewnętrzny View - to jest nasze obramowanie */}
+            {/* Zewnętrzny View - obramowanie */}
             <View
-              style={{
-                ...styles.addCircle, // Bierzemy rozmiar i kształt z istniejącego stylu
-                backgroundColor: theme.colors.primary, // Kolor obramowania
-                justifyContent: "center",
-                alignItems: "center",
-              }}
+              style={[
+                // POPRAWKA: Używamy tablicy stylów
+                styles.addCircle,
+                {
+                  backgroundColor: theme.colors.primary,
+                  justifyContent: "center",
+                  alignItems: "center",
+                },
+              ]}
             >
-              {/* Wewnętrzny View - to jest nasze tło przycisku */}
+              {/* Wewnętrzny View - tło przycisku */}
               <View
                 style={{
-                  width: styles.addCircle.width - 2.94, // Trochę mniejszy niż rodzic (3 = 2 * 1.5px grubości)
-                  height: styles.addCircle.height - 2.95, // Trochę mniejszy niż rodzic
-                  borderRadius: styles.addCircle.borderRadius, // Taki sam border-radius
-                  backgroundColor: theme.colors.background, // Kolor tła aplikacji!
+                  // POPRAWKA: Używamy stałych do obliczeń
+                  width: ADD_CIRCLE_DIAMETER - BORDER_THICKNESS,
+                  height: ADD_CIRCLE_DIAMETER - BORDER_THICKNESS,
+                  borderRadius: ADD_CIRCLE_BORDER_RADIUS, // Można by to też obliczyć, ale ta wartość jest OK
+                  backgroundColor: theme.colors.background,
                   justifyContent: "center",
                   alignItems: "center",
                 }}
               >
                 <Ionicons
                   name="arrow-undo"
-                  size={16}
+                  size={moderateScale(15, 0.5)}
                   color={theme.colors.primary}
                 />
               </View>
@@ -326,7 +334,6 @@ const SearchResultItem: React.FC<SearchResultItemProps> = memo(
           </Pressable>
         );
       }
-
       // === POZOSTAŁE PRZYPADKI (stara, działająca logika) ===
       let buttonContent;
       let isDisabled = false;
@@ -343,7 +350,7 @@ const SearchResultItem: React.FC<SearchResultItemProps> = memo(
           <Text
             style={{
               color: "#fff",
-              fontSize: 14,
+              fontSize: moderateScale(14, 0.4),
               fontWeight: "500",
               fontFamily: "Figtree-Regular",
             }}
@@ -364,7 +371,9 @@ const SearchResultItem: React.FC<SearchResultItemProps> = memo(
       } else {
         specificButtonStyle = styles.addCircle;
         buttonBackgroundColor = theme.colors.primary;
-        buttonContent = <Ionicons name="add" size={17} color="#fff" />;
+        buttonContent = (
+          <Ionicons name="add" size={moderateScale(17, 0.5)} color="#fff" />
+        );
       }
 
       return (
@@ -390,7 +399,7 @@ const SearchResultItem: React.FC<SearchResultItemProps> = memo(
         <Text
           style={{
             color: theme.colors.onBackground,
-            fontSize: 15.8,
+            fontSize: moderateScale(15.8, 0.4),
             fontFamily: "Figtree-Regular",
           }}
         >
@@ -561,7 +570,7 @@ export default function CommunityScreen() {
                 >
                   <AntDesign
                     name="search1"
-                    size={17}
+                    size={moderateScale(17.8, 0.5)}
                     color={theme.colors.onSurfaceVariant}
                     style={styles.searchIcon}
                   />
@@ -569,7 +578,7 @@ export default function CommunityScreen() {
                     ref={inputRef}
                     placeholder={
                       isSearchMode
-                        ? "Enter friend's nickname..."
+                        ? "Enter user's nickname..."
                         : "Search friends..."
                     }
                     value={searchText}
@@ -588,7 +597,7 @@ export default function CommunityScreen() {
                     >
                       <MaterialIcons
                         name="close"
-                        size={18}
+                        size={moderateScale(18, 0.5)}
                         color={theme.colors.onSurfaceVariant}
                       />
                     </TouchableOpacity>
@@ -612,11 +621,11 @@ export default function CommunityScreen() {
                   >
                     <AntDesign
                       name="smileo"
-                      size={19}
+                      size={moderateScale(19, 0.5)}
                       color={
                         isSearchMode ? theme.colors.onSurfaceVariant : "#fff"
                       }
-                      style={{ marginLeft: 3 }}
+                      style={{ marginLeft: moderateScale(3) }}
                     />
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -636,11 +645,11 @@ export default function CommunityScreen() {
                   >
                     <AntDesign
                       name="adduser"
-                      size={19}
+                      size={moderateScale(19, 0.5)}
                       color={
                         !isSearchMode ? theme.colors.onSurfaceVariant : "#fff"
                       }
-                      style={{ marginRight: 3 }}
+                      style={{ marginRight: moderateScale(3) }}
                     />
                   </TouchableOpacity>
                 </View>
@@ -739,6 +748,7 @@ export default function CommunityScreen() {
                         style={{
                           color: theme.colors.onBackground,
                           fontFamily: "Figtree-Regular",
+                          fontSize: moderateScale(14, 0.4),
                         }}
                       >
                         Enter at least 3 characters to search for users.
