@@ -34,7 +34,12 @@ import {
   InteractionManager,
 } from "react-native";
 import { TextInput as PaperTextInput, useTheme } from "react-native-paper";
-import { AntDesign, FontAwesome, MaterialIcons } from "@expo/vector-icons";
+import {
+  AntDesign,
+  FontAwesome,
+  MaterialCommunityIcons,
+  MaterialIcons,
+} from "@expo/vector-icons";
 import {
   doc,
   getDoc,
@@ -1019,7 +1024,15 @@ export default function ChooseCountriesScreen({
                       fontWeight: "600",
                     }}
                   >
-                    {mode === "visited" ? "WISHLIST" : "VISITED"}
+                    <MaterialCommunityIcons
+                      name={
+                        mode === "visited"
+                          ? "bookmark-plus"
+                          : "map-marker-check"
+                      }
+                      size={moderateScale(21.5, 0.5)}
+                      color={theme.colors.onPrimary}
+                    />
                   </Text>
                 </Pressable>
               </Animated.View>
