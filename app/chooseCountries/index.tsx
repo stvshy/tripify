@@ -1,4 +1,3 @@
-// app/chooseCountries/index.tsx
 import React, {
   useState,
   useMemo,
@@ -114,12 +113,14 @@ const getContinent = (region: string, subregion: string): Continent => {
 
 // CountryItem component
 // Wklej ten kod w miejsce oryginalnego komponentu CountryItem
+
 type CountryItemProps = {
   item: Country;
   onSelect: (countryCode: string) => void;
   isSelected: boolean;
   modeAV: Animated.Value;
 };
+
 const CountryItem = React.memo(
   function CountryItem({
     item,
@@ -129,15 +130,26 @@ const CountryItem = React.memo(
   }: CountryItemProps) {
     const theme = useTheme();
 
+    // ZMIANA: Rozdzielamy animacje dla lepszej kontroli i wydajności.
+    // 1. Animacja dla kolorów (wymaga useNativeDriver: false)
     const colorAnimation = useRef(
       new Animated.Value(isSelected ? 1 : 0)
     ).current;
+    // 2. Animacja dla skali ptaszka (może używać useNativeDriver: true)
     const scaleAnimation = useRef(
       new Animated.Value(isSelected ? 1 : 0)
     ).current;
 
+    // Wklej ten kod w miejsce całego bloku useEffect w CountryItem
+
     useEffect(() => {
+      // Używamy warunku, aby zastosować różne animacje
+      // dla zaznaczania i odznaczania.
+
       if (isSelected) {
+        // --- ANIMACJA ZAZNACZANIA (wolniejsza, bardziej efektowna) ---
+
+        // Animacja koloru tła
         Animated.timing(colorAnimation, {
           toValue: 1,
           duration: 150,
@@ -145,6 +157,7 @@ const CountryItem = React.memo(
           useNativeDriver: false,
         }).start();
 
+        // Animacja sprężynowa dla ptaszka (efekt "pop-up")
         Animated.spring(scaleAnimation, {
           toValue: 1,
           friction: 4,
@@ -152,21 +165,24 @@ const CountryItem = React.memo(
           useNativeDriver: true,
         }).start();
       } else {
+        // --- ANIMACJA ODZNACZANIA (szybsza, bardziej dyskretna) ---
+
+        // Szybsza animacja koloru tła
         Animated.timing(colorAnimation, {
           toValue: 0,
-          duration: 80,
-          easing: Easing.in(Easing.ease),
+          duration: 80, // ZMIANA: Krótszy czas (o połowę)
+          easing: Easing.in(Easing.ease), // ZMIANA: Szybki start animacji
           useNativeDriver: false,
         }).start();
 
+        // Szybka animacja zanikania ptaszka (bez sprężyny)
         Animated.timing(scaleAnimation, {
           toValue: 0,
-          duration: 153,
+          duration: 153, // ZMIANA: Bardzo krótki czas
           useNativeDriver: true,
         }).start();
       }
     }, [isSelected]);
-
     const handleToggleSelection = useCallback(() => {
       onSelect(item.cca2);
     }, [onSelect, item.cca2]);
@@ -175,6 +191,7 @@ const CountryItem = React.memo(
       router.push(`/country/${item.id}`);
     }, [item.id]);
 
+    // Interpolacje oparte na animacji koloru
     const animatedBackgroundColor = colorAnimation.interpolate({
       inputRange: [0, 1],
       outputRange: [theme.colors.surface, theme.colors.surfaceVariant],
@@ -190,8 +207,11 @@ const CountryItem = React.memo(
       outputRange: [theme.colors.outline, theme.colors.primary],
     });
 
+    // Statyczne kolory
     const flagBorderColor = theme.colors.outline;
     const checkboxIconColor = theme.colors.onPrimary;
+
+    // Interpolacja do płynnego przełączania ikon bez re-renderów (0 -> visited, 1 -> wishlist)
     const visitedOpacity = useMemo(
       () => modeAV.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
       [modeAV]
@@ -200,6 +220,7 @@ const CountryItem = React.memo(
       () => modeAV.interpolate({ inputRange: [0, 1], outputRange: [0, 1] }),
       [modeAV]
     );
+
     return (
       <Pressable
         onPress={handleToggleSelection}
@@ -253,6 +274,7 @@ const CountryItem = React.memo(
               },
             ]}
           >
+            {/* NOWOŚĆ: Zastosowanie transformacji skali z animacji sprężynowej */}
             <Animated.View
               style={{
                 transform: [{ scale: scaleAnimation }],
@@ -297,6 +319,9 @@ const CountryItem = React.memo(
     );
   }
 );
+type ChooseCountriesScreenProps = {
+  fromTab?: boolean;
+};
 const SectionHeader = ({ title }: { title: string }) => {
   const theme = useTheme();
   return (
@@ -308,9 +333,6 @@ const SectionHeader = ({ title }: { title: string }) => {
       </Text>
     </View>
   );
-};
-type ChooseCountriesScreenProps = {
-  fromTab?: boolean;
 };
 export default function ChooseCountriesScreen({
   fromTab = false,
@@ -325,10 +347,44 @@ export default function ChooseCountriesScreen({
   // const [isFocused, setIsFocused] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   // const [isInputFocused, setIsInputFocused] = useState(false);
+  const scaleValue = useRef(new Animated.Value(1)).current;
   const modeAV = useRef(
     new Animated.Value(selectionMode === "wishlist" ? 1 : 0)
   ).current;
-  const scaleValue = useRef(new Animated.Value(1)).current;
+  const iconUpdateFrameRef = useRef<number | null>(null);
+
+  const scheduleIconUpdate = useCallback(
+    (target: 0 | 1) => {
+      if (iconUpdateFrameRef.current !== null) {
+        cancelAnimationFrame(iconUpdateFrameRef.current);
+        iconUpdateFrameRef.current = null;
+      }
+      // Dwa RAF-y: 1) pozwól Reactowi wyrenderować zmiany zaznaczeń,
+      // 2) potem aktualizuj ikonę bez re-renderu wierszy
+      iconUpdateFrameRef.current = requestAnimationFrame(() => {
+        iconUpdateFrameRef.current = requestAnimationFrame(() => {
+          modeAV.stopAnimation();
+          modeAV.setValue(target);
+        });
+      });
+    },
+    [modeAV]
+  );
+
+  // Obsłuż także zmianę trybu spoza tego ekranu/przycisku (np. header)
+  useEffect(() => {
+    scheduleIconUpdate(selectionMode === "wishlist" ? 1 : 0);
+  }, [selectionMode, scheduleIconUpdate]);
+
+  // Sprzątanie: anuluj oczekujące ramki podczas odmontowania
+  useEffect(() => {
+    return () => {
+      if (iconUpdateFrameRef.current !== null) {
+        cancelAnimationFrame(iconUpdateFrameRef.current);
+        iconUpdateFrameRef.current = null;
+      }
+    };
+  }, []);
   const [isPopupVisible, setIsPopupVisible] = useState(true);
   const searchInputRef = useRef<TextInput>(null);
   const {
@@ -456,11 +512,9 @@ export default function ChooseCountriesScreen({
       toggleTheme();
     });
   }, [scaleValue, toggleTheme]);
-  // Synchronizuj animowaną wartość trybu z globalnym trybem bez animacji (natychmiastowo)
-  useEffect(() => {
-    modeAV.stopAnimation();
-    modeAV.setValue(selectionMode === "wishlist" ? 1 : 0);
-  }, [selectionMode, modeAV]);
+
+  // Ikona (modeAV) będzie aktualizowana ręcznie po zsynchronizowaniu zaznaczeń
+
   // useFocusEffect(
   //   useCallback(() => {
   //     // --- Nowa, bardziej agresywna logika BackHandler ---
@@ -854,15 +908,16 @@ export default function ChooseCountriesScreen({
       return (
         <CountryItem
           item={item}
-          onSelect={handleSelectCountry}
+          onSelect={handleSelectCountry} // Przekazujemy STABILNĄ funkcję
           isSelected={localSelectedCountries.has(item.cca2)}
           modeAV={modeAV}
         />
       );
     },
-    // Zależność od `mode` jest teraz potrzebna, aby komponenty
-    // poprawnie się przerysowały po zmianie trybu.
-    [localSelectedCountries, handleSelectCountry, mode]
+    // Zależność od `selectedCountries` jest kluczowa, by funkcja
+    // `renderItem` miała zawsze dostęp do aktualnego stanu zaznaczeń.
+    // `handleSelectCountry` jest stabilne, więc nie powoduje problemów.
+    [localSelectedCountries, handleSelectCountry]
   );
   const handleSearchChange = (text: string) => {
     setInputValue(text); // Aktualizuj input natychmiast
@@ -1053,9 +1108,13 @@ export default function ChooseCountriesScreen({
                         useNativeDriver: true,
                       }),
                     ]).start(() => {
-                      setSelectionMode((m) =>
-                        m === "visited" ? "wishlist" : "visited"
-                      );
+                      setSelectionMode((m) => {
+                        const next = m === "visited" ? "wishlist" : "visited";
+                        // Najpierw zmień tryb (co zsynchronizuje zaznaczenia w useEffect poniżej)
+                        // a ikonę przełącz dopiero w następnym frame
+                        scheduleIconUpdate(next === "wishlist" ? 1 : 0);
+                        return next;
+                      });
                     });
                   }}
                   style={[
