@@ -217,6 +217,15 @@ const CountryItem = React.memo(function CountryItem({
   // Statyczne kolory
   const flagBorderColor = theme.colors.outline;
   const checkboxIconColor = theme.colors.onPrimary;
+  const staticBackgroundColor = isSelected
+    ? theme.colors.surfaceVariant
+    : theme.colors.surface;
+  const staticCheckboxBackgroundColor = isSelected
+    ? theme.colors.primary
+    : "transparent";
+  const staticCheckboxBorderColor = isSelected
+    ? theme.colors.primary
+    : theme.colors.outline;
 
   // Interpolacja do płynnego przełączania ikon bez re-renderów (0 -> visited, 1 -> wishlist)
   const visitedOpacity = useMemo(
@@ -237,7 +246,9 @@ const CountryItem = React.memo(function CountryItem({
         style={[
           styles.countryItemInnerContainer,
           {
-            backgroundColor: animatedBackgroundColor,
+            backgroundColor: suppressSelectionAnimations
+              ? staticBackgroundColor
+              : animatedBackgroundColor,
             borderBottomWidth: 0.5,
             borderBottomColor: theme.colors.outline,
           },
@@ -273,15 +284,25 @@ const CountryItem = React.memo(function CountryItem({
           style={[
             styles.roundCheckbox,
             {
-              backgroundColor: animatedCheckboxBackgroundColor,
-              borderColor: animatedCheckboxBorderColor,
+              backgroundColor: suppressSelectionAnimations
+                ? staticCheckboxBackgroundColor
+                : animatedCheckboxBackgroundColor,
+              borderColor: suppressSelectionAnimations
+                ? staticCheckboxBorderColor
+                : animatedCheckboxBorderColor,
             },
           ]}
         >
           {/* NOWOŚĆ: Zastosowanie transformacji skali z animacji sprężynowej */}
           <Animated.View
             style={{
-              transform: [{ scale: scaleAnimation }],
+              transform: [
+                {
+                  scale: suppressSelectionAnimations
+                    ? (isSelected ? 1 : 0)
+                    : (scaleAnimation as unknown as number),
+                },
+              ],
               width: 12,
               height: 12,
               alignItems: "center",
@@ -1086,10 +1107,14 @@ export default function ChooseCountriesScreen({
                       const modeBefore = selectionMode;
                       const snapshotBefore = new Set(localSelectedCountries);
                       saveForMode(modeBefore, snapshotBefore);
-                      // Przełącz tryb
-                      setSelectionMode((m) =>
-                        m === "visited" ? "wishlist" : "visited"
-                      );
+                      // Wyznacz nowy tryb i natychmiast ustaw lokalny wybór pod nowy tryb
+                      const next = modeBefore === "visited" ? "wishlist" : "visited";
+                      const src = next === "visited" ? visitedCountries : wishlistCountries;
+                      const newSet = new Set(src);
+                      setLocalSelectedCountries(newSet);
+                      setLocalCount(newSet.size);
+                      // Przełącz tryb (ikony zsynchronizuje useLayoutEffect na modeAV)
+                      setSelectionMode(next);
                       // Przywróć animacje selekcji natychmiast po commitcie
                       setTimeout(() => setSuppressSelectionAnimations(false), 0);
                     });
