@@ -398,6 +398,7 @@ export default function ChooseCountriesScreen({
 
   // Tryb globalny współdzielony z headerem
   const mode = selectionMode;
+  const prevModeRef = useRef(mode);
   const [localSelectedCountries, setLocalSelectedCountries] = useState(
     () => new Set<string>()
   );
@@ -678,6 +679,10 @@ export default function ChooseCountriesScreen({
   const hasInitialLoadFired = useRef(false);
   // Inicjalizacja oraz reakcja na zmianę trybu z ochroną przed zapętleniem (przed paintem)
   useLayoutEffect(() => {
+    const modeChanged = prevModeRef.current !== mode;
+    if (modeChanged) {
+      setSuppressSelectionAnimations(true);
+    }
     const src = mode === "visited" ? visitedCountries : wishlistCountries;
     let differs = false;
     if (localSelectedCountries.size !== src.length) differs = true;
@@ -704,6 +709,11 @@ export default function ChooseCountriesScreen({
       setLocalCount(initialSet.size);
     } else {
       setLocalCount(localSelectedCountries.size);
+    }
+    if (modeChanged) {
+      // Wyłącz suppression tuż po commicie, aby ręczne tapy od razu animowały
+      setTimeout(() => setSuppressSelectionAnimations(false), 0);
+      prevModeRef.current = mode;
     }
   }, [mode, visitedCountries, wishlistCountries]);
 
@@ -951,8 +961,8 @@ export default function ChooseCountriesScreen({
     }).start();
   }, [fadeAnim]);
   const listExtraData = useMemo(
-    () => ({ selected: localSelectedCountries }),
-    [localSelectedCountries]
+    () => ({ selected: localSelectedCountries, suppress: suppressSelectionAnimations }),
+    [localSelectedCountries, suppressSelectionAnimations]
   );
   return (
     // <TouchableWithoutFeedback onPress={dismissKeyboard}>
