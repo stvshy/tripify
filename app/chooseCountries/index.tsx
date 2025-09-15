@@ -403,6 +403,7 @@ export default function ChooseCountriesScreen({
     () => new Set<string>()
   );
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [listKey, setListKey] = useState(0);
   //  const selectedCountriesRef = useRef(selectedCountries);
   // useEffect(() => {
   //   const initialSet = new Set(visitedCountries);
@@ -714,6 +715,8 @@ export default function ChooseCountriesScreen({
       // Wyłącz suppression tuż po commicie, aby ręczne tapy od razu animowały
       setTimeout(() => setSuppressSelectionAnimations(false), 0);
       prevModeRef.current = mode;
+      // Wymuś remount listy, by zresetować stan wierszy i highlight natychmiast
+      setListKey((k) => k + 1);
     }
   }, [mode, visitedCountries, wishlistCountries]);
 
@@ -738,7 +741,6 @@ export default function ChooseCountriesScreen({
   const savingRef = useRef(false);
   const handleSelectCountry = useCallback(
     (countryCode: string) => {
-      if (savingRef.current) return;
       dismissKeyboard();
       setLocalSelectedCountries((currentSelected) => {
         const newSet = new Set(currentSelected);
@@ -1186,6 +1188,7 @@ export default function ChooseCountriesScreen({
               // Kontener dla listy i nakładki ze skeletonem
               <View style={{ flex: 1 }}>
                 <FlashList
+                  key={listKey}
                   data={flattenedData}
                   renderItem={renderItem}
                   keyExtractor={(item, index) =>
