@@ -115,17 +115,19 @@ const getContinent = (region: string, subregion: string): Continent => {
 // CountryItem component
 // Wklej ten kod w miejsce oryginalnego komponentu CountryItem
 
+type CountryItemProps = {
+  item: Country;
+  onSelect: (countryCode: string) => void;
+  isSelected: boolean;
+  modeAV: Animated.Value;
+};
+
 const CountryItem = React.memo(function CountryItem({
   item,
   onSelect,
   isSelected,
-  mode,
-}: {
-  item: Country;
-  onSelect: (countryCode: string) => void;
-  isSelected: boolean;
-  mode: "visited" | "wishlist";
-}) {
+  modeAV,
+}: CountryItemProps) {
   const theme = useTheme();
 
   // ZMIANA: Rozdzielamy animacje dla lepszej kontroli i wydajności.
@@ -205,6 +207,16 @@ const CountryItem = React.memo(function CountryItem({
   const flagBorderColor = theme.colors.outline;
   const checkboxIconColor = theme.colors.onPrimary;
 
+  // Interpolacja do płynnego przełączania ikon bez re-renderów (0 -> visited, 1 -> wishlist)
+  const visitedOpacity = useMemo(
+    () => modeAV.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+    [modeAV]
+  );
+  const wishlistOpacity = useMemo(
+    () => modeAV.interpolate({ inputRange: [0, 1], outputRange: [0, 1] }),
+    [modeAV]
+  );
+
   return (
     <Pressable
       onPress={handleToggleSelection}
@@ -256,16 +268,40 @@ const CountryItem = React.memo(function CountryItem({
           ]}
         >
           {/* NOWOŚĆ: Zastosowanie transformacji skali z animacji sprężynowej */}
-          <Animated.View style={{ transform: [{ scale: scaleAnimation }] }}>
-            {mode === "wishlist" ? (
-              <AntDesign name="plus" size={12} color={checkboxIconColor} />
-            ) : (
+          <Animated.View
+            style={{
+              transform: [{ scale: scaleAnimation }],
+              width: 12,
+              height: 12,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Animated.View style={{ position: "absolute", opacity: visitedOpacity }}>
               <FontAwesome name="check" size={12} color={checkboxIconColor} />
-            )}
+            </Animated.View>
+            <Animated.View style={{ position: "absolute", opacity: wishlistOpacity }}>
+              <FontAwesome name="plus" size={12} color={checkboxIconColor} />
+            </Animated.View>
           </Animated.View>
         </Animated.View>
       </Animated.View>
     </Pressable>
+  );
+}, (prevProps: CountryItemProps, nextProps: CountryItemProps) => {
+  // Always re-render if selection state changes
+  if (prevProps.isSelected !== nextProps.isSelected) return false;
+
+  // If both are unselected, ignore mode changes to avoid unnecessary re-renders
+  if (!prevProps.isSelected && !nextProps.isSelected) {
+    return (
+      prevProps.item === nextProps.item && prevProps.onSelect === nextProps.onSelect
+    );
+  }
+
+  // Otherwise, props are effectively the same
+  return (
+    prevProps.item === nextProps.item && prevProps.onSelect === nextProps.onSelect
   );
 });
 type ChooseCountriesScreenProps = {
@@ -297,6 +333,7 @@ export default function ChooseCountriesScreen({
   const fadeAnim = useRef(new Animated.Value(1)).current;
   // const [isInputFocused, setIsInputFocused] = useState(false);
   const scaleValue = useRef(new Animated.Value(1)).current;
+  const modeAV = useRef(new Animated.Value(selectionMode === "wishlist" ? 1 : 0)).current;
   const [isPopupVisible, setIsPopupVisible] = useState(true);
   const searchInputRef = useRef<TextInput>(null);
   const {
@@ -424,6 +461,12 @@ export default function ChooseCountriesScreen({
       toggleTheme();
     });
   }, [scaleValue, toggleTheme]);
+
+  // Synchronizuj animowaną wartość trybu z globalnym trybem bez animacji (natychmiastowo)
+  useEffect(() => {
+    modeAV.stopAnimation();
+    modeAV.setValue(selectionMode === "wishlist" ? 1 : 0);
+  }, [selectionMode, modeAV]);
 
   // useFocusEffect(
   //   useCallback(() => {
@@ -820,14 +863,14 @@ export default function ChooseCountriesScreen({
           item={item}
           onSelect={handleSelectCountry} // Przekazujemy STABILNĄ funkcję
           isSelected={localSelectedCountries.has(item.cca2)}
-          mode={mode}
+          modeAV={modeAV}
         />
       );
     },
     // Zależność od `selectedCountries` jest kluczowa, by funkcja
     // `renderItem` miała zawsze dostęp do aktualnego stanu zaznaczeń.
     // `handleSelectCountry` jest stabilne, więc nie powoduje problemów.
-    [localSelectedCountries, handleSelectCountry, mode]
+    [localSelectedCountries, handleSelectCountry]
   );
   const handleSearchChange = (text: string) => {
     setInputValue(text); // Aktualizuj input natychmiast
@@ -857,8 +900,8 @@ export default function ChooseCountriesScreen({
     }).start();
   }, [fadeAnim]);
   const listExtraData = useMemo(
-    () => ({ selected: localSelectedCountries, mode }),
-    [localSelectedCountries, mode]
+    () => ({ selected: localSelectedCountries }),
+    [localSelectedCountries]
   );
   return (
     // <TouchableWithoutFeedback onPress={dismissKeyboard}>
