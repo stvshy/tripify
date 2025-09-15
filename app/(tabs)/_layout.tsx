@@ -168,7 +168,6 @@ function VisitedToggle() {
         }}
       >
         {displayCount}/{totalCountriesCount}
-        {selectionMode === "wishlist" && " ★"}
       </Text>
       <MaterialCommunityIcons
         name={iconName}

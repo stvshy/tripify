@@ -28,6 +28,7 @@ import CountryFlag from "react-native-country-flag";
 import { ThemeContext } from "../../config/ThemeContext";
 import filteredCountriesData from "../../../components/filteredCountries.json";
 import { useCountries } from "../../config/CountryContext";
+import { useLocalCount } from "../../config/LocalCountContext";
 import { SharedValue, useSharedValue } from "react-native-reanimated";
 import ConfirmationModal from "@/components/ConfirmationModal";
 
@@ -181,13 +182,20 @@ export default function ChooseVisitedCountriesScreen() {
   const { toggleTheme, isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme();
   const scaleValue = useSharedValue(1) as SharedValue<number>;
-  const { visitedCountries: visitedCountriesCtx, setVisitedCountries } =
-    useCountries();
+  const {
+    visitedCountries: visitedCountriesCtx,
+    setVisitedCountries,
+    wishlistCountries,
+    setWishlistCountries,
+  } = useCountries();
+  const { selectionMode } = useLocalCount();
 
+  const initialArray =
+    selectionMode === "visited" ? visitedCountriesCtx : wishlistCountries;
   const [visitedCountriesData, setVisitedCountriesData] =
-    useState<string[]>(visitedCountriesCtx);
+    useState<string[]>(initialArray);
   const [isLoading, setIsLoading] = useState<boolean>(
-    visitedCountriesCtx.length === 0
+    initialArray.length === 0
   );
   const [selectedCountryCode, setSelectedCountryCode] = useState<string | null>(
     null
@@ -197,9 +205,12 @@ export default function ChooseVisitedCountriesScreen() {
   // ─── 2. HYDRATE FROM CONTEXT ──────────────────────────────────
   // Sync local data from CountryContext; skip loader if we already have data.
   useEffect(() => {
-    setVisitedCountriesData(visitedCountriesCtx);
+    // when mode or source arrays change, hydrate local list
+    const source =
+      selectionMode === "visited" ? visitedCountriesCtx : wishlistCountries;
+    setVisitedCountriesData(source);
     setIsLoading(false);
-  }, [visitedCountriesCtx]);
+  }, [visitedCountriesCtx, wishlistCountries, selectionMode]);
 
   // ─── 3. CALLBACKI ────────────────────────────────────────────
   const handleLongPress = useCallback((code: string) => {
@@ -216,9 +227,13 @@ export default function ChooseVisitedCountriesScreen() {
     if (!countryToRemove) return;
     const updated = visitedCountriesData.filter((c) => c !== countryToRemove);
 
-    // 1) lokalnie od razu zaktualizuj stan
+    // local optimistic update
     setVisitedCountriesData(updated);
-    setVisitedCountries(updated);
+    if (selectionMode === "visited") {
+      setVisitedCountries(updated);
+    } else {
+      setWishlistCountries(updated);
+    }
     setSelectedCountryCode(null);
     setRemoveModalVisible(false);
 
@@ -226,31 +241,37 @@ export default function ChooseVisitedCountriesScreen() {
     if (user) {
       try {
         const userRef = doc(db, "users", user.uid);
-
-        // pobierz aktualny ranking
-        const snap = await getDoc(userRef);
-        const currentRanking: string[] = snap.exists()
-          ? snap.data()?.ranking || []
-          : [];
-
-        // usuń z rankingu usunięty kraj
-        const newRanking = currentRanking.filter(
-          (code) => code !== countryToRemove
-        );
-
-        // update obu pól jednym call’em
-        await updateDoc(userRef, {
-          countriesVisited: updated,
-          ranking: newRanking,
-        });
+        if (selectionMode === "visited") {
+          const snap = await getDoc(userRef);
+          const currentRanking: string[] = snap.exists()
+            ? snap.data()?.ranking || []
+            : [];
+          const newRanking = currentRanking.filter(
+            (code) => code !== countryToRemove
+          );
+          await updateDoc(userRef, {
+            countriesVisited: updated,
+            ranking: newRanking,
+          });
+        } else {
+          await updateDoc(userRef, {
+            countriesWishlist: updated,
+          });
+        }
       } catch (error) {
-        console.error("Error updating visited & ranking:", error);
+        console.error("Error updating list:", error);
         Alert.alert("Error", "Nie udało się zaktualizować listy krajów.");
       }
     }
 
     setCountryToRemove(null);
-  }, [countryToRemove, visitedCountriesData, setVisitedCountries]);
+  }, [
+    countryToRemove,
+    visitedCountriesData,
+    selectionMode,
+    setVisitedCountries,
+    setWishlistCountries,
+  ]);
 
   const cancelRemove = useCallback(() => {
     setRemoveModalVisible(false);
@@ -391,7 +412,9 @@ export default function ChooseVisitedCountriesScreen() {
                       { color: theme.colors.onSurfaceVariant },
                     ]}
                   >
-                    You haven’t visited any countries yet.
+                    {selectionMode === "visited"
+                      ? "You haven’t visited any countries yet."
+                      : "Your wishlist is empty."}
                   </Text>
                 </View>
               )}
