@@ -119,10 +119,12 @@ const CountryItem = React.memo(function CountryItem({
   item,
   onSelect,
   isSelected,
+  mode,
 }: {
   item: Country;
   onSelect: (countryCode: string) => void;
   isSelected: boolean;
+  mode: "visited" | "wishlist";
 }) {
   const theme = useTheme();
 
@@ -255,7 +257,11 @@ const CountryItem = React.memo(function CountryItem({
         >
           {/* NOWOŚĆ: Zastosowanie transformacji skali z animacji sprężynowej */}
           <Animated.View style={{ transform: [{ scale: scaleAnimation }] }}>
-            <FontAwesome name="check" size={12} color={checkboxIconColor} />
+            {mode === "wishlist" ? (
+              <AntDesign name="plus" size={12} color={checkboxIconColor} />
+            ) : (
+              <FontAwesome name="check" size={12} color={checkboxIconColor} />
+            )}
           </Animated.View>
         </Animated.View>
       </Animated.View>
@@ -814,13 +820,14 @@ export default function ChooseCountriesScreen({
           item={item}
           onSelect={handleSelectCountry} // Przekazujemy STABILNĄ funkcję
           isSelected={localSelectedCountries.has(item.cca2)}
+          mode={mode}
         />
       );
     },
     // Zależność od `selectedCountries` jest kluczowa, by funkcja
     // `renderItem` miała zawsze dostęp do aktualnego stanu zaznaczeń.
     // `handleSelectCountry` jest stabilne, więc nie powoduje problemów.
-    [localSelectedCountries, handleSelectCountry]
+    [localSelectedCountries, handleSelectCountry, mode]
   );
   const handleSearchChange = (text: string) => {
     setInputValue(text); // Aktualizuj input natychmiast
@@ -849,6 +856,10 @@ export default function ChooseCountriesScreen({
       useNativeDriver: true,
     }).start();
   }, [fadeAnim]);
+  const listExtraData = useMemo(
+    () => ({ selected: localSelectedCountries, mode }),
+    [localSelectedCountries, mode]
+  );
   return (
     // <TouchableWithoutFeedback onPress={dismissKeyboard}>
     <SafeAreaView
@@ -1064,7 +1075,7 @@ export default function ChooseCountriesScreen({
                       : `country-${item.cca3}`
                   }
                   getItemType={getItemType}
-                  extraData={localSelectedCountries}
+                  extraData={listExtraData}
                   estimatedItemSize={ITEM_HEIGHT}
                   contentContainerStyle={{
                     paddingBottom: fromTab ? 20 : 96,
