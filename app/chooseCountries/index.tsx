@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
   useTransition,
 } from "react";
@@ -346,8 +347,8 @@ export default function ChooseCountriesScreen({
   const modeAV = useRef(new Animated.Value(selectionMode === "wishlist" ? 1 : 0)).current;
   const [suppressSelectionAnimations, setSuppressSelectionAnimations] = useState(false);
 
-  // Natychmiast aktualizuj stan ikon na podstawie selectionMode (0ms, native driver)
-  useEffect(() => {
+  // Błyskawicznie aktualizuj stan ikon tuż przed committem layoutu
+  useLayoutEffect(() => {
     Animated.timing(modeAV, {
       toValue: selectionMode === "wishlist" ? 1 : 0,
       duration: 0,
@@ -726,66 +727,68 @@ export default function ChooseCountriesScreen({
       });
     }
   }, [skeletonOpacity]);
+  const saveForMode = useCallback(
+    async (
+      modeToSave: "visited" | "wishlist",
+      finalSetSnapshot: Set<string>
+    ) => {
+      if (savingRef.current) return;
+      savingRef.current = true;
+      const user = auth.currentUser;
+      if (!user) {
+        console.error("Cannot save, user not authenticated.");
+        savingRef.current = false;
+        return;
+      }
+      const initialArray =
+        modeToSave === "visited" ? visitedCountries : wishlistCountries;
+      const initialSet = new Set(initialArray);
+      if (isEqual(initialSet, finalSetSnapshot)) {
+        savingRef.current = false;
+        return;
+      }
+      const add: string[] = [];
+      const remove: string[] = [];
+      finalSetSnapshot.forEach((c) => {
+        if (!initialSet.has(c)) add.push(c);
+      });
+      initialSet.forEach((c) => {
+        if (!finalSetSnapshot.has(c)) remove.push(c);
+      });
+      if (modeToSave === "visited") {
+        applyCountryDiff(add, remove, { immediate: true });
+      }
+      const currentSelectedArray = Array.from(finalSetSnapshot);
+      const userDocRef = doc(db, "users", user.uid);
+      InteractionManager.runAfterInteractions(() => {
+        setTimeout(() => {
+          updateDoc(
+            userDocRef,
+            modeToSave === "visited"
+              ? {
+                  countriesVisited: currentSelectedArray,
+                  ...(!fromTab && { firstLoginComplete: true }),
+                }
+              : {
+                  countriesWishlist: currentSelectedArray,
+                }
+          )
+            .then(() => {
+              console.log(`${modeToSave} countries saved successfully.`);
+            })
+            .catch((error) => {
+              console.error("Error auto-saving countries:", error);
+            });
+        }, 0);
+      });
+      savingRef.current = false;
+    },
+    [fromTab, applyCountryDiff, visitedCountries, wishlistCountries]
+  );
+
   const handleSaveCountries = useCallback(async () => {
-    if (savingRef.current) return;
-    savingRef.current = true;
-    const user = auth.currentUser;
-    if (!user) {
-      console.error("Cannot save, user not authenticated.");
-      savingRef.current = false;
-      return;
-    }
-    const initialSet = initialVisitedCountriesRef.current;
-    const finalSet = localSelectedCountries;
-    if (isEqual(initialSet, finalSet)) {
-      savingRef.current = false;
-      console.log("No changes to save.");
-      return;
-    }
-    const add: string[] = [];
-    const remove: string[] = [];
-    finalSet.forEach((c) => {
-      if (!initialSet.has(c)) add.push(c);
-    });
-    initialSet.forEach((c) => {
-      if (!finalSet.has(c)) remove.push(c);
-    });
-    if (mode === "visited") {
-      // Aktualizujemy mapę tylko dla odwiedzonych
-      applyCountryDiff(add, remove, { immediate: true });
-    }
-    // Update local snapshot immediately to prevent redundant re-saves
-    initialVisitedCountriesRef.current = new Set(finalSet);
-    // Offload Firestore write to background to avoid blocking UI/new-indicator
-    const currentSelectedArray = Array.from(finalSet);
-    const userDocRef = doc(db, "users", user.uid);
-    InteractionManager.runAfterInteractions(() => {
-      // Defer to next tick to ensure navigation/UI work is prioritized
-      setTimeout(() => {
-        updateDoc(
-          userDocRef,
-          mode === "visited"
-            ? {
-                countriesVisited: currentSelectedArray,
-                ...(!fromTab && { firstLoginComplete: true }),
-              }
-            : {
-                countriesWishlist: currentSelectedArray,
-              }
-        )
-          .then(() => {
-            console.log(
-              `${mode} countries data sent to Firestore successfully.`
-            );
-          })
-          .catch((error) => {
-            console.error("Error auto-saving countries:", error);
-          });
-      }, 0);
-    });
-    // Release saving lock immediately so UI remains responsive
-    savingRef.current = false;
-  }, [localSelectedCountries, fromTab, applyCountryDiff, mode]);
+    return saveForMode(mode, localSelectedCountries);
+  }, [saveForMode, mode, localSelectedCountries]);
   const handleSaveRef = useRef(handleSaveCountries);
   useEffect(() => {
     handleSaveRef.current = handleSaveCountries;
@@ -1079,6 +1082,11 @@ export default function ChooseCountriesScreen({
                       }),
                     ]).start(() => {
                       setSuppressSelectionAnimations(true);
+                      // Zapisz zmiany w bieżącym trybie przed przełączeniem
+                      const modeBefore = selectionMode;
+                      const snapshotBefore = new Set(localSelectedCountries);
+                      saveForMode(modeBefore, snapshotBefore);
+                      // Przełącz tryb
                       setSelectionMode((m) =>
                         m === "visited" ? "wishlist" : "visited"
                       );
