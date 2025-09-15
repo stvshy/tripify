@@ -1202,7 +1202,6 @@ export default function ChooseCountriesScreen({
               // Kontener dla listy i nakładki ze skeletonem
               <View style={{ flex: 1 }}>
                 <FlashList
-                  key={mode}
                   data={flattenedData}
                   renderItem={renderItem}
                   keyExtractor={(item, index) =>
