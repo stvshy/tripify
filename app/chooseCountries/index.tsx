@@ -300,7 +300,7 @@ const CountryItem = React.memo(function CountryItem({
                 {
                   scale: suppressSelectionAnimations
                     ? (isSelected ? 1 : 0)
-                    : (scaleAnimation as unknown as number),
+                    : (scaleAnimation as any),
                 },
               ],
               width: 12,
@@ -323,6 +323,14 @@ const CountryItem = React.memo(function CountryItem({
 }, (prevProps: CountryItemProps, nextProps: CountryItemProps) => {
   // Always re-render if selection state changes
   if (prevProps.isSelected !== nextProps.isSelected) return false;
+
+  // Re-render when animation suppression toggles (mode switch)
+  if (
+    prevProps.suppressSelectionAnimations !==
+    nextProps.suppressSelectionAnimations
+  ) {
+    return false;
+  }
 
   // If both are unselected, ignore mode changes to avoid unnecessary re-renders
   if (!prevProps.isSelected && !nextProps.isSelected) {
@@ -668,8 +676,8 @@ export default function ChooseCountriesScreen({
 
   // Ref, który zapewni, że animacja zanikania uruchomi się tylko raz
   const hasInitialLoadFired = useRef(false);
-  // Inicjalizacja oraz reakcja na zmianę trybu z ochroną przed zapętleniem
-  useEffect(() => {
+  // Inicjalizacja oraz reakcja na zmianę trybu z ochroną przed zapętleniem (przed paintem)
+  useLayoutEffect(() => {
     const src = mode === "visited" ? visitedCountries : wishlistCountries;
     let differs = false;
     if (localSelectedCountries.size !== src.length) differs = true;
@@ -777,7 +785,9 @@ export default function ChooseCountriesScreen({
         if (!finalSetSnapshot.has(c)) remove.push(c);
       });
       if (modeToSave === "visited") {
-        applyCountryDiff(add, remove, { immediate: true });
+        InteractionManager.runAfterInteractions(() => {
+          applyCountryDiff(add, remove, { immediate: true });
+        });
       }
       const currentSelectedArray = Array.from(finalSetSnapshot);
       const userDocRef = doc(db, "users", user.uid);
@@ -1115,8 +1125,11 @@ export default function ChooseCountriesScreen({
                       setLocalCount(newSet.size);
                       // Przełącz tryb (ikony zsynchronizuje useLayoutEffect na modeAV)
                       setSelectionMode(next);
-                      // Przywróć animacje selekcji natychmiast po commitcie
-                      setTimeout(() => setSuppressSelectionAnimations(false), 0);
+                      // Przywróć animacje selekcji po dwóch klatkach,
+                      // aby wartości animacji w wierszach zdążyły się zsynchronizować
+                      requestAnimationFrame(() => {
+                        requestAnimationFrame(() => setSuppressSelectionAnimations(false));
+                      });
                     });
                   }}
                   style={[
