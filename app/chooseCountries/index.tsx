@@ -870,97 +870,110 @@ export default function ChooseCountriesScreen({
       >
         <View style={{ flex: 1 }}>
           {/* Search Bar and Theme Toggle Button */}
-          <View style={styles.searchAndToggleContainer}>
+          <View
+            style={{
+              // Te style zapewniają, że nagłówek jest na wierzchu, ma tło i padding
+              zIndex: 10,
+              backgroundColor: theme.colors.background, // Użyj theme.colors.background
+              paddingBottom: moderateScale(2.8), // Padding jest teraz tutaj
+            }}
+          >
             <View
               style={[
-                styles.inputContainer, // Używa naszego nowego stylu z position: 'relative'
-                isSearchFocused && styles.inputFocused,
+                styles.searchAndToggleContainer,
+                { backgroundColor: theme.colors.surface },
               ]}
             >
-              {/* IKONA jest teraz pozycjonowana absolutnie wewnątrz kontenera */}
-              <AntDesign
-                name="search1"
-                size={moderateScale(21.5, 0.5)}
-                color={
-                  isSearchFocused
-                    ? theme.colors.primary
-                    : theme.dark
-                      ? "#838383ff"
-                      : "#888888ff"
-                }
-                style={styles.searchIcon} // <--- Nasz nowy, absolutny styl
-              />
-
-              {/* PaperTextInput NIE ma już propa 'left' */}
-              <PaperTextInput
-                ref={searchInputRef}
-                label="Search Country"
-                value={inputValue}
-                onChangeText={handleSearchChange}
-                mode="flat"
-                style={styles.input} // <--- Używa naszego nowego stylu z paddingLeft
-                placeholderTextColor={theme.colors.onSurfaceVariant}
-                theme={{
-                  colors: {
-                    primary: isSearchFocused
-                      ? theme.colors.primary
-                      : theme.colors.outline,
-                    background: "transparent",
-                    text: theme.colors.onSurface,
-                  },
-                }}
-                underlineColor="transparent"
-                // right prop pozostaje bez zmian
-                right={
-                  inputValue ? (
-                    <PaperTextInput.Icon
-                      icon={() => (
-                        <MaterialIcons
-                          name="close"
-                          size={moderateScale(17, 0.5)}
-                          color={theme.colors.outline}
-                          style={styles.iconRight}
-                        />
-                      )}
-                      onPress={() => {
-                        handleSearchChange("");
-                        dismissKeyboard();
-                      }}
-                    />
-                  ) : null
-                }
-                autoCapitalize="none"
-                onFocus={handleFocus}
-                onBlur={handleBlur}
-              />
-            </View>
-
-            {/* Round Button to Toggle Theme */}
-            <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
-              <Pressable
-                onPress={handleToggleTheme}
+              <View
                 style={[
-                  styles.toggleButton,
-                  { backgroundColor: theme.colors.primary },
+                  styles.inputContainer, // Używa naszego nowego stylu z position: 'relative'
+                  isSearchFocused && styles.inputFocused,
                 ]}
               >
-                {isDarkTheme ? (
-                  <MaterialIcons
-                    name="dark-mode"
-                    size={moderateScale(23.5, 0.5)}
-                    color={theme.colors.onPrimary}
-                  />
-                ) : (
-                  <MaterialIcons
-                    name="light-mode"
-                    size={moderateScale(23.5, 0.5)}
-                    color={theme.colors.onPrimary}
-                  />
-                )}
-              </Pressable>
-            </Animated.View>
-          </View>
+                {/* IKONA jest teraz pozycjonowana absolutnie wewnątrz kontenera */}
+                <AntDesign
+                  name="search1"
+                  size={moderateScale(21.5, 0.5)}
+                  color={
+                    isSearchFocused
+                      ? theme.colors.primary
+                      : theme.dark
+                        ? "#838383ff"
+                        : "#888888ff"
+                  }
+                  style={styles.searchIcon} // <--- Nasz nowy, absolutny styl
+                />
 
+                {/* PaperTextInput NIE ma już propa 'left' */}
+                <PaperTextInput
+                  ref={searchInputRef}
+                  label="Search Country"
+                  value={inputValue}
+                  onChangeText={handleSearchChange}
+                  mode="flat"
+                  style={styles.input} // <--- Używa naszego nowego stylu z paddingLeft
+                  placeholderTextColor={theme.colors.onSurfaceVariant}
+                  theme={{
+                    colors: {
+                      primary: isSearchFocused
+                        ? theme.colors.primary
+                        : theme.colors.outline,
+                      background: "transparent",
+                      text: theme.colors.onSurface,
+                    },
+                  }}
+                  underlineColor="transparent"
+                  // right prop pozostaje bez zmian
+                  right={
+                    inputValue ? (
+                      <PaperTextInput.Icon
+                        icon={() => (
+                          <MaterialIcons
+                            name="close"
+                            size={moderateScale(17, 0.5)}
+                            color={theme.colors.outline}
+                            style={styles.iconRight}
+                          />
+                        )}
+                        onPress={() => {
+                          handleSearchChange("");
+                          dismissKeyboard();
+                        }}
+                      />
+                    ) : null
+                  }
+                  autoCapitalize="none"
+                  onFocus={handleFocus}
+                  onBlur={handleBlur}
+                />
+              </View>
+
+              {/* Round Button to Toggle Theme */}
+              <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
+                <Pressable
+                  onPress={handleToggleTheme}
+                  style={[
+                    styles.toggleButton,
+                    { backgroundColor: theme.colors.primary },
+                  ]}
+                >
+                  {isDarkTheme ? (
+                    <MaterialIcons
+                      name="dark-mode"
+                      size={moderateScale(23.5, 0.5)}
+                      color={theme.colors.onPrimary}
+                    />
+                  ) : (
+                    <MaterialIcons
+                      name="light-mode"
+                      size={moderateScale(23.5, 0.5)}
+                      color={theme.colors.onPrimary}
+                    />
+                  )}
+                </Pressable>
+              </Animated.View>
+            </View>
+          </View>
           {/* Country List */}
           <View
             style={{
@@ -968,7 +981,7 @@ export default function ChooseCountriesScreen({
               marginBottom: fromTab
                 ? moderateScale(-15.8)
                 : moderateScale(-19.8),
-              marginTop: moderateScale(-8.8, 0.5), // <--- ZMIANA
+              marginTop: moderateScale(-5.6, 0.5), // <--- ZMIANA
             }}
           >
             {isPending ? (
@@ -1121,10 +1134,9 @@ const styles = ScaledSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginHorizontal: "9@s",
-    marginBottom: "12@mvs",
+    marginHorizontal: "9@s", // Ten margines jest teraz poprawny, bo jest wewnątrz nagłówka
+    marginBottom: "2@mvs",
     marginTop: "8.3@mvs",
-    // paddingBottom: "2@mvs",
   },
   inputContainer: {
     // szerokość i wysokość są zależne od ekranu, to jest OK
