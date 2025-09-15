@@ -933,13 +933,14 @@ export default function ChooseCountriesScreen({
                             name="close"
                             size={moderateScale(17, 0.5)}
                             color={theme.colors.outline}
-                            style={styles.iconRight}
+                            // style={styles.iconRight}
                           />
                         )}
                         onPress={() => {
                           handleSearchChange("");
                           dismissKeyboard();
                         }}
+                        style={styles.iconRight}
                       />
                     ) : null
                   }
