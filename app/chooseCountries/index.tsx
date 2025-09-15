@@ -344,41 +344,16 @@ export default function ChooseCountriesScreen({
   // const [isInputFocused, setIsInputFocused] = useState(false);
   const scaleValue = useRef(new Animated.Value(1)).current;
   const modeAV = useRef(new Animated.Value(selectionMode === "wishlist" ? 1 : 0)).current;
-  const iconUpdateFrameRef = useRef<number | null>(null);
   const [suppressSelectionAnimations, setSuppressSelectionAnimations] = useState(false);
 
-  const scheduleIconUpdate = useCallback(
-    (target: 0 | 1) => {
-      if (iconUpdateFrameRef.current !== null) {
-        cancelAnimationFrame(iconUpdateFrameRef.current);
-        iconUpdateFrameRef.current = null;
-      }
-      // Dwa RAF-y: 1) pozwól Reactowi wyrenderować zmiany zaznaczeń,
-      // 2) potem aktualizuj ikonę bez re-renderu wierszy
-      iconUpdateFrameRef.current = requestAnimationFrame(() => {
-        iconUpdateFrameRef.current = requestAnimationFrame(() => {
-          modeAV.stopAnimation();
-          modeAV.setValue(target);
-        });
-      });
-    },
-    [modeAV]
-  );
-
-  // Obsłuż także zmianę trybu spoza tego ekranu/przycisku (np. header)
+  // Natychmiast aktualizuj stan ikon na podstawie selectionMode (0ms, native driver)
   useEffect(() => {
-    scheduleIconUpdate(selectionMode === "wishlist" ? 1 : 0);
-  }, [selectionMode, scheduleIconUpdate]);
-
-  // Sprzątanie: anuluj oczekujące ramki podczas odmontowania
-  useEffect(() => {
-    return () => {
-      if (iconUpdateFrameRef.current !== null) {
-        cancelAnimationFrame(iconUpdateFrameRef.current);
-        iconUpdateFrameRef.current = null;
-      }
-    };
-  }, []);
+    Animated.timing(modeAV, {
+      toValue: selectionMode === "wishlist" ? 1 : 0,
+      duration: 0,
+      useNativeDriver: true,
+    }).start();
+  }, [selectionMode, modeAV]);
   const [isPopupVisible, setIsPopupVisible] = useState(true);
   const searchInputRef = useRef<TextInput>(null);
   const {
@@ -1104,16 +1079,11 @@ export default function ChooseCountriesScreen({
                       }),
                     ]).start(() => {
                       setSuppressSelectionAnimations(true);
-                      setSelectionMode((m) => {
-                        const next = m === "visited" ? "wishlist" : "visited";
-                        // Najpierw zmień tryb, a ikonę przełącz dopiero w następnym frame
-                        scheduleIconUpdate(next === "wishlist" ? 1 : 0);
-                        return next;
-                      });
-                      // Przywróć animacje selekcji tuż po odświeżeniu układu
-                      requestAnimationFrame(() => {
-                        requestAnimationFrame(() => setSuppressSelectionAnimations(false));
-                      });
+                      setSelectionMode((m) =>
+                        m === "visited" ? "wishlist" : "visited"
+                      );
+                      // Przywróć animacje selekcji natychmiast po commitcie
+                      setTimeout(() => setSuppressSelectionAnimations(false), 0);
                     });
                   }}
                   style={[
