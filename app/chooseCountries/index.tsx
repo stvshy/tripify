@@ -119,29 +119,20 @@ const CountryItem = React.memo(function CountryItem({
   item,
   onSelect,
   isSelected,
+  mode, // <<< NOWOŚĆ: Odbieramy props `mode`
 }: {
   item: Country;
   onSelect: (countryCode: string) => void;
   isSelected: boolean;
+  mode: "visited" | "wishlist"; // <<< NOWOŚĆ: Definiujemy typ dla `mode`
 }) {
   const theme = useTheme();
 
-  // ZMIANA: Rozdzielamy animacje dla lepszej kontroli i wydajności.
-  // 1. Animacja dla kolorów (wymaga useNativeDriver: false)
   const colorAnimation = useRef(new Animated.Value(isSelected ? 1 : 0)).current;
-  // 2. Animacja dla skali ptaszka (może używać useNativeDriver: true)
   const scaleAnimation = useRef(new Animated.Value(isSelected ? 1 : 0)).current;
 
-  // Wklej ten kod w miejsce całego bloku useEffect w CountryItem
-
   useEffect(() => {
-    // Używamy warunku, aby zastosować różne animacje
-    // dla zaznaczania i odznaczania.
-
     if (isSelected) {
-      // --- ANIMACJA ZAZNACZANIA (wolniejsza, bardziej efektowna) ---
-
-      // Animacja koloru tła
       Animated.timing(colorAnimation, {
         toValue: 1,
         duration: 150,
@@ -149,7 +140,6 @@ const CountryItem = React.memo(function CountryItem({
         useNativeDriver: false,
       }).start();
 
-      // Animacja sprężynowa dla ptaszka (efekt "pop-up")
       Animated.spring(scaleAnimation, {
         toValue: 1,
         friction: 4,
@@ -157,24 +147,21 @@ const CountryItem = React.memo(function CountryItem({
         useNativeDriver: true,
       }).start();
     } else {
-      // --- ANIMACJA ODZNACZANIA (szybsza, bardziej dyskretna) ---
-
-      // Szybsza animacja koloru tła
       Animated.timing(colorAnimation, {
         toValue: 0,
-        duration: 80, // ZMIANA: Krótszy czas (o połowę)
-        easing: Easing.in(Easing.ease), // ZMIANA: Szybki start animacji
+        duration: 80,
+        easing: Easing.in(Easing.ease),
         useNativeDriver: false,
       }).start();
 
-      // Szybka animacja zanikania ptaszka (bez sprężyny)
       Animated.timing(scaleAnimation, {
         toValue: 0,
-        duration: 153, // ZMIANA: Bardzo krótki czas
+        duration: 153,
         useNativeDriver: true,
       }).start();
     }
   }, [isSelected]);
+
   const handleToggleSelection = useCallback(() => {
     onSelect(item.cca2);
   }, [onSelect, item.cca2]);
@@ -183,7 +170,6 @@ const CountryItem = React.memo(function CountryItem({
     router.push(`/country/${item.id}`);
   }, [item.id]);
 
-  // Interpolacje oparte na animacji koloru
   const animatedBackgroundColor = colorAnimation.interpolate({
     inputRange: [0, 1],
     outputRange: [theme.colors.surface, theme.colors.surfaceVariant],
@@ -199,7 +185,6 @@ const CountryItem = React.memo(function CountryItem({
     outputRange: [theme.colors.outline, theme.colors.primary],
   });
 
-  // Statyczne kolory
   const flagBorderColor = theme.colors.outline;
   const checkboxIconColor = theme.colors.onPrimary;
 
@@ -253,9 +238,13 @@ const CountryItem = React.memo(function CountryItem({
             },
           ]}
         >
-          {/* NOWOŚĆ: Zastosowanie transformacji skali z animacji sprężynowej */}
           <Animated.View style={{ transform: [{ scale: scaleAnimation }] }}>
-            <FontAwesome name="check" size={12} color={checkboxIconColor} />
+            {/* --- GŁÓWNA ZMIANA: WARUNKOWE RENDEROWANIE IKONY --- */}
+            {mode === "visited" ? (
+              <FontAwesome name="check" size={12} color={checkboxIconColor} />
+            ) : (
+              <FontAwesome name="plus" size={12} color={checkboxIconColor} />
+            )}
           </Animated.View>
         </Animated.View>
       </Animated.View>
@@ -812,15 +801,15 @@ export default function ChooseCountriesScreen({
       return (
         <CountryItem
           item={item}
-          onSelect={handleSelectCountry} // Przekazujemy STABILNĄ funkcję
+          onSelect={handleSelectCountry}
           isSelected={localSelectedCountries.has(item.cca2)}
+          mode={mode} // <<< NOWOŚĆ: Przekazujemy aktualny tryb
         />
       );
     },
-    // Zależność od `selectedCountries` jest kluczowa, by funkcja
-    // `renderItem` miała zawsze dostęp do aktualnego stanu zaznaczeń.
-    // `handleSelectCountry` jest stabilne, więc nie powoduje problemów.
-    [localSelectedCountries, handleSelectCountry]
+    // Zależność od `mode` jest teraz potrzebna, aby komponenty
+    // poprawnie się przerysowały po zmianie trybu.
+    [localSelectedCountries, handleSelectCountry, mode]
   );
   const handleSearchChange = (text: string) => {
     setInputValue(text); // Aktualizuj input natychmiast
