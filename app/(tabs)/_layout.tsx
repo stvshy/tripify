@@ -207,7 +207,7 @@ const CustomHeader: React.FC = () => {
                 name="mail-outline"
                 size={moderateScale(23, 0.5)}
                 color={theme.colors.onSurface}
-                style={{ transform: [{ translateY: moderateScale(1, 0.5) }] }}
+                style={{ transform: [{ translateY: moderateScale(1.1, 0.5) }] }}
               />
               <Badge count={friendRequestsCount} />
             </View>

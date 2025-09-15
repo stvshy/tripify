@@ -57,10 +57,11 @@ import { isEqual } from "lodash";
 import { useLocalCount } from "../config/LocalCountContext";
 import Color from "color";
 import { useMapState } from "../config/MapStateProvider";
+import { moderateScale, ScaledSheet } from "react-native-size-matters";
 const { width, height } = Dimensions.get("window");
-const ITEM_HEIGHT = 50;
-const SECTION_HEADER_HEIGHT = 28;
-
+const ITEM_HEIGHT = moderateScale(49, 0.5);
+const SECTION_HEADER_HEIGHT = moderateScale(27, 0.5);
+const SAVE_BUTTON_MARGIN_BOTTOM = moderateScale(12.8);
 type Continent =
   | "Africa"
   | "North America"
@@ -224,7 +225,7 @@ const CountryItem = React.memo(function CountryItem({
               { borderColor: flagBorderColor },
             ]}
           >
-            <CountryFlag isoCode={item.cca2} size={25} />
+            <CountryFlag isoCode={item.cca2} size={moderateScale(24.7, 0.5)} />
           </View>
           <Text
             style={[
@@ -900,7 +901,7 @@ export default function ChooseCountriesScreen({
                     icon={() => (
                       <AntDesign
                         name="search1"
-                        size={21.5}
+                        size={moderateScale(21.5, 0.5)}
                         color={
                           isSearchFocused
                             ? theme.colors.primary
@@ -919,7 +920,7 @@ export default function ChooseCountriesScreen({
                       icon={() => (
                         <MaterialIcons
                           name="close"
-                          size={17}
+                          size={moderateScale(17, 0.5)}
                           color={theme.colors.outline}
                           style={styles.iconRight}
                         />
@@ -949,13 +950,13 @@ export default function ChooseCountriesScreen({
                 {isDarkTheme ? (
                   <MaterialIcons
                     name="dark-mode"
-                    size={24}
+                    size={moderateScale(23.5, 0.5)}
                     color={theme.colors.onPrimary}
                   />
                 ) : (
                   <MaterialIcons
                     name="light-mode"
-                    size={24}
+                    size={moderateScale(23.5, 0.5)}
                     color={theme.colors.onPrimary}
                   />
                 )}
@@ -1042,12 +1043,12 @@ export default function ChooseCountriesScreen({
                       {
                         translateY: fadeAnim.interpolate({
                           inputRange: [0, 1],
-                          outputRange: [50, 0],
+                          outputRange: [moderateScale(50), 0],
                         }),
                       },
                     ],
                     bottom: isSearchFocused
-                      ? -styles.saveButton.marginBottom - 5
+                      ? -SAVE_BUTTON_MARGIN_BOTTOM - moderateScale(5) // <--- ZMIANA
                       : 0,
                   },
                 ]}
@@ -1081,7 +1082,7 @@ export default function ChooseCountriesScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = ScaledSheet.create({
   keyboardAvoidingView: {
     flex: 1,
   },
@@ -1096,15 +1097,12 @@ const styles = StyleSheet.create({
   countryItemInnerContainer: {
     flexDirection: "row",
     alignItems: "center",
-    height: 50,
-    paddingHorizontal: 8,
-    // marginHorizontal: 13,
-    // marginBottom: 1,
-    borderRadius: 4.2, // Domyślne zaokrąglenie
-    // tło i border radius są dynamiczne w komponencie
+    height: ITEM_HEIGHT, // Używamy skalowalnej stałej
+    paddingHorizontal: "7.5@s",
+    borderRadius: "4.2@ms",
   },
   containerFromTab: {
-    marginTop: -5,
+    marginTop: "-5@mvs",
   },
   loaderContainer: {
     flex: 1,
@@ -1112,134 +1110,132 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   containerStandalone: {
-    paddingTop: 30,
+    paddingTop: "30@mvs",
   },
   navigableArea: {
     // Styl dla klikalnego obszaru flagi i nazwy
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 5, // Drobny padding dla lepszego wrażenia
+    paddingVertical: "5@mvs",
   },
   searchAndToggleContainer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginHorizontal: 9.3,
-    marginBottom: 13,
-    marginTop: 8.3,
+    marginHorizontal: "9@s",
+    marginBottom: "12@mvs",
+    marginTop: "8.3@mvs",
+    // paddingBottom: "2@mvs",
   },
   inputContainer: {
-    width: width * 0.82,
-    backgroundColor: "#f0ed8f5",
-    borderRadius: 28,
-    overflow: "hidden",
+    // szerokość i wysokość są zależne od ekranu, to jest OK
+    borderRadius: "28@ms",
     borderWidth: 1.5,
     borderColor: "#ccc",
     flexDirection: "row",
     alignItems: "center",
-    height: height * 0.062,
+    height: "44@mvs0.8", // Można zostawić procentowe lub zamienić na '50@mvs0.8'
     flex: 1,
   },
-  countryItemContainer: {
-    // To jest główny kontener, który ma flex i border
-    width: "100%",
-    flexDirection: "row",
-    alignItems: "center",
-    height: 50,
-    paddingHorizontal: 8,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#ccc",
-  },
+  // countryItemContainer: {
+  //   // To jest główny kontener, który ma flex i border
+  //   width: "100%",
+  //   flexDirection: "row",
+  //   alignItems: "center",
+  //   height: 50,
+  //   paddingHorizontal: 8,
+  //   borderBottomWidth: 0.5,
+  //   borderBottomColor: "#ccc",
+  // },
   iconRight: {
-    marginRight: -10,
+    marginRight: "-10@s",
   },
   toggleButton: {
-    width: height * 0.0615,
-    height: height * 0.0615,
-    borderRadius: (height * 0.0615) / 2,
+    width: "44@mvs0.8",
+    height: "44@mvs0.8",
+    borderRadius: "22@mvs0.8",
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: 7,
+    marginLeft: "6.5@s",
   },
   inputFocused: {
     borderColor: "#6a1b9a", // Purple color when focused
   },
   input: {
     flex: 1,
-    height: 50,
-    fontSize: 14,
+    height: "50@mvs",
+    fontSize: "13.85@ms0.4",
     backgroundColor: "transparent",
     borderRadius: 0,
-    color: "#000",
-    marginLeft: -8,
+    marginLeft: "-7.75@s",
+    color: "black",
   },
   iconLeft: {
-    marginLeft: 7,
-    // KLUCZOWA ZMIANA: Ujemny margines z prawej strony na kontenerze ikony.
-    // To "mówi" kolejnemu elementowi (polu tekstowemu), żeby przysunął się w lewo.
-    marginRight: -5,
+    marginLeft: "7@s",
+    marginRight: "-5.4@s",
   },
-  countryItemContent: {
-    // Nowy styl dla zawartości
-    flexDirection: "row",
-    alignItems: "center",
-    height: 50,
-    paddingHorizontal: 8,
-  },
+  // countryItemContent: {
+  //   // Nowy styl dla zawartości
+  //   flexDirection: "row",
+  //   alignItems: "center",
+  //   height: 50,
+  //   paddingHorizontal: 8,
+  // },
   // countryItem: { // Stary styl, teraz używany w countryItemContainer
   //   // flexDirection, alignItems, height, paddingHorizontal - przeniesione do countryItemContent
   //   borderBottomWidth: 0.5,
   //   borderBottomColor: "#ccc",
   // },
   sectionHeader: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingVertical: "3.8@mvs",
+    paddingHorizontal: "7.8@s",
     width: "100%",
-    marginLeft: 7,
-    marginTop: 7,
+    marginLeft: "6.8@s",
+    marginTop: "6.8@mvs",
   },
   sectionHeaderText: {
-    fontSize: 16,
+    fontSize: "15.8@ms0.4",
     fontWeight: "600",
   },
   flagWithBorder: {
-    borderWidth: 1,
-    borderRadius: 5,
+    borderWidth: 1, // Zostawiamy 1px
+    borderRadius: "5@ms",
     overflow: "hidden",
   },
-  countryItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    height: 50,
-    paddingHorizontal: 8,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#ccc",
-  },
+  // countryItem: {
+  //   flexDirection: "row",
+  //   alignItems: "center",
+  //   height: 50,
+  //   paddingHorizontal: 8,
+  //   borderBottomWidth: 0.5,
+  //   borderBottomColor: "#ccc",
+  // },
   flagContainer: {
-    marginRight: 10,
-    width: 30,
+    marginRight: "9.8@s",
+    width: "30@s",
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: 7,
+    marginLeft: "6.8@s",
   },
   countryText: {
-    fontSize: 16,
+    fontSize: "15.8@ms0.4",
   },
   roundCheckbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: "19.8@ms",
+    height: "19.8@ms",
+    borderRadius: "10@ms",
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 7,
+    marginRight: "6.8@s",
   },
+
   emptyContainer: {
-    padding: 16,
+    padding: "15.8@ms",
     alignItems: "center",
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: "15.8@ms0.4",
     color: "#666",
   },
   footer: {
@@ -1252,25 +1248,24 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   saveButton: {
-    backgroundColor: "#7511b5",
-    paddingVertical: 11,
-    paddingHorizontal: 30,
+    paddingVertical: "10.8@mvs",
+    paddingHorizontal: "29.8@s",
     alignItems: "center",
-    borderRadius: 25,
+    borderRadius: "25@ms",
     width: "80%",
     elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    marginBottom: 13,
+    marginBottom: SAVE_BUTTON_MARGIN_BOTTOM, // Używamy skalowalnej stałej
   },
   saveButtonDisabled: {
     backgroundColor: "rgba(117, 17, 181, 0.25)",
   },
   saveButtonText: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: "15.8@ms0.4",
     fontWeight: "bold",
   },
   modalOverlay: {
@@ -1280,9 +1275,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   modalContent: {
-    width: width * 0.8,
-    padding: 20,
-    borderRadius: 20,
+    width: "80%", // Procent jest OK
+    padding: "19.8@ms",
+    borderRadius: "20@ms",
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -1291,22 +1286,22 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: "17.8@ms0.4",
     fontWeight: "bold",
-    marginBottom: 10,
+    marginBottom: "9.8@mvs",
   },
   modalText: {
-    fontSize: 16,
+    fontSize: "15.8@ms0.4",
     textAlign: "center",
-    marginBottom: 20,
+    marginBottom: "19.8@mvs",
   },
   modalButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
+    paddingVertical: "9.8@mvs",
+    paddingHorizontal: "19.8@s",
+    borderRadius: "19.8@ms",
   },
   modalButtonText: {
-    fontSize: 16,
+    fontSize: "15.8@ms0.4",
     fontWeight: "bold",
   },
 });
