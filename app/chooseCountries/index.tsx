@@ -234,14 +234,13 @@ const CountryItem = React.memo(
       : theme.colors.outline;
 
     // Interpolacja do płynnego przełączania ikon bez re-renderów (0 -> visited, 1 -> wishlist)
-    const visitedOpacity = useMemo(
-      () => modeAV.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
-      [modeAV]
-    );
-    const wishlistOpacity = useMemo(
-      () => modeAV.interpolate({ inputRange: [0, 1], outputRange: [0, 1] }),
-      [modeAV]
-    );
+    // Ikona zależy od aktualnego selectionMode i lokalnej selekcji
+    const isWishlistMode = useRef<number>(0);
+    useLayoutEffect(() => {
+      isWishlistMode.current = (modeAV as any).__getValue?.() ?? 0;
+    }, [modeAV, listVersion]);
+    const visitedOpacity = isWishlistMode.current === 1 ? 0 : 1;
+    const wishlistOpacity = isWishlistMode.current === 1 ? 1 : 0;
 
     return (
       <Pressable
@@ -249,6 +248,7 @@ const CountryItem = React.memo(
         style={styles.countryItemOuterContainer}
       >
         <Animated.View
+          key={`${item.cca3}-${isSelected ? 1 : 0}-${listVersion}`}
           style={[
             styles.countryItemInnerContainer,
             {
@@ -290,6 +290,7 @@ const CountryItem = React.memo(
           <View style={{ flex: 1 }} />
 
           <Animated.View
+            key={`cb-${item.cca3}-${isSelected ? 1 : 0}-${listVersion}`}
             style={[
               styles.roundCheckbox,
               {
