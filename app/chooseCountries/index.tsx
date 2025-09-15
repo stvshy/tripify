@@ -121,6 +121,7 @@ type CountryItemProps = {
   isSelected: boolean;
   modeAV: Animated.Value;
   suppressSelectionAnimations: boolean;
+  listVersion: number;
 };
 
 const CountryItem = React.memo(
@@ -130,6 +131,7 @@ const CountryItem = React.memo(
     isSelected,
     modeAV,
     suppressSelectionAnimations,
+    listVersion,
   }: CountryItemProps) {
     const theme = useTheme();
 
@@ -193,7 +195,7 @@ const CountryItem = React.memo(
           useNativeDriver: true,
         }).start();
       }
-    }, [isSelected, suppressSelectionAnimations]);
+    }, [isSelected, suppressSelectionAnimations, listVersion]);
     const handleToggleSelection = useCallback(() => {
       onSelect(item.cca2);
     }, [onSelect, item.cca2]);
@@ -344,6 +346,8 @@ const CountryItem = React.memo(
     ) {
       return false;
     }
+    // Re-render on mode list version bump to force immediate sync
+    if (prevProps.listVersion !== nextProps.listVersion) return false;
 
     // If both are unselected, ignore mode changes to avoid unnecessary re-renders
     if (!prevProps.isSelected && !nextProps.isSelected) {
@@ -394,6 +398,8 @@ export default function ChooseCountriesScreen({
   ).current;
   const [suppressSelectionAnimations, setSuppressSelectionAnimations] =
     useState(false);
+  const listVersionRef = useRef(0);
+  const [listVersion, setListVersion] = useState(0);
 
   // Błyskawicznie aktualizuj stan ikon tuż przed committem layoutu
   useLayoutEffect(() => {
@@ -729,7 +735,12 @@ export default function ChooseCountriesScreen({
     if (modeChanged) {
       // Wyłącz suppression tuż po commicie, aby ręczne tapy od razu animowały
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => setSuppressSelectionAnimations(false));
+        requestAnimationFrame(() => {
+          // bump list version to force cell sync without full remount
+          listVersionRef.current += 1;
+          setListVersion(listVersionRef.current);
+          setSuppressSelectionAnimations(false);
+        });
       });
       prevModeRef.current = mode;
     }
@@ -937,6 +948,7 @@ export default function ChooseCountriesScreen({
           isSelected={localSelectedCountries.has(item.cca2)}
           modeAV={modeAV}
           suppressSelectionAnimations={suppressSelectionAnimations}
+          listVersion={listVersion}
         />
       );
     },
@@ -973,8 +985,8 @@ export default function ChooseCountriesScreen({
     }).start();
   }, [fadeAnim]);
   const listExtraData = useMemo(
-    () => ({ selected: localSelectedCountries, suppress: suppressSelectionAnimations }),
-    [localSelectedCountries, suppressSelectionAnimations]
+    () => ({ selected: localSelectedCountries, suppress: suppressSelectionAnimations, v: listVersion }),
+    [localSelectedCountries, suppressSelectionAnimations, listVersion]
   );
   return (
     // <TouchableWithoutFeedback onPress={dismissKeyboard}>
@@ -1149,12 +1161,13 @@ export default function ChooseCountriesScreen({
                       setLocalCount(newSet.size);
                       // Przełącz tryb (ikony zsynchronizuje useLayoutEffect na modeAV)
                       setSelectionMode(next);
-                      // Przywróć animacje selekcji po dwóch klatkach,
-                      // aby wartości animacji w wierszach zdążyły się zsynchronizować
+                      // Przywróć animacje selekcji po dwóch klatkach i zaktualizuj wersję listy
                       requestAnimationFrame(() => {
-                        requestAnimationFrame(() =>
-                          setSuppressSelectionAnimations(false)
-                        );
+                        requestAnimationFrame(() => {
+                          listVersionRef.current += 1;
+                          setListVersion(listVersionRef.current);
+                          setSuppressSelectionAnimations(false);
+                        });
                       });
                     });
                   }}
