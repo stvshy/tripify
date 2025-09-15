@@ -923,6 +923,7 @@ export default function ChooseCountriesScreen({
                     },
                   }}
                   underlineColor="transparent"
+                  underlineStyle={{ height: 0 }}
                   // right prop pozostaje bez zmian
                   right={
                     inputValue ? (
