@@ -1,9 +1,11 @@
+// app/chooseCountries/index.tsx
 import React, {
   useState,
   useMemo,
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
   useTransition,
 } from "react";
@@ -361,42 +363,17 @@ export default function ChooseCountriesScreen({
   const modeAV = useRef(
     new Animated.Value(selectionMode === "wishlist" ? 1 : 0)
   ).current;
-  const iconUpdateFrameRef = useRef<number | null>(null);
   const [suppressSelectionAnimations, setSuppressSelectionAnimations] =
     useState(false);
 
-  const scheduleIconUpdate = useCallback(
-    (target: 0 | 1) => {
-      if (iconUpdateFrameRef.current !== null) {
-        cancelAnimationFrame(iconUpdateFrameRef.current);
-        iconUpdateFrameRef.current = null;
-      }
-      // Dwa RAF-y: 1) pozwól Reactowi wyrenderować zmiany zaznaczeń,
-      // 2) potem aktualizuj ikonę bez re-renderu wierszy
-      iconUpdateFrameRef.current = requestAnimationFrame(() => {
-        iconUpdateFrameRef.current = requestAnimationFrame(() => {
-          modeAV.stopAnimation();
-          modeAV.setValue(target);
-        });
-      });
-    },
-    [modeAV]
-  );
-
-  // Obsłuż także zmianę trybu spoza tego ekranu/przycisku (np. header)
-  useEffect(() => {
-    scheduleIconUpdate(selectionMode === "wishlist" ? 1 : 0);
-  }, [selectionMode, scheduleIconUpdate]);
-
-  // Sprzątanie: anuluj oczekujące ramki podczas odmontowania
-  useEffect(() => {
-    return () => {
-      if (iconUpdateFrameRef.current !== null) {
-        cancelAnimationFrame(iconUpdateFrameRef.current);
-        iconUpdateFrameRef.current = null;
-      }
-    };
-  }, []);
+  // Błyskawicznie aktualizuj stan ikon tuż przed committem layoutu
+  useLayoutEffect(() => {
+    Animated.timing(modeAV, {
+      toValue: selectionMode === "wishlist" ? 1 : 0,
+      duration: 0,
+      useNativeDriver: true,
+    }).start();
+  }, [selectionMode, modeAV]);
   const [isPopupVisible, setIsPopupVisible] = useState(true);
   const searchInputRef = useRef<TextInput>(null);
   const {
@@ -769,66 +746,68 @@ export default function ChooseCountriesScreen({
       });
     }
   }, [skeletonOpacity]);
+  const saveForMode = useCallback(
+    async (
+      modeToSave: "visited" | "wishlist",
+      finalSetSnapshot: Set<string>
+    ) => {
+      if (savingRef.current) return;
+      savingRef.current = true;
+      const user = auth.currentUser;
+      if (!user) {
+        console.error("Cannot save, user not authenticated.");
+        savingRef.current = false;
+        return;
+      }
+      const initialArray =
+        modeToSave === "visited" ? visitedCountries : wishlistCountries;
+      const initialSet = new Set(initialArray);
+      if (isEqual(initialSet, finalSetSnapshot)) {
+        savingRef.current = false;
+        return;
+      }
+      const add: string[] = [];
+      const remove: string[] = [];
+      finalSetSnapshot.forEach((c) => {
+        if (!initialSet.has(c)) add.push(c);
+      });
+      initialSet.forEach((c) => {
+        if (!finalSetSnapshot.has(c)) remove.push(c);
+      });
+      if (modeToSave === "visited") {
+        applyCountryDiff(add, remove, { immediate: true });
+      }
+      const currentSelectedArray = Array.from(finalSetSnapshot);
+      const userDocRef = doc(db, "users", user.uid);
+      InteractionManager.runAfterInteractions(() => {
+        setTimeout(() => {
+          updateDoc(
+            userDocRef,
+            modeToSave === "visited"
+              ? {
+                  countriesVisited: currentSelectedArray,
+                  ...(!fromTab && { firstLoginComplete: true }),
+                }
+              : {
+                  countriesWishlist: currentSelectedArray,
+                }
+          )
+            .then(() => {
+              console.log(`${modeToSave} countries saved successfully.`);
+            })
+            .catch((error) => {
+              console.error("Error auto-saving countries:", error);
+            });
+        }, 0);
+      });
+      savingRef.current = false;
+    },
+    [fromTab, applyCountryDiff, visitedCountries, wishlistCountries]
+  );
+
   const handleSaveCountries = useCallback(async () => {
-    if (savingRef.current) return;
-    savingRef.current = true;
-    const user = auth.currentUser;
-    if (!user) {
-      console.error("Cannot save, user not authenticated.");
-      savingRef.current = false;
-      return;
-    }
-    const initialSet = initialVisitedCountriesRef.current;
-    const finalSet = localSelectedCountries;
-    if (isEqual(initialSet, finalSet)) {
-      savingRef.current = false;
-      console.log("No changes to save.");
-      return;
-    }
-    const add: string[] = [];
-    const remove: string[] = [];
-    finalSet.forEach((c) => {
-      if (!initialSet.has(c)) add.push(c);
-    });
-    initialSet.forEach((c) => {
-      if (!finalSet.has(c)) remove.push(c);
-    });
-    if (mode === "visited") {
-      // Aktualizujemy mapę tylko dla odwiedzonych
-      applyCountryDiff(add, remove, { immediate: true });
-    }
-    // Update local snapshot immediately to prevent redundant re-saves
-    initialVisitedCountriesRef.current = new Set(finalSet);
-    // Offload Firestore write to background to avoid blocking UI/new-indicator
-    const currentSelectedArray = Array.from(finalSet);
-    const userDocRef = doc(db, "users", user.uid);
-    InteractionManager.runAfterInteractions(() => {
-      // Defer to next tick to ensure navigation/UI work is prioritized
-      setTimeout(() => {
-        updateDoc(
-          userDocRef,
-          mode === "visited"
-            ? {
-                countriesVisited: currentSelectedArray,
-                ...(!fromTab && { firstLoginComplete: true }),
-              }
-            : {
-                countriesWishlist: currentSelectedArray,
-              }
-        )
-          .then(() => {
-            console.log(
-              `${mode} countries data sent to Firestore successfully.`
-            );
-          })
-          .catch((error) => {
-            console.error("Error auto-saving countries:", error);
-          });
-      }, 0);
-    });
-    // Release saving lock immediately so UI remains responsive
-    savingRef.current = false;
-  }, [localSelectedCountries, fromTab, applyCountryDiff, mode]);
+    return saveForMode(mode, localSelectedCountries);
+  }, [saveForMode, mode, localSelectedCountries]);
   const handleSaveRef = useRef(handleSaveCountries);
   useEffect(() => {
     handleSaveRef.current = handleSaveCountries;
@@ -1122,18 +1101,19 @@ export default function ChooseCountriesScreen({
                       }),
                     ]).start(() => {
                       setSuppressSelectionAnimations(true);
-                      setSelectionMode((m) => {
-                        const next = m === "visited" ? "wishlist" : "visited";
-                        // Najpierw zmień tryb, a ikonę przełącz dopiero w następnym frame
-                        scheduleIconUpdate(next === "wishlist" ? 1 : 0);
-                        return next;
-                      });
-                      // Przywróć animacje selekcji tuż po odświeżeniu układu
-                      requestAnimationFrame(() => {
-                        requestAnimationFrame(() =>
-                          setSuppressSelectionAnimations(false)
-                        );
-                      });
+                      // Zapisz zmiany w bieżącym trybie przed przełączeniem
+                      const modeBefore = selectionMode;
+                      const snapshotBefore = new Set(localSelectedCountries);
+                      saveForMode(modeBefore, snapshotBefore);
+                      // Przełącz tryb
+                      setSelectionMode((m) =>
+                        m === "visited" ? "wishlist" : "visited"
+                      );
+                      // Przywróć animacje selekcji natychmiast po commitcie
+                      setTimeout(
+                        () => setSuppressSelectionAnimations(false),
+                        0
+                      );
                     });
                   }}
                   style={[
