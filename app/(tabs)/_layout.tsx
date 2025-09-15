@@ -128,17 +128,21 @@ function VisitedToggle() {
   const segments = useSegments();
   const router = useRouter();
   const theme = useTheme();
-  const { visitedCountriesCount } = useCountries();
+  const { visitedCountriesCount, wishlistCountriesCount } = useCountries();
   const totalCountriesCount = filteredCountriesData.countries.length;
-  const { localCount } = useLocalCount(); // Używamy nowego hooka
+  const { localCount, selectionMode } = useLocalCount(); // selectionMode: visited | wishlist
   const inVisited =
     segments.length === 3 &&
     segments[0] === "(tabs)" &&
     segments[1] === "two" &&
     segments[2] === "chooseVisitedCountries";
   const isOnTwoTab = segments[1] === "two";
+  const baseCount =
+    selectionMode === "visited"
+      ? visitedCountriesCount
+      : wishlistCountriesCount;
   const displayCount =
-    isOnTwoTab && localCount !== null ? localCount : visitedCountriesCount;
+    isOnTwoTab && localCount !== null ? localCount : baseCount;
   const inVisitedListScreen = segments[2] === "chooseVisitedCountries";
   const iconName = inVisited ? "eye-off-outline" : "eye-check-outline";
 
@@ -164,6 +168,7 @@ function VisitedToggle() {
         }}
       >
         {displayCount}/{totalCountriesCount}
+        {selectionMode === "wishlist" && " ★"}
       </Text>
       <MaterialCommunityIcons
         name={iconName}

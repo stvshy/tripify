@@ -46,7 +46,7 @@ import {
 import { router, useFocusEffect, useRouter } from "expo-router";
 import { auth, db } from "../config/firebaseConfig";
 import CountryFlag from "react-native-country-flag";
-import { ThemeContext } from "../config/ThemeContext";
+import { ThemeContext } from "../config/ThemeContext"; // (theme toggle may be repurposed)
 import AsyncStorage from "@react-native-async-storage/async-storage";
 // DOBRZE - importujemy i od razu mówimy TS, jaki to ma być typ
 import preprocessedCountries from "../../components/preprocessedCountries.json";
@@ -279,7 +279,7 @@ export default function ChooseCountriesScreen({
   const [inputValue, setInputValue] = useState(""); // Stan dla samego inputu
   const [filterQuery, setFilterQuery] = useState(""); // Stan do filtrowania listy
   const [isPending, startTransition] = useTransition();
-  const { setLocalCount } = useLocalCount();
+  const { setLocalCount, selectionMode, setSelectionMode } = useLocalCount();
   const { toggleTheme, isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme();
   // const [isFocused, setIsFocused] = useState(false);
@@ -288,11 +288,18 @@ export default function ChooseCountriesScreen({
   const scaleValue = useRef(new Animated.Value(1)).current;
   const [isPopupVisible, setIsPopupVisible] = useState(true);
   const searchInputRef = useRef<TextInput>(null);
-  const { visitedCountries, setVisitedCountries } = useCountries();
+  const {
+    visitedCountries,
+    setVisitedCountries,
+    wishlistCountries,
+    setWishlistCountries,
+  } = useCountries();
   const initialVisitedCountriesRef = useRef(new Set(visitedCountries));
   const appState = useRef(AppState.currentState);
   const { updateAndHighlightCountries, applyCountryDiff } = useMapState();
 
+  // Tryb globalny współdzielony z headerem
+  const mode = selectionMode;
   const [localSelectedCountries, setLocalSelectedCountries] = useState(
     () => new Set<string>()
   );
@@ -569,19 +576,43 @@ export default function ChooseCountriesScreen({
 
   // Ref, który zapewni, że animacja zanikania uruchomi się tylko raz
   const hasInitialLoadFired = useRef(false);
+  // Inicjalizacja oraz reakcja na zmianę trybu z ochroną przed zapętleniem
   useEffect(() => {
-    // Inicjalizuj stan lokalny i licznik, gdy komponent się załaduje
-    const initialSet = new Set(visitedCountries);
-    setLocalSelectedCountries(initialSet);
-    initialVisitedCountriesRef.current = initialSet;
-    setLocalCount(initialSet.size);
+    const src = mode === "visited" ? visitedCountries : wishlistCountries;
+    let differs = false;
+    if (localSelectedCountries.size !== src.length) differs = true;
+    else {
+      for (const c of src) {
+        if (!localSelectedCountries.has(c)) {
+          differs = true;
+          break;
+        }
+      }
+      if (!differs) {
+        for (const c of localSelectedCountries) {
+          if (!src.includes(c)) {
+            differs = true;
+            break;
+          }
+        }
+      }
+    }
+    if (differs) {
+      const initialSet = new Set(src);
+      setLocalSelectedCountries(initialSet);
+      initialVisitedCountriesRef.current = initialSet;
+      setLocalCount(initialSet.size);
+    } else {
+      setLocalCount(localSelectedCountries.size);
+    }
+  }, [mode, visitedCountries, wishlistCountries]);
 
-    // Funkcja czyszcząca, która uruchamia się przy odmontowaniu
+  // Czyszczenie licznika przy odmontowaniu
+  useEffect(() => {
     return () => {
-      // Resetuj licznik do null, aby na innych ekranach pokazywała się wartość globalna
       setLocalCount(null);
     };
-  }, [visitedCountries, setLocalCount]);
+  }, [setLocalCount]);
   // ZASTĄP CAŁĄ FUNKCJĘ `handleSelectCountry` PONIŻSZYM KODEM:
   const dismissKeyboard = useCallback(() => {
     searchInputRef.current?.blur();
@@ -597,15 +628,13 @@ export default function ChooseCountriesScreen({
   const savingRef = useRef(false);
   const handleSelectCountry = useCallback(
     (countryCode: string) => {
-      if (savingRef.current) return; // blokuj interakcje w trakcie ciężkiego zapisu
+      if (savingRef.current) return;
       dismissKeyboard();
       setLocalSelectedCountries((currentSelected) => {
         const newSet = new Set(currentSelected);
-        if (newSet.has(countryCode)) {
-          newSet.delete(countryCode);
-        } else {
-          newSet.add(countryCode);
-        }
+        newSet.has(countryCode)
+          ? newSet.delete(countryCode)
+          : newSet.add(countryCode);
         return newSet;
       });
     },
@@ -651,8 +680,10 @@ export default function ChooseCountriesScreen({
     initialSet.forEach((c) => {
       if (!finalSet.has(c)) remove.push(c);
     });
-    // Trigger instant local update AND immediate visual highlight/New button on the map
-    applyCountryDiff(add, remove, { immediate: true });
+    if (mode === "visited") {
+      // Aktualizujemy mapę tylko dla odwiedzonych
+      applyCountryDiff(add, remove, { immediate: true });
+    }
     // Update local snapshot immediately to prevent redundant re-saves
     initialVisitedCountriesRef.current = new Set(finalSet);
     // Offload Firestore write to background to avoid blocking UI/new-indicator
@@ -661,12 +692,21 @@ export default function ChooseCountriesScreen({
     InteractionManager.runAfterInteractions(() => {
       // Defer to next tick to ensure navigation/UI work is prioritized
       setTimeout(() => {
-        updateDoc(userDocRef, {
-          countriesVisited: currentSelectedArray,
-          ...(!fromTab && { firstLoginComplete: true }),
-        })
+        updateDoc(
+          userDocRef,
+          mode === "visited"
+            ? {
+                countriesVisited: currentSelectedArray,
+                ...(!fromTab && { firstLoginComplete: true }),
+              }
+            : {
+                countriesWishlist: currentSelectedArray,
+              }
+        )
           .then(() => {
-            console.log("Countries data sent to Firestore successfully.");
+            console.log(
+              `${mode} countries data sent to Firestore successfully.`
+            );
           })
           .catch((error) => {
             console.error("Error auto-saving countries:", error);
@@ -675,18 +715,14 @@ export default function ChooseCountriesScreen({
     });
     // Release saving lock immediately so UI remains responsive
     savingRef.current = false;
-  }, [localSelectedCountries, fromTab, applyCountryDiff]);
+  }, [localSelectedCountries, fromTab, applyCountryDiff, mode]);
   const handleSaveRef = useRef(handleSaveCountries);
   useEffect(() => {
     handleSaveRef.current = handleSaveCountries;
   }, [handleSaveCountries]);
   useEffect(() => {
-    // Ten efekt uruchomi się za każdym razem, gdy zmieni się `localSelectedCountries`.
-    // Co ważne, dzieje się to PO tym, jak komponent się wyrenderuje.
-    if (setLocalCount) {
-      setLocalCount(localSelectedCountries.size);
-    }
-  }, [localSelectedCountries, setLocalCount]);
+    setLocalCount(localSelectedCountries.size);
+  }, [localSelectedCountries]);
   // <<< GŁÓWNA ZMIANA: Obsługa stanu aplikacji (background/inactive) >>>
   // useFocusEffect(
   //   useCallback(() => {
@@ -950,28 +986,41 @@ export default function ChooseCountriesScreen({
                 />
               </View>
 
-              {/* Round Button to Toggle Theme */}
+              {/* Przycisk przełączający tryb visited <-> wishlist */}
               <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
                 <Pressable
-                  onPress={handleToggleTheme}
+                  onPress={() => {
+                    Animated.sequence([
+                      Animated.timing(scaleValue, {
+                        toValue: 0.9,
+                        duration: 90,
+                        useNativeDriver: true,
+                      }),
+                      Animated.timing(scaleValue, {
+                        toValue: 1,
+                        duration: 120,
+                        useNativeDriver: true,
+                      }),
+                    ]).start(() => {
+                      setSelectionMode((m) =>
+                        m === "visited" ? "wishlist" : "visited"
+                      );
+                    });
+                  }}
                   style={[
                     styles.toggleButton,
                     { backgroundColor: theme.colors.primary },
                   ]}
                 >
-                  {isDarkTheme ? (
-                    <MaterialIcons
-                      name="dark-mode"
-                      size={moderateScale(23.5, 0.5)}
-                      color={theme.colors.onPrimary}
-                    />
-                  ) : (
-                    <MaterialIcons
-                      name="light-mode"
-                      size={moderateScale(23.5, 0.5)}
-                      color={theme.colors.onPrimary}
-                    />
-                  )}
+                  <Text
+                    style={{
+                      color: theme.colors.onPrimary,
+                      fontSize: moderateScale(11.5, 0.4),
+                      fontWeight: "600",
+                    }}
+                  >
+                    {mode === "visited" ? "WISHLIST" : "VISITED"}
+                  </Text>
                 </Pressable>
               </Animated.View>
             </View>
@@ -1084,7 +1133,7 @@ export default function ChooseCountriesScreen({
                       { color: theme.colors.onPrimary },
                     ]}
                   >
-                    Continue
+                    {mode === "visited" ? "Continue" : "Save Wishlist"}
                   </Text>
                 </Pressable>
               </Animated.View>
