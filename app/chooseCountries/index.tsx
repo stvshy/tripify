@@ -119,6 +119,7 @@ type CountryItemProps = {
   onSelect: (countryCode: string) => void;
   isSelected: boolean;
   modeAV: Animated.Value;
+  suppressSelectionAnimations: boolean;
 };
 
 const CountryItem = React.memo(
@@ -127,6 +128,7 @@ const CountryItem = React.memo(
     onSelect,
     isSelected,
     modeAV,
+    suppressSelectionAnimations,
   }: CountryItemProps) {
     const theme = useTheme();
 
@@ -143,6 +145,14 @@ const CountryItem = React.memo(
     // Wklej ten kod w miejsce całego bloku useEffect w CountryItem
 
     useEffect(() => {
+      if (suppressSelectionAnimations) {
+        // Natychmiastowa zmiana bez animacji dla przełączania trybu
+        colorAnimation.stopAnimation();
+        scaleAnimation.stopAnimation();
+        colorAnimation.setValue(isSelected ? 1 : 0);
+        scaleAnimation.setValue(isSelected ? 1 : 0);
+        return;
+      }
       // Używamy warunku, aby zastosować różne animacje
       // dla zaznaczania i odznaczania.
 
@@ -182,7 +192,7 @@ const CountryItem = React.memo(
           useNativeDriver: true,
         }).start();
       }
-    }, [isSelected]);
+    }, [isSelected, suppressSelectionAnimations]);
     const handleToggleSelection = useCallback(() => {
       onSelect(item.cca2);
     }, [onSelect, item.cca2]);
@@ -352,6 +362,8 @@ export default function ChooseCountriesScreen({
     new Animated.Value(selectionMode === "wishlist" ? 1 : 0)
   ).current;
   const iconUpdateFrameRef = useRef<number | null>(null);
+  const [suppressSelectionAnimations, setSuppressSelectionAnimations] =
+    useState(false);
 
   const scheduleIconUpdate = useCallback(
     (target: 0 | 1) => {
@@ -911,6 +923,7 @@ export default function ChooseCountriesScreen({
           onSelect={handleSelectCountry} // Przekazujemy STABILNĄ funkcję
           isSelected={localSelectedCountries.has(item.cca2)}
           modeAV={modeAV}
+          suppressSelectionAnimations={suppressSelectionAnimations}
         />
       );
     },
@@ -1108,12 +1121,18 @@ export default function ChooseCountriesScreen({
                         useNativeDriver: true,
                       }),
                     ]).start(() => {
+                      setSuppressSelectionAnimations(true);
                       setSelectionMode((m) => {
                         const next = m === "visited" ? "wishlist" : "visited";
-                        // Najpierw zmień tryb (co zsynchronizuje zaznaczenia w useEffect poniżej)
-                        // a ikonę przełącz dopiero w następnym frame
+                        // Najpierw zmień tryb, a ikonę przełącz dopiero w następnym frame
                         scheduleIconUpdate(next === "wishlist" ? 1 : 0);
                         return next;
+                      });
+                      // Przywróć animacje selekcji tuż po odświeżeniu układu
+                      requestAnimationFrame(() => {
+                        requestAnimationFrame(() =>
+                          setSuppressSelectionAnimations(false)
+                        );
                       });
                     });
                   }}
