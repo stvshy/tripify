@@ -59,7 +59,6 @@ import preprocessedCountries from "../../components/preprocessedCountries.json";
 import { useCountries } from "../config/CountryContext";
 import { useAuthStore } from "../store/authStore";
 import { FlashList } from "@shopify/flash-list";
-import { isEqual } from "lodash";
 import { useLocalCount } from "../config/LocalCountContext";
 import Color from "color";
 import { useMapState } from "../config/MapStateProvider";
@@ -800,47 +799,42 @@ export default function ChooseCountriesScreen({
       const initialArray =
         modeToSave === "visited" ? visitedCountries : wishlistCountries;
       const initialSet = new Set(initialArray);
-      if (isEqual(initialSet, finalSetSnapshot)) {
-        savingRef.current = false;
-        return;
-      }
-      const add: string[] = [];
-      const remove: string[] = [];
-      finalSetSnapshot.forEach((c) => {
-        if (!initialSet.has(c)) add.push(c);
-      });
-      initialSet.forEach((c) => {
-        if (!finalSetSnapshot.has(c)) remove.push(c);
-      });
-      if (modeToSave === "visited") {
-        InteractionManager.runAfterInteractions(() => {
-          applyCountryDiff(add, remove, { immediate: true });
-        });
-      }
-      const currentSelectedArray = Array.from(finalSetSnapshot);
-      const userDocRef = doc(db, "users", user.uid);
+
       InteractionManager.runAfterInteractions(() => {
-        setTimeout(() => {
-          updateDoc(
-            userDocRef,
-            modeToSave === "visited"
-              ? {
-                  countriesVisited: currentSelectedArray,
-                  ...(!fromTab && { firstLoginComplete: true }),
-                }
-              : {
-                  countriesWishlist: currentSelectedArray,
-                }
-          )
-            .then(() => {
-              console.log(`${modeToSave} countries saved successfully.`);
-            })
-            .catch((error) => {
-              console.error("Error auto-saving countries:", error);
-            });
-        }, 0);
+        const add: string[] = [];
+        const remove: string[] = [];
+        finalSetSnapshot.forEach((c) => {
+          if (!initialSet.has(c)) add.push(c);
+        });
+        initialSet.forEach((c) => {
+          if (!finalSetSnapshot.has(c)) remove.push(c);
+        });
+        if (modeToSave === "visited" && (add.length || remove.length)) {
+          applyCountryDiff(add, remove, { immediate: true });
+        }
+        const currentSelectedArray = Array.from(finalSetSnapshot);
+        const userDocRef = doc(db, "users", user.uid);
+        updateDoc(
+          userDocRef,
+          modeToSave === "visited"
+            ? {
+                countriesVisited: currentSelectedArray,
+                ...(!fromTab && { firstLoginComplete: true }),
+              }
+            : {
+                countriesWishlist: currentSelectedArray,
+              }
+        )
+          .then(() => {
+            console.log(`${modeToSave} countries saved successfully.`);
+          })
+          .catch((error) => {
+            console.error("Error auto-saving countries:", error);
+          })
+          .finally(() => {
+            savingRef.current = false;
+          });
       });
-      savingRef.current = false;
     },
     [fromTab, applyCountryDiff, visitedCountries, wishlistCountries]
   );
@@ -1208,6 +1202,7 @@ export default function ChooseCountriesScreen({
               // Kontener dla listy i nakładki ze skeletonem
               <View style={{ flex: 1 }}>
                 <FlashList
+                  key={mode}
                   data={flattenedData}
                   renderItem={renderItem}
                   keyExtractor={(item, index) =>
