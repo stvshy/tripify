@@ -222,6 +222,15 @@ const CountryItem = React.memo(
     // Statyczne kolory
     const flagBorderColor = theme.colors.outline;
     const checkboxIconColor = theme.colors.onPrimary;
+    const staticBackgroundColor = isSelected
+      ? theme.colors.surfaceVariant
+      : theme.colors.surface;
+    const staticCheckboxBackgroundColor = isSelected
+      ? theme.colors.primary
+      : "transparent";
+    const staticCheckboxBorderColor = isSelected
+      ? theme.colors.primary
+      : theme.colors.outline;
 
     // Interpolacja do płynnego przełączania ikon bez re-renderów (0 -> visited, 1 -> wishlist)
     const visitedOpacity = useMemo(
@@ -242,7 +251,9 @@ const CountryItem = React.memo(
           style={[
             styles.countryItemInnerContainer,
             {
-              backgroundColor: animatedBackgroundColor,
+              backgroundColor: suppressSelectionAnimations
+                ? staticBackgroundColor
+                : animatedBackgroundColor,
               borderBottomWidth: 0.5,
               borderBottomColor: theme.colors.outline,
             },
@@ -281,15 +292,27 @@ const CountryItem = React.memo(
             style={[
               styles.roundCheckbox,
               {
-                backgroundColor: animatedCheckboxBackgroundColor,
-                borderColor: animatedCheckboxBorderColor,
+                backgroundColor: suppressSelectionAnimations
+                  ? staticCheckboxBackgroundColor
+                  : animatedCheckboxBackgroundColor,
+                borderColor: suppressSelectionAnimations
+                  ? staticCheckboxBorderColor
+                  : animatedCheckboxBorderColor,
               },
             ]}
           >
             {/* NOWOŚĆ: Zastosowanie transformacji skali z animacji sprężynowej */}
             <Animated.View
               style={{
-                transform: [{ scale: scaleAnimation }],
+                transform: [
+                  {
+                    scale: suppressSelectionAnimations
+                      ? isSelected
+                        ? 1
+                        : 0
+                      : (scaleAnimation as any),
+                  },
+                ],
                 width: 12,
                 height: 12,
                 alignItems: "center",
@@ -315,6 +338,13 @@ const CountryItem = React.memo(
   (prevProps: CountryItemProps, nextProps: CountryItemProps) => {
     // Always re-render if selection state changes
     if (prevProps.isSelected !== nextProps.isSelected) return false;
+    // Re-render when animation suppression toggles (mode switch)
+    if (
+      prevProps.suppressSelectionAnimations !==
+      nextProps.suppressSelectionAnimations
+    ) {
+      return false;
+    }
 
     // If both are unselected, ignore mode changes to avoid unnecessary re-renders
     if (!prevProps.isSelected && !nextProps.isSelected) {
@@ -666,8 +696,8 @@ export default function ChooseCountriesScreen({
 
   // Ref, który zapewni, że animacja zanikania uruchomi się tylko raz
   const hasInitialLoadFired = useRef(false);
-  // Inicjalizacja oraz reakcja na zmianę trybu z ochroną przed zapętleniem
-  useEffect(() => {
+  // Inicjalizacja oraz reakcja na zmianę trybu z ochroną przed zapętleniem (przed paintem)
+  useLayoutEffect(() => {
     const src = mode === "visited" ? visitedCountries : wishlistCountries;
     let differs = false;
     if (localSelectedCountries.size !== src.length) differs = true;
@@ -718,7 +748,6 @@ export default function ChooseCountriesScreen({
   const savingRef = useRef(false);
   const handleSelectCountry = useCallback(
     (countryCode: string) => {
-      if (savingRef.current) return;
       dismissKeyboard();
       setLocalSelectedCountries((currentSelected) => {
         const newSet = new Set(currentSelected);
@@ -775,7 +804,9 @@ export default function ChooseCountriesScreen({
         if (!finalSetSnapshot.has(c)) remove.push(c);
       });
       if (modeToSave === "visited") {
-        applyCountryDiff(add, remove, { immediate: true });
+        InteractionManager.runAfterInteractions(() => {
+          applyCountryDiff(add, remove, { immediate: true });
+        });
       }
       const currentSelectedArray = Array.from(finalSetSnapshot);
       const userDocRef = doc(db, "users", user.uid);
@@ -939,8 +970,8 @@ export default function ChooseCountriesScreen({
     }).start();
   }, [fadeAnim]);
   const listExtraData = useMemo(
-    () => ({ selected: localSelectedCountries }),
-    [localSelectedCountries]
+    () => ({ selected: localSelectedCountries, suppress: suppressSelectionAnimations }),
+    [localSelectedCountries, suppressSelectionAnimations]
   );
   return (
     // <TouchableWithoutFeedback onPress={dismissKeyboard}>
@@ -1105,15 +1136,23 @@ export default function ChooseCountriesScreen({
                       const modeBefore = selectionMode;
                       const snapshotBefore = new Set(localSelectedCountries);
                       saveForMode(modeBefore, snapshotBefore);
-                      // Przełącz tryb
-                      setSelectionMode((m) =>
-                        m === "visited" ? "wishlist" : "visited"
-                      );
-                      // Przywróć animacje selekcji natychmiast po commitcie
-                      setTimeout(
-                        () => setSuppressSelectionAnimations(false),
-                        0
-                      );
+                      // Wyznacz nowy tryb i natychmiast ustaw lokalny wybór pod nowy tryb
+                      const next =
+                        modeBefore === "visited" ? "wishlist" : "visited";
+                      const src =
+                        next === "visited" ? visitedCountries : wishlistCountries;
+                      const newSet = new Set(src);
+                      setLocalSelectedCountries(newSet);
+                      setLocalCount(newSet.size);
+                      // Przełącz tryb (ikony zsynchronizuje useLayoutEffect na modeAV)
+                      setSelectionMode(next);
+                      // Przywróć animacje selekcji po dwóch klatkach,
+                      // aby wartości animacji w wierszach zdążyły się zsynchronizować
+                      requestAnimationFrame(() => {
+                        requestAnimationFrame(() =>
+                          setSuppressSelectionAnimations(false)
+                        );
+                      });
                     });
                   }}
                   style={[
