@@ -334,6 +334,40 @@ export default function ChooseCountriesScreen({
   // const [isInputFocused, setIsInputFocused] = useState(false);
   const scaleValue = useRef(new Animated.Value(1)).current;
   const modeAV = useRef(new Animated.Value(selectionMode === "wishlist" ? 1 : 0)).current;
+  const iconUpdateFrameRef = useRef<number | null>(null);
+
+  const scheduleIconUpdate = useCallback(
+    (target: 0 | 1) => {
+      if (iconUpdateFrameRef.current !== null) {
+        cancelAnimationFrame(iconUpdateFrameRef.current);
+        iconUpdateFrameRef.current = null;
+      }
+      // Dwa RAF-y: 1) pozwól Reactowi wyrenderować zmiany zaznaczeń,
+      // 2) potem aktualizuj ikonę bez re-renderu wierszy
+      iconUpdateFrameRef.current = requestAnimationFrame(() => {
+        iconUpdateFrameRef.current = requestAnimationFrame(() => {
+          modeAV.stopAnimation();
+          modeAV.setValue(target);
+        });
+      });
+    },
+    [modeAV]
+  );
+
+  // Obsłuż także zmianę trybu spoza tego ekranu/przycisku (np. header)
+  useEffect(() => {
+    scheduleIconUpdate(selectionMode === "wishlist" ? 1 : 0);
+  }, [selectionMode, scheduleIconUpdate]);
+
+  // Sprzątanie: anuluj oczekujące ramki podczas odmontowania
+  useEffect(() => {
+    return () => {
+      if (iconUpdateFrameRef.current !== null) {
+        cancelAnimationFrame(iconUpdateFrameRef.current);
+        iconUpdateFrameRef.current = null;
+      }
+    };
+  }, []);
   const [isPopupVisible, setIsPopupVisible] = useState(true);
   const searchInputRef = useRef<TextInput>(null);
   const {
@@ -462,11 +496,7 @@ export default function ChooseCountriesScreen({
     });
   }, [scaleValue, toggleTheme]);
 
-  // Synchronizuj animowaną wartość trybu z globalnym trybem bez animacji (natychmiastowo)
-  useEffect(() => {
-    modeAV.stopAnimation();
-    modeAV.setValue(selectionMode === "wishlist" ? 1 : 0);
-  }, [selectionMode, modeAV]);
+  // Ikona (modeAV) będzie aktualizowana ręcznie po zsynchronizowaniu zaznaczeń
 
   // useFocusEffect(
   //   useCallback(() => {
@@ -1061,9 +1091,13 @@ export default function ChooseCountriesScreen({
                         useNativeDriver: true,
                       }),
                     ]).start(() => {
-                      setSelectionMode((m) =>
-                        m === "visited" ? "wishlist" : "visited"
-                      );
+                      setSelectionMode((m) => {
+                        const next = m === "visited" ? "wishlist" : "visited";
+                        // Najpierw zmień tryb (co zsynchronizuje zaznaczenia w useEffect poniżej)
+                        // a ikonę przełącz dopiero w następnym frame
+                        scheduleIconUpdate(next === "wishlist" ? 1 : 0);
+                        return next;
+                      });
                     });
                   }}
                   style={[
