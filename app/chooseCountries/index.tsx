@@ -873,17 +873,32 @@ export default function ChooseCountriesScreen({
           <View style={styles.searchAndToggleContainer}>
             <View
               style={[
-                styles.inputContainer,
+                styles.inputContainer, // Używa naszego nowego stylu z position: 'relative'
                 isSearchFocused && styles.inputFocused,
               ]}
             >
+              {/* IKONA jest teraz pozycjonowana absolutnie wewnątrz kontenera */}
+              <AntDesign
+                name="search1"
+                size={moderateScale(21.5, 0.5)}
+                color={
+                  isSearchFocused
+                    ? theme.colors.primary
+                    : theme.dark
+                      ? "#838383ff"
+                      : "#888888ff"
+                }
+                style={styles.searchIcon} // <--- Nasz nowy, absolutny styl
+              />
+
+              {/* PaperTextInput NIE ma już propa 'left' */}
               <PaperTextInput
                 ref={searchInputRef}
                 label="Search Country"
                 value={inputValue}
                 onChangeText={handleSearchChange}
                 mode="flat"
-                style={styles.input}
+                style={styles.input} // <--- Używa naszego nowego stylu z paddingLeft
                 placeholderTextColor={theme.colors.onSurfaceVariant}
                 theme={{
                   colors: {
@@ -895,25 +910,7 @@ export default function ChooseCountriesScreen({
                   },
                 }}
                 underlineColor="transparent"
-                // contentStyle={{ marginLeft: -15 }}
-                left={
-                  <PaperTextInput.Icon
-                    icon={() => (
-                      <AntDesign
-                        name="search1"
-                        size={moderateScale(21.5, 0.5)}
-                        color={
-                          isSearchFocused
-                            ? theme.colors.primary
-                            : theme.dark
-                              ? "#838383ff"
-                              : "#888888ff"
-                        }
-                      />
-                    )}
-                    style={styles.iconLeft}
-                  />
-                }
+                // right prop pozostaje bez zmian
                 right={
                   inputValue ? (
                     <PaperTextInput.Icon
@@ -968,8 +965,10 @@ export default function ChooseCountriesScreen({
           <View
             style={{
               flex: 1,
-              marginBottom: fromTab ? -16 : -20,
-              marginTop: -9,
+              marginBottom: fromTab
+                ? moderateScale(-15.8)
+                : moderateScale(-19.8),
+              marginTop: moderateScale(-8.8, 0.5), // <--- ZMIANA
             }}
           >
             {isPending ? (
@@ -1136,6 +1135,7 @@ const styles = ScaledSheet.create({
     alignItems: "center",
     height: "44@mvs0.8", // Można zostawić procentowe lub zamienić na '50@mvs0.8'
     flex: 1,
+    position: "relative",
   },
   // countryItemContainer: {
   //   // To jest główny kontener, który ma flex i border
@@ -1167,11 +1167,18 @@ const styles = ScaledSheet.create({
     fontSize: "13.85@ms0.4",
     backgroundColor: "transparent",
     borderRadius: 0,
-    marginLeft: "-7.75@s",
+    paddingLeft: "31@s",
     color: "black",
   },
+  searchIcon: {
+    // Styl dla naszej ikony
+    position: "absolute",
+    left: "15@s", // Odległość ikony od lewej krawędzi
+    // WAŻNE: zIndex zapewnia, że ikona jest "nad" inputem, jeśli wystąpią problemy
+    zIndex: 1,
+  },
   iconLeft: {
-    marginLeft: "7@s",
+    marginLeft: "13.4@s",
     marginRight: "-5.4@s",
   },
   // countryItemContent: {
