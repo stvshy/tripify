@@ -114,146 +114,189 @@ const getContinent = (region: string, subregion: string): Continent => {
 
 // CountryItem component
 // Wklej ten kod w miejsce oryginalnego komponentu CountryItem
-
-const CountryItem = React.memo(function CountryItem({
-  item,
-  onSelect,
-  isSelected,
-  mode, // <<< NOWOŚĆ: Odbieramy props `mode`
-}: {
+type CountryItemProps = {
   item: Country;
   onSelect: (countryCode: string) => void;
   isSelected: boolean;
-  mode: "visited" | "wishlist"; // <<< NOWOŚĆ: Definiujemy typ dla `mode`
-}) {
-  const theme = useTheme();
+  modeAV: Animated.Value;
+};
+const CountryItem = React.memo(
+  function CountryItem({
+    item,
+    onSelect,
+    isSelected,
+    modeAV,
+  }: CountryItemProps) {
+    const theme = useTheme();
 
-  const colorAnimation = useRef(new Animated.Value(isSelected ? 1 : 0)).current;
-  const scaleAnimation = useRef(new Animated.Value(isSelected ? 1 : 0)).current;
+    const colorAnimation = useRef(
+      new Animated.Value(isSelected ? 1 : 0)
+    ).current;
+    const scaleAnimation = useRef(
+      new Animated.Value(isSelected ? 1 : 0)
+    ).current;
 
-  useEffect(() => {
-    if (isSelected) {
-      Animated.timing(colorAnimation, {
-        toValue: 1,
-        duration: 150,
-        easing: Easing.out(Easing.ease),
-        useNativeDriver: false,
-      }).start();
+    useEffect(() => {
+      if (isSelected) {
+        Animated.timing(colorAnimation, {
+          toValue: 1,
+          duration: 150,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: false,
+        }).start();
 
-      Animated.spring(scaleAnimation, {
-        toValue: 1,
-        friction: 4,
-        tension: 52,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(colorAnimation, {
-        toValue: 0,
-        duration: 80,
-        easing: Easing.in(Easing.ease),
-        useNativeDriver: false,
-      }).start();
+        Animated.spring(scaleAnimation, {
+          toValue: 1,
+          friction: 4,
+          tension: 52,
+          useNativeDriver: true,
+        }).start();
+      } else {
+        Animated.timing(colorAnimation, {
+          toValue: 0,
+          duration: 80,
+          easing: Easing.in(Easing.ease),
+          useNativeDriver: false,
+        }).start();
 
-      Animated.timing(scaleAnimation, {
-        toValue: 0,
-        duration: 153,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [isSelected]);
+        Animated.timing(scaleAnimation, {
+          toValue: 0,
+          duration: 153,
+          useNativeDriver: true,
+        }).start();
+      }
+    }, [isSelected]);
 
-  const handleToggleSelection = useCallback(() => {
-    onSelect(item.cca2);
-  }, [onSelect, item.cca2]);
+    const handleToggleSelection = useCallback(() => {
+      onSelect(item.cca2);
+    }, [onSelect, item.cca2]);
 
-  const handleNavigateToCountry = useCallback(() => {
-    router.push(`/country/${item.id}`);
-  }, [item.id]);
+    const handleNavigateToCountry = useCallback(() => {
+      router.push(`/country/${item.id}`);
+    }, [item.id]);
 
-  const animatedBackgroundColor = colorAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [theme.colors.surface, theme.colors.surfaceVariant],
-  });
+    const animatedBackgroundColor = colorAnimation.interpolate({
+      inputRange: [0, 1],
+      outputRange: [theme.colors.surface, theme.colors.surfaceVariant],
+    });
 
-  const animatedCheckboxBackgroundColor = colorAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["transparent", theme.colors.primary],
-  });
+    const animatedCheckboxBackgroundColor = colorAnimation.interpolate({
+      inputRange: [0, 1],
+      outputRange: ["transparent", theme.colors.primary],
+    });
 
-  const animatedCheckboxBorderColor = colorAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [theme.colors.outline, theme.colors.primary],
-  });
+    const animatedCheckboxBorderColor = colorAnimation.interpolate({
+      inputRange: [0, 1],
+      outputRange: [theme.colors.outline, theme.colors.primary],
+    });
 
-  const flagBorderColor = theme.colors.outline;
-  const checkboxIconColor = theme.colors.onPrimary;
-
-  return (
-    <Pressable
-      onPress={handleToggleSelection}
-      style={styles.countryItemOuterContainer}
-    >
-      <Animated.View
-        style={[
-          styles.countryItemInnerContainer,
-          {
-            backgroundColor: animatedBackgroundColor,
-            borderBottomWidth: 0.5,
-            borderBottomColor: theme.colors.outline,
-          },
-        ]}
+    const flagBorderColor = theme.colors.outline;
+    const checkboxIconColor = theme.colors.onPrimary;
+    const visitedOpacity = useMemo(
+      () => modeAV.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+      [modeAV]
+    );
+    const wishlistOpacity = useMemo(
+      () => modeAV.interpolate({ inputRange: [0, 1], outputRange: [0, 1] }),
+      [modeAV]
+    );
+    return (
+      <Pressable
+        onPress={handleToggleSelection}
+        style={styles.countryItemOuterContainer}
       >
-        <TouchableOpacity
-          onPress={handleNavigateToCountry}
-          style={styles.navigableArea}
-          activeOpacity={0.6}
-        >
-          <View
-            style={[
-              styles.flagContainer,
-              styles.flagWithBorder,
-              { borderColor: flagBorderColor },
-            ]}
-          >
-            <CountryFlag isoCode={item.cca2} size={moderateScale(24.7, 0.5)} />
-          </View>
-          <Text
-            style={[
-              styles.countryText,
-              { color: theme.colors.onSurface, marginLeft: 5 },
-            ]}
-          >
-            {item.name}
-          </Text>
-        </TouchableOpacity>
-
-        <View style={{ flex: 1 }} />
-
         <Animated.View
           style={[
-            styles.roundCheckbox,
+            styles.countryItemInnerContainer,
             {
-              backgroundColor: animatedCheckboxBackgroundColor,
-              borderColor: animatedCheckboxBorderColor,
+              backgroundColor: animatedBackgroundColor,
+              borderBottomWidth: 0.5,
+              borderBottomColor: theme.colors.outline,
             },
           ]}
         >
-          <Animated.View style={{ transform: [{ scale: scaleAnimation }] }}>
-            {/* --- GŁÓWNA ZMIANA: WARUNKOWE RENDEROWANIE IKONY --- */}
-            {mode === "visited" ? (
-              <FontAwesome name="check" size={12} color={checkboxIconColor} />
-            ) : (
-              <FontAwesome name="plus" size={12} color={checkboxIconColor} />
-            )}
+          <TouchableOpacity
+            onPress={handleNavigateToCountry}
+            style={styles.navigableArea}
+            activeOpacity={0.6}
+          >
+            <View
+              style={[
+                styles.flagContainer,
+                styles.flagWithBorder,
+                { borderColor: flagBorderColor },
+              ]}
+            >
+              <CountryFlag
+                isoCode={item.cca2}
+                size={moderateScale(24.7, 0.5)}
+              />
+            </View>
+            <Text
+              style={[
+                styles.countryText,
+                { color: theme.colors.onSurface, marginLeft: 5 },
+              ]}
+            >
+              {item.name}
+            </Text>
+          </TouchableOpacity>
+
+          <View style={{ flex: 1 }} />
+
+          <Animated.View
+            style={[
+              styles.roundCheckbox,
+              {
+                backgroundColor: animatedCheckboxBackgroundColor,
+                borderColor: animatedCheckboxBorderColor,
+              },
+            ]}
+          >
+            <Animated.View
+              style={{
+                transform: [{ scale: scaleAnimation }],
+                width: 12,
+                height: 12,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Animated.View
+                style={{ position: "absolute", opacity: visitedOpacity }}
+              >
+                <FontAwesome name="check" size={12} color={checkboxIconColor} />
+              </Animated.View>
+              <Animated.View
+                style={{ position: "absolute", opacity: wishlistOpacity }}
+              >
+                <FontAwesome name="plus" size={12} color={checkboxIconColor} />
+              </Animated.View>
+            </Animated.View>
           </Animated.View>
         </Animated.View>
-      </Animated.View>
-    </Pressable>
-  );
-});
-type ChooseCountriesScreenProps = {
-  fromTab?: boolean;
-};
+      </Pressable>
+    );
+  },
+  (prevProps: CountryItemProps, nextProps: CountryItemProps) => {
+    // Always re-render if selection state changes
+    if (prevProps.isSelected !== nextProps.isSelected) return false;
+
+    // If both are unselected, ignore mode changes to avoid unnecessary re-renders
+    if (!prevProps.isSelected && !nextProps.isSelected) {
+      return (
+        prevProps.item === nextProps.item &&
+        prevProps.onSelect === nextProps.onSelect
+      );
+    }
+
+    // Otherwise, props are effectively the same
+    return (
+      prevProps.item === nextProps.item &&
+      prevProps.onSelect === nextProps.onSelect
+    );
+  }
+);
 const SectionHeader = ({ title }: { title: string }) => {
   const theme = useTheme();
   return (
@@ -265,6 +308,9 @@ const SectionHeader = ({ title }: { title: string }) => {
       </Text>
     </View>
   );
+};
+type ChooseCountriesScreenProps = {
+  fromTab?: boolean;
 };
 export default function ChooseCountriesScreen({
   fromTab = false,
@@ -279,6 +325,9 @@ export default function ChooseCountriesScreen({
   // const [isFocused, setIsFocused] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   // const [isInputFocused, setIsInputFocused] = useState(false);
+  const modeAV = useRef(
+    new Animated.Value(selectionMode === "wishlist" ? 1 : 0)
+  ).current;
   const scaleValue = useRef(new Animated.Value(1)).current;
   const [isPopupVisible, setIsPopupVisible] = useState(true);
   const searchInputRef = useRef<TextInput>(null);
@@ -407,7 +456,11 @@ export default function ChooseCountriesScreen({
       toggleTheme();
     });
   }, [scaleValue, toggleTheme]);
-
+  // Synchronizuj animowaną wartość trybu z globalnym trybem bez animacji (natychmiastowo)
+  useEffect(() => {
+    modeAV.stopAnimation();
+    modeAV.setValue(selectionMode === "wishlist" ? 1 : 0);
+  }, [selectionMode, modeAV]);
   // useFocusEffect(
   //   useCallback(() => {
   //     // --- Nowa, bardziej agresywna logika BackHandler ---
@@ -803,7 +856,7 @@ export default function ChooseCountriesScreen({
           item={item}
           onSelect={handleSelectCountry}
           isSelected={localSelectedCountries.has(item.cca2)}
-          mode={mode} // <<< NOWOŚĆ: Przekazujemy aktualny tryb
+          modeAV={modeAV}
         />
       );
     },
@@ -838,6 +891,10 @@ export default function ChooseCountriesScreen({
       useNativeDriver: true,
     }).start();
   }, [fadeAnim]);
+  const listExtraData = useMemo(
+    () => ({ selected: localSelectedCountries }),
+    [localSelectedCountries]
+  );
   return (
     // <TouchableWithoutFeedback onPress={dismissKeyboard}>
     <SafeAreaView
@@ -1053,7 +1110,7 @@ export default function ChooseCountriesScreen({
                       : `country-${item.cca3}`
                   }
                   getItemType={getItemType}
-                  extraData={localSelectedCountries}
+                  extraData={listExtraData}
                   estimatedItemSize={ITEM_HEIGHT}
                   contentContainerStyle={{
                     paddingBottom: fromTab ? 20 : 96,
