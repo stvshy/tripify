@@ -398,11 +398,8 @@ export default function ChooseCountriesScreen({
 
   // Błyskawicznie aktualizuj stan ikon tuż przed committem layoutu
   useLayoutEffect(() => {
-    Animated.timing(modeAV, {
-      toValue: selectionMode === "wishlist" ? 1 : 0,
-      duration: 0,
-      useNativeDriver: true,
-    }).start();
+    modeAV.stopAnimation();
+    modeAV.setValue(selectionMode === "wishlist" ? 1 : 0);
   }, [selectionMode, modeAV]);
   const [isPopupVisible, setIsPopupVisible] = useState(true);
   const searchInputRef = useRef<TextInput>(null);
@@ -418,6 +415,7 @@ export default function ChooseCountriesScreen({
 
   // Tryb globalny współdzielony z headerem
   const mode = selectionMode;
+  const prevModeRef = useRef(mode);
   const [localSelectedCountries, setLocalSelectedCountries] = useState(
     () => new Set<string>()
   );
@@ -698,6 +696,10 @@ export default function ChooseCountriesScreen({
   const hasInitialLoadFired = useRef(false);
   // Inicjalizacja oraz reakcja na zmianę trybu z ochroną przed zapętleniem (przed paintem)
   useLayoutEffect(() => {
+    const modeChanged = prevModeRef.current !== mode;
+    if (modeChanged) {
+      setSuppressSelectionAnimations(true);
+    }
     const src = mode === "visited" ? visitedCountries : wishlistCountries;
     let differs = false;
     if (localSelectedCountries.size !== src.length) differs = true;
@@ -724,6 +726,13 @@ export default function ChooseCountriesScreen({
       setLocalCount(initialSet.size);
     } else {
       setLocalCount(localSelectedCountries.size);
+    }
+    if (modeChanged) {
+      // Wyłącz suppression tuż po commicie, aby ręczne tapy od razu animowały
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setSuppressSelectionAnimations(false));
+      });
+      prevModeRef.current = mode;
     }
   }, [mode, visitedCountries, wishlistCountries]);
 
