@@ -146,7 +146,7 @@ const CountryItem = React.memo(
 
     // Wklej ten kod w miejsce całego bloku useEffect w CountryItem
 
-    useEffect(() => {
+    useLayoutEffect(() => {
       if (suppressSelectionAnimations) {
         // Natychmiastowa zmiana bez animacji dla przełączania trybu
         colorAnimation.stopAnimation();
@@ -368,11 +368,8 @@ export default function ChooseCountriesScreen({
 
   // Błyskawicznie aktualizuj stan ikon tuż przed committem layoutu
   useLayoutEffect(() => {
-    Animated.timing(modeAV, {
-      toValue: selectionMode === "wishlist" ? 1 : 0,
-      duration: 0,
-      useNativeDriver: true,
-    }).start();
+    modeAV.stopAnimation();
+    modeAV.setValue(selectionMode === "wishlist" ? 1 : 0);
   }, [selectionMode, modeAV]);
   const [isPopupVisible, setIsPopupVisible] = useState(true);
   const searchInputRef = useRef<TextInput>(null);
@@ -718,7 +715,6 @@ export default function ChooseCountriesScreen({
   const savingRef = useRef(false);
   const handleSelectCountry = useCallback(
     (countryCode: string) => {
-      if (savingRef.current) return;
       dismissKeyboard();
       setLocalSelectedCountries((currentSelected) => {
         const newSet = new Set(currentSelected);
@@ -775,7 +771,9 @@ export default function ChooseCountriesScreen({
         if (!finalSetSnapshot.has(c)) remove.push(c);
       });
       if (modeToSave === "visited") {
-        applyCountryDiff(add, remove, { immediate: true });
+        requestAnimationFrame(() => {
+          applyCountryDiff(add, remove, { immediate: true });
+        });
       }
       const currentSelectedArray = Array.from(finalSetSnapshot);
       const userDocRef = doc(db, "users", user.uid);
@@ -1088,6 +1086,25 @@ export default function ChooseCountriesScreen({
               <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
                 <Pressable
                   onPress={() => {
+                    // 1) Natychmiast przełącz stan UI (nie czekamy na animację przycisku)
+                    setSuppressSelectionAnimations(true);
+                    const modeBefore = selectionMode;
+                    const snapshotBefore = new Set(localSelectedCountries);
+                    // Zapis bieżącego trybu w tle (nie blokuje UI)
+                    saveForMode(modeBefore, snapshotBefore);
+                    const nextMode =
+                      modeBefore === "visited" ? "wishlist" : "visited";
+                    const nextSrc =
+                      nextMode === "visited"
+                        ? visitedCountries
+                        : wishlistCountries;
+                    // Zaktualizuj wartość animacji ikony NATYCHMIAST
+                    modeAV.setValue(nextMode === "wishlist" ? 1 : 0);
+                    setLocalSelectedCountries(new Set(nextSrc));
+                    setLocalCount(nextSrc.length);
+                    setSelectionMode(nextMode);
+
+                    // 2) Animuj przycisk w tle, niezależnie od logiki
                     Animated.sequence([
                       Animated.timing(scaleValue, {
                         toValue: 0.9,
@@ -1099,30 +1116,12 @@ export default function ChooseCountriesScreen({
                         duration: 120,
                         useNativeDriver: true,
                       }),
-                    ]).start(() => {
-                      setSuppressSelectionAnimations(true);
-                      // Zapisz zmiany w bieżącym trybie przed przełączeniem
-                      const modeBefore = selectionMode;
-                      const snapshotBefore = new Set(localSelectedCountries);
-                      saveForMode(modeBefore, snapshotBefore);
-                      // Ustaw natychmiast lokalne zaznaczenia dla następnego trybu,
-                      // aby były zsynchronizowane z ikonami
-                      const nextMode =
-                        modeBefore === "visited" ? "wishlist" : "visited";
-                      const nextSrc =
-                        nextMode === "visited"
-                          ? visitedCountries
-                          : wishlistCountries;
-                      setLocalSelectedCountries(new Set(nextSrc));
-                      setLocalCount(nextSrc.length);
-                      // Przełącz tryb
-                      setSelectionMode(nextMode);
-                      // Przywróć animacje selekcji natychmiast po commitcie
-                      setTimeout(
-                        () => setSuppressSelectionAnimations(false),
-                        0
-                      );
-                    });
+                    ]).start();
+
+                    // 3) Przywróć animacje selekcji tuż po commitcie następnej klatki
+                    requestAnimationFrame(() =>
+                      setSuppressSelectionAnimations(false)
+                    );
                   }}
                   style={[
                     styles.toggleButton,
