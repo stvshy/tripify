@@ -379,6 +379,15 @@ export default function ChooseCountriesScreen({
     wishlistCountries,
     setWishlistCountries,
   } = useCountries();
+  // Precompute sets to avoid rebuilding on every toggle
+  const visitedSet = useMemo(
+    () => new Set(visitedCountries),
+    [visitedCountries]
+  );
+  const wishlistSet = useMemo(
+    () => new Set(wishlistCountries),
+    [wishlistCountries]
+  );
   const initialVisitedCountriesRef = useRef(new Set(visitedCountries));
   const appState = useRef(AppState.currentState);
   const { updateAndHighlightCountries, applyCountryDiff } = useMapState();
@@ -665,34 +674,19 @@ export default function ChooseCountriesScreen({
   const hasInitialLoadFired = useRef(false);
   // Inicjalizacja oraz reakcja na zmianę trybu z ochroną przed zapętleniem
   useLayoutEffect(() => {
-    const src = mode === "visited" ? visitedCountries : wishlistCountries;
-    let differs = false;
-    if (localSelectedCountries.size !== src.length) differs = true;
-    else {
-      for (const c of src) {
-        if (!localSelectedCountries.has(c)) {
-          differs = true;
-          break;
-        }
-      }
-      if (!differs) {
-        for (const c of localSelectedCountries) {
-          if (!src.includes(c)) {
-            differs = true;
-            break;
-          }
-        }
-      }
-    }
-    if (differs) {
-      const initialSet = new Set(src);
-      setLocalSelectedCountries(initialSet);
-      initialVisitedCountriesRef.current = initialSet;
-      setLocalCount(initialSet.size);
+    const srcSet = mode === "visited" ? visitedSet : wishlistSet;
+    // Jeśli referencja lub rozmiar różni się, ustaw natychmiast nowy Set
+    if (
+      localSelectedCountries !== srcSet ||
+      localSelectedCountries.size !== srcSet.size
+    ) {
+      setLocalSelectedCountries(srcSet);
+      initialVisitedCountriesRef.current = srcSet;
+      setLocalCount(srcSet.size);
     } else {
       setLocalCount(localSelectedCountries.size);
     }
-  }, [mode, visitedCountries, wishlistCountries]);
+  }, [mode, visitedSet, wishlistSet]);
 
   // Czyszczenie licznika przy odmontowaniu
   useEffect(() => {
@@ -1085,40 +1079,40 @@ export default function ChooseCountriesScreen({
               {/* Przycisk przełączający tryb visited <-> wishlist */}
               <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
                 <Pressable
+                  onPressIn={() => {
+                    scaleValue.stopAnimation();
+                    Animated.timing(scaleValue, {
+                      toValue: 0.9,
+                      duration: 80,
+                      useNativeDriver: true,
+                    }).start();
+                  }}
+                  onPressOut={() => {
+                    Animated.timing(scaleValue, {
+                      toValue: 1,
+                      duration: 120,
+                      useNativeDriver: true,
+                    }).start();
+                  }}
                   onPress={() => {
                     // 1) Natychmiast przełącz stan UI (nie czekamy na animację przycisku)
                     setSuppressSelectionAnimations(true);
                     const modeBefore = selectionMode;
                     const snapshotBefore = new Set(localSelectedCountries);
-                    // Zapis bieżącego trybu w tle (nie blokuje UI)
-                    saveForMode(modeBefore, snapshotBefore);
+                    // Zapis bieżącego trybu po zakończeniu interakcji (nie blokuje UI)
+                    InteractionManager.runAfterInteractions(() => {
+                      saveForMode(modeBefore, snapshotBefore);
+                    });
                     const nextMode =
                       modeBefore === "visited" ? "wishlist" : "visited";
-                    const nextSrc =
-                      nextMode === "visited"
-                        ? visitedCountries
-                        : wishlistCountries;
+                    const nextSrcSet =
+                      nextMode === "visited" ? visitedSet : wishlistSet;
                     // Zaktualizuj wartość animacji ikony NATYCHMIAST
                     modeAV.setValue(nextMode === "wishlist" ? 1 : 0);
-                    setLocalSelectedCountries(new Set(nextSrc));
-                    setLocalCount(nextSrc.length);
+                    setLocalSelectedCountries(nextSrcSet);
+                    setLocalCount(nextSrcSet.size);
                     setSelectionMode(nextMode);
-
-                    // 2) Animuj przycisk w tle, niezależnie od logiki
-                    Animated.sequence([
-                      Animated.timing(scaleValue, {
-                        toValue: 0.9,
-                        duration: 90,
-                        useNativeDriver: true,
-                      }),
-                      Animated.timing(scaleValue, {
-                        toValue: 1,
-                        duration: 120,
-                        useNativeDriver: true,
-                      }),
-                    ]).start();
-
-                    // 3) Przywróć animacje selekcji tuż po commitcie następnej klatki
+                    // 2) Przywróć animacje selekcji tuż po commitcie następnej klatki
                     requestAnimationFrame(() =>
                       setSuppressSelectionAnimations(false)
                     );
@@ -1127,6 +1121,7 @@ export default function ChooseCountriesScreen({
                     styles.toggleButton,
                     { backgroundColor: theme.colors.primary },
                   ]}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Text
                     style={{
