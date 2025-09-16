@@ -1,3 +1,4 @@
+// components/RankItem.tsx
 import React, { useEffect, useRef } from "react";
 import {
   View,
@@ -18,8 +19,8 @@ interface Country {
 
 interface RankingItemProps {
   slot: { id: string; rank: number; country: Country | null };
-  index: number;
-  onRemove: (index: number) => void;
+  index: number; // może zostać, nawet jeśli go nie używasz
+  onRemove: (id: string) => void; // <-- tu zmiana
   isActive: boolean;
   setActiveRankingItemId: (id: string | null) => void;
   isDarkTheme: boolean;
@@ -116,7 +117,7 @@ const RankingItem: React.FC<RankingItemProps> = ({
       >
         {isActive && (
           <TouchableOpacity
-            onPress={() => onRemove(index)}
+            onPress={() => onRemove(slot.id)}
             style={{ marginLeft: 8 }}
           >
             <Ionicons name="close-circle" size={18} color="red" />

@@ -17,7 +17,6 @@ import {
   LayoutAnimation,
   TouchableWithoutFeedback,
   Modal,
-  Image,
   InteractionManager,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -77,36 +76,36 @@ interface Note {
 //   `https://flagcdn.com/w40/${cca2.toLowerCase()}.png`;
 
 // Generates a unique ID (simple implementation)
-const generateUniqueId = () => {
-  return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
-};
-const countryByCca2 = COUNTRY_BY_CCA2;
-// const mappedCountries: Country[] = useMemo(() => {
-//   return countriesData.countries.map((country: any) => ({
-//     ...country,
-//     cca2: country.id,
-//     flag: getFlagUrl(country.id),
-//     name: country.name || "Unknown",
-//     class: country.class || "Unknown",
-//     path: country.path || "Unknown",
-//   }));
-// }, []);
-const getCachedData = (key: string | null) => {
-  if (!key) return null;
-  const raw = storage.getString(key);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-};
+// const generateUniqueId = () => {
+//   return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+// };
+// const countryByCca2 = COUNTRY_BY_CCA2;
+// // const mappedCountries: Country[] = useMemo(() => {
+// //   return countriesData.countries.map((country: any) => ({
+// //     ...country,
+// //     cca2: country.id,
+// //     flag: getFlagUrl(country.id),
+// //     name: country.name || "Unknown",
+// //     class: country.class || "Unknown",
+// //     path: country.path || "Unknown",
+// //   }));
+// // }, []);
+// const getCachedData = (key: string | null) => {
+//   if (!key) return null;
+//   const raw = storage.getString(key);
+//   if (!raw) return null;
+//   try {
+//     return JSON.parse(raw);
+//   } catch {
+//     return null;
+//   }
+// };
 export default function AccountScreen() {
   const { isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme();
   const router = useRouter();
   const authUser = auth.currentUser;
-  const storeUserProfile = useAuthStore((s) => s.userProfile);
+  const nicknameFromStore = useAuthStore((s) => s.userProfile?.nickname);
   const menuRef = React.useRef<RightSlideMenuHandles>(null);
   const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -245,11 +244,11 @@ export default function AccountScreen() {
 
   // Sync nazwy z profilem
   useEffect(() => {
-    if (storeUserProfile?.nickname) {
-      setUserName(storeUserProfile.nickname);
-      if (cacheKeys) storage.set(cacheKeys.nickname, storeUserProfile.nickname);
+    if (nicknameFromStore && nicknameFromStore !== userName) {
+      setUserName(nicknameFromStore);
+      cacheKeys && storage.set(cacheKeys.nickname, nicknameFromStore);
     }
-  }, [storeUserProfile?.nickname, cacheKeys]);
+  }, [nicknameFromStore, cacheKeys, userName]);
 
   useEffect(() => {
     if (authUser?.email) {
@@ -302,23 +301,35 @@ export default function AccountScreen() {
 
       // Aktualizacje niepilne – nie blokują renderu
       startTransition(() => {
-        if (nickname) {
+        if (nickname && nickname !== userName) {
           setUserName(nickname);
           cacheKeys && storage.set(cacheKeys.nickname, nickname);
         }
-        if (email) {
+        if (email && email !== userEmail) {
           setUserEmail(email);
           cacheKeys && storage.set(cacheKeys.email, email);
         }
-        setRankingSlots(initialSlots);
-        setNotes(notesList);
 
-        // cache
-        try {
+        const sameRanking =
+          initialSlots.length === rankingSlots.length &&
+          initialSlots.every((s, i) => s.id === rankingSlots[i]?.id);
+
+        if (!sameRanking) {
+          setRankingSlots(initialSlots);
           cacheKeys &&
             storage.set(cacheKeys.ranking, JSON.stringify(rankingData));
+        }
+
+        const sameNotes =
+          notesList.length === notes.length &&
+          notesList.every(
+            (n, i) => n.id === notes[i]?.id && n.noteText === notes[i]?.noteText
+          );
+
+        if (!sameNotes) {
+          setNotes(notesList);
           cacheKeys && storage.set(cacheKeys.notes, JSON.stringify(notesList));
-        } catch {}
+        }
       });
     } catch (e) {
       console.log("fetchUserData error:", e);
@@ -366,37 +377,36 @@ export default function AccountScreen() {
     router.back();
   };
 
-  const handleRemoveFromRanking = (index: number) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    if (index >= 0 && index < rankingSlots.length) {
-      const updatedSlots = [...rankingSlots];
-      updatedSlots.splice(index, 1);
-      const reRankedSlots = updatedSlots.map((item, idx) => ({
-        ...item,
-        rank: idx + 1,
-      }));
-      setRankingSlots(reRankedSlots);
-      handleSaveRanking(reRankedSlots);
-      setActiveRankingItemId(null);
-    } else {
-      console.warn(`Invalid index for removal: ${index}`);
-    }
-  };
+  const saveRankingTimer = React.useRef<NodeJS.Timeout | null>(null);
 
-  const handleSaveRanking = async (newRankingSlots: RankingSlot[]) => {
-    const ranking = newRankingSlots
-      .filter((slot) => slot.country !== null)
-      .map((slot) => slot.country!.cca2);
-    const currentUser = auth.currentUser;
-    if (currentUser) {
-      const userDocRef = doc(db, "users", currentUser.uid);
-      await updateDoc(userDocRef, { ranking });
+  const handleSaveRanking = useCallback(
+    async (newRankingSlots: RankingSlot[]) => {
+      const ranking = newRankingSlots
+        .filter((slot) => slot.country)
+        .map((slot) => slot.country!.cca2);
+
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+
       try {
+        await updateDoc(doc(db, "users", currentUser.uid), { ranking });
         storage.set(`user:${currentUser.uid}:ranking`, JSON.stringify(ranking));
-      } catch {}
-    }
-  };
-
+      } catch (e) {
+        console.log("save ranking error", e);
+      }
+    },
+    []
+  );
+  const handleSaveRankingDebounced = useCallback(
+    (slots: RankingSlot[]) => {
+      if (saveRankingTimer.current) clearTimeout(saveRankingTimer.current);
+      saveRankingTimer.current = setTimeout(
+        () => handleSaveRanking(slots),
+        350
+      );
+    },
+    [handleSaveRanking]
+  );
   const handleNavigateToNotes = () => {
     router.push("/notes");
   };
@@ -433,7 +443,22 @@ export default function AccountScreen() {
     },
     [theme.colors.primary]
   );
-
+  const handleRemoveFromRanking = useCallback(
+    (id: string) => {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setRankingSlots((prev) => {
+        const idx = prev.findIndex((s) => s.id === id);
+        if (idx < 0) return prev;
+        const next = prev.slice(0, idx).concat(prev.slice(idx + 1));
+        const reRanked = next.map((it, i) => ({ ...it, rank: i + 1 }));
+        // zapis po usunięciu (debounce)
+        handleSaveRankingDebounced(reRanked);
+        return reRanked;
+      });
+      setActiveRankingItemId(null);
+    },
+    [handleSaveRankingDebounced]
+  );
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -515,7 +540,13 @@ export default function AccountScreen() {
       openMailTo,
     ]
   );
-
+  const [menuMounted, setMenuMounted] = useState(false);
+  useEffect(() => {
+    const t = InteractionManager.runAfterInteractions(() =>
+      setMenuMounted(true)
+    );
+    return () => t?.cancel?.();
+  }, []);
   return (
     <View
       style={[styles.container, { backgroundColor: theme.colors.background }]}
@@ -560,7 +591,10 @@ export default function AccountScreen() {
                 Account
               </Text>
               <TouchableOpacity
-                onPress={() => menuRef.current?.toggle()}
+                onPress={() => {
+                  if (!menuMounted) setMenuMounted(true);
+                  menuRef.current?.toggle();
+                }}
                 style={{ padding: 8, marginRight: -10 }}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
@@ -635,10 +669,11 @@ export default function AccountScreen() {
                   keyExtractor={(item) => item.id}
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  removeClippedSubviews
+                  removeClippedSubviews={false} // ważne
                   windowSize={7}
                   initialNumToRender={Math.min(20, rankingSlots.length)}
                   maxToRenderPerBatch={8}
+                  extraData={{ activeRankingItemId, isDarkTheme }} // żeby przerysować itemy przy zmianie aktywnego
                   renderItem={({ item, index }) => (
                     <RankingItem
                       slot={item}
@@ -827,11 +862,14 @@ export default function AccountScreen() {
               <View style={styles.modalHeaderRow}>
                 {selectedNote && (
                   <View style={styles.modalHeaderLeft}>
-                    {selectedNote.countryCca2 && (
-                      <CountryFlag
-                        isoCode={selectedNote.countryCca2}
-                        size={25}
+                    {selectedNote?.countryCca2 && (
+                      <FastImage
+                        source={{
+                          uri: getFlagUrl(selectedNote.countryCca2, 40),
+                          priority: FastImage.priority.normal,
+                        }}
                         style={styles.modalFlag}
+                        resizeMode={FastImage.resizeMode.cover}
                       />
                     )}
                     <Text
