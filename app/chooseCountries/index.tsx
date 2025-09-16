@@ -934,6 +934,26 @@ export default function ChooseCountriesScreen({
     () => ({ selected: localSelectedCountries }),
     [localSelectedCountries]
   );
+  // Toggle button styles optimized to avoid re-creating objects on each render
+  const isBookmarkIcon = mode === "visited"; // shows bookmark-plus when in visited mode
+  const toggleButtonStyle = useMemo(
+    () =>
+      isBookmarkIcon
+        ? [styles.toggleButton, { backgroundColor: theme.colors.primary }]
+        : [
+            styles.toggleButton,
+            styles.toggleButtonOutline,
+            {
+              borderColor: theme.colors.primary,
+              backgroundColor: "transparent",
+            },
+          ],
+    [isBookmarkIcon, theme.colors.primary]
+  );
+  const toggleIconColor = useMemo(
+    () => (isBookmarkIcon ? theme.colors.onPrimary : theme.colors.primary),
+    [isBookmarkIcon, theme.colors.primary, theme.colors.onPrimary]
+  );
   return (
     // <TouchableWithoutFeedback onPress={dismissKeyboard}>
     <SafeAreaView
@@ -1117,15 +1137,12 @@ export default function ChooseCountriesScreen({
                       setSuppressSelectionAnimations(false)
                     );
                   }}
-                  style={[
-                    styles.toggleButton,
-                    { backgroundColor: theme.colors.primary },
-                  ]}
+                  style={toggleButtonStyle}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Text
                     style={{
-                      color: theme.colors.onPrimary,
+                      color: toggleIconColor,
                       fontSize: moderateScale(11.5, 0.4),
                       fontWeight: "600",
                     }}
@@ -1137,7 +1154,7 @@ export default function ChooseCountriesScreen({
                           : "map-marker-check"
                       }
                       size={moderateScale(21.5, 0.5)}
-                      color={theme.colors.onPrimary}
+                      color={toggleIconColor}
                     />
                   </Text>
                 </Pressable>
@@ -1339,6 +1356,10 @@ const styles = ScaledSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginLeft: "6.5@s",
+  },
+  toggleButtonOutline: {
+    borderWidth: 2,
+    backgroundColor: "transparent",
   },
   inputFocused: {
     borderColor: "#6a1b9a", // Purple color when focused
