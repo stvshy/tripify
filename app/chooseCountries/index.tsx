@@ -1073,6 +1073,21 @@ export default function ChooseCountriesScreen({
               {/* Przycisk przełączający tryb visited <-> wishlist */}
               <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
                 <Pressable
+                  onPressIn={() => {
+                    scaleValue.stopAnimation();
+                    Animated.timing(scaleValue, {
+                      toValue: 0.9,
+                      duration: 80,
+                      useNativeDriver: true,
+                    }).start();
+                  }}
+                  onPressOut={() => {
+                    Animated.timing(scaleValue, {
+                      toValue: 1,
+                      duration: 120,
+                      useNativeDriver: true,
+                    }).start();
+                  }}
                   onPress={() => {
                     // 1) Natychmiast przełącz stan UI (nie czekamy na animację przycisku)
                     setSuppressSelectionAnimations(true);
@@ -1091,28 +1106,14 @@ export default function ChooseCountriesScreen({
                     setLocalSelectedCountries(nextSrcSet);
                     setLocalCount(nextSrcSet.size);
                     setSelectionMode(nextMode);
-
-                    // 2) Animuj przycisk w tle, niezależnie od logiki
-                    Animated.sequence([
-                      Animated.timing(scaleValue, {
-                        toValue: 0.9,
-                        duration: 90,
-                        useNativeDriver: true,
-                      }),
-                      Animated.timing(scaleValue, {
-                        toValue: 1,
-                        duration: 120,
-                        useNativeDriver: true,
-                      }),
-                    ]).start();
-
-                    // 3) Przywróć animacje selekcji tuż po commitcie następnej klatki
+                    // 2) Przywróć animacje selekcji tuż po commitcie następnej klatki
                     requestAnimationFrame(() => setSuppressSelectionAnimations(false));
                   }}
                   style={[
                     styles.toggleButton,
                     { backgroundColor: theme.colors.primary },
                   ]}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Text
                     style={{
