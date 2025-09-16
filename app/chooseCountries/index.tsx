@@ -667,7 +667,7 @@ export default function ChooseCountriesScreen({
   // Ref, który zapewni, że animacja zanikania uruchomi się tylko raz
   const hasInitialLoadFired = useRef(false);
   // Inicjalizacja oraz reakcja na zmianę trybu z ochroną przed zapętleniem
-  useEffect(() => {
+  useLayoutEffect(() => {
     const src = mode === "visited" ? visitedCountries : wishlistCountries;
     let differs = false;
     if (localSelectedCountries.size !== src.length) differs = true;
@@ -1105,10 +1105,18 @@ export default function ChooseCountriesScreen({
                       const modeBefore = selectionMode;
                       const snapshotBefore = new Set(localSelectedCountries);
                       saveForMode(modeBefore, snapshotBefore);
+                      // Ustaw natychmiast lokalne zaznaczenia dla następnego trybu,
+                      // aby były zsynchronizowane z ikonami
+                      const nextMode =
+                        modeBefore === "visited" ? "wishlist" : "visited";
+                      const nextSrc =
+                        nextMode === "visited"
+                          ? visitedCountries
+                          : wishlistCountries;
+                      setLocalSelectedCountries(new Set(nextSrc));
+                      setLocalCount(nextSrc.length);
                       // Przełącz tryb
-                      setSelectionMode((m) =>
-                        m === "visited" ? "wishlist" : "visited"
-                      );
+                      setSelectionMode(nextMode);
                       // Przywróć animacje selekcji natychmiast po commitcie
                       setTimeout(
                         () => setSuppressSelectionAnimations(false),
