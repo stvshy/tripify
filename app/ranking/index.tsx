@@ -1,10 +1,12 @@
+// app/ranking.tsx (RankingScreen) — zoptymalizowany
+
 import React, {
   useContext,
-  useEffect,
   useState,
   useCallback,
   useRef,
   useMemo,
+  useEffect,
   memo,
 } from "react";
 import {
@@ -12,301 +14,325 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   Dimensions,
   Animated,
-  ScrollView,
-  TouchableWithoutFeedback,
-  LayoutAnimation,
-  Platform,
   FlatList,
+  LayoutAnimation,
   InteractionManager,
 } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { ThemeContext } from "../config/ThemeContext";
 import { useTheme } from "react-native-paper";
-import { getDoc, doc, updateDoc, onSnapshot } from "firebase/firestore";
+import { getDoc, doc, updateDoc } from "firebase/firestore";
 import { db, auth } from "../config/firebaseConfig";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import countriesData from "../../assets/maps/countries.json";
-import CountryFlag from "react-native-country-flag";
 import DraggableFlatList, {
   RenderItemParams,
   DragEndParams,
 } from "react-native-draggable-flatlist";
-import { storage } from "../config/storage";
+import FastImage from "@d11/react-native-fast-image";
 import ConfirmationModal from "../../components/ConfirmationModal";
+import { storage } from "../config/storage";
+import {
+  COUNTRY_BY_CCA2,
+  getFlagUrl,
+  type CountryLite,
+} from "../../components/countriesIndex";
 
-interface Country {
-  id: string;
-  cca2: string;
-  name: string;
-  // Add other fields as necessary
-}
+type Country = CountryLite;
 
 interface RankingSlot {
-  id: string;
+  id: string; // = cca2
   rank: number;
   country: Country | null;
 }
 
 const removeDuplicates = (countries: Country[]): Country[] => {
-  const unique = new Map<string, Country>();
-  countries.forEach((c) => {
-    unique.set(c.id, c); // Użyj `c.id` jako klucza, zakładając, że jest unikalne
-  });
-  return Array.from(unique.values());
+  const map = new Map<string, Country>();
+  for (const c of countries) if (c?.cca2) map.set(c.cca2, c);
+  return Array.from(map.values());
 };
 
-// Funkcja generująca unikalne id
-const generateUniqueId = () =>
-  `rank-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
 export default function RankingScreen() {
-  const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
+  const { isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme();
   const router = useRouter();
-  const [countriesVisited, setCountriesVisited] = useState<Country[]>(() => {
-    try {
-      const uid = auth.currentUser?.uid;
-      if (!uid) return [];
-      const rawVisited = storage.getString(`user:${uid}:visited`);
-      if (!rawVisited) return [];
-      let visitedCodes: string[] = [];
-      try {
-        visitedCodes = JSON.parse(rawVisited) || [];
-      } catch {
-        visitedCodes = [];
-      }
-      let rankingArr: string[] = [];
-      try {
-        const rawRanking = storage.getString(`user:${uid}:ranking`);
-        rankingArr = rawRanking ? JSON.parse(rawRanking) : [];
-      } catch {
-        rankingArr = [];
-      }
-      const byId = new Map(countriesData.countries.map((c: any) => [c.id, c]));
-      const visitedCountries = visitedCodes
-        .filter((code) => !rankingArr.includes(code))
-        .map((cca2) => {
-          const base = byId.get(cca2);
-          return base
-            ? {
-                ...base,
-                cca2: base.id,
-                flag: `https://flagcdn.com/w40/${base.id.toLowerCase()}.png`,
-              }
-            : null;
-        })
-        .filter(Boolean) as Country[];
-      const unique = removeDuplicates(visitedCountries);
-      unique.sort((a, b) => a.name.localeCompare(b.name));
-      return unique;
-    } catch {
-      return [];
-    }
-  });
+  const { width, height } = Dimensions.get("window");
+
+  const outerBorderColor = isDarkTheme ? "#262626" : "#E0E0E0";
+  const dividerColor = isDarkTheme ? "#333333" : "#F0F0F0";
+  const countryByCca2 = COUNTRY_BY_CCA2;
+
+  // Ranking z cache (stabilne id = cca2)
   const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>(() => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return [];
+    const raw = storage.getString(`user:${uid}:ranking`);
+    if (!raw) return [];
     try {
-      const uid = auth.currentUser?.uid;
-      if (!uid) return [];
-      const raw = storage.getString(`user:${uid}:ranking`);
-      if (!raw) return [];
-      const rankingArr: string[] = JSON.parse(raw);
-      const byId = new Map(countriesData.countries.map((c: any) => [c.id, c]));
-      return rankingArr.map((cca2, index) => {
-        const base = byId.get(cca2);
-        const country: Country | null = base
-          ? {
-              ...base,
-              cca2: base.id,
-              flag: `https://flagcdn.com/w40/${base.id.toLowerCase()}.png`,
-            }
-          : null;
-        // stable id (country code) to avoid remount jank
-        return {
-          id: country?.cca2 || generateUniqueId(),
-          rank: index + 1,
-          country,
-        };
-      });
+      const arr: string[] = JSON.parse(raw);
+      return arr.map((cca2, idx) => ({
+        id: cca2,
+        rank: idx + 1,
+        country: countryByCca2[cca2] || null,
+      }));
     } catch {
       return [];
     }
   });
-  const hydrationRef = useRef(false);
+
+  // Visited z cache (od razu)
+  const [countriesVisited, setCountriesVisited] = useState<Country[]>(() => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return [];
+    let visitedCodes: string[] = [];
+    let rankingArr: string[] = [];
+    try {
+      visitedCodes = JSON.parse(
+        storage.getString(`user:${uid}:visited`) || "[]"
+      );
+    } catch {}
+    try {
+      rankingArr = JSON.parse(storage.getString(`user:${uid}:ranking`) || "[]");
+    } catch {}
+    const ranked = new Set(rankingArr);
+    return visitedCodes
+      .filter((code) => !ranked.has(code))
+      .map((code) => countryByCca2[code])
+      .filter(Boolean)
+      .sort((a, b) => a.name.localeCompare(b.name)) as Country[];
+  });
+
   const [activeRankingItemId, setActiveRankingItemId] = useState<string | null>(
     null
-  ); // Nowy stan
+  );
   const [confirmAction, setConfirmAction] = useState<null | "addAll" | "clear">(
     null
   );
   const rankingVersionRef = useRef<string | null>(null);
 
-  const { width, height } = Dimensions.get("window");
-  // Colors for cohesive ranking container & dividers
-  const outerBorderColor = isDarkTheme ? "#262626" : "#E0E0E0";
-  const dividerColor = isDarkTheme ? "#333333" : "#F0F0F0";
-
-  const mappedCountries: Country[] = useMemo(() => {
-    return countriesData.countries.map((country) => ({
-      ...country,
-      cca2: country.id,
-      flag: `https://flagcdn.com/w40/${country.id.toLowerCase()}.png`,
-    }));
-  }, []);
-
-  // 1. Zamiast definiować wewnątrz useEffect, deklarujemy tutaj:
+  // Pobieramy user data PO animacji — bez blokowania przejścia
   const fetchUserData = useCallback(async () => {
     const currentUser = auth.currentUser;
     if (!currentUser) return;
 
     const userDocRef = doc(db, "users", currentUser.uid);
-    const userDoc = await getDoc(userDocRef);
-    if (!userDoc.exists()) return;
-    const userData = userDoc.data();
+    const snap = await getDoc(userDocRef);
+    if (!snap.exists()) return;
 
-    const visitedCodes: string[] = userData.countriesVisited || [];
-    const rankingRaw: string[] = userData.ranking || [];
+    const data = snap.data() || {};
+    const visitedCodes: string[] = data.countriesVisited || [];
+    const rankingRaw: string[] = data.ranking || [];
 
-    // filtrujemy ranking tak, aby zostawić tylko te kody, które są w visitedCodes
-    const rankingFiltered = rankingRaw.filter((code) =>
-      visitedCodes.includes(code)
+    // ranking ⊆ visited
+    const rankingFiltered = rankingRaw.filter((c: string) =>
+      visitedCodes.includes(c)
+    );
+    const visitedNotRanked = visitedCodes.filter(
+      (c) => !rankingFiltered.includes(c)
     );
 
-    // budujemy countriesVisited bez tych, co w rankingu
-    const visited = mappedCountries.filter(
-      (c) => visitedCodes.includes(c.cca2) && !rankingFiltered.includes(c.cca2)
-    );
-    const deduped = removeDuplicates(visited);
-    deduped.sort((a, b) => a.name.localeCompare(b.name));
-    // Wersja danych (ranking + liczba visited) dla szybkiego porównania
-    const newVersion = `${rankingFiltered.join("|")}::v:${deduped.length}`;
-    if (rankingVersionRef.current === newVersion) {
-      // Nic się nie zmieniło – nie aktualizujemy stanu (utrzymujemy instant render już zamontowanych elementów)
-      return;
-    }
-    rankingVersionRef.current = newVersion;
-    setCountriesVisited(deduped);
-    // Persist visited codes for instant next load
-    try {
-      storage.set(
-        `user:${currentUser.uid}:visited`,
-        JSON.stringify(visitedCodes)
-      );
-    } catch {}
+    const visitedList = visitedNotRanked
+      .map((c) => countryByCca2[c])
+      .filter(Boolean)
+      .sort((a, b) => a.name.localeCompare(b.name)) as Country[];
 
-    // budujemy rankingSlots z przefiltrowanego rankingFiltered
-    // Zbuduj sloty tylko dla znanych krajów (usuń potencjalne puste rekordy)
-    const slotsKnown = rankingFiltered
-      .map((cca2) => {
-        const country = mappedCountries.find((c) => c.cca2 === cca2) || null;
-        return country
-          ? ({ id: country.cca2, rank: 0, country } as RankingSlot)
-          : null;
-      })
-      .filter(Boolean) as RankingSlot[];
-    const newSlots: RankingSlot[] = slotsKnown.map((s, idx) => ({
-      ...s,
-      rank: idx + 1,
+    const slots: RankingSlot[] = rankingFiltered.map((cca2, i) => ({
+      id: cca2,
+      rank: i + 1,
+      country: countryByCca2[cca2] || null,
     }));
-    // Defer rankingSlots set to after interactions if already hydrated once - reduces first paint lag
-    if (hydrationRef.current) {
-      setRankingSlots(newSlots);
-    } else {
-      InteractionManager.runAfterInteractions(() => {
-        hydrationRef.current = true;
-        setRankingSlots(newSlots);
-      });
-    }
-    // Keep cache in sync so next open is instant
+
+    const newVersion = `${rankingFiltered.join("|")}::len:${visitedList.length}`;
+    if (rankingVersionRef.current === newVersion) return;
+    rankingVersionRef.current = newVersion;
+
+    setCountriesVisited(visitedList);
+    setRankingSlots(slots);
+
+    // sync cache
     try {
       storage.set(
         `user:${currentUser.uid}:ranking`,
         JSON.stringify(rankingFiltered)
       );
+      storage.set(
+        `user:${currentUser.uid}:visited`,
+        JSON.stringify(visitedCodes)
+      );
     } catch {}
-  }, [mappedCountries]);
+  }, [countryByCca2]);
 
-  // 2) wywołujemy przy mount
-  useEffect(() => {
-    fetchUserData();
-  }, [fetchUserData]);
-
-  // 3) i przy każdym powrocie na ekran
   useFocusEffect(
     useCallback(() => {
-      fetchUserData();
+      let cancelled = false;
+      const t = InteractionManager.runAfterInteractions(() => {
+        if (!cancelled) fetchUserData();
+      });
+      return () => {
+        cancelled = true;
+        // @ts-ignore
+        t?.cancel?.();
+      };
     }, [fetchUserData])
   );
 
-  const handleGoBack = () => {
-    router.back();
-  };
-
-  const handleSaveRanking = async (newRankingSlots: RankingSlot[]) => {
-    const ranking = newRankingSlots
-      .filter((slot) => slot.country !== null)
-      .map((slot) => slot.country!.cca2);
-    const currentUser = auth.currentUser;
-    if (currentUser) {
-      const userDocRef = doc(db, "users", currentUser.uid);
-      await updateDoc(userDocRef, { ranking: ranking });
-      // Optimistically update local cache for instant subsequent loads
+  // Prefetch flag (po animacji)
+  useEffect(() => {
+    const t = InteractionManager.runAfterInteractions(() => {
+      const urls = new Set<string>();
+      for (const s of rankingSlots)
+        if (s.country) urls.add(getFlagUrl(s.country.cca2, 40));
+      for (const c of countriesVisited) urls.add(getFlagUrl(c.cca2, 40));
       try {
+        FastImage.preload(
+          Array.from(urls).map((uri) => ({
+            uri,
+            priority: FastImage.priority.low,
+          }))
+        );
+      } catch {}
+    });
+    return () => {
+      // @ts-ignore
+      t?.cancel?.();
+    };
+  }, [rankingSlots, countriesVisited]);
+
+  const handleGoBack = () => router.back();
+
+  const handleSaveRanking = useCallback(
+    async (newRankingSlots: RankingSlot[]) => {
+      const ranking = newRankingSlots
+        .filter((slot) => slot.country)
+        .map((slot) => slot.country!.cca2);
+
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+
+      try {
+        await updateDoc(doc(db, "users", currentUser.uid), { ranking });
         storage.set(`user:${currentUser.uid}:ranking`, JSON.stringify(ranking));
       } catch {}
-    }
-  };
+    },
+    []
+  );
 
   const handleDragEnd = ({ data }: DragEndParams<RankingSlot>) => {
-    const updatedSlots = data.map((item, index) => ({
-      ...item,
-      rank: index + 1,
-    }));
-    setRankingSlots(updatedSlots);
-    handleSaveRanking(updatedSlots);
-    // Nie resetujemy tutaj aktywnego elementu, aby dłużej utrzymać widoczność przycisku usuwania.
+    const updated = data.map((it, i) => ({ ...it, rank: i + 1 }));
+    setRankingSlots(updated);
+    handleSaveRanking(updated);
   };
 
   const handleRemoveFromRanking = (index: number) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     const slot = rankingSlots[index];
-    if (slot.country) {
-      setCountriesVisited((prev) => {
-        // Sprawdź, czy kraj już istnieje w `countriesVisited`
-        let next = prev;
-        if (!prev.some((c) => c.id === slot.country!.id)) {
-          next = [...prev, slot.country!];
-        }
-        // Always keep alphabetical order
-        next = removeDuplicates(next)
-          .slice()
-          .sort((a, b) => a.name.localeCompare(b.name));
-        // Persist visited cache for instant next load
-        try {
-          const uid = auth.currentUser?.uid;
-          if (uid) {
-            storage.set(
-              `user:${uid}:visited`,
-              JSON.stringify(next.map((c) => c.cca2))
-            );
-          }
-        } catch {}
-        return next;
-      });
-      const updatedSlots = [...rankingSlots];
-      updatedSlots.splice(index, 1); // Usunięcie slotu
-      // Zaktualizuj rangi
-      const reRankedSlots = updatedSlots.map((item, idx) => ({
-        ...item,
-        rank: idx + 1,
-      }));
-      setRankingSlots(reRankedSlots);
-      handleSaveRanking(reRankedSlots);
-      setActiveRankingItemId(null); // Resetowanie aktywnego elementu
-    }
+    if (!slot?.country) return;
+
+    setCountriesVisited((prev) => {
+      const next = removeDuplicates([...(prev || []), slot.country!])
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name));
+      const uid = auth.currentUser?.uid;
+      if (uid)
+        storage.set(
+          `user:${uid}:visited`,
+          JSON.stringify(next.map((c) => c.cca2))
+        );
+      return next;
+    });
+
+    const updatedSlots = rankingSlots
+      .slice(0, index)
+      .concat(rankingSlots.slice(index + 1));
+    const reranked = updatedSlots.map((it, i) => ({ ...it, rank: i + 1 }));
+    setRankingSlots(reranked);
+    handleSaveRanking(reranked);
+    setActiveRankingItemId(null);
   };
+
+  const handleAddToRanking = (country: Country) => {
+    if (rankingSlots.some((s) => s.country?.cca2 === country.cca2)) return;
+
+    const newSlot: RankingSlot = {
+      id: country.cca2, // stabilny klucz = cca2
+      rank: rankingSlots.length + 1,
+      country,
+    };
+    const updated = [...rankingSlots, newSlot];
+    setRankingSlots(updated);
+    handleSaveRanking(updated);
+
+    setCountriesVisited((prev) => {
+      const next = (prev || []).filter((c) => c.cca2 !== country.cca2);
+      const uid = auth.currentUser?.uid;
+      if (uid)
+        storage.set(
+          `user:${uid}:visited`,
+          JSON.stringify(next.map((c) => c.cca2))
+        );
+      return next;
+    });
+
+    setActiveRankingItemId(null);
+  };
+
+  const handleAddAllVisited = () => {
+    if (!countriesVisited.length) return;
+    const start = rankingSlots.length;
+    const toAdd = countriesVisited.map((c, i) => ({
+      id: c.cca2,
+      rank: start + i + 1,
+      country: c,
+    }));
+    const updated = [...rankingSlots, ...toAdd];
+    setRankingSlots(updated);
+    handleSaveRanking(updated);
+    setCountriesVisited([]);
+    const uid = auth.currentUser?.uid;
+    if (uid) storage.set(`user:${uid}:visited`, JSON.stringify([]));
+    setActiveRankingItemId(null);
+  };
+
+  const handleClearRanking = () => {
+    if (!rankingSlots.length) return;
+    const rankedCountries = rankingSlots
+      .map((s) => s.country)
+      .filter(Boolean) as Country[];
+    setRankingSlots([]);
+    handleSaveRanking([]);
+
+    setCountriesVisited((prev) => {
+      const next = removeDuplicates([...(prev || []), ...rankedCountries])
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name));
+      const uid = auth.currentUser?.uid;
+      if (uid)
+        storage.set(
+          `user:${uid}:visited`,
+          JSON.stringify(next.map((c) => c.cca2))
+        );
+      return next;
+    });
+    setActiveRankingItemId(null);
+  };
+
+  // perf config listy
+  const listPerfConfig = useMemo(() => {
+    const len = rankingSlots.length;
+    const full = len > 0 && len <= 160;
+    const initialNum = full ? len : Math.min(18, len);
+    const maxBatch = full ? len : Math.min(24, len);
+    const windowSize = full
+      ? Math.max(10, len)
+      : Math.max(9, Math.min(25, len + 8));
+    return {
+      initialNum,
+      maxBatch,
+      windowSize,
+      removeClipped: !full && len > 120,
+    };
+  }, [rankingSlots.length]);
 
   const RankingRow = memo(
     ({
@@ -330,6 +356,7 @@ export default function RankingScreen() {
           useNativeDriver: true,
         }).start();
       }, [activeRankingItemId, item.id]);
+
       const opacity = removeAnim.interpolate({
         inputRange: [0, 1],
         outputRange: [0, 1],
@@ -338,6 +365,7 @@ export default function RankingScreen() {
         inputRange: [0, 1],
         outputRange: [0.5, 1],
       });
+
       return (
         <View
           style={[
@@ -373,10 +401,13 @@ export default function RankingScreen() {
             </Text>
             {item.country ? (
               <View style={styles.countryInfoContainer}>
-                <CountryFlag
-                  isoCode={item.country.cca2}
-                  size={22}
+                <FastImage
+                  source={{
+                    uri: getFlagUrl(item.country.cca2, 40),
+                    priority: FastImage.priority.normal,
+                  }}
                   style={styles.flag}
+                  resizeMode={FastImage.resizeMode.cover}
                 />
                 <Text
                   style={[
@@ -426,108 +457,6 @@ export default function RankingScreen() {
     [activeRankingItemId, isDarkTheme, theme]
   );
 
-  const handleAddToRanking = (country: Country) => {
-    // Opcjonalnie: Zapobiegaj dodawaniu tego samego kraju więcej niż raz
-    if (rankingSlots.some((slot) => slot.country?.cca2 === country.cca2)) {
-      Alert.alert(
-        "Duplicate Entry",
-        `${country.name} is already in the ranking.`
-      );
-      return;
-    }
-
-    const newSlot: RankingSlot = {
-      id: generateUniqueId(), // Użyj unikalnego id
-      rank: rankingSlots.length + 1,
-      country: country,
-    };
-
-    const updatedSlots = [...rankingSlots, newSlot];
-    setRankingSlots(updatedSlots);
-    handleSaveRanking(updatedSlots);
-    // Usuń kraj z listy "Visited Countries" i upewnij się, że nie ma duplikatów
-    setCountriesVisited((prev) => {
-      const next = removeDuplicates(prev.filter((c) => c.id !== country.id));
-      next.sort((a, b) => a.name.localeCompare(b.name));
-      // Persist visited cache for instant next load
-      try {
-        const uid = auth.currentUser?.uid;
-        if (uid) {
-          storage.set(
-            `user:${uid}:visited`,
-            JSON.stringify(next.map((c) => c.cca2))
-          );
-        }
-      } catch {}
-      return next;
-    });
-    setActiveRankingItemId(null); // Resetowanie aktywnego elementu po dodaniu
-  };
-
-  const handleAddAllVisited = () => {
-    if (countriesVisited.length === 0) return;
-    const toAdd = countriesVisited;
-    const startIndex = rankingSlots.length;
-    const newSlots: RankingSlot[] = [
-      ...rankingSlots,
-      ...toAdd.map((country, i) => ({
-        id: generateUniqueId(),
-        rank: startIndex + i + 1,
-        country,
-      })),
-    ];
-    setRankingSlots(newSlots);
-    handleSaveRanking(newSlots);
-    setCountriesVisited([]);
-    try {
-      const uid = auth.currentUser?.uid;
-      if (uid) storage.set(`user:${uid}:visited`, JSON.stringify([]));
-    } catch {}
-    setActiveRankingItemId(null);
-  };
-
-  const handleClearRanking = () => {
-    if (rankingSlots.length === 0) return;
-    const rankedCountries = rankingSlots
-      .map((s) => s.country)
-      .filter(Boolean) as Country[];
-    setRankingSlots([]);
-    handleSaveRanking([]);
-    setActiveRankingItemId(null);
-    setCountriesVisited((prev) => {
-      const next = removeDuplicates([...prev, ...rankedCountries])
-        .slice()
-        .sort((a, b) => a.name.localeCompare(b.name));
-      try {
-        const uid = auth.currentUser?.uid;
-        if (uid)
-          storage.set(
-            `user:${uid}:visited`,
-            JSON.stringify(next.map((c) => c.cca2))
-          );
-      } catch {}
-      return next;
-    });
-  };
-
-  // Memoizowana konfiguracja listy dla wydajności i uniknięcia tworzenia nowych obiektów na każdy render
-  const listPerfConfig = useMemo(() => {
-    const len = rankingSlots.length;
-    const full = len > 0 && len <= 160; // pełny render dla rozsądnie małych list
-    const initialNum = full ? len : Math.min(18, len);
-    const maxBatch = full ? len : Math.min(24, len);
-    const windowSize = full
-      ? Math.max(10, len)
-      : Math.max(9, Math.min(25, len + 8));
-    return {
-      initialNum,
-      maxBatch,
-      windowSize,
-      removeClipped: !full && len > 120,
-      full,
-    };
-  }, [rankingSlots.length]);
-
   return (
     <>
       <View
@@ -539,7 +468,7 @@ export default function RankingScreen() {
           },
         ]}
       >
-        {/* Header aligned with Friend Requests style */}
+        {/* Header */}
         <View
           style={[
             styles.header,
@@ -643,13 +572,13 @@ export default function RankingScreen() {
             </View>
             <FlatList
               data={countriesVisited}
-              keyExtractor={(country) => `visited-${country.id}`}
+              keyExtractor={(country) => `visited-${country.cca2}`}
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.visitedScrollContainer}
               renderItem={({ item }) => (
                 <View
-                  key={`visited-${item.id}`}
+                  key={`visited-${item.cca2}`}
                   style={[
                     styles.visitedItemContainer,
                     {
@@ -660,10 +589,13 @@ export default function RankingScreen() {
                     },
                   ]}
                 >
-                  <CountryFlag
-                    isoCode={item.cca2}
-                    size={24}
+                  <FastImage
+                    source={{
+                      uri: getFlagUrl(item.cca2, 40),
+                      priority: FastImage.priority.normal,
+                    }}
                     style={styles.flag}
+                    resizeMode={FastImage.resizeMode.cover}
                   />
                   <Text
                     style={[
@@ -693,7 +625,6 @@ export default function RankingScreen() {
           style={[
             styles.rankingContainer,
             {
-              // Kiedy lista visited jest pusta, ranking bliżej góry
               marginTop:
                 countriesVisited.length > 0 ? height * 0.012 : height * 0.004,
               flex: 1,
@@ -729,21 +660,13 @@ export default function RankingScreen() {
               activationDistance={0}
               autoscrollThreshold={90}
               autoscrollSpeed={560}
-              showsVerticalScrollIndicator={true}
+              showsVerticalScrollIndicator
               initialNumToRender={listPerfConfig.initialNum}
               maxToRenderPerBatch={listPerfConfig.maxBatch}
               windowSize={listPerfConfig.windowSize}
-              updateCellsBatchingPeriod={listPerfConfig.full ? 0 : 16}
+              updateCellsBatchingPeriod={16}
               removeClippedSubviews={listPerfConfig.removeClipped}
               dragItemOverflow
-              // contentContainerStyle={{
-              //   paddingBottom: countriesVisited.length === 0 ? 28 : 10,
-              // }}
-              // ListFooterComponent={
-              //   <View
-              //     style={{ height: countriesVisited.length === 0 ? 8 : 4 }}
-              //   />
-              // }
               ItemSeparatorComponent={() => (
                 <View style={{ height: 1, backgroundColor: dividerColor }} />
               )}
@@ -751,7 +674,8 @@ export default function RankingScreen() {
           </View>
         </View>
       </View>
-      {/* Confirmation modals for bulk actions */}
+
+      {/* Potwierdzenia */}
       <ConfirmationModal
         visible={confirmAction === "addAll"}
         title="Add all countries"
@@ -785,36 +709,26 @@ const styles = StyleSheet.create({
   container: {
     padding: 16,
     paddingBottom: 50,
-    flex: 1, // Zajmuje całą przestrzeń
+    flex: 1,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 10, // Zmniejszenie paddingu poziomego
-  },
-  headerButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 20, // Zwiększony rozmiar fontu
-    fontWeight: "700",
+    paddingHorizontal: 10,
   },
   sectionTitle: {
-    fontSize: 17.2, // Zwiększenie rozmiaru fontu
-    marginBottom: 10, // Zwiększenie marginesu
-    // fontWeight: "600",
+    fontSize: 17.2,
+    marginBottom: 10,
     fontFamily: "PlusJakartaSans-Bold",
     marginLeft: 1,
   },
   visitedContainer: {
-    // marginBottom: 5, // Zachowany margines dolny
     marginLeft: -4,
     marginRight: -4,
   },
   visitedScrollContainer: {
     flexDirection: "row",
-    // flexWrap: 'wrap',
     alignItems: "center",
     paddingTop: 1,
     paddingBottom: 1,
@@ -826,23 +740,21 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     marginLeft: 4,
     marginRight: 4,
-    borderRadius: 8, // Zwiększenie promienia
+    borderRadius: 8,
     borderWidth: 1,
-    // Switch to border styling to match app style; avoid heavy shadows
     elevation: 0,
   },
   visitedItemText: {
-    fontSize: 14, // Zwiększenie rozmiaru fontu
-    // fontWeight: "600",
+    fontSize: 14,
     fontFamily: "Figtree-SemiBold",
   },
   addButtonIcon: {
-    marginLeft: 10, // Zwiększenie marginesu
+    marginLeft: 10,
     marginRight: -3,
   },
   rankingContainer: {
-    marginBottom: -13, // Zachowany margines dolny
-    flex: 1, // Pozwól na rozciąganie
+    marginBottom: -13,
+    flex: 1,
   },
   rankingListWrapper: {
     borderWidth: 1,
@@ -851,28 +763,25 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   rankingSlot: {
-    flexDirection: "row", // Ustawienie elementów w wierszu
+    flexDirection: "row",
     alignItems: "center",
     paddingVertical: 10,
     paddingHorizontal: 12,
     marginBottom: 0,
     borderRadius: 0,
     borderWidth: 0,
-    justifyContent: "space-between", // Rozłożenie przestrzeni między elementami
-    backgroundColor: "#fff",
-    // Remove heavy shadows; use borders for consistency
+    justifyContent: "space-between",
     elevation: 0,
-    maxWidth: "100%", // Opcjonalnie: Ustawienie maksymalnej szerokości
+    maxWidth: "100%",
   },
   slotContent: {
     flexDirection: "row",
     alignItems: "center",
-    flex: 1, // Pozwól na rozciąganie
+    flex: 1,
   },
   rankNumber: {
     fontSize: 16,
-    marginRight: 12, // Zwiększenie marginesu
-    // fontWeight: "bold",
+    marginRight: 12,
     fontFamily: "Figtree-SemiBold",
   },
   countryInfoContainer: {
@@ -894,10 +803,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   removeButton: {
-    marginRight: 8, // Zwiększenie marginesu po prawej stronie
-  },
-  dragHandle: {
-    padding: 10, // Większy obszar dotyku
-    marginLeft: 4, // Zmniejszenie marginesu
+    marginRight: 8,
   },
 });

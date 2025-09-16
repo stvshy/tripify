@@ -277,7 +277,13 @@ export default function AccountScreen() {
       const rankingData: string[] = userData.ranking || [];
       const nickname: string | undefined = userData.nickname;
       const email: string | null | undefined = currentUser.email;
-
+      const visitedCodes: string[] = userData.countriesVisited || [];
+      try {
+        storage.set(
+          `user:${currentUser.uid}:visited`,
+          JSON.stringify(visitedCodes)
+        );
+      } catch {}
       const initialSlots: RankingSlot[] = rankingData.map((cca2, index) => ({
         id: cca2,
         rank: index + 1,
