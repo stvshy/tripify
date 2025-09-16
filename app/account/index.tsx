@@ -4,6 +4,7 @@ import React, {
   useMemo,
   useCallback,
   useEffect,
+  useTransition,
 } from "react";
 import {
   View,
@@ -16,6 +17,8 @@ import {
   LayoutAnimation,
   TouchableWithoutFeedback,
   Modal,
+  Image,
+  InteractionManager,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ThemeContext } from "../config/ThemeContext";
@@ -35,37 +38,69 @@ import RightSlideMenu, {
 } from "../../components/RightSlideMenu";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import { Linking } from "react-native";
-import countriesData from "../../assets/maps/countries.json";
+// import countriesData from "../../assets/maps/countries.json";
 import CountryFlag from "react-native-country-flag";
 import RankingItem from "../../components/RankItem";
 import { storage } from "../config/storage";
 import { useAuthStore } from "../store/authStore";
-
-interface Country {
-  id: string;
-  cca2: string;
-  name: string;
-  flag: string;
-  class: string;
-  path: string;
-}
 import { useFocusEffect } from "@react-navigation/native";
 import { signOut } from "firebase/auth";
+import { COUNTRY_BY_CCA2, getFlagUrl } from "../../components/countriesIndex";
+import { FlatList } from "react-native";
+import FastImage from "@d11/react-native-fast-image";
+import type { CountryLite } from "../../components/countriesIndex";
+
+// interface Country {
+//   id: string;
+//   cca2: string;
+//   name: string;
+//   flag: string;
+//   class: string;
+//   path: string;
+// }
 
 interface RankingSlot {
-  id: string;
+  id: string; // stabilne: = cca2
   rank: number;
-  country: Country | null;
+  country: CountryLite | null;
 }
+
 interface Note {
   id: string;
   countryCca2: string;
   noteText: string;
   createdAt: any;
 }
-const generateUniqueId = () =>
-  `rank-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
+// pomocniczo
+// const getFlagUrl = (cca2: string) =>
+//   `https://flagcdn.com/w40/${cca2.toLowerCase()}.png`;
+
+// Generates a unique ID (simple implementation)
+const generateUniqueId = () => {
+  return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+};
+const countryByCca2 = COUNTRY_BY_CCA2;
+// const mappedCountries: Country[] = useMemo(() => {
+//   return countriesData.countries.map((country: any) => ({
+//     ...country,
+//     cca2: country.id,
+//     flag: getFlagUrl(country.id),
+//     name: country.name || "Unknown",
+//     class: country.class || "Unknown",
+//     path: country.path || "Unknown",
+//   }));
+// }, []);
+const getCachedData = (key: string | null) => {
+  if (!key) return null;
+  const raw = storage.getString(key);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+};
 export default function AccountScreen() {
   const { isDarkTheme } = useContext(ThemeContext);
   const theme = useTheme();
@@ -74,8 +109,9 @@ export default function AccountScreen() {
   const storeUserProfile = useAuthStore((s) => s.userProfile);
   const menuRef = React.useRef<RightSlideMenuHandles>(null);
   const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
-  // Helpers for MMKV cache keys
+  // Cache keys
   const cacheKeys = useMemo(() => {
     const uid = authUser?.uid;
     return uid
@@ -87,13 +123,47 @@ export default function AccountScreen() {
         }
       : null;
   }, [authUser?.uid]);
+  // useEffect(() => {
+  //   const loadInitialData = () => {
+  //     // Ustawienie nazwy użytkownika i emaila
+  //     const initialNickname =
+  //       storeUserProfile?.nickname ||
+  //       (cacheKeys?.nickname ? storage.getString(cacheKeys.nickname) : "") ||
+  //       "";
+  //     const initialEmail =
+  //       authUser?.email ||
+  //       (cacheKeys?.email ? storage.getString(cacheKeys.email) : "") ||
+  //       "";
+  //     setUserName(initialNickname);
+  //     setUserEmail(initialEmail);
 
-  // Countries mapping for ranking slots
+  //     // Ustawienie rankingu z pamięci podręcznej
+  //     const cachedRanking = getCachedData(
+  //       cacheKeys?.ranking ?? null
+  //     ) as string[];
+  //     if (cachedRanking) {
+  //       const initialSlots = cachedRanking.map((cca2, index) => ({
+  //         id: generateUniqueId(),
+  //         rank: index + 1,
+  //         country: mappedCountries.find((c) => c.cca2 === cca2) || null,
+  //       }));
+  //       setRankingSlots(initialSlots);
+  //     }
+
+  //     // Ustawienie notatek z pamięci podręcznej
+  //     const cachedNotes = getCachedData(cacheKeys?.notes ?? null) as Note[];
+  //     if (cachedNotes && Array.isArray(cachedNotes)) {
+  //       setNotes(cachedNotes);
+  //     }
+  //   };
+
+  //   loadInitialData();
+  // }, [cacheKeys, storeUserProfile, authUser]);
   const [activeRankingItemId, setActiveRankingItemId] = useState<string | null>(
     null
   );
+
   const [userName, setUserName] = useState<string>(() => {
-    // Prefer nickname from auth store; fallback to cached value; else empty
     const fromStore = useAuthStore.getState().userProfile?.nickname;
     if (fromStore) return fromStore;
     const key = auth.currentUser
@@ -101,39 +171,34 @@ export default function AccountScreen() {
       : null;
     return key ? storage.getString(key) || "" : "";
   });
+
   const [userEmail, setUserEmail] = useState<string>(() => {
     const email = auth.currentUser?.email;
     if (email) return email;
     const key = auth.currentUser ? `user:${auth.currentUser.uid}:email` : null;
     return key ? storage.getString(key) || "" : "";
   });
-  const mappedCountries: Country[] = useMemo(() => {
-    return countriesData.countries.map((country) => ({
-      ...country,
-      cca2: country.id,
-      flag: `https://flagcdn.com/w40/${country.id.toLowerCase()}.png`,
-      name: country.name || "Unknown",
-      class: country.class || "Unknown",
-      path: country.path || "Unknown",
-    }));
-  }, []);
 
+  const countryByCca2 = COUNTRY_BY_CCA2;
+
+  // Ranking z cache (stabilne id = cca2, aby nie przemontowywać elementów po fetchu)
   const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>(() => {
     const uid = auth.currentUser?.uid;
     if (!uid) return [];
     const raw = storage.getString(`user:${uid}:ranking`);
     if (!raw) return [];
     try {
-      const rankingArr: string[] = JSON.parse(raw);
-      return rankingArr.map((cca2, index) => {
-        const country = mappedCountries.find((c) => c.cca2 === cca2) || null;
-        return { id: generateUniqueId(), rank: index + 1, country };
-      });
+      const arr: string[] = JSON.parse(raw);
+      return arr.map((cca2, idx) => ({
+        id: cca2,
+        rank: idx + 1,
+        country: countryByCca2[cca2] || null,
+      }));
     } catch {
       return [];
     }
   });
-
+  // Notatki z cache
   const [notes, setNotes] = useState<Note[]>(() => {
     const uid = auth.currentUser?.uid;
     if (!uid) return [];
@@ -147,6 +212,15 @@ export default function AccountScreen() {
     }
   });
 
+  // Notatki + kraj, przygotowane poza renderem listy
+  const notesWithCountry = useMemo(
+    () =>
+      notes.map((n) => ({
+        ...n,
+        country: countryByCca2[n.countryCca2] || null,
+      })),
+    [notes]
+  );
   const openMailTo = useCallback(
     (subject: string) => {
       const nickname =
@@ -154,7 +228,9 @@ export default function AccountScreen() {
         useAuthStore.getState().userProfile?.nickname ||
         auth.currentUser?.uid ||
         "unknown";
-      const mailto = `mailto:tripify.travelapp@gmail.com?subject=${encodeURIComponent(subject.replace("{nickname}", String(nickname)))}`;
+      const mailto = `mailto:tripify.travelapp@gmail.com?subject=${encodeURIComponent(
+        subject.replace("{nickname}", String(nickname))
+      )}`;
       Linking.openURL(mailto).catch(() => {
         Alert.alert("Error", "Could not open the mail app.");
       });
@@ -167,13 +243,14 @@ export default function AccountScreen() {
     useState<boolean>(false);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
 
-  // Keep userName in sync with auth store updates (e.g., after nickname set)
+  // Sync nazwy z profilem
   useEffect(() => {
     if (storeUserProfile?.nickname) {
       setUserName(storeUserProfile.nickname);
       if (cacheKeys) storage.set(cacheKeys.nickname, storeUserProfile.nickname);
     }
   }, [storeUserProfile?.nickname, cacheKeys]);
+
   useEffect(() => {
     if (authUser?.email) {
       setUserEmail(authUser.email);
@@ -183,75 +260,108 @@ export default function AccountScreen() {
 
   const fetchUserData = useCallback(async () => {
     const currentUser = auth.currentUser;
-    if (currentUser) {
+    if (!currentUser) {
+      console.log("No current user.");
+      return;
+    }
+
+    try {
       const userDocRef = doc(db, "users", currentUser.uid);
       const userDoc = await getDoc(userDocRef);
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const rankingData: string[] = userData.ranking || [];
-        const nickname: string | undefined = userData.nickname;
-        const email: string | null | undefined = currentUser.email;
-        // Update text fields and persist
+
+      if (!userDoc.exists()) {
+        console.log("User document does not exist.");
+        return;
+      }
+
+      const userData = userDoc.data();
+      const rankingData: string[] = userData.ranking || [];
+      const nickname: string | undefined = userData.nickname;
+      const email: string | null | undefined = currentUser.email;
+
+      const initialSlots: RankingSlot[] = rankingData.map((cca2, index) => ({
+        id: cca2,
+        rank: index + 1,
+        country: countryByCca2[cca2] || null,
+      }));
+
+      // Pobierz notatki
+      const notesCollectionRef = collection(
+        db,
+        "users",
+        currentUser.uid,
+        "notes"
+      );
+      const notesSnapshot = await getDocs(notesCollectionRef);
+      const notesList: Note[] = notesSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        countryCca2: doc.data().countryCca2,
+        noteText: doc.data().noteText,
+        createdAt: doc.data().createdAt,
+      }));
+
+      // Aktualizacje niepilne – nie blokują renderu
+      startTransition(() => {
         if (nickname) {
           setUserName(nickname);
-          if (cacheKeys) storage.set(cacheKeys.nickname, nickname);
+          cacheKeys && storage.set(cacheKeys.nickname, nickname);
         }
         if (email) {
           setUserEmail(email);
-          if (cacheKeys) storage.set(cacheKeys.email, email);
+          cacheKeys && storage.set(cacheKeys.email, email);
         }
-
-        // Create initial ranking slots with unique IDs
-        const initialSlots: RankingSlot[] = rankingData.map((cca2, index) => {
-          const country =
-            mappedCountries.find((c: Country) => c.cca2 === cca2) || null;
-          return {
-            id: generateUniqueId(),
-            rank: index + 1,
-            country: country,
-          };
-        });
-
         setRankingSlots(initialSlots);
-        // Persist ranking for instant next load
-        try {
-          if (cacheKeys)
-            storage.set(cacheKeys.ranking, JSON.stringify(rankingData));
-        } catch {}
-
-        // Fetch user notes
-        const notesCollectionRef = collection(
-          db,
-          "users",
-          currentUser.uid,
-          "notes"
-        );
-        const notesSnapshot = await getDocs(notesCollectionRef);
-        const notesList: Note[] = notesSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          countryCca2: doc.data().countryCca2,
-          noteText: doc.data().noteText,
-          createdAt: doc.data().createdAt,
-        }));
         setNotes(notesList);
-        // Persist notes
-        try {
-          if (cacheKeys)
-            storage.set(cacheKeys.notes, JSON.stringify(notesList));
-        } catch {}
-      } else {
-        console.log("User document does not exist.");
-      }
-    } else {
-      console.log("No current user.");
-    }
-  }, [mappedCountries, cacheKeys]);
 
+        // cache
+        try {
+          cacheKeys &&
+            storage.set(cacheKeys.ranking, JSON.stringify(rankingData));
+          cacheKeys && storage.set(cacheKeys.notes, JSON.stringify(notesList));
+        } catch {}
+      });
+    } catch (e) {
+      console.log("fetchUserData error:", e);
+    }
+  }, [countryByCca2, cacheKeys]);
+
+  // Odpal fetch PO animacji nawigacji -> płynniejsze przejście
   useFocusEffect(
     useCallback(() => {
-      fetchUserData();
+      let cancelled = false;
+      const task = InteractionManager.runAfterInteractions(() => {
+        if (!cancelled) fetchUserData();
+      });
+      return () => {
+        cancelled = true;
+        // @ts-ignore (w RN i Hermes może nie być cancel)
+        task?.cancel?.();
+      };
     }, [fetchUserData])
   );
+
+  // Prefetch flag PO animacji, żeby dekodowanie obrazków nie wpływało na przejście
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
+      const urls = new Set<string>();
+      for (const s of rankingSlots)
+        if (s.country) urls.add(getFlagUrl(s.country.cca2));
+      for (const n of notes) urls.add(getFlagUrl(n.countryCca2));
+
+      const sources = Array.from(urls).map((uri) => ({
+        uri,
+        priority: FastImage.priority.low,
+      }));
+      try {
+        FastImage.preload(sources);
+      } catch {}
+    });
+    return () => {
+      // @ts-ignore
+      task?.cancel?.();
+    };
+  }, [rankingSlots, notes]);
+
   const handleGoBack = () => {
     router.back();
   };
@@ -261,7 +371,6 @@ export default function AccountScreen() {
     if (index >= 0 && index < rankingSlots.length) {
       const updatedSlots = [...rankingSlots];
       updatedSlots.splice(index, 1);
-      // Update ranks
       const reRankedSlots = updatedSlots.map((item, idx) => ({
         ...item,
         rank: idx + 1,
@@ -281,8 +390,7 @@ export default function AccountScreen() {
     const currentUser = auth.currentUser;
     if (currentUser) {
       const userDocRef = doc(db, "users", currentUser.uid);
-      await updateDoc(userDocRef, { ranking: ranking });
-      // Update cache optimistically
+      await updateDoc(userDocRef, { ranking });
       try {
         storage.set(`user:${currentUser.uid}:ranking`, JSON.stringify(ranking));
       } catch {}
@@ -298,27 +406,23 @@ export default function AccountScreen() {
     setIsNotePreviewVisible(true);
   };
 
-  // Render note text with clickable links and selectable text in preview
   const renderNoteText = useCallback(
     (text: string) => {
-      // Basic URL regex (http/https)
       const urlRegex =
         /(https?:\/\/[\w.-]+(?:\/[\w\-._~:/?#[\]@!$&'()*+,;=%]*)?)/gi;
       const parts = text.split(urlRegex);
       return parts.map((part, idx) => {
         if (urlRegex.test(part)) {
-          // Reset lastIndex for subsequent tests
           urlRegex.lastIndex = 0;
           return (
             <Text
               key={`link-${idx}`}
               style={{ color: theme.colors.primary }}
-              onPress={() => {
-                const url = part.startsWith("http") ? part : `https://${part}`;
-                Linking.openURL(url).catch(() => {
-                  Alert.alert("Error", "Could not open the link.");
-                });
-              }}
+              onPress={() =>
+                Linking.openURL(part).catch(() =>
+                  Alert.alert("Error", "Could not open the link.")
+                )
+              }
             >
               {part}
             </Text>
@@ -329,6 +433,7 @@ export default function AccountScreen() {
     },
     [theme.colors.primary]
   );
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -339,7 +444,6 @@ export default function AccountScreen() {
     }
   };
 
-  // Account deletion flow
   const triggerDeleteFlow = useCallback(() => {
     setConfirmDeleteVisible(true);
   }, []);
@@ -352,12 +456,10 @@ export default function AccountScreen() {
       return;
     }
     try {
-      // Note: Firestore user doc cleanup could be added here if desired
       await user.delete();
       Alert.alert("Account deleted", "Your account has been removed.");
       router.replace("/welcome");
     } catch (err: any) {
-      // Common case: requires recent login
       if (err?.code === "auth/requires-recent-login") {
         Alert.alert(
           "Reauthentication required",
@@ -424,14 +526,13 @@ export default function AccountScreen() {
       >
         <TouchableWithoutFeedback onPress={() => setActiveRankingItemId(null)}>
           <View>
-            {/* Header aligned with Friend Requests style */}
+            {/* Header */}
             <View
               style={[
                 styles.header,
                 {
                   paddingTop: height * 0.0238,
                   paddingBottom: 10,
-                  // paddingHorizontal: 10
                   marginHorizontal: -4.5,
                 },
               ]}
@@ -529,19 +630,26 @@ export default function AccountScreen() {
                   { backgroundColor: isDarkTheme ? "#333333" : "#f5f5f5" },
                 ]}
               >
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {rankingSlots.map((slot, index) => (
+                <FlatList
+                  data={rankingSlots}
+                  keyExtractor={(item) => item.id}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  removeClippedSubviews
+                  windowSize={7}
+                  initialNumToRender={Math.min(20, rankingSlots.length)}
+                  maxToRenderPerBatch={8}
+                  renderItem={({ item, index }) => (
                     <RankingItem
-                      key={slot.id}
-                      slot={slot}
+                      slot={item}
                       index={index}
                       onRemove={handleRemoveFromRanking}
-                      activeRankingItemId={activeRankingItemId}
+                      isActive={activeRankingItemId === item.id}
                       setActiveRankingItemId={setActiveRankingItemId}
-                      isDarkTheme={isDarkTheme} // Pass the theme prop
+                      isDarkTheme={isDarkTheme}
                     />
-                  ))}
-                </ScrollView>
+                  )}
+                />
               </View>
             ) : (
               <View
@@ -595,67 +703,72 @@ export default function AccountScreen() {
             </View>
 
             {/* Horizontal Notes List */}
-            {notes.length > 0 ? (
+            {notesWithCountry.length > 0 ? (
               <View
                 style={[
                   styles.horizontalNotesContainer,
                   { backgroundColor: isDarkTheme ? "#333333" : "#f5f5f5" },
                 ]}
               >
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {notes.map((note) => {
-                    const country = mappedCountries.find(
-                      (c) => c.cca2 === note.countryCca2
-                    );
-                    return (
-                      <TouchableOpacity
-                        key={note.id}
-                        style={[
-                          styles.noteItem,
-                          {
-                            backgroundColor: isDarkTheme
-                              ? "#333333"
-                              : "#f5f5f5",
-                            borderColor: isDarkTheme ? "#555" : "#ccc",
-                            borderWidth: 1,
-                          },
-                        ]}
-                        onPress={() => handleNotePress(note)}
-                      >
-                        <View style={styles.noteHeader}>
-                          {country && (
-                            <CountryFlag
-                              isoCode={country.cca2}
-                              size={20}
-                              style={styles.noteFlag}
-                            />
-                          )}
-                          <Text
-                            style={[
-                              styles.noteCountryName,
-                              { color: theme.colors.onSurface },
-                            ]}
-                            numberOfLines={2}
-                          >
-                            {country ? country.name : "Unknown Country"}
-                          </Text>
-                        </View>
+                <FlatList
+                  data={notesWithCountry}
+                  keyExtractor={(note) => note.id}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  removeClippedSubviews
+                  windowSize={7}
+                  initialNumToRender={Math.min(20, notesWithCountry.length)}
+                  maxToRenderPerBatch={8}
+                  renderItem={({ item: note }) => (
+                    <TouchableOpacity
+                      style={[
+                        styles.noteItem,
+                        {
+                          backgroundColor: isDarkTheme ? "#333333" : "#f5f5f5",
+                          borderColor: isDarkTheme ? "#555" : "#ccc",
+                          borderWidth: 1,
+                        },
+                      ]}
+                      onPress={() => handleNotePress(note)}
+                    >
+                      <View style={styles.noteHeader}>
+                        {note.country && (
+                          <FastImage
+                            source={{
+                              uri: getFlagUrl(note.country.cca2, 40),
+                              priority: FastImage.priority.normal,
+                            }}
+                            style={styles.noteFlag}
+                            resizeMode={FastImage.resizeMode.cover}
+                          />
+                        )}
                         <Text
                           style={[
-                            styles.noteText,
+                            styles.noteCountryName,
                             { color: theme.colors.onSurface },
                           ]}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
+                          numberOfLines={2}
                         >
-                          {note.noteText}
+                          {note.country ? note.country.name : "Unknown Country"}
                         </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
+                      </View>
+                      <Text
+                        style={[
+                          styles.noteText,
+                          { color: theme.colors.onSurface },
+                        ]}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {note.noteText}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                />
               </View>
             ) : (
+              // bez zmian
+
               <View
                 style={[
                   styles.noNotesContainer,
@@ -675,6 +788,7 @@ export default function AccountScreen() {
           </View>
         </TouchableWithoutFeedback>
       </ScrollView>
+
       {/* Logout Link */}
       <View style={{ alignItems: "center", marginBottom: -30 }}>
         <TouchableOpacity onPress={handleLogout}>
@@ -689,6 +803,7 @@ export default function AccountScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+
       {/* Note Preview Modal */}
       <Modal
         visible={isNotePreviewVisible}
@@ -709,13 +824,10 @@ export default function AccountScreen() {
                 { backgroundColor: theme.colors.surface },
               ]}
             >
-              {/* Header row with flag+country and close button aligned */}
               <View style={styles.modalHeaderRow}>
                 {selectedNote && (
                   <View style={styles.modalHeaderLeft}>
-                    {mappedCountries.find(
-                      (c) => c.cca2 === selectedNote.countryCca2
-                    ) && (
+                    {selectedNote.countryCca2 && (
                       <CountryFlag
                         isoCode={selectedNote.countryCca2}
                         size={25}
@@ -729,9 +841,7 @@ export default function AccountScreen() {
                       ]}
                       numberOfLines={2}
                     >
-                      {mappedCountries.find(
-                        (c) => c.cca2 === selectedNote.countryCca2
-                      )?.name || ""}
+                      {countryByCca2[selectedNote.countryCca2]?.name || ""}
                     </Text>
                   </View>
                 )}
@@ -747,7 +857,6 @@ export default function AccountScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Modal interior */}
               <ScrollView
                 contentContainerStyle={styles.modalScrollContent}
                 showsVerticalScrollIndicator={false}
@@ -766,6 +875,7 @@ export default function AccountScreen() {
           </View>
         </View>
       </Modal>
+
       {/* Right slide-out menu */}
       <RightSlideMenu ref={menuRef} items={menuItems} />
       {/* Confirm delete dialog */}
@@ -796,15 +906,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     marginBottom: 20,
   },
-  headerButton: {
-    padding: 8,
-    width: 40,
-    alignItems: "center",
-  },
-  headerTitle: {
-    fontSize: 21,
-    fontWeight: "700",
-  },
   userPanel: {
     alignItems: "center",
     marginBottom: 30,
@@ -813,7 +914,6 @@ const styles = StyleSheet.create({
   userName: {
     marginTop: -7,
     fontSize: 20,
-    // fontWeight: "600",
     fontFamily: "Figtree-SemiBold",
   },
   userEmail: {
@@ -834,7 +934,6 @@ const styles = StyleSheet.create({
   },
   rankingTitle: {
     fontSize: 17,
-    // fontWeight: "600",
     fontFamily: "PlusJakartaSans-Bold",
   },
   editButton: {
@@ -842,7 +941,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   editButtonText: {
-    // color: "#6200ee",
     fontSize: 14.2,
     marginRight: 4,
     fontFamily: "Figtree-Regular",
@@ -897,15 +995,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 16,
     marginRight: 8,
-    height: 72, // Niższa stała wysokość kafelka notatki
+    height: 72,
     overflow: "hidden",
-    // paddingBottom: 0,
-    // Remove shadows
-    // Instead, use border to match ranking items
   },
   noteHeader: {
     flexDirection: "row",
-    alignItems: "flex-start", // Align items to the top
+    alignItems: "flex-start",
     marginBottom: 8,
     marginTop: -2,
   },
@@ -914,7 +1009,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     width: 25,
     height: 15,
-    marginTop: 0, // Adjust to align with multi-line text
+    marginTop: 0,
   },
   noteCountryName: {
     fontSize: 15,
@@ -923,7 +1018,7 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     maxWidth: "90%",
     fontFamily: "Figtree-SemiBold",
-    marginTop: -1.2, // Slightly adjust to align with flag
+    marginTop: -1.2,
   },
   noteText: {
     fontSize: 14,
@@ -963,8 +1058,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 20,
     paddingTop: 20,
-    maxHeight: "97%", // Prawie pełna wysokość widoku
-    minHeight: 20, // Jeszcze mniejsza minimalna wysokość
+    maxHeight: "97%",
+    minHeight: 20,
     width: "95%",
   },
   modalHeaderRow: {
@@ -987,7 +1082,6 @@ const styles = StyleSheet.create({
   },
   modalHeader: {
     fontSize: 18,
-    // fontWeight: "bold",
     fontFamily: "Figtree-SemiBold",
   },
   modalNoteText: {
@@ -997,19 +1091,5 @@ const styles = StyleSheet.create({
   },
   modalScrollContent: {
     paddingBottom: 20,
-  },
-  logoutButton: {
-    position: "absolute",
-    bottom: 20,
-    left: 0,
-    right: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 10,
-  },
-  logoutText: {
-    fontSize: 16,
-    color: "#FF0000", // Czerwony kolor tekstu, możesz zmienić
-    fontWeight: "bold",
   },
 });
