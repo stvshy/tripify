@@ -25,7 +25,7 @@ import {
 import { useFocusEffect, useRouter } from "expo-router";
 import { ThemeContext } from "../config/ThemeContext";
 import { useTheme } from "react-native-paper";
-import { getDoc, doc, updateDoc, onSnapshot } from "firebase/firestore";
+import { getDoc, doc, updateDoc } from "firebase/firestore";
 import { db, auth } from "../config/firebaseConfig";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import countriesData from "../../assets/maps/countries.json";
@@ -66,21 +66,46 @@ export default function RankingScreen() {
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
   const theme = useTheme();
   const router = useRouter();
-  const [countriesVisited, setCountriesVisited] = useState<Country[]>(() => {
+  const [countriesVisited, setCountriesVisited] = useState<Country[]>([]);
+  const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>([]);
+  const hydrationRef = useRef(false);
+  const [activeRankingItemId, setActiveRankingItemId] = useState<string | null>(
+    null
+  ); // Nowy stan
+  const [confirmAction, setConfirmAction] = useState<null | "addAll" | "clear">(
+    null
+  );
+  const rankingVersionRef = useRef<string | null>(null);
+  const [isAfterInteractions, setIsAfterInteractions] = useState(false);
+
+  const { width, height } = Dimensions.get("window");
+  // Colors for cohesive ranking container & dividers
+  const outerBorderColor = isDarkTheme ? "#262626" : "#E0E0E0";
+  const dividerColor = isDarkTheme ? "#333333" : "#F0F0F0";
+
+  const mappedCountries: Country[] = useMemo(() => {
+    return countriesData.countries.map((country) => ({
+      ...country,
+      cca2: country.id,
+      flag: `https://flagcdn.com/w40/${country.id.toLowerCase()}.png`,
+    }));
+  }, []);
+
+  // Hydrate from local cache after transition/animations to avoid blocking the JS thread during navigation
+  const hydrateFromCache = useCallback(() => {
     try {
       const uid = auth.currentUser?.uid;
-      if (!uid) return [];
+      if (!uid) return;
       const rawVisited = storage.getString(`user:${uid}:visited`);
-      if (!rawVisited) return [];
+      const rawRanking = storage.getString(`user:${uid}:ranking`);
       let visitedCodes: string[] = [];
+      let rankingArr: string[] = [];
       try {
-        visitedCodes = JSON.parse(rawVisited) || [];
+        visitedCodes = rawVisited ? JSON.parse(rawVisited) : [];
       } catch {
         visitedCodes = [];
       }
-      let rankingArr: string[] = [];
       try {
-        const rawRanking = storage.getString(`user:${uid}:ranking`);
         rankingArr = rawRanking ? JSON.parse(rawRanking) : [];
       } catch {
         rankingArr = [];
@@ -99,61 +124,29 @@ export default function RankingScreen() {
             : null;
         })
         .filter(Boolean) as Country[];
-      const unique = removeDuplicates(visitedCountries);
-      unique.sort((a, b) => a.name.localeCompare(b.name));
-      return unique;
-    } catch {
-      return [];
-    }
-  });
-  const [rankingSlots, setRankingSlots] = useState<RankingSlot[]>(() => {
-    try {
-      const uid = auth.currentUser?.uid;
-      if (!uid) return [];
-      const raw = storage.getString(`user:${uid}:ranking`);
-      if (!raw) return [];
-      const rankingArr: string[] = JSON.parse(raw);
-      const byId = new Map(countriesData.countries.map((c: any) => [c.id, c]));
-      return rankingArr.map((cca2, index) => {
-        const base = byId.get(cca2);
-        const country: Country | null = base
-          ? {
-              ...base,
-              cca2: base.id,
-              flag: `https://flagcdn.com/w40/${base.id.toLowerCase()}.png`,
-            }
-          : null;
-        // stable id (country code) to avoid remount jank
-        return {
-          id: country?.cca2 || generateUniqueId(),
-          rank: index + 1,
-          country,
-        };
-      });
-    } catch {
-      return [];
-    }
-  });
-  const hydrationRef = useRef(false);
-  const [activeRankingItemId, setActiveRankingItemId] = useState<string | null>(
-    null
-  ); // Nowy stan
-  const [confirmAction, setConfirmAction] = useState<null | "addAll" | "clear">(
-    null
-  );
-  const rankingVersionRef = useRef<string | null>(null);
+      const uniqueVisited = removeDuplicates(visitedCountries).sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
+      setCountriesVisited(uniqueVisited);
 
-  const { width, height } = Dimensions.get("window");
-  // Colors for cohesive ranking container & dividers
-  const outerBorderColor = isDarkTheme ? "#262626" : "#E0E0E0";
-  const dividerColor = isDarkTheme ? "#333333" : "#F0F0F0";
-
-  const mappedCountries: Country[] = useMemo(() => {
-    return countriesData.countries.map((country) => ({
-      ...country,
-      cca2: country.id,
-      flag: `https://flagcdn.com/w40/${country.id.toLowerCase()}.png`,
-    }));
+      const cachedSlots: RankingSlot[] = rankingArr
+        .map((cca2, index) => {
+          const base = byId.get(cca2);
+          const country: Country | null = base
+            ? {
+                ...base,
+                cca2: base.id,
+                flag: `https://flagcdn.com/w40/${base.id.toLowerCase()}.png`,
+              }
+            : null;
+          return country
+            ? { id: country.cca2, rank: index + 1, country }
+            : null;
+        })
+        .filter(Boolean) as RankingSlot[];
+      hydrationRef.current = true;
+      setRankingSlots(cachedSlots);
+    } catch {}
   }, []);
 
   // 1. Zamiast definiować wewnątrz useEffect, deklarujemy tutaj:
@@ -228,10 +221,17 @@ export default function RankingScreen() {
     } catch {}
   }, [mappedCountries]);
 
-  // 2) wywołujemy przy mount
+  // 2) Defer heavy work until after interactions/transition for smooth screen push
   useEffect(() => {
-    fetchUserData();
-  }, [fetchUserData]);
+    const handle = InteractionManager.runAfterInteractions(() => {
+      setIsAfterInteractions(true);
+      hydrateFromCache();
+      fetchUserData();
+    });
+    return () => {
+      // No-op: InteractionManager runAfterInteractions returns a thenable; no cancel API needed here
+    };
+  }, [fetchUserData, hydrateFromCache]);
 
   // 3) i przy każdym powrocie na ekran
   useFocusEffect(
@@ -510,21 +510,18 @@ export default function RankingScreen() {
     });
   };
 
-  // Memoizowana konfiguracja listy dla wydajności i uniknięcia tworzenia nowych obiektów na każdy render
+  // Memoizowana konfiguracja listy – lekkie renderowanie początkowe, aby nie blokować animacji przejścia
   const listPerfConfig = useMemo(() => {
     const len = rankingSlots.length;
-    const full = len > 0 && len <= 160; // pełny render dla rozsądnie małych list
-    const initialNum = full ? len : Math.min(18, len);
-    const maxBatch = full ? len : Math.min(24, len);
-    const windowSize = full
-      ? Math.max(10, len)
-      : Math.max(9, Math.min(25, len + 8));
+    const initialNum = Math.min(12, len);
+    const maxBatch = Math.min(16, Math.max(8, initialNum));
+    const windowSize = Math.max(12, Math.ceil(initialNum * 1.5));
     return {
       initialNum,
       maxBatch,
       windowSize,
-      removeClipped: !full && len > 120,
-      full,
+      removeClipped: len > 40,
+      full: false,
     };
   }, [rankingSlots.length]);
 

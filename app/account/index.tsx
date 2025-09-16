@@ -17,7 +17,7 @@ import {
   TouchableWithoutFeedback,
   Modal,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, Link } from "expo-router";
 import { ThemeContext } from "../config/ThemeContext";
 import { useTheme } from "react-native-paper";
 import {
@@ -498,27 +498,26 @@ export default function AccountScreen() {
               >
                 Ranking
               </Text>
-              <TouchableOpacity
-                style={styles.editButton}
-                onPress={() => router.push("/ranking")}
-              >
-                <Text
-                  style={[
-                    styles.editButtonText,
-                    { color: theme.colors.primary },
-                  ]}
-                >
-                  {rankingSlots.length > 0
-                    ? "Show and Edit Ranking"
-                    : "Create Ranking"}
-                </Text>
-                <Ionicons
-                  name="chevron-forward"
-                  size={15}
-                  color={theme.colors.primary}
-                  style={{ marginRight: -11, marginBottom: -7 }}
-                />
-              </TouchableOpacity>
+              <Link href="/ranking" asChild prefetch>
+                <TouchableOpacity style={styles.editButton}>
+                  <Text
+                    style={[
+                      styles.editButtonText,
+                      { color: theme.colors.primary },
+                    ]}
+                  >
+                    {rankingSlots.length > 0
+                      ? "Show and Edit Ranking"
+                      : "Create Ranking"}
+                  </Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={15}
+                    color={theme.colors.primary}
+                    style={{ marginRight: -11, marginBottom: -7 }}
+                  />
+                </TouchableOpacity>
+              </Link>
             </View>
 
             {/* Horizontal Ranking List */}
