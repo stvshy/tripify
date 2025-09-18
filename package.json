@@ -71,7 +71,7 @@
     "react-native": "0.74.5",
     "react-native-confetti-cannon": "^1.5.2",
     "react-native-country-flag": "^2.0.2",
-    "react-native-draggable-flatlist": "^4.0.1",
+    "react-native-draggable-flatlist": "github:carbopilot/react-native-draggable-flashlist",
     "react-native-drax": "^0.10.3",
     "react-native-fbsdk-next": "^11.3.0",
     "react-native-gesture-handler": "~2.16.1",
