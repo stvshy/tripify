@@ -1,6 +1,7 @@
 import React, { memo, useMemo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useTheme } from "react-native-paper";
+import { Ionicons } from "@expo/vector-icons";
 import CountryFlag from "react-native-country-flag";
 import { COUNTRY_BY_CCA2 } from "../countriesIndex";
 
@@ -35,8 +36,8 @@ const VisitedCountryPill = ({ id, onAdd, isDark }: VisitedCountryPillProps) => {
       >
         {country.name}
       </Text>
-      <TouchableOpacity onPress={() => onAdd(id)} style={{ marginLeft: 10 }}>
-        <Text style={{ color: "green", fontWeight: "600" }}>+ Add</Text>
+      <TouchableOpacity onPress={() => onAdd(id)} style={styles.addButtonIcon}>
+        <Ionicons name="add-circle" size={23} color="green" />
       </TouchableOpacity>
     </View>
   );
@@ -64,5 +65,9 @@ const styles = StyleSheet.create({
     fontFamily: "Figtree-SemiBold",
     fontSize: 14,
     marginLeft: 6,
+  },
+  addButtonIcon: {
+    marginLeft: 10,
+    marginRight: -3,
   },
 });

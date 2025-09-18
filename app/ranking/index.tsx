@@ -26,7 +26,8 @@ import { useTheme } from "react-native-paper";
 import { getDoc, doc, updateDoc } from "firebase/firestore";
 import { db, auth } from "../config/firebaseConfig";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import DraggableFlatList, {
+import DraggableFlatList from "react-native-draggable-flatlist";
+import type {
   RenderItemParams,
   DragEndParams,
 } from "react-native-draggable-flatlist";
