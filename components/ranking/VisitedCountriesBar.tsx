@@ -15,6 +15,7 @@ type VisitedCountriesBarProps = {
   onAdd: (id: string) => void;
   onAddAll: () => void;
   isDark: boolean;
+  onInteractHide?: () => void;
 };
 
 const VisitedCountriesBar = ({
@@ -22,6 +23,7 @@ const VisitedCountriesBar = ({
   onAdd,
   onAddAll,
   isDark,
+  onInteractHide,
 }: VisitedCountriesBarProps) => {
   const theme = useTheme();
 
@@ -35,7 +37,10 @@ const VisitedCountriesBar = ({
         </Text>
         {ids.length >= 2 && (
           <TouchableOpacity
-            onPress={() => onAddAll()}
+            onPress={() => {
+              onInteractHide?.();
+              onAddAll();
+            }}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={{
               paddingVertical: 6,
@@ -67,6 +72,7 @@ const VisitedCountriesBar = ({
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={[styles.listPadding, styles.fallbackRow]}
+        onScrollBeginDrag={onInteractHide}
       >
         {ids.map((id) => (
           <VisitedCountryPill
@@ -74,6 +80,7 @@ const VisitedCountriesBar = ({
             id={id}
             onAdd={onAdd}
             isDark={isDark}
+            onInteractHide={onInteractHide}
           />
         ))}
       </ScrollView>

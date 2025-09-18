@@ -83,6 +83,7 @@ export default function RankingScreen() {
     null
   );
   const rankingVersionRef = useRef<string | null>(null);
+  const [openRowId, setOpenRowId] = useState<string | null>(null);
 
   const { width, height } = Dimensions.get("window");
   // Colors for cohesive ranking container & dividers
@@ -158,6 +159,7 @@ export default function RankingScreen() {
   );
 
   const handleGoBack = () => {
+    setOpenRowId(null);
     router.back();
   };
 
@@ -199,6 +201,12 @@ export default function RankingScreen() {
     });
   };
 
+  const hideOpenRow = useCallback(() => setOpenRowId(null), []);
+
+  const onToggleRow = useCallback((id: string) => {
+    setOpenRowId((prev) => (prev === id ? null : id));
+  }, []);
+
   const renderRankingItem = useCallback(
     ({ item, drag, isActive, getIndex }: RenderItemParams<string>) => {
       const idx = (getIndex && getIndex()) || 0;
@@ -208,14 +216,21 @@ export default function RankingScreen() {
           index={idx}
           drag={drag}
           isActive={isActive}
-          onRemove={handleRemoveFromRanking}
+          onRemove={(id) => {
+            hideOpenRow();
+            handleRemoveFromRanking(id);
+          }}
+          isOpen={openRowId === item}
+          onToggle={onToggleRow}
+          onHide={hideOpenRow}
         />
       );
     },
-    [handleRemoveFromRanking]
+    [openRowId, onToggleRow, hideOpenRow]
   );
 
   const handleAddToRanking = (id: string) => {
+    hideOpenRow();
     if (rankingIds.includes(id)) return;
     const nextRanking = [...rankingIds, id];
     setRankingIds(nextRanking);
@@ -231,6 +246,7 @@ export default function RankingScreen() {
   };
 
   const handleAddAllVisited = () => {
+    hideOpenRow();
     if (visitedIds.length === 0) return;
     const newRanking = [...rankingIds, ...visitedIds];
     setRankingIds(newRanking);
@@ -243,6 +259,7 @@ export default function RankingScreen() {
   };
 
   const handleClearRanking = () => {
+    hideOpenRow();
     if (rankingIds.length === 0) return;
     const nextVisited = sortIdsByName([...visitedIds, ...rankingIds]);
     // Update visited first for instant, flicker-free appearance
@@ -390,10 +407,13 @@ export default function RankingScreen() {
               keyExtractor={(id) => id}
               renderItem={renderRankingItem}
               onDragEnd={handleDragEnd}
-              activationDistance={12}
-              autoscrollThreshold={90}
+              onDragBegin={hideOpenRow}
+              activationDistance={0}
+              autoscrollThreshold={80}
               autoscrollSpeed={560}
               showsVerticalScrollIndicator={true}
+              extraData={openRowId}
+              onScrollBeginDrag={hideOpenRow}
               initialNumToRender={listPerfConfig.initialNum}
               maxToRenderPerBatch={listPerfConfig.maxBatch}
               windowSize={listPerfConfig.windowSize}

@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo, useState } from "react";
+import React, { memo, useCallback, useMemo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useTheme } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
@@ -11,6 +11,9 @@ type RankingRowProps = {
   drag: () => void;
   isActive: boolean;
   onRemove: (id: string) => void;
+  isOpen: boolean;
+  onToggle: (id: string) => void;
+  onHide: () => void;
 };
 
 const ROW_FLAG_SIZE = 22;
@@ -21,19 +24,22 @@ const RankingRow = ({
   drag,
   isActive,
   onRemove,
+  isOpen,
+  onToggle,
+  onHide,
 }: RankingRowProps) => {
   const theme = useTheme();
-  const [showRemove, setShowRemove] = useState(false);
 
   const country = useMemo(() => COUNTRY_BY_CCA2[id], [id]);
 
   const onPressRow = useCallback(() => {
-    setShowRemove((prev) => !prev);
-  }, []);
+    onToggle(id);
+  }, [id, onToggle]);
 
   const handleRemove = useCallback(() => {
+    onHide();
     onRemove(id);
-  }, [id, onRemove]);
+  }, [id, onRemove, onHide]);
 
   return (
     <View
@@ -51,7 +57,10 @@ const RankingRow = ({
       <TouchableOpacity
         style={styles.rowContent}
         onPress={onPressRow}
-        onLongPress={drag}
+        onLongPress={() => {
+          onHide();
+          drag();
+        }}
         delayLongPress={250}
         disabled={isActive}
         activeOpacity={0.8}
@@ -87,7 +96,7 @@ const RankingRow = ({
           </Text>
         )}
       </TouchableOpacity>
-      {showRemove && (
+      {isOpen && (
         <TouchableOpacity
           onPress={handleRemove}
           style={styles.removeBtn}
@@ -100,7 +109,16 @@ const RankingRow = ({
   );
 };
 
-export default memo(RankingRow);
+const propsAreEqual = (prev: RankingRowProps, next: RankingRowProps) => {
+  return (
+    prev.id === next.id &&
+    prev.index === next.index &&
+    prev.isActive === next.isActive &&
+    prev.isOpen === next.isOpen
+  );
+};
+
+export default memo(RankingRow, propsAreEqual);
 
 const styles = StyleSheet.create({
   row: {

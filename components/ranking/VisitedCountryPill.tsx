@@ -9,9 +9,15 @@ type VisitedCountryPillProps = {
   id: string; // cca2
   onAdd: (id: string) => void;
   isDark: boolean;
+  onInteractHide?: () => void;
 };
 
-const VisitedCountryPill = ({ id, onAdd, isDark }: VisitedCountryPillProps) => {
+const VisitedCountryPill = ({
+  id,
+  onAdd,
+  isDark,
+  onInteractHide,
+}: VisitedCountryPillProps) => {
   const theme = useTheme();
   const country = useMemo(() => COUNTRY_BY_CCA2[id], [id]);
 
@@ -36,7 +42,13 @@ const VisitedCountryPill = ({ id, onAdd, isDark }: VisitedCountryPillProps) => {
       >
         {country.name}
       </Text>
-      <TouchableOpacity onPress={() => onAdd(id)} style={styles.addButtonIcon}>
+      <TouchableOpacity
+        onPress={() => {
+          onInteractHide?.();
+          onAdd(id);
+        }}
+        style={styles.addButtonIcon}
+      >
         <Ionicons name="add-circle" size={23} color="green" />
       </TouchableOpacity>
     </View>
