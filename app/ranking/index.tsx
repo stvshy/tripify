@@ -245,9 +245,10 @@ export default function RankingScreen() {
   const handleClearRanking = () => {
     if (rankingIds.length === 0) return;
     const nextVisited = sortIdsByName([...visitedIds, ...rankingIds]);
+    // Update visited first for instant, flicker-free appearance
+    setVisitedIds(nextVisited);
     setRankingIds([]);
     handleSaveRanking([]);
-    setVisitedIds(nextVisited);
     try {
       const uid = auth.currentUser?.uid;
       if (uid) storage.set(`user:${uid}:visited`, JSON.stringify(nextVisited));

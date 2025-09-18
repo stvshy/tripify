@@ -56,7 +56,9 @@ const RankingRow = ({
         disabled={isActive}
         activeOpacity={0.8}
       >
-        <Text style={[styles.rank, { color: theme.colors.onSurface }]}>
+        <Text
+          style={[styles.rank, { color: theme.colors.onSurface, fontSize: 20 }]}
+        >
           {" "}
           {index + 1}.{" "}
         </Text>
@@ -124,8 +126,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   flag: {
-    width: ROW_FLAG_SIZE,
-    height: Math.round(ROW_FLAG_SIZE * 0.72),
+    width: 22,
+    height: 16,
     borderRadius: 2,
   },
   countryName: {

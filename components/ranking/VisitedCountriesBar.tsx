@@ -1,8 +1,13 @@
-import React, { memo, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import React, { memo } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+} from "react-native";
 import { useTheme } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
-import { FlashList } from "@shopify/flash-list";
 import VisitedCountryPill from "./VisitedCountryPill";
 
 type VisitedCountriesBarProps = {
@@ -19,7 +24,6 @@ const VisitedCountriesBar = ({
   isDark,
 }: VisitedCountriesBarProps) => {
   const theme = useTheme();
-  const [flashOpacity, setFlashOpacity] = useState(0);
 
   if (ids.length === 0) return null;
 
@@ -59,34 +63,20 @@ const VisitedCountriesBar = ({
           </TouchableOpacity>
         )}
       </View>
-      {/* Fallback row underneath to avoid blank while FlashList measures */}
-      {flashOpacity < 1 && (
-        <View style={[styles.listPadding, styles.fallbackRow]}>
-          {ids.slice(0, 12).map((id) => (
-            <VisitedCountryPill
-              key={`fallback-${id}`}
-              id={id}
-              onAdd={onAdd}
-              isDark={isDark}
-            />
-          ))}
-        </View>
-      )}
-      <View style={{ opacity: flashOpacity }}>
-        <FlashList
-          data={ids}
-          keyExtractor={(cca2) => `visited-${cca2}`}
-          horizontal
-          estimatedItemSize={140}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.listPadding}
-          renderItem={({ item }) => (
-            <VisitedCountryPill id={item} onAdd={onAdd} isDark={isDark} />
-          )}
-          onContentSizeChange={() => setFlashOpacity(1)}
-          ListEmptyComponent={null}
-        />
-      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[styles.listPadding, styles.fallbackRow]}
+      >
+        {ids.map((id) => (
+          <VisitedCountryPill
+            key={`visited-${id}`}
+            id={id}
+            onAdd={onAdd}
+            isDark={isDark}
+          />
+        ))}
+      </ScrollView>
     </View>
   );
 };
@@ -108,6 +98,7 @@ const styles = StyleSheet.create({
     fontSize: 17.2,
     marginLeft: 4,
     fontFamily: "PlusJakartaSans-Bold",
+    paddingBottom: 8.4,
   },
   addAllBtn: {
     paddingVertical: 6,
