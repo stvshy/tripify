@@ -15,7 +15,7 @@ export const useKeyboardAnimation = () => {
   const animateToBottom = useCallback(() => {
     Animated.timing(contentTranslateY, {
       toValue: 0,
-      duration: 250,
+      duration: 116,
       useNativeDriver: true,
     }).start();
   }, [contentTranslateY]);
