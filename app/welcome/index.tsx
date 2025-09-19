@@ -485,7 +485,7 @@ export default function WelcomeScreen() {
               ]}
             >
               <View style={styles.headerWrapper}>
-                <LoginHeader />
+                <LoginHeader errorMessage={errorMessage} />
               </View>
 
               <View style={styles.formWrapper}>

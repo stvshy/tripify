@@ -59,10 +59,6 @@ export default function LoginForm(props: Props) {
 
   return (
     <View>
-      {errorMessage ? (
-        <Text style={styles.errorAboveInput}>{errorMessage}</Text>
-      ) : null}
-
       <View
         style={[
           styles.inputContainer,
@@ -226,21 +222,6 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 11.6,
     fontFamily: "PlusJakartaSans-Medium",
-  },
-  errorAboveInput: {
-    color: "#F472B6",
-    fontSize: 12,
-    fontFamily: "PlusJakartaSans-Regular",
-    textAlign: "center",
-    marginBottom: 8,
-    marginTop: 0,
-    width: width * 0.9,
-    alignSelf: "center",
-    position: "absolute",
-    top: -30, // Pozycjonowane absolutnie nad pierwszym inputem
-    left: 0,
-    right: 0,
-    zIndex: 10,
   },
   verificationMessage: {
     color: "#E5E7EB",
