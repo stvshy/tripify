@@ -218,8 +218,8 @@ const styles = StyleSheet.create({
     width: width * 0.9,
     alignSelf: "center",
     alignItems: "flex-end",
-    marginTop: -8.5,
-    marginBottom: 13,
+    marginTop: -8,
+    marginBottom: 12.7,
     marginLeft: -19,
   },
   forgotLabel: {
