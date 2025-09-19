@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { Button } from "react-native-paper";
-import { MaterialIcons } from "@expo/vector-icons";
+import { MaterialIcons, Feather } from "@expo/vector-icons";
 
 const { width, height } = Dimensions.get("window");
 
@@ -58,14 +58,14 @@ export default function LoginForm(props: Props) {
         ]}
       >
         <View style={styles.inputWrapper}>
-          <MaterialIcons
-            name="person"
+          <Feather
+            name="user"
             size={20}
             color={isFocused.identifier ? "#FFFFFF" : "#D1D5DB"}
             style={styles.inputIcon}
           />
           <RNTextInput
-            placeholder="Email or Nickname"
+            placeholder="Nickname  /  Email"
             placeholderTextColor="#D1D5DB"
             value={identifier}
             onChangeText={setIdentifier}
@@ -119,7 +119,7 @@ export default function LoginForm(props: Props) {
           onPress={onForgotPassword}
           labelStyle={styles.forgotLabel}
         >
-          Forgot password
+          Forgot password?
         </Button>
       </View>
 
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
   },
   customInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 14.8,
     fontFamily: "PlusJakartaSans-Regular",
     color: "#E5E7EB",
     paddingVertical: 0,
@@ -194,12 +194,12 @@ const styles = StyleSheet.create({
     width: width * 0.9,
     alignSelf: "center",
     alignItems: "flex-end",
-    marginTop: -13,
-    marginBottom: 8,
+    marginTop: -16.5,
+    marginBottom: 6,
   },
   forgotLabel: {
     color: "#FFFFFF",
-    fontSize: 11.7,
+    fontSize: 11.6,
     fontFamily: "PlusJakartaSans-Medium",
   },
   error: {
