@@ -139,16 +139,25 @@ export default function WelcomeScreen() {
     setIsFocused((prev) => ({ ...prev, [field]: false }));
   }, []);
 
-  const handleScreenPress = useCallback(() => {
-    if (isFocused.identifier || isFocused.password) {
-      identifierInputRef.current?.blur();
-      passwordInputRef.current?.blur();
-      Keyboard.dismiss();
-      setIsContentShifted(false);
-      animateToBottom();
-      setIsFocused({ identifier: false, password: false });
-    }
-  }, [isFocused.identifier, isFocused.password, animateToBottom]);
+  const handleScreenPress = useCallback(
+    (event: any) => {
+      if (isFocused.identifier || isFocused.password) {
+        // Check click position - only dismiss keyboard if clicked above subtitle area
+        const { pageY } = event.nativeEvent;
+        const subtitleAreaHeight = height * 0.25; // Approximate height to subtitle area
+
+        if (pageY < subtitleAreaHeight) {
+          identifierInputRef.current?.blur();
+          passwordInputRef.current?.blur();
+          Keyboard.dismiss();
+          setIsContentShifted(false);
+          animateToBottom();
+          setIsFocused({ identifier: false, password: false });
+        }
+      }
+    },
+    [isFocused.identifier, isFocused.password, animateToBottom]
+  );
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -485,7 +494,10 @@ export default function WelcomeScreen() {
               ]}
             >
               <View style={styles.headerWrapper}>
-                <LoginHeader errorMessage={errorMessage} />
+                <LoginHeader
+                  errorMessage={errorMessage}
+                  verificationMessage={verificationMessage}
+                />
               </View>
 
               <View style={styles.formWrapper}>

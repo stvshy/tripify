@@ -28,6 +28,9 @@ import { useAuthStore, UserProfileData } from "./store/authStore";
 import { User as FirebaseUser } from "firebase/auth"; // Zmień alias lub użyj User bezpośrednio
 import { useCommunityStore } from "./store/communityStore";
 import { useCountryStore } from "./store/countryStore";
+import { CountriesProvider } from "./config/CountryContext";
+import { MapStateProvider } from "./config/MapStateProvider";
+import { LocalCountProvider } from "./config/LocalCountContext";
 ExpoSplashScreen.preventAutoHideAsync();
 
 function AppNavigator({ initialRouteName }: { initialRouteName: string }) {
@@ -146,8 +149,24 @@ export default function RootLayout() {
       async (user: FirebaseUser | null) => {
         console.log(
           "RootLayout: onAuthStateChanged FIRED. User:",
-          user ? user.uid : "null"
+          user ? user.uid : "null",
+          "Current route:",
+          initialRouteName
         );
+
+        // Prevent re-routing if we're already in the correct place
+        if (initialRouteName && user) {
+          const currentUserProfile = useAuthStore.getState().userProfile;
+          if (
+            currentUserProfile?.firstLoginComplete &&
+            initialRouteName === "(tabs)"
+          ) {
+            console.log(
+              "RootLayout: Already in correct place, skipping re-routing"
+            );
+            return;
+          }
+        }
 
         if (user) {
           // UŻYTKOWNIK JEST ZALOGOWANY
@@ -167,11 +186,29 @@ export default function RootLayout() {
             setUserProfile(profileData);
 
             // Standardowa logika routingu
-            if (!profileData.emailVerified) finalizePreparation("welcome");
-            else if (!profileData.nickname) finalizePreparation("setNickname");
-            else if (!profileData.firstLoginComplete)
+            console.log(
+              "RootLayout: Routing decision - emailVerified:",
+              profileData.emailVerified,
+              "nickname:",
+              profileData.nickname,
+              "firstLoginComplete:",
+              profileData.firstLoginComplete
+            );
+            if (!profileData.emailVerified) {
+              console.log(
+                "RootLayout: Redirecting to welcome (email not verified)"
+              );
+              finalizePreparation("welcome");
+            } else if (!profileData.nickname) {
+              console.log("RootLayout: Redirecting to setNickname");
+              finalizePreparation("setNickname");
+            } else if (!profileData.firstLoginComplete) {
+              console.log("RootLayout: Redirecting to chooseCountries");
               finalizePreparation("chooseCountries");
-            else finalizePreparation("(tabs)");
+            } else {
+              console.log("RootLayout: Redirecting to (tabs)");
+              finalizePreparation("(tabs)");
+            }
           } else {
             // To się nie powinno zdarzyć dla zalogowanego użytkownika, ale jest dobrym zabezpieczeniem.
             // Dzieje się tak tylko jeśli dokument zostanie usunięty ręcznie w bazie.
@@ -257,9 +294,15 @@ export default function RootLayout() {
           <ThemeProvider>
             <ThemedStatusBarAndNavBar tooltipVisible={false} />
             <QueryClientProvider client={queryClient}>
-              {initialRouteName && (
-                <AppNavigator initialRouteName={initialRouteName} />
-              )}
+              <CountriesProvider>
+                <MapStateProvider>
+                  <LocalCountProvider>
+                    {initialRouteName && (
+                      <AppNavigator initialRouteName={initialRouteName} />
+                    )}
+                  </LocalCountProvider>
+                </MapStateProvider>
+              </CountriesProvider>
             </QueryClientProvider>
           </ThemeProvider>
         </DraxProvider>

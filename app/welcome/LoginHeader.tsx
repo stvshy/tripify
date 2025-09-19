@@ -6,19 +6,25 @@ const { width, height } = Dimensions.get("window");
 
 interface LoginHeaderProps {
   errorMessage?: string | null;
+  verificationMessage?: string | null;
 }
 
 const LoginHeader = React.memo(function LoginHeader({
   errorMessage,
+  verificationMessage,
 }: LoginHeaderProps) {
   return (
     <View style={styles.container}>
       <Ionicons name="location" size={64} color="#FFFFFF" />
       <Text style={styles.title}>Welcome to Tripify!</Text>
       <Text
-        style={[styles.subtitle, errorMessage ? styles.errorSubtitle : null]}
+        style={[
+          styles.subtitle,
+          errorMessage || verificationMessage ? styles.errorSubtitle : null,
+        ]}
       >
         {errorMessage ||
+          verificationMessage ||
           "Sign in to continue your journey and discover new places."}
       </Text>
     </View>

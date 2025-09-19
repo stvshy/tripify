@@ -35,16 +35,15 @@ import AntDesign from "@expo/vector-icons/AntDesign";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { BottomTabBarButtonProps } from "@react-navigation/bottom-tabs";
-import { CountriesProvider, useCountries } from "../config/CountryContext";
+import { useCountries } from "../config/CountryContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import filteredCountriesData from "../../components/filteredCountries.json";
 import { useAuthStore } from "../store/authStore";
-import { MapStateProvider } from "../config/MapStateProvider";
 import { MMKV } from "react-native-mmkv";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { useCommunityStore } from "../store/communityStore";
-import { LocalCountProvider, useLocalCount } from "../config/LocalCountContext";
+import { useLocalCount } from "../config/LocalCountContext";
 const mmkv = new MMKV();
 const db = getFirestore();
 const persister = createSyncStoragePersister({
@@ -99,22 +98,8 @@ const Badge: React.FC<{ count: number }> = ({ count }) => {
 };
 
 export default function TabLayout() {
-  return (
-    // 2. Owiń wszystko w MapStateProvider
-    <CountriesProvider>
-      <MapStateProvider>
-        <LocalCountProvider>
-          <TabLayoutContent />
-        </LocalCountProvider>
-      </MapStateProvider>
-    </CountriesProvider>
-  );
+  return <TabLayoutContent />;
 }
-// const LocalCountProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-//   const [localCount, setLocalCount] = useState<number | null>(null);
-//   const value = { localCount, setLocalCount };
-//   return <LocalCountContext.Provider value={value}>{children}</LocalCountContext.Provider>;
-// };
 
 function VisitedToggle() {
   const segments = useSegments();

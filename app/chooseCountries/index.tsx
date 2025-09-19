@@ -741,20 +741,20 @@ export default function ChooseCountriesScreen({
       modeToSave: "visited" | "wishlist",
       finalSetSnapshot: Set<string>
     ) => {
-      if (savingRef.current) return;
+      if (savingRef.current) return Promise.resolve();
       savingRef.current = true;
       const user = auth.currentUser;
       if (!user) {
         console.error("Cannot save, user not authenticated.");
         savingRef.current = false;
-        return;
+        return Promise.resolve();
       }
       const initialArray =
         modeToSave === "visited" ? visitedCountries : wishlistCountries;
       const initialSet = new Set(initialArray);
       if (isEqual(initialSet, finalSetSnapshot)) {
         savingRef.current = false;
-        return;
+        return Promise.resolve();
       }
       const add: string[] = [];
       const remove: string[] = [];
@@ -771,28 +771,38 @@ export default function ChooseCountriesScreen({
       }
       const currentSelectedArray = Array.from(finalSetSnapshot);
       const userDocRef = doc(db, "users", user.uid);
-      InteractionManager.runAfterInteractions(() => {
-        setTimeout(() => {
-          updateDoc(
-            userDocRef,
-            modeToSave === "visited"
-              ? {
-                  countriesVisited: currentSelectedArray,
-                  ...(!fromTab && { firstLoginComplete: true }),
-                }
-              : {
-                  countriesWishlist: currentSelectedArray,
-                }
-          )
-            .then(() => {
-              console.log(`${modeToSave} countries saved successfully.`);
-            })
-            .catch((error) => {
-              console.error("Error auto-saving countries:", error);
-            });
-        }, 0);
+
+      // Return a Promise that resolves when the save is complete
+      return new Promise<void>((resolve, reject) => {
+        InteractionManager.runAfterInteractions(() => {
+          setTimeout(() => {
+            updateDoc(
+              userDocRef,
+              modeToSave === "visited"
+                ? {
+                    countriesVisited: currentSelectedArray,
+                    ...(!fromTab && { firstLoginComplete: true }),
+                  }
+                : {
+                    countriesWishlist: currentSelectedArray,
+                  }
+            )
+              .then(() => {
+                console.log(`${modeToSave} countries saved successfully.`);
+                console.log(
+                  `firstLoginComplete set to: ${!fromTab ? "true" : "not set"}`
+                );
+                savingRef.current = false;
+                resolve();
+              })
+              .catch((error) => {
+                console.error("Error auto-saving countries:", error);
+                savingRef.current = false;
+                reject(error);
+              });
+          }, 0);
+        });
       });
-      savingRef.current = false;
     },
     [fromTab, applyCountryDiff, visitedCountries, wishlistCountries]
   );
@@ -1253,10 +1263,19 @@ export default function ChooseCountriesScreen({
                 ]}
               >
                 <Pressable
-                  onPress={() => {
+                  onPress={async () => {
                     // <<< ZMIANA: Przycisk "Continue" najpierw zapisuje, potem nawiguje
-                    handleSaveRef.current();
-                    router.replace("/");
+                    console.log("Continue button pressed, starting save...");
+                    await handleSaveRef.current();
+                    console.log(
+                      "Save completed, updating local state and navigating to /(tabs)"
+                    );
+                    // Update local state to prevent re-routing
+                    setUserProfile({
+                      ...userProfile!,
+                      firstLoginComplete: true,
+                    });
+                    router.replace("/(tabs)");
                   }}
                   style={[
                     styles.saveButton,

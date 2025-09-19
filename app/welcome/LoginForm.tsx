@@ -136,30 +136,33 @@ export default function LoginForm(props: Props) {
       </View>
 
       <View style={styles.forgotContainer}>
-        <Button
-          mode="text"
+        <TouchableOpacity
           onPress={onForgotPassword}
-          labelStyle={styles.forgotLabel}
+          style={styles.forgotButton}
+          activeOpacity={0.7}
         >
-          Forgot password?
-        </Button>
+          <Text style={styles.forgotLabel}>Forgot password?</Text>
+        </TouchableOpacity>
       </View>
 
       {verificationMessage ? (
-        <>
-          <Text style={styles.verificationMessage}>{verificationMessage}</Text>
-          <Button
-            mode="text"
-            onPress={resendVerificationEmail}
-            disabled={resendTimer > 0}
-            style={styles.resendButton}
-            labelStyle={{ color: resendTimer > 0 ? "#A68EAC" : "#FFFFFF" }}
+        <TouchableOpacity
+          onPress={resendVerificationEmail}
+          disabled={resendTimer > 0}
+          style={styles.resendButton}
+          activeOpacity={resendTimer > 0 ? 1 : 0.7}
+        >
+          <Text
+            style={[
+              styles.resendLabel,
+              { color: resendTimer > 0 ? "#A68EAC" : "#FFFFFF" },
+            ]}
           >
             {resendTimer > 0
               ? `Resend verification email (${resendTimer}s)`
               : "Resend verification email"}
-          </Button>
-        </>
+          </Text>
+        </TouchableOpacity>
       ) : null}
 
       <Button
@@ -215,22 +218,32 @@ const styles = StyleSheet.create({
     width: width * 0.9,
     alignSelf: "center",
     alignItems: "flex-end",
-    marginTop: -16.5,
-    marginBottom: 6,
+    marginTop: -8.5,
+    marginBottom: 13,
+    marginLeft: -19,
   },
   forgotLabel: {
     color: "#FFFFFF",
-    fontSize: 11.6,
+    fontSize: 11,
     fontFamily: "PlusJakartaSans-Medium",
   },
-  verificationMessage: {
-    color: "#E5E7EB",
-    fontSize: 12,
-    fontFamily: "PlusJakartaSans-Regular",
-    textAlign: "center",
+  forgotButton: {
+    backgroundColor: "transparent",
   },
   resendButton: {
-    marginTop: 6,
+    marginTop: 1.5,
+    position: "absolute",
+    top: -50, // Position it above the form without affecting layout
+    left: 0,
+    right: 0,
+    zIndex: 1,
+    backgroundColor: "transparent",
+    alignItems: "center",
+  },
+  resendLabel: {
+    fontSize: 12.6,
+    fontFamily: "PlusJakartaSans-Regular",
+    textAlign: "center",
   },
   loginButton: {
     width: width * 0.9,
