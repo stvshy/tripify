@@ -10,6 +10,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from "react-native";
 import { useRouter } from "expo-router";
 import {
@@ -380,48 +382,50 @@ export default function WelcomeScreen() {
   };
 
   return (
-    <View style={styles.background}>
-      <GradientBackdrop />
-      <SafeAreaView style={styles.container}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "padding"}
-          style={styles.keyboardAvoidingViewContainer}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : -32}
-        >
-          <View style={styles.contentContainer}>
-            <View style={styles.headerWrapper}>
-              <LoginHeader />
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <View style={styles.background}>
+        <GradientBackdrop />
+        <SafeAreaView style={styles.container}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "padding"}
+            style={styles.keyboardAvoidingViewContainer}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 0 : -32}
+          >
+            <View style={styles.contentContainer}>
+              <View style={styles.headerWrapper}>
+                <LoginHeader />
+              </View>
+
+              <View style={styles.formWrapper}>
+                <LoginForm
+                  identifier={identifier}
+                  setIdentifier={setIdentifier}
+                  password={password}
+                  setPassword={setPassword}
+                  showPassword={showPassword}
+                  setShowPassword={setShowPassword}
+                  isFocused={isFocused}
+                  setIsFocused={setIsFocused}
+                  errorMessage={errorMessage}
+                  verificationMessage={verificationMessage}
+                  resendTimer={resendTimer}
+                  resendVerificationEmail={resendVerificationEmail}
+                  onSubmit={handleLogin}
+                  loading={isLoading}
+                  onForgotPassword={() => router.push("/forgotPassword")}
+                />
+              </View>
+
+              <SocialAuthRow onContinueWithFacebook={handleFacebookLogin} />
             </View>
+          </KeyboardAvoidingView>
 
-            <View style={styles.formWrapper}>
-              <LoginForm
-                identifier={identifier}
-                setIdentifier={setIdentifier}
-                password={password}
-                setPassword={setPassword}
-                showPassword={showPassword}
-                setShowPassword={setShowPassword}
-                isFocused={isFocused}
-                setIsFocused={setIsFocused}
-                errorMessage={errorMessage}
-                verificationMessage={verificationMessage}
-                resendTimer={resendTimer}
-                resendVerificationEmail={resendVerificationEmail}
-                onSubmit={handleLogin}
-                loading={isLoading}
-                onForgotPassword={() => router.push("/forgotPassword")}
-              />
-            </View>
-
-            <SocialAuthRow onContinueWithFacebook={handleFacebookLogin} />
-          </View>
-        </KeyboardAvoidingView>
-
-        <AuthFooter
-          onCreateAccount={() => router.push("/(registration)/register")}
-        />
-      </SafeAreaView>
-    </View>
+          <AuthFooter
+            onCreateAccount={() => router.push("/(registration)/register")}
+          />
+        </SafeAreaView>
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
 
