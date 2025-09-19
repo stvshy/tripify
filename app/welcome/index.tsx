@@ -40,11 +40,11 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../config/firebaseConfig";
 import { useAuthStore } from "../store/authStore";
-import LoginHeader from "../../components/auth/LoginHeader";
-import LoginForm from "../../components/auth/LoginForm";
-import SocialAuthRow from "../../components/auth/SocialAuthRow";
-import AuthFooter from "../../components/auth/AuthFooter";
-import GradientBackdrop from "../../components/auth/GradientBackdrop";
+import LoginHeader from "./LoginHeader";
+import LoginForm from "./LoginForm";
+import SocialAuthRow from "./SocialAuthRow";
+import AuthFooter from "./AuthFooter";
+import GradientBackdrop from "./GradientBackdrop";
 
 const { width, height } = Dimensions.get("window");
 
