@@ -114,14 +114,20 @@ export default function WelcomeScreen() {
   const handleBackPress = useCallback(() => {
     if (isFocused.identifier) {
       identifierInputRef.current?.blur();
+      setIsContentShifted(false);
+      animateToBottom();
+      setIsFocused({ identifier: false, password: false });
       return true;
     }
     if (isFocused.password) {
       passwordInputRef.current?.blur();
+      setIsContentShifted(false);
+      animateToBottom();
+      setIsFocused({ identifier: false, password: false });
       return true;
     }
     return false;
-  }, [isFocused.identifier, isFocused.password]);
+  }, [isFocused.identifier, isFocused.password, animateToBottom]);
 
   const handleInputFocus = useCallback(
     (field: "identifier" | "password") => {

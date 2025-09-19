@@ -51,10 +51,15 @@ export default function ForgotPasswordScreen() {
   const handleBackPress = useCallback(() => {
     if (isFocused.email) {
       textInputRef.current?.blur();
+      setIsContentShifted(false);
+      animateToBottom();
+      setIsFocused({ email: false });
       return true;
     }
-    return false;
-  }, [isFocused.email]);
+    // Systemowy back - zawsze wróć do welcome z animacją fade
+    router.replace("/welcome");
+    return true;
+  }, [isFocused.email, animateToBottom, router]);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -137,7 +142,7 @@ export default function ForgotPasswordScreen() {
   }, [email]);
 
   const handleBackToLogin = useCallback(() => {
-    router.push("/welcome");
+    router.replace("/welcome");
   }, [router]);
 
   return (

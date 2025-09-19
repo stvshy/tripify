@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useCallback } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   Pressable,
   Keyboard,
   StatusBar,
+  BackHandler,
 } from "react-native";
 import { ActivityIndicator, TextInput } from "react-native-paper";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
@@ -102,12 +103,23 @@ export default function RegisterScreen() {
       }
     );
 
+    // Obsługa systemowego przycisku back
+    const handleBackPress = () => {
+      router.replace("/welcome");
+      return true;
+    };
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      handleBackPress
+    );
+
     // Czyszczenie nasłuchiwaczy po odmontowaniu komponentu
     return () => {
       keyboardDidShowListener.remove();
       keyboardDidHideListener.remove();
+      backHandler.remove();
     };
-  }, []);
+  }, [router]);
   const { setFirebaseUser, setUserProfile } = useAuthStore();
   const handleRegister = async () => {
     setErrorMessage(null);
@@ -480,7 +492,7 @@ export default function RegisterScreen() {
           </Pressable>
 
           <Pressable
-            onPress={() => router.push("/welcome")}
+            onPress={() => router.replace("/welcome")}
             style={styles.loginRedirectButton}
           >
             <Text style={styles.loginRedirectText}>

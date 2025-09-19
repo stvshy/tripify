@@ -7,7 +7,7 @@ export const useKeyboardAnimation = () => {
   const animateToTop = useCallback(() => {
     Animated.timing(contentTranslateY, {
       toValue: -60,
-      duration: 300,
+      duration: 250,
       useNativeDriver: true,
     }).start();
   }, [contentTranslateY]);
