@@ -110,6 +110,15 @@ export default function RootLayout() {
     "Figtree-Medium": require("../assets/fonts/Figtree-Medium.ttf"),
     "Figtree-Bold": require("../assets/fonts/Figtree-Bold.ttf"),
     Inter: require("../assets/fonts/Inter-VariableFont_opsz,wght.ttf"),
+    "PlusJakartaSans-Regular": require("../assets/fonts/PlusJakartaSans-Regular.ttf"),
+    "PlusJakartaSans-Medium": require("../assets/fonts/PlusJakartaSans-Medium.ttf"),
+    "PlusJakartaSans-SemiBold": require("../assets/fonts/PlusJakartaSans-SemiBold.ttf"),
+    "PlusJakartaSans-ExtraBold": require("../assets/fonts/PlusJakartaSans-ExtraBold.ttf"),
+    "NotoSans-Regular": require("../assets/fonts/NotoSans-Regular.ttf"),
+    "NotoSans-Medium": require("../assets/fonts/NotoSans-Medium.ttf"),
+    "NotoSans-SemiBold": require("../assets/fonts/NotoSans-SemiBold.ttf"),
+    "NotoSans-Bold": require("../assets/fonts/NotoSans-Bold.ttf"),
+    "NotoSans-Black": require("../assets/fonts/NotoSans-Black.ttf"),
   });
   const [initialRouteName, setInitialRouteName] = useState<string | null>(null);
   const [isNavigationReady, setIsNavigationReady] = useState(false);

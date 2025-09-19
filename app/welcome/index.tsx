@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Alert,
-  Image,
   ImageBackground,
   SafeAreaView,
   Dimensions,
@@ -12,8 +11,6 @@ import {
   Platform,
   ScrollView,
 } from "react-native";
-import { TextInput, Button } from "react-native-paper";
-import { FontAwesome } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import {
   LoginManager,
@@ -40,8 +37,12 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { auth, db } from "../config/firebaseConfig";
-import { LinearGradient } from "expo-linear-gradient";
 import { useAuthStore } from "../store/authStore";
+import LoginHeader from "../../components/auth/LoginHeader";
+import LoginForm from "../../components/auth/LoginForm";
+import SocialAuthRow from "../../components/auth/SocialAuthRow";
+import AuthFooter from "../../components/auth/AuthFooter";
+import GradientBackdrop from "../../components/auth/GradientBackdrop";
 
 const { width, height } = Dimensions.get("window");
 
@@ -379,25 +380,8 @@ export default function WelcomeScreen() {
   };
 
   return (
-    <ImageBackground
-      source={require("../../assets/images/gradient13.png")}
-      style={styles.background}
-      imageStyle={{
-        resizeMode: "cover",
-        width: "140%",
-        height: "110%",
-        left: "-16%",
-      }}
-      fadeDuration={0}
-      blurRadius={10}
-    >
-      {/* Bardziej neutralny gradient, aby nie wpływać na kolory */}
-      {/* <LinearGradient
-        colors={["rgba(255, 255, 255, 0.05)", "rgba(255, 255, 255, 0)"]}
-        style={StyleSheet.absoluteFillObject}
-      /> */}
-
-      <View style={styles.overlay} />
+    <View style={styles.background}>
+      <GradientBackdrop />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
@@ -408,181 +392,43 @@ export default function WelcomeScreen() {
             keyboardShouldPersistTaps="handled"
             style={styles.scrollView}
           >
-            <View style={styles.logoContainer}>
-              <Image
-                source={require("../../assets/images/tripify-icon.png")}
-                style={styles.logo}
-                resizeMode="contain"
-              />
+            <View style={styles.headerWrapper}>
+              <LoginHeader />
             </View>
-            <Text style={styles.title}>Welcome to Tripify!</Text>
-            <Text style={styles.subtitle}>
-              Log in or create an account to start your journey!
-            </Text>
 
-            <View
-              style={[
-                styles.inputContainer,
-                isFocused.identifier && styles.inputFocused,
-              ]}
-            >
-              <TextInput
-                label="Email or Nickname"
-                value={identifier}
-                onChangeText={setIdentifier}
-                onFocus={() => setIsFocused({ ...isFocused, identifier: true })}
-                onBlur={() => setIsFocused({ ...isFocused, identifier: false })}
-                keyboardType="default"
-                style={[
-                  styles.input,
-                  !isFocused.identifier && styles.inputUnfocusedText,
-                ]}
-                autoCapitalize="none"
-                theme={{
-                  colors: {
-                    primary: isFocused.identifier ? "#6a1b9a" : "transparent",
-                    placeholder: "#6a1b9a",
-                  },
-                }}
-                underlineColor="transparent"
-                textAlignVertical="center" // Wyśrodkowanie tekstu w pionie
-                left={
-                  <TextInput.Icon
-                    icon="account"
-                    size={25}
-                    style={styles.icon}
-                    color={isFocused.identifier ? "#6a1b9a" : "#606060"}
-                  />
-                }
+            <View style={styles.formWrapper}>
+              <LoginForm
+                identifier={identifier}
+                setIdentifier={setIdentifier}
+                password={password}
+                setPassword={setPassword}
+                showPassword={showPassword}
+                setShowPassword={setShowPassword}
+                isFocused={isFocused}
+                setIsFocused={setIsFocused}
+                errorMessage={errorMessage}
+                verificationMessage={verificationMessage}
+                resendTimer={resendTimer}
+                resendVerificationEmail={resendVerificationEmail}
+                onSubmit={handleLogin}
+                loading={isLoading}
+                onForgotPassword={() => router.push("/forgotPassword")}
               />
             </View>
 
-            <View
-              style={[
-                styles.inputContainer,
-                isFocused.password && styles.inputFocused,
-              ]}
-            >
-              <TextInput
-                label="Password"
-                value={password}
-                onChangeText={setPassword}
-                onFocus={() => setIsFocused({ ...isFocused, password: true })}
-                onBlur={() => setIsFocused({ ...isFocused, password: false })}
-                secureTextEntry={!showPassword}
-                style={[
-                  styles.input,
-                  !isFocused.password && styles.inputUnfocusedText,
-                ]}
-                theme={{
-                  colors: {
-                    primary: isFocused.password ? "#6a1b9a" : "transparent",
-                    placeholder: "#6a1b9a",
-                  },
-                }}
-                underlineColor="transparent"
-                textAlignVertical="center" // Wyśrodkowanie tekstu w pionie
-                left={
-                  <TextInput.Icon
-                    icon="lock"
-                    size={25}
-                    style={styles.icon}
-                    color={isFocused.password ? "#6a1b9a" : "#606060"}
-                  />
-                }
-                right={
-                  <TextInput.Icon
-                    icon={showPassword ? "eye-off" : "eye"}
-                    onPress={() => setShowPassword(!showPassword)}
-                    color={isFocused.password ? "#6a1b9a" : "#606060"}
-                  />
-                }
-              />
-            </View>
-
-            {/* Wyświetlanie komunikatów */}
-            {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
-            {verificationMessage && (
-              <>
-                <Text style={styles.verificationMessage}>
-                  {verificationMessage}
-                </Text>
-                <Button
-                  mode="text"
-                  onPress={resendVerificationEmail}
-                  disabled={resendTimer > 0}
-                  style={styles.resendButton}
-                  labelStyle={{
-                    color: resendTimer > 0 ? "#A68EAC" : "#e9bfec",
-                  }} // Ustaw kolor tekstu
-                >
-                  {resendTimer > 0
-                    ? `Resend Verification Email (${resendTimer}s)`
-                    : "- Resend Verification Email -"}
-                </Button>
-              </>
-            )}
-
-            <Button
-              mode="contained"
-              onPress={handleLogin}
-              style={styles.loginButton}
-              labelStyle={styles.buttonLabel}
-              loading={isLoading} // spinner
-            >
-              Log in
-            </Button>
-
-            <Button
-              mode="contained"
-              onPress={() => router.push("/(registration)/register")}
-              style={styles.registerButton}
-              labelStyle={styles.buttonLabel}
-            >
-              Create your account
-            </Button>
-
-            <View style={styles.separatorContainer}>
-              <View style={styles.line} />
-              <Text style={styles.orText}>or</Text>
-              <View style={styles.line} />
-            </View>
-
-            <Button
-              mode="text"
-              onPress={handleFacebookLogin}
-              style={styles.facebookButton}
-              icon={() => (
-                <FontAwesome name="facebook" size={24} color="#FFF" />
-              )}
-              labelStyle={styles.facebookButtonText}
-            >
-              Continue with Facebook
-            </Button>
+            <SocialAuthRow onContinueWithFacebook={handleFacebookLogin} />
           </ScrollView>
 
-          <View style={styles.footer}>
-            <Button
-              mode="text"
-              onPress={() => router.push("/forgotPassword")}
-              style={styles.forgotPasswordButton}
-              labelStyle={styles.forgotPasswordLabel}
-            >
-              Forgot password?
-            </Button>
-          </View>
+          <AuthFooter
+            onCreateAccount={() => router.push("/(registration)/register")}
+          />
         </SafeAreaView>
       </KeyboardAvoidingView>
-    </ImageBackground>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    // backgroundColor: "rgba(255, 0, 225, 0.09)",
-    backgroundColor: "rgba(0, 179, 255, 0.02)",
-  },
   container: {
     flex: 1,
     justifyContent: "space-between",
@@ -593,139 +439,15 @@ const styles = StyleSheet.create({
   scrollView: {
     width: "100%",
   },
-  resendButton: {
-    marginTop: 6,
-    color: "#B10CBD",
-  },
-  verificationMessage: {
-    color: "#da94df",
-    fontSize: 12,
-    textAlign: "center",
-  },
-  logo: {
-    width: width * 0.5,
-    height: height * 0.2,
-  },
-  logoContainer: {
-    justifyContent: "center",
+  headerWrapper: {
     alignItems: "center",
-    marginBottom: 20,
-    marginTop: 63,
+    marginTop: 64,
   },
-  title: {
-    fontSize: width * 0.06,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: 20,
-    color: "#FFEEFCFF",
-  },
-  subtitle: {
-    fontSize: width * 0.037,
-    textAlign: "center",
-    marginBottom: 20,
-    color: "#FFE3F9D1",
-    marginTop: 7,
-  },
-  inputContainer: {
-    borderRadius: 25,
-    overflow: "hidden",
-    marginBottom: 13,
-    width: width * 0.89,
-    justifyContent: "center",
-    alignSelf: "center",
-  },
-
-  input: {
-    height: height * 0.07,
-    fontSize: height * 0.022,
-    paddingLeft: 1,
-    textAlignVertical: "center",
-  },
-  inputFocused: {
-    borderColor: "#6a1b9a",
-    borderWidth: 2,
-  },
-  inputUnfocusedText: {
-    fontSize: 14,
-  },
-  icon: {
-    marginLeft: 10,
-  },
-  error: {
-    color: "violet",
-    fontSize: 12,
-    textAlign: "center",
-    // marginTop: -5,
-    marginBottom: 5,
-  },
-  loginButton: {
-    width: width * 0.89,
-    height: height * 0.054,
-    backgroundColor: "#7511b5",
-    justifyContent: "center",
-    borderRadius: 25,
-    marginTop: 8,
-    alignSelf: "center",
-  },
-  registerButton: {
-    width: width * 0.89,
-    height: height * 0.054,
-    backgroundColor: "#5b0d8d",
-    justifyContent: "center",
-    borderRadius: 25,
-    marginTop: 11,
-    borderWidth: 1.1,
-    borderColor: "#340850",
-    alignSelf: "center",
-  },
-  buttonLabel: {
-    fontSize: 12.5,
-    lineHeight: 14,
-    color: "#FFFFFF",
-    textAlign: "center",
-  },
-  facebookButton: {
-    backgroundColor: "#4267B2",
-    width: width * 0.89,
-    height: height * 0.054,
-    justifyContent: "center",
-    borderRadius: 25,
-    alignSelf: "center",
-  },
-  facebookButtonText: {
-    color: "#FFF",
-    fontSize: 12.5,
-    lineHeight: 18,
-  },
-  separatorContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 9,
-    width: "100%",
-  },
-  line: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#d3d3d3",
-  },
-  orText: {
-    marginHorizontal: 10,
-    color: "#bebebe",
-    fontSize: 14,
-  },
-  footer: {
-    width: "100%",
-    alignItems: "center",
-    marginTop: -5,
-    marginBottom: -10,
-  },
-  forgotPasswordButton: {},
-  forgotPasswordLabel: {
-    fontSize: 13,
-    color: "#4a136c",
+  formWrapper: {
+    marginTop: 24,
   },
   background: {
     flex: 1,
-    resizeMode: "cover",
+    backgroundColor: "#111827",
   },
 });
