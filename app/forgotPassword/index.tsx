@@ -50,10 +50,12 @@ export default function ForgotPasswordScreen() {
 
   const handleBackPress = useCallback(() => {
     if (isFocused.email) {
+      // Natychmiastowe odfocusowanie - najwyższy priorytet
       textInputRef.current?.blur();
+      setIsFocused({ email: false });
+      // Animacje po odfocusowaniu
       setIsContentShifted(false);
       animateToBottom();
-      setIsFocused({ email: false });
       return true;
     }
     // Systemowy back - zawsze wróć do welcome z animacją fade

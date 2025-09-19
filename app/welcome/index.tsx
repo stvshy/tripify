@@ -113,17 +113,21 @@ export default function WelcomeScreen() {
 
   const handleBackPress = useCallback(() => {
     if (isFocused.identifier) {
+      // Natychmiastowe odfocusowanie - najwyższy priorytet
       identifierInputRef.current?.blur();
+      setIsFocused({ identifier: false, password: false });
+      // Animacje po odfocusowaniu
       setIsContentShifted(false);
       animateToBottom();
-      setIsFocused({ identifier: false, password: false });
       return true;
     }
     if (isFocused.password) {
+      // Natychmiastowe odfocusowanie - najwyższy priorytet
       passwordInputRef.current?.blur();
+      setIsFocused({ identifier: false, password: false });
+      // Animacje po odfocusowaniu
       setIsContentShifted(false);
       animateToBottom();
-      setIsFocused({ identifier: false, password: false });
       return true;
     }
     return false;
