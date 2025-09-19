@@ -28,6 +28,10 @@ type Props = {
   onSubmit: () => void;
   loading: boolean;
   onForgotPassword: () => void;
+  onInputFocus: (field: "identifier" | "password") => void;
+  onInputBlur: (field: "identifier" | "password") => void;
+  identifierInputRef: React.RefObject<RNTextInput>;
+  passwordInputRef: React.RefObject<RNTextInput>;
 };
 
 export default function LoginForm(props: Props) {
@@ -47,10 +51,18 @@ export default function LoginForm(props: Props) {
     onSubmit,
     loading,
     onForgotPassword,
+    onInputFocus,
+    onInputBlur,
+    identifierInputRef,
+    passwordInputRef,
   } = props;
 
   return (
     <View>
+      {errorMessage ? (
+        <Text style={styles.errorAboveInput}>{errorMessage}</Text>
+      ) : null}
+
       <View
         style={[
           styles.inputContainer,
@@ -65,12 +77,19 @@ export default function LoginForm(props: Props) {
             style={styles.inputIcon}
           />
           <RNTextInput
+            ref={identifierInputRef}
             placeholder="Nickname  /  Email"
             placeholderTextColor="#D1D5DB"
             value={identifier}
             onChangeText={setIdentifier}
-            onFocus={() => setIsFocused({ ...isFocused, identifier: true })}
-            onBlur={() => setIsFocused({ ...isFocused, identifier: false })}
+            onFocus={() => {
+              setIsFocused({ ...isFocused, identifier: true });
+              onInputFocus("identifier");
+            }}
+            onBlur={() => {
+              setIsFocused({ ...isFocused, identifier: false });
+              onInputBlur("identifier");
+            }}
             keyboardType="default"
             style={styles.customInput}
             autoCapitalize="none"
@@ -92,12 +111,19 @@ export default function LoginForm(props: Props) {
             style={styles.inputIcon}
           />
           <RNTextInput
+            ref={passwordInputRef}
             placeholder="Password"
             placeholderTextColor="#D1D5DB"
             value={password}
             onChangeText={setPassword}
-            onFocus={() => setIsFocused({ ...isFocused, password: true })}
-            onBlur={() => setIsFocused({ ...isFocused, password: false })}
+            onFocus={() => {
+              setIsFocused({ ...isFocused, password: true });
+              onInputFocus("password");
+            }}
+            onBlur={() => {
+              setIsFocused({ ...isFocused, password: false });
+              onInputBlur("password");
+            }}
             secureTextEntry={!showPassword}
             style={styles.customInput}
             autoCapitalize="none"
@@ -123,7 +149,6 @@ export default function LoginForm(props: Props) {
         </Button>
       </View>
 
-      {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
       {verificationMessage ? (
         <>
           <Text style={styles.verificationMessage}>{verificationMessage}</Text>
@@ -202,12 +227,20 @@ const styles = StyleSheet.create({
     fontSize: 11.6,
     fontFamily: "PlusJakartaSans-Medium",
   },
-  error: {
+  errorAboveInput: {
     color: "#F472B6",
     fontSize: 12,
     fontFamily: "PlusJakartaSans-Regular",
     textAlign: "center",
-    marginBottom: 6,
+    marginBottom: 8,
+    marginTop: 0,
+    width: width * 0.9,
+    alignSelf: "center",
+    position: "absolute",
+    top: -30, // Pozycjonowane absolutnie nad pierwszym inputem
+    left: 0,
+    right: 0,
+    zIndex: 10,
   },
   verificationMessage: {
     color: "#E5E7EB",

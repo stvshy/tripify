@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,9 @@ import {
   ScrollView,
   TouchableWithoutFeedback,
   Keyboard,
+  Animated,
+  BackHandler,
+  TextInput as RNTextInput,
 } from "react-native";
 import { useRouter } from "expo-router";
 import {
@@ -45,6 +48,7 @@ import LoginForm from "./LoginForm";
 import SocialAuthRow from "./SocialAuthRow";
 import AuthFooter from "./AuthFooter";
 import GradientBackdrop from "./GradientBackdrop";
+import { useKeyboardAnimation } from "./useKeyboardAnimation";
 
 const { width, height } = Dimensions.get("window");
 
@@ -64,7 +68,17 @@ export default function WelcomeScreen() {
   });
   const [isLoading, setIsLoading] = useState<boolean>(false); // Dodany spinner
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [isContentShifted, setIsContentShifted] = useState(false);
   const { setUserProfile } = useAuthStore();
+
+  // Hook dla animacji
+  const { contentTranslateY, animateToTop, animateToBottom, resetAnimation } =
+    useKeyboardAnimation();
+
+  // Refs do TextInputów żeby móc je programowo odfocusować
+  const identifierInputRef = useRef<RNTextInput>(null);
+  const passwordInputRef = useRef<RNTextInput>(null);
   useEffect(() => {
     if (resendTimer > 0) {
       const timerId = setInterval(
@@ -87,6 +101,77 @@ export default function WelcomeScreen() {
       setEmailError(null);
     }
   }, [identifier]);
+
+  // Memoized handlers
+  const handleKeyboardHide = useCallback(() => {
+    setIsKeyboardVisible(false);
+    identifierInputRef.current?.blur();
+    passwordInputRef.current?.blur();
+    setIsContentShifted(false);
+    animateToBottom();
+  }, [animateToBottom]);
+
+  const handleBackPress = useCallback(() => {
+    if (isFocused.identifier) {
+      identifierInputRef.current?.blur();
+      return true;
+    }
+    if (isFocused.password) {
+      passwordInputRef.current?.blur();
+      return true;
+    }
+    return false;
+  }, [isFocused.identifier, isFocused.password]);
+
+  const handleInputFocus = useCallback(
+    (field: "identifier" | "password") => {
+      setIsFocused((prev) => ({ ...prev, [field]: true }));
+      if (!isContentShifted) {
+        setIsContentShifted(true);
+        resetAnimation();
+        animateToTop();
+      }
+    },
+    [resetAnimation, animateToTop, isContentShifted]
+  );
+
+  const handleInputBlur = useCallback((field: "identifier" | "password") => {
+    setIsFocused((prev) => ({ ...prev, [field]: false }));
+  }, []);
+
+  const handleScreenPress = useCallback(() => {
+    if (isFocused.identifier || isFocused.password) {
+      identifierInputRef.current?.blur();
+      passwordInputRef.current?.blur();
+      Keyboard.dismiss();
+      setIsContentShifted(false);
+      animateToBottom();
+      setIsFocused({ identifier: false, password: false });
+    }
+  }, [isFocused.identifier, isFocused.password, animateToBottom]);
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      "keyboardDidShow",
+      () => {
+        setIsKeyboardVisible(true);
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      "keyboardDidHide",
+      handleKeyboardHide
+    );
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      handleBackPress
+    );
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+      backHandler.remove();
+    };
+  }, [handleKeyboardHide, handleBackPress]);
 
   const validatePassword = () => {
     if (password.length === 0) {
@@ -382,16 +467,23 @@ export default function WelcomeScreen() {
   };
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+    <TouchableWithoutFeedback onPress={handleScreenPress}>
       <View style={styles.background}>
         <GradientBackdrop />
         <SafeAreaView style={styles.container}>
           <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "padding"}
+            // behavior={Platform.OS === "ios" ? "padding" : "padding"}
             style={styles.keyboardAvoidingViewContainer}
-            keyboardVerticalOffset={Platform.OS === "ios" ? 0 : -32}
+            // keyboardVerticalOffset={Platform.OS === "ios" ? 0 : -32}
           >
-            <View style={styles.contentContainer}>
+            <Animated.View
+              style={[
+                styles.contentContainer,
+                {
+                  transform: [{ translateY: contentTranslateY }],
+                },
+              ]}
+            >
               <View style={styles.headerWrapper}>
                 <LoginHeader />
               </View>
@@ -413,11 +505,15 @@ export default function WelcomeScreen() {
                   onSubmit={handleLogin}
                   loading={isLoading}
                   onForgotPassword={() => router.push("/forgotPassword")}
+                  onInputFocus={handleInputFocus}
+                  onInputBlur={handleInputBlur}
+                  identifierInputRef={identifierInputRef}
+                  passwordInputRef={passwordInputRef}
                 />
               </View>
 
               <SocialAuthRow onContinueWithFacebook={handleFacebookLogin} />
-            </View>
+            </Animated.View>
           </KeyboardAvoidingView>
 
           <AuthFooter
