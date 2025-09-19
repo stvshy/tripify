@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,17 +9,19 @@ import {
   Dimensions,
   Platform,
   Pressable,
-  TouchableWithoutFeedback,
   Keyboard,
+  BackHandler,
   TextInput as RNTextInput,
   Animated,
-  BackHandler,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth, db } from "../config/firebaseConfig";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { useRouter } from "expo-router";
+import EmailInput from "./EmailInput";
+import ActionButtons from "./ActionButtons";
+import StatusMessages from "./StatusMessages";
+import { useKeyboardAnimation } from "./useKeyboardAnimation";
 
 const { width, height } = Dimensions.get("window");
 
@@ -32,10 +34,27 @@ export default function ForgotPasswordScreen() {
   const [isContentShifted, setIsContentShifted] = useState(false);
   const router = useRouter();
 
-  // Animacja dla przesunięcia zawartości
-  const contentTranslateY = useRef(new Animated.Value(0)).current;
+  // Hook dla animacji
+  const { contentTranslateY, animateToTop, animateToBottom, resetAnimation } =
+    useKeyboardAnimation();
   // Ref do TextInput żeby móc go programowo odfocusować
   const textInputRef = useRef<RNTextInput>(null);
+
+  // Memoized handlers
+  const handleKeyboardHide = useCallback(() => {
+    setIsKeyboardVisible(false);
+    textInputRef.current?.blur();
+    setIsContentShifted(false);
+    animateToBottom();
+  }, [animateToBottom]);
+
+  const handleBackPress = useCallback(() => {
+    if (isFocused.email) {
+      textInputRef.current?.blur();
+      return true;
+    }
+    return false;
+  }, [isFocused.email]);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -46,31 +65,11 @@ export default function ForgotPasswordScreen() {
     );
     const keyboardDidHideListener = Keyboard.addListener(
       "keyboardDidHide",
-      () => {
-        setIsKeyboardVisible(false);
-        // Gdy klawiatura się chowa, programowo usuwamy focus z inputu (jak w community/index.tsx)
-        textInputRef.current?.blur();
-        // Resetuj pozycję zawartości gdy klawiatura się chowa - płynniej
-        setIsContentShifted(false);
-        Animated.timing(contentTranslateY, {
-          toValue: 0,
-          duration: 250, // Bardziej płynna animacja powrotu
-          useNativeDriver: true,
-        }).start();
-      }
+      handleKeyboardHide
     );
-
-    // Obsługa przycisku back na Androidzie - proste podejście jak w community/index.tsx
     const backHandler = BackHandler.addEventListener(
       "hardwareBackPress",
-      () => {
-        if (isFocused.email) {
-          // Jeśli TextInput jest sfokusowany, po prostu odfokusuj go
-          textInputRef.current?.blur();
-          return true; // Zapobiegamy domyślnemu zachowaniu
-        }
-        return false; // Pozwalamy na domyślne zachowanie (np. wyjście z ekranu)
-      }
+      handleBackPress
     );
 
     return () => {
@@ -78,50 +77,30 @@ export default function ForgotPasswordScreen() {
       keyboardDidHideListener?.remove();
       backHandler.remove();
     };
-  }, [contentTranslateY]);
+  }, [handleKeyboardHide, handleBackPress]);
 
-  const handleInputFocus = () => {
-    setIsFocused({ ...isFocused, email: true });
-
-    // Za każdym razem przesuń zawartość do góry
+  const handleInputFocus = useCallback(() => {
+    setIsFocused((prev) => ({ ...prev, email: true }));
     setIsContentShifted(true);
+    resetAnimation();
+    animateToTop();
+  }, [resetAnimation, animateToTop]);
 
-    // Zatrzymaj poprzednią animację i natychmiastowo ustaw na pozycję startową
-    contentTranslateY.stopAnimation();
-    contentTranslateY.setValue(0);
+  const handleInputBlur = useCallback(() => {
+    setIsFocused((prev) => ({ ...prev, email: false }));
+  }, []);
 
-    // Rozpocznij animację przesunięcia do góry
-    Animated.timing(contentTranslateY, {
-      toValue: -60, // Przesuń zawartość o 80px do góry
-      duration: 300,
-      useNativeDriver: true,
-    }).start(() => {
-      // Dopiero po zakończeniu animacji zawartości, pozwól klawiaturze się pokazać
-      // Klawiatura pokaże się automatycznie po focus na TextInput
-    });
-  };
-
-  const handleInputBlur = () => {
-    setIsFocused({ ...isFocused, email: false });
-  };
-
-  const handleScreenPress = () => {
+  const handleScreenPress = useCallback(() => {
     if (isFocused.email) {
-      // Programowo odfocusuj TextInput
       textInputRef.current?.blur();
       Keyboard.dismiss();
-      // Płynna animacja powrotu gdy klikamy poza TextInput
       setIsContentShifted(false);
-      Animated.timing(contentTranslateY, {
-        toValue: 0,
-        duration: 250, // Bardziej płynna animacja powrotu
-        useNativeDriver: true,
-      }).start();
+      animateToBottom();
       setIsFocused({ email: false });
     }
-  };
+  }, [isFocused.email, animateToBottom]);
 
-  const handlePasswordReset = async () => {
+  const handlePasswordReset = useCallback(async () => {
     setMessage(null);
     setError(null);
 
@@ -131,7 +110,6 @@ export default function ForgotPasswordScreen() {
     }
 
     try {
-      // Sprawdzanie, czy email istnieje w Firestore
       const usersRef = collection(db, "users");
       const q = query(usersRef, where("email", "==", email));
       const querySnapshot = await getDocs(q);
@@ -141,25 +119,26 @@ export default function ForgotPasswordScreen() {
         return;
       }
 
-      // Sprawdzenie, czy konto jest zweryfikowane
       const userData = querySnapshot.docs[0].data();
       if (!userData.isVerified) {
         setError("This account has not been verified.");
         return;
       }
 
-      // Wysłanie linku resetu hasła
       await sendPasswordResetEmail(auth, email);
       setMessage("A password reset link has been sent to your email.");
     } catch (error: any) {
-      console.log("Password reset error:", error.code, error.message);
       if (error.code === "permission-denied") {
         setError("Permission denied. Please check your Firestore rules.");
       } else {
         setError("An error occurred. Please try again later.");
       }
     }
-  };
+  }, [email]);
+
+  const handleBackToLogin = useCallback(() => {
+    router.push("/welcome");
+  }, [router]);
 
   return (
     <Pressable style={styles.fullScreen} onPress={handleScreenPress}>
@@ -197,61 +176,21 @@ export default function ForgotPasswordScreen() {
               Please enter your email address to receive a password reset link.
             </Text>
 
-            {/* Email Input */}
-            <Pressable
-              style={[
-                styles.inputContainer,
-                isFocused.email && styles.inputFocused,
-              ]}
-              onPressIn={(e) => e.stopPropagation()}
-            >
-              <View style={styles.inputWrapper}>
-                <Feather
-                  name="mail"
-                  size={20}
-                  color={isFocused.email ? "#FFFFFF" : "#D1D5DB"}
-                  style={styles.inputIcon}
-                />
-                <RNTextInput
-                  ref={textInputRef}
-                  placeholder="Email"
-                  placeholderTextColor="#D1D5DB"
-                  value={email}
-                  onChangeText={setEmail}
-                  onFocus={handleInputFocus}
-                  onBlur={handleInputBlur}
-                  keyboardType="email-address"
-                  style={styles.customInput}
-                  autoCapitalize="none"
-                  blurOnSubmit={true}
-                  returnKeyType="done"
-                />
-              </View>
-            </Pressable>
+            <EmailInput
+              ref={textInputRef}
+              email={email}
+              onEmailChange={setEmail}
+              isFocused={isFocused.email}
+              onFocus={handleInputFocus}
+              onBlur={handleInputBlur}
+            />
           </Animated.View>
 
-          {/* Komunikaty - poza Animated.View żeby nie wpływały na pozycję zawartości */}
-          {message && <Text style={styles.successMessage}>{message}</Text>}
-          {error && <Text style={styles.errorMessage}>{error}</Text>}
-
-          {/* Stopka z przyciskami */}
-          <View style={styles.footer}>
-            <Pressable
-              onPress={handlePasswordReset}
-              style={styles.sendButton}
-              onPressIn={(e) => e.stopPropagation()}
-            >
-              <Text style={styles.sendButtonText}>Send reset link</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => router.push("/welcome")}
-              style={styles.backButton}
-              onPressIn={(e) => e.stopPropagation()}
-            >
-              <Text style={styles.backButtonText}>Back to login</Text>
-            </Pressable>
-          </View>
+          <StatusMessages message={message} error={error} />
+          <ActionButtons
+            onSendReset={handlePasswordReset}
+            onBackToLogin={handleBackToLogin}
+          />
         </SafeAreaView>
       </ImageBackground>
     </Pressable>
@@ -307,94 +246,5 @@ const styles = StyleSheet.create({
     color: "#FFE3F9D1",
     marginTop: 5,
     fontFamily: "PlusJakartaSans-Regular",
-  },
-  inputContainer: {
-    borderRadius: 999,
-    overflow: "hidden",
-    marginBottom: 12,
-    width: width * 0.9,
-    alignSelf: "center",
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  inputWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    height: 48,
-    paddingHorizontal: 16,
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  customInput: {
-    flex: 1,
-    fontSize: 14.8,
-    fontFamily: "PlusJakartaSans-Regular",
-    color: "#E5E7EB",
-    paddingVertical: 0,
-  },
-  inputFocused: {
-    borderColor: "#FFFFFF",
-  },
-  successMessage: {
-    color: "#50baa1",
-    textAlign: "center",
-    marginBottom: 16,
-    fontSize: 12,
-    fontFamily: "PlusJakartaSans-Regular",
-    position: "absolute",
-    bottom: 120, // Pozycjonowane względem dolnej części ekranu
-    left: 0,
-    right: 0,
-    zIndex: 10,
-  },
-  errorMessage: {
-    color: "violet",
-    textAlign: "center",
-    marginBottom: 16,
-    fontSize: 12.5,
-    fontFamily: "PlusJakartaSans-Regular",
-    position: "absolute",
-    bottom: 120, // Pozycjonowane względem dolnej części ekranu
-    left: 0,
-    right: 0,
-    zIndex: 10,
-  },
-  footer: {
-    width: "100%",
-    alignItems: "center",
-    paddingVertical: 10,
-  },
-  sendButton: {
-    backgroundColor: "#7511b5",
-    paddingVertical: 9,
-    paddingHorizontal: 30,
-    alignItems: "center",
-    borderRadius: 25,
-    width: "90%",
-    marginBottom: 10,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  sendButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    // fontWeight: "bold",
-    fontFamily: "PlusJakartaSans-SemiBold",
-    marginBottom: 3.5,
-  },
-  backButton: {
-    paddingVertical: 10,
-    marginBottom: -5,
-  },
-  backButtonText: {
-    color: "#4a136c",
-    fontSize: 14,
-    textAlign: "center",
-    fontFamily: "PlusJakartaSans-Medium",
   },
 });
