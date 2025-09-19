@@ -383,84 +383,39 @@ export default function WelcomeScreen() {
     <View style={styles.background}>
       <GradientBackdrop />
       <SafeAreaView style={styles.container}>
-        {Platform.OS === "ios" ? (
-          <KeyboardAvoidingView
-            behavior="padding"
-            style={styles.keyboardAvoidingViewContainer}
-          >
-            <ScrollView
-              contentContainerStyle={styles.scrollViewContent}
-              keyboardShouldPersistTaps="handled"
-              style={styles.scrollView}
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.headerWrapper}>
-                <LoginHeader />
-              </View>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "padding"}
+          style={styles.keyboardAvoidingViewContainer}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : -32}
+        >
+          <View style={styles.contentContainer}>
+            <View style={styles.headerWrapper}>
+              <LoginHeader />
+            </View>
 
-              <View style={styles.formWrapper}>
-                <LoginForm
-                  identifier={identifier}
-                  setIdentifier={setIdentifier}
-                  password={password}
-                  setPassword={setPassword}
-                  showPassword={showPassword}
-                  setShowPassword={setShowPassword}
-                  isFocused={isFocused}
-                  setIsFocused={setIsFocused}
-                  errorMessage={errorMessage}
-                  verificationMessage={verificationMessage}
-                  resendTimer={resendTimer}
-                  resendVerificationEmail={resendVerificationEmail}
-                  onSubmit={handleLogin}
-                  loading={isLoading}
-                  onForgotPassword={() => router.push("/forgotPassword")}
-                />
-              </View>
+            <View style={styles.formWrapper}>
+              <LoginForm
+                identifier={identifier}
+                setIdentifier={setIdentifier}
+                password={password}
+                setPassword={setPassword}
+                showPassword={showPassword}
+                setShowPassword={setShowPassword}
+                isFocused={isFocused}
+                setIsFocused={setIsFocused}
+                errorMessage={errorMessage}
+                verificationMessage={verificationMessage}
+                resendTimer={resendTimer}
+                resendVerificationEmail={resendVerificationEmail}
+                onSubmit={handleLogin}
+                loading={isLoading}
+                onForgotPassword={() => router.push("/forgotPassword")}
+              />
+            </View>
 
-              <SocialAuthRow onContinueWithFacebook={handleFacebookLogin} />
-            </ScrollView>
-          </KeyboardAvoidingView>
-        ) : (
-          <KeyboardAvoidingView
-            behavior="padding"
-            style={styles.keyboardAvoidingViewContainer}
-            keyboardVerticalOffset={-100}
-          >
-            <ScrollView
-              contentContainerStyle={styles.scrollViewContent}
-              keyboardShouldPersistTaps="handled"
-              style={styles.scrollView}
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.headerWrapper}>
-                <LoginHeader />
-              </View>
-
-              <View style={styles.formWrapper}>
-                <LoginForm
-                  identifier={identifier}
-                  setIdentifier={setIdentifier}
-                  password={password}
-                  setPassword={setPassword}
-                  showPassword={showPassword}
-                  setShowPassword={setShowPassword}
-                  isFocused={isFocused}
-                  setIsFocused={setIsFocused}
-                  errorMessage={errorMessage}
-                  verificationMessage={verificationMessage}
-                  resendTimer={resendTimer}
-                  resendVerificationEmail={resendVerificationEmail}
-                  onSubmit={handleLogin}
-                  loading={isLoading}
-                  onForgotPassword={() => router.push("/forgotPassword")}
-                />
-              </View>
-
-              <SocialAuthRow onContinueWithFacebook={handleFacebookLogin} />
-            </ScrollView>
-          </KeyboardAvoidingView>
-        )}
+            <SocialAuthRow onContinueWithFacebook={handleFacebookLogin} />
+          </View>
+        </KeyboardAvoidingView>
 
         <AuthFooter
           onCreateAccount={() => router.push("/(registration)/register")}
@@ -482,14 +437,10 @@ const styles = StyleSheet.create({
     flex: 1,
     width: "100%",
   },
-  scrollView: {
+  contentContainer: {
     flex: 1,
-    width: "100%",
-  },
-  scrollViewContent: {
-    flexGrow: 1,
     alignItems: "center",
-    paddingBottom: 27, // Dodajemy więcej miejsca na scroll w dół
+    justifyContent: "center",
   },
   headerWrapper: {
     alignItems: "center",

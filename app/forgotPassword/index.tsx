@@ -84,154 +84,73 @@ export default function ForgotPasswordScreen() {
     >
       <View style={styles.overlay} />
       <SafeAreaView style={styles.container}>
-        {Platform.OS === "ios" ? (
-          <KeyboardAvoidingView
-            behavior="padding"
-            style={styles.keyboardAvoidingViewContainer}
-          >
-            <ScrollView
-              contentContainerStyle={styles.scrollViewContent}
-              keyboardShouldPersistTaps="handled"
-              style={styles.scrollView}
-              showsVerticalScrollIndicator={false}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "padding"}
+          style={styles.keyboardAvoidingViewContainer}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : -30}
+        >
+          <View style={styles.contentContainer}>
+            <View style={styles.logoContainer}>
+              <Image
+                source={require("../../assets/images/tripify-icon.png")}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={styles.title}>Forgot your password?</Text>
+            <Text style={styles.subtitle}>
+              Please enter your email address to receive a password reset link.
+            </Text>
+
+            {/* Email Input */}
+            <View
+              style={[
+                styles.inputContainer,
+                isFocused.email && styles.inputFocused,
+              ]}
             >
-              <View style={styles.logoContainer}>
-                <Image
-                  source={require("../../assets/images/tripify-icon.png")}
-                  style={styles.logo}
-                  resizeMode="contain"
-                />
-              </View>
-              <Text style={styles.title}>Forgot your password?</Text>
-              <Text style={styles.subtitle}>
-                Please enter your email address to receive a password reset
-                link.
-              </Text>
-
-              {/* Email Input */}
-              <View
+              <TextInput
+                label="Email"
+                value={email}
+                onChangeText={setEmail}
+                onFocus={() => setIsFocused({ ...isFocused, email: true })}
+                onBlur={() => setIsFocused({ ...isFocused, email: false })}
+                keyboardType="email-address"
                 style={[
-                  styles.inputContainer,
-                  isFocused.email && styles.inputFocused,
+                  styles.input,
+                  !isFocused.email && styles.inputUnfocusedText,
                 ]}
-              >
-                <TextInput
-                  label="Email"
-                  value={email}
-                  onChangeText={setEmail}
-                  onFocus={() => setIsFocused({ ...isFocused, email: true })}
-                  onBlur={() => setIsFocused({ ...isFocused, email: false })}
-                  keyboardType="email-address"
-                  style={[
-                    styles.input,
-                    !isFocused.email && styles.inputUnfocusedText,
-                  ]}
-                  theme={{
-                    colors: {
-                      primary: isFocused.email ? "#6a1b9a" : "transparent",
-                      placeholder: "#6a1b9a",
-                      background: "#f0ed8f5",
-                      text: "#000",
-                      error: "red",
-                    },
-                  }}
-                  underlineColor="transparent"
-                  left={
-                    <TextInput.Icon
-                      icon={() => (
-                        <FontAwesome
-                          name="envelope"
-                          size={20} // Adjusted size
-                          color={isFocused.email ? "#6a1b9a" : "#606060"}
-                        />
-                      )}
-                      style={styles.iconLeft}
-                    />
-                  }
-                  autoCapitalize="none"
-                />
-              </View>
+                theme={{
+                  colors: {
+                    primary: isFocused.email ? "#6a1b9a" : "transparent",
+                    placeholder: "#6a1b9a",
+                    background: "#f0ed8f5",
+                    text: "#000",
+                    error: "red",
+                  },
+                }}
+                underlineColor="transparent"
+                left={
+                  <TextInput.Icon
+                    icon={() => (
+                      <FontAwesome
+                        name="envelope"
+                        size={20} // Adjusted size
+                        color={isFocused.email ? "#6a1b9a" : "#606060"}
+                      />
+                    )}
+                    style={styles.iconLeft}
+                  />
+                }
+                autoCapitalize="none"
+              />
+            </View>
 
-              {/* Komunikaty */}
-              {message && <Text style={styles.successMessage}>{message}</Text>}
-              {error && <Text style={styles.errorMessage}>{error}</Text>}
-            </ScrollView>
-          </KeyboardAvoidingView>
-        ) : (
-          <KeyboardAvoidingView
-            behavior="padding"
-            style={styles.keyboardAvoidingViewContainer}
-            keyboardVerticalOffset={-20}
-          >
-            <ScrollView
-              contentContainerStyle={styles.scrollViewContent}
-              keyboardShouldPersistTaps="handled"
-              style={styles.scrollView}
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.logoContainer}>
-                <Image
-                  source={require("../../assets/images/tripify-icon.png")}
-                  style={styles.logo}
-                  resizeMode="contain"
-                />
-              </View>
-              <Text style={styles.title}>Forgot your password?</Text>
-              <Text style={styles.subtitle}>
-                Please enter your email address to receive a password reset
-                link.
-              </Text>
-
-              {/* Email Input */}
-              <View
-                style={[
-                  styles.inputContainer,
-                  isFocused.email && styles.inputFocused,
-                ]}
-              >
-                <TextInput
-                  label="Email"
-                  value={email}
-                  onChangeText={setEmail}
-                  onFocus={() => setIsFocused({ ...isFocused, email: true })}
-                  onBlur={() => setIsFocused({ ...isFocused, email: false })}
-                  keyboardType="email-address"
-                  style={[
-                    styles.input,
-                    !isFocused.email && styles.inputUnfocusedText,
-                  ]}
-                  theme={{
-                    colors: {
-                      primary: isFocused.email ? "#6a1b9a" : "transparent",
-                      placeholder: "#6a1b9a",
-                      background: "#f0ed8f5",
-                      text: "#000",
-                      error: "red",
-                    },
-                  }}
-                  underlineColor="transparent"
-                  left={
-                    <TextInput.Icon
-                      icon={() => (
-                        <FontAwesome
-                          name="envelope"
-                          size={20} // Adjusted size
-                          color={isFocused.email ? "#6a1b9a" : "#606060"}
-                        />
-                      )}
-                      style={styles.iconLeft}
-                    />
-                  }
-                  autoCapitalize="none"
-                />
-              </View>
-
-              {/* Komunikaty */}
-              {message && <Text style={styles.successMessage}>{message}</Text>}
-              {error && <Text style={styles.errorMessage}>{error}</Text>}
-            </ScrollView>
-          </KeyboardAvoidingView>
-        )}
+            {/* Komunikaty */}
+            {message && <Text style={styles.successMessage}>{message}</Text>}
+            {error && <Text style={styles.errorMessage}>{error}</Text>}
+          </View>
+        </KeyboardAvoidingView>
 
         {/* Stopka z przyciskami */}
         <View style={styles.footer}>
@@ -272,16 +191,10 @@ const styles = StyleSheet.create({
     flex: 1,
     width: "100%",
   },
-  scrollView: {
+  contentContainer: {
     flex: 1,
-    width: "100%", // Ensure ScrollView takes full width
-  },
-  scrollViewContent: {
-    flexGrow: 1,
-    justifyContent: "center", // Adjust as needed
     alignItems: "center",
-    paddingTop: 20, // Stały padding od góry
-    paddingBottom: 20, // Stały padding od dołu
+    justifyContent: "center",
   },
   logo: {
     width: width * 0.5,
