@@ -69,7 +69,7 @@ export default function LoginForm(props: Props) {
           <Feather
             name="user"
             size={20}
-            color={isFocused.identifier ? "theme.colors.primary" : "#FFFFFF"}
+            color={isFocused.identifier ? "#FFFFFF" : "rgb(228, 228, 230)"}
             style={styles.inputIcon}
           />
           <RNTextInput
@@ -103,7 +103,7 @@ export default function LoginForm(props: Props) {
           <MaterialIcons
             name="lock"
             size={20}
-            color={isFocused.password ? "theme.colors.primary" : "#FFFFFF"}
+            color={isFocused.password ? "#FFFFFF" : "rgb(228, 228, 230)"}
             style={styles.inputIcon}
           />
           <RNTextInput
@@ -128,7 +128,7 @@ export default function LoginForm(props: Props) {
             <MaterialIcons
               name={showPassword ? "visibility-off" : "visibility"}
               size={20}
-              color={isFocused.password ? "theme.colors.primary" : "#FFFFFF"}
+              color={isFocused.password ? "#FFFFFF" : "rgb(228, 228, 230)"}
               style={styles.inputIconRight}
             />
           </TouchableOpacity>
