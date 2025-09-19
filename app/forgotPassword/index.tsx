@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -7,13 +7,15 @@ import {
   ImageBackground,
   SafeAreaView,
   Dimensions,
-  KeyboardAvoidingView,
   Platform,
-  ScrollView,
   Pressable,
+  TouchableWithoutFeedback,
+  Keyboard,
+  TextInput as RNTextInput,
+  Animated,
+  BackHandler,
 } from "react-native";
-import { TextInput } from "react-native-paper";
-import FontAwesome from "@expo/vector-icons/FontAwesome";
+import { Feather } from "@expo/vector-icons";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth, db } from "../config/firebaseConfig";
 import { collection, query, where, getDocs } from "firebase/firestore";
@@ -26,7 +28,110 @@ export default function ForgotPasswordScreen() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isFocused, setIsFocused] = useState({ email: false });
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [isContentShifted, setIsContentShifted] = useState(false);
   const router = useRouter();
+
+  // Animacja dla przesunięcia zawartości
+  const contentTranslateY = useRef(new Animated.Value(0)).current;
+  // Ref do TextInput żeby móc go programowo odfocusować
+  const textInputRef = useRef<RNTextInput>(null);
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      "keyboardDidShow",
+      () => {
+        setIsKeyboardVisible(true);
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      "keyboardDidHide",
+      () => {
+        console.log("Keyboard hiding");
+        setIsKeyboardVisible(false);
+        // Gdy klawiatura się chowa, programowo usuwamy focus z inputu (jak w community/index.tsx)
+        textInputRef.current?.blur();
+        // Resetuj pozycję zawartości gdy klawiatura się chowa - szybciej
+        setIsContentShifted(false);
+        Animated.timing(contentTranslateY, {
+          toValue: 0,
+          duration: 100, // Jeszcze szybsza animacja powrotu
+          useNativeDriver: true,
+        }).start(() => {
+          console.log("Keyboard hide animation completed");
+        });
+      }
+    );
+
+    // Obsługa przycisku back na Androidzie - proste podejście jak w community/index.tsx
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        if (isFocused.email) {
+          // Jeśli TextInput jest sfokusowany, po prostu odfokusuj go
+          console.log("Back button pressed - blurring input");
+          textInputRef.current?.blur();
+          return true; // Zapobiegamy domyślnemu zachowaniu
+        }
+        return false; // Pozwalamy na domyślne zachowanie (np. wyjście z ekranu)
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+      backHandler.remove();
+    };
+  }, [contentTranslateY]);
+
+  const handleInputFocus = () => {
+    console.log("Focus triggered");
+    setIsFocused({ ...isFocused, email: true });
+
+    // Za każdym razem przesuń zawartość do góry
+    setIsContentShifted(true);
+
+    // Zatrzymaj poprzednią animację i natychmiastowo ustaw na pozycję startową
+    contentTranslateY.stopAnimation();
+    contentTranslateY.setValue(0);
+
+    console.log("After reset");
+
+    // Rozpocznij animację przesunięcia do góry
+    Animated.timing(contentTranslateY, {
+      toValue: -80, // Przesuń zawartość o 80px do góry
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      console.log("Animation completed");
+      // Dopiero po zakończeniu animacji zawartości, pozwól klawiaturze się pokazać
+      // Klawiatura pokaże się automatycznie po focus na TextInput
+    });
+  };
+
+  const handleInputBlur = () => {
+    console.log("Input blur triggered");
+    setIsFocused({ ...isFocused, email: false });
+  };
+
+  const handleScreenPress = () => {
+    if (isFocused.email) {
+      console.log(
+        "Screen pressed - dismissing keyboard and resetting animation"
+      );
+      // Programowo odfocusuj TextInput
+      textInputRef.current?.blur();
+      Keyboard.dismiss();
+      // Płynna animacja powrotu gdy klikamy poza TextInput
+      setIsContentShifted(false);
+      Animated.timing(contentTranslateY, {
+        toValue: 0,
+        duration: 200, // Płynna animacja powrotu
+        useNativeDriver: true,
+      }).start();
+      setIsFocused({ email: false });
+    }
+  };
 
   const handlePasswordReset = async () => {
     setMessage(null);
@@ -69,27 +174,29 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <ImageBackground
-      source={require("../../assets/images/to spoko.png")}
-      style={styles.background}
-      imageStyle={{
-        resizeMode: "cover",
-        width: "130%",
-        height: "110%",
-        left: -10,
-        // top: -150,
-        transform: [{ rotate: "-180deg" }],
-      }}
-      fadeDuration={0}
-    >
-      <View style={styles.overlay} />
-      <SafeAreaView style={styles.container}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "padding"}
-          style={styles.keyboardAvoidingViewContainer}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : -10}
-        >
-          <View style={styles.contentContainer}>
+    <Pressable style={styles.fullScreen} onPress={handleScreenPress}>
+      <ImageBackground
+        source={require("../../assets/images/to spoko.png")}
+        style={styles.background}
+        imageStyle={{
+          resizeMode: "cover",
+          width: "130%",
+          height: "110%",
+          left: -10,
+          transform: [{ rotate: "-180deg" }],
+        }}
+        fadeDuration={0}
+      >
+        <View style={styles.overlay} />
+        <SafeAreaView style={styles.container}>
+          <Animated.View
+            style={[
+              styles.contentContainer,
+              {
+                transform: [{ translateY: contentTranslateY }],
+              },
+            ]}
+          >
             <View style={styles.logoContainer}>
               <Image
                 source={require("../../assets/images/tripify-icon.png")}
@@ -103,74 +210,70 @@ export default function ForgotPasswordScreen() {
             </Text>
 
             {/* Email Input */}
-            <View
+            <Pressable
               style={[
                 styles.inputContainer,
                 isFocused.email && styles.inputFocused,
               ]}
+              onPressIn={(e) => e.stopPropagation()}
             >
-              <TextInput
-                label="Email"
-                value={email}
-                onChangeText={setEmail}
-                onFocus={() => setIsFocused({ ...isFocused, email: true })}
-                onBlur={() => setIsFocused({ ...isFocused, email: false })}
-                keyboardType="email-address"
-                style={[
-                  styles.input,
-                  !isFocused.email && styles.inputUnfocusedText,
-                ]}
-                theme={{
-                  colors: {
-                    primary: isFocused.email ? "#6a1b9a" : "transparent",
-                    placeholder: "#6a1b9a",
-                    background: "#f0ed8f5",
-                    text: "#000",
-                    error: "red",
-                  },
-                }}
-                underlineColor="transparent"
-                left={
-                  <TextInput.Icon
-                    icon={() => (
-                      <FontAwesome
-                        name="envelope"
-                        size={20} // Adjusted size
-                        color={isFocused.email ? "#6a1b9a" : "#606060"}
-                      />
-                    )}
-                    style={styles.iconLeft}
-                  />
-                }
-                autoCapitalize="none"
-              />
-            </View>
+              <View style={styles.inputWrapper}>
+                <Feather
+                  name="mail"
+                  size={20}
+                  color={isFocused.email ? "#FFFFFF" : "#D1D5DB"}
+                  style={styles.inputIcon}
+                />
+                <RNTextInput
+                  ref={textInputRef}
+                  placeholder="Email"
+                  placeholderTextColor="#D1D5DB"
+                  value={email}
+                  onChangeText={setEmail}
+                  onFocus={handleInputFocus}
+                  onBlur={handleInputBlur}
+                  keyboardType="email-address"
+                  style={styles.customInput}
+                  autoCapitalize="none"
+                  blurOnSubmit={true}
+                  returnKeyType="done"
+                />
+              </View>
+            </Pressable>
 
             {/* Komunikaty */}
             {message && <Text style={styles.successMessage}>{message}</Text>}
             {error && <Text style={styles.errorMessage}>{error}</Text>}
+          </Animated.View>
+
+          {/* Stopka z przyciskami */}
+          <View style={styles.footer}>
+            <Pressable
+              onPress={handlePasswordReset}
+              style={styles.sendButton}
+              onPressIn={(e) => e.stopPropagation()}
+            >
+              <Text style={styles.sendButtonText}>Send reset link</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => router.push("/welcome")}
+              style={styles.backButton}
+              onPressIn={(e) => e.stopPropagation()}
+            >
+              <Text style={styles.backButtonText}>Back to login</Text>
+            </Pressable>
           </View>
-        </KeyboardAvoidingView>
-
-        {/* Stopka z przyciskami */}
-        <View style={styles.footer}>
-          <Pressable onPress={handlePasswordReset} style={styles.sendButton}>
-            <Text style={styles.sendButtonText}>Send reset link</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => router.replace("/welcome")}
-            style={styles.backButton}
-          >
-            <Text style={styles.backButtonText}>Back to login</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
-    </ImageBackground>
+        </SafeAreaView>
+      </ImageBackground>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  fullScreen: {
+    flex: 1,
+  },
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(255, 255, 255, 0.1)",
@@ -181,15 +284,11 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    justifyContent: "space-between", // Distribute content from top to bottom
+    justifyContent: "space-between",
     alignItems: "center",
     padding: 16,
-    paddingBottom: 10, // Smaller bottom padding, controlled by footer
+    paddingBottom: 10,
     backgroundColor: "rgba(0, 0, 0, 0.02)",
-  },
-  keyboardAvoidingViewContainer: {
-    flex: 1,
-    width: "100%",
   },
   contentContainer: {
     flex: 1,
@@ -204,59 +303,69 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 20,
-    marginTop: 20, // Reduced top margin for better placement
+    marginTop: 20,
   },
   title: {
-    fontSize: width * 0.06, // Proportional size
+    fontSize: width * 0.06,
     fontWeight: "bold",
     textAlign: "center",
-    marginBottom: 10, // Reduced bottom margin to accommodate subtitle
+    marginBottom: 10,
     color: "#FFEEFCFF",
+    fontFamily: "PlusJakartaSans-Bold",
   },
   subtitle: {
-    fontSize: width * 0.04, // Slightly smaller than title
+    fontSize: width * 0.04,
     textAlign: "center",
     marginBottom: 20,
     color: "#FFE3F9D1",
     marginTop: 5,
+    fontFamily: "PlusJakartaSans-Regular",
   },
   inputContainer: {
-    borderRadius: 28, // Increased borderRadius for better aesthetics
+    borderRadius: 999,
     overflow: "hidden",
-    marginBottom: 13,
-    width: width * 0.89,
-    backgroundColor: "#f0ed8f5",
+    marginBottom: 12,
+    width: width * 0.9,
+    alignSelf: "center",
+    backgroundColor: "rgba(255,255,255,0.1)",
     borderWidth: 2,
-    borderColor: "transparent", // Default border color
+    borderColor: "transparent",
   },
-  input: {
-    paddingLeft: 1,
-    height: 52,
-    fontSize: 15,
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: 48,
+    paddingHorizontal: 16,
+  },
+  inputIcon: {
+    marginRight: 12,
+  },
+  customInput: {
+    flex: 1,
+    fontSize: 14.8,
+    fontFamily: "PlusJakartaSans-Regular",
+    color: "#E5E7EB",
+    paddingVertical: 0,
   },
   inputFocused: {
-    borderColor: "#6a1b9a", // Border color when focused
-  },
-  inputUnfocusedText: {
-    // Additional styles for unfocused state text if needed
-  },
-  iconLeft: {
-    marginLeft: 10,
+    borderColor: "#FFFFFF",
   },
   successMessage: {
     color: "#50baa1",
     textAlign: "center",
     marginBottom: 16,
     fontSize: 12,
+    fontFamily: "PlusJakartaSans-Regular",
   },
   errorMessage: {
     color: "violet",
     textAlign: "center",
     marginBottom: 16,
     fontSize: 12,
+    fontFamily: "PlusJakartaSans-Regular",
   },
   footer: {
-    width: "100%", // Ensure footer takes full width
+    width: "100%",
     alignItems: "center",
     paddingVertical: 10,
   },
@@ -268,8 +377,8 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     width: "90%",
     marginBottom: 10,
-    elevation: 2, // Shadow effect for Android
-    shadowColor: "#000", // Shadow effect for iOS
+    elevation: 2,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
@@ -278,6 +387,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "bold",
+    fontFamily: "PlusJakartaSans-SemiBold",
   },
   backButton: {
     paddingVertical: 10,
@@ -287,5 +397,6 @@ const styles = StyleSheet.create({
     color: "#4a136c",
     fontSize: 14,
     textAlign: "center",
+    fontFamily: "PlusJakartaSans-Medium",
   },
 });
