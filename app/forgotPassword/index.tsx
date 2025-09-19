@@ -47,19 +47,16 @@ export default function ForgotPasswordScreen() {
     const keyboardDidHideListener = Keyboard.addListener(
       "keyboardDidHide",
       () => {
-        console.log("Keyboard hiding");
         setIsKeyboardVisible(false);
         // Gdy klawiatura się chowa, programowo usuwamy focus z inputu (jak w community/index.tsx)
         textInputRef.current?.blur();
-        // Resetuj pozycję zawartości gdy klawiatura się chowa - szybciej
+        // Resetuj pozycję zawartości gdy klawiatura się chowa - płynniej
         setIsContentShifted(false);
         Animated.timing(contentTranslateY, {
           toValue: 0,
-          duration: 100, // Jeszcze szybsza animacja powrotu
+          duration: 250, // Bardziej płynna animacja powrotu
           useNativeDriver: true,
-        }).start(() => {
-          console.log("Keyboard hide animation completed");
-        });
+        }).start();
       }
     );
 
@@ -69,7 +66,6 @@ export default function ForgotPasswordScreen() {
       () => {
         if (isFocused.email) {
           // Jeśli TextInput jest sfokusowany, po prostu odfokusuj go
-          console.log("Back button pressed - blurring input");
           textInputRef.current?.blur();
           return true; // Zapobiegamy domyślnemu zachowaniu
         }
@@ -85,7 +81,6 @@ export default function ForgotPasswordScreen() {
   }, [contentTranslateY]);
 
   const handleInputFocus = () => {
-    console.log("Focus triggered");
     setIsFocused({ ...isFocused, email: true });
 
     // Za każdym razem przesuń zawartość do góry
@@ -95,30 +90,23 @@ export default function ForgotPasswordScreen() {
     contentTranslateY.stopAnimation();
     contentTranslateY.setValue(0);
 
-    console.log("After reset");
-
     // Rozpocznij animację przesunięcia do góry
     Animated.timing(contentTranslateY, {
-      toValue: -80, // Przesuń zawartość o 80px do góry
+      toValue: -60, // Przesuń zawartość o 80px do góry
       duration: 300,
       useNativeDriver: true,
     }).start(() => {
-      console.log("Animation completed");
       // Dopiero po zakończeniu animacji zawartości, pozwól klawiaturze się pokazać
       // Klawiatura pokaże się automatycznie po focus na TextInput
     });
   };
 
   const handleInputBlur = () => {
-    console.log("Input blur triggered");
     setIsFocused({ ...isFocused, email: false });
   };
 
   const handleScreenPress = () => {
     if (isFocused.email) {
-      console.log(
-        "Screen pressed - dismissing keyboard and resetting animation"
-      );
       // Programowo odfocusuj TextInput
       textInputRef.current?.blur();
       Keyboard.dismiss();
@@ -126,7 +114,7 @@ export default function ForgotPasswordScreen() {
       setIsContentShifted(false);
       Animated.timing(contentTranslateY, {
         toValue: 0,
-        duration: 200, // Płynna animacja powrotu
+        duration: 250, // Bardziej płynna animacja powrotu
         useNativeDriver: true,
       }).start();
       setIsFocused({ email: false });
@@ -240,11 +228,11 @@ export default function ForgotPasswordScreen() {
                 />
               </View>
             </Pressable>
-
-            {/* Komunikaty */}
-            {message && <Text style={styles.successMessage}>{message}</Text>}
-            {error && <Text style={styles.errorMessage}>{error}</Text>}
           </Animated.View>
+
+          {/* Komunikaty - poza Animated.View żeby nie wpływały na pozycję zawartości */}
+          {message && <Text style={styles.successMessage}>{message}</Text>}
+          {error && <Text style={styles.errorMessage}>{error}</Text>}
 
           {/* Stopka z przyciskami */}
           <View style={styles.footer}>
@@ -356,6 +344,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     fontSize: 12,
     fontFamily: "PlusJakartaSans-Regular",
+    position: "absolute",
+    bottom: 120, // Pozycjonowane względem dolnej części ekranu
+    left: 0,
+    right: 0,
+    zIndex: 10,
   },
   errorMessage: {
     color: "violet",
@@ -363,6 +356,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     fontSize: 12,
     fontFamily: "PlusJakartaSans-Regular",
+    position: "absolute",
+    bottom: 120, // Pozycjonowane względem dolnej części ekranu
+    left: 0,
+    right: 0,
+    zIndex: 10,
   },
   footer: {
     width: "100%",
