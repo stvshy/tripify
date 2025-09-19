@@ -290,12 +290,11 @@ const styles = StyleSheet.create({
   logoContainer: {
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 16,
     marginTop: 20,
   },
   title: {
-    fontSize: width * 0.06,
-    fontWeight: "bold",
+    fontSize: width * 0.058,
     textAlign: "center",
     marginBottom: 10,
     color: "#FFEEFCFF",
@@ -354,7 +353,7 @@ const styles = StyleSheet.create({
     color: "violet",
     textAlign: "center",
     marginBottom: 16,
-    fontSize: 12,
+    fontSize: 12.5,
     fontFamily: "PlusJakartaSans-Regular",
     position: "absolute",
     bottom: 120, // Pozycjonowane względem dolnej części ekranu
@@ -369,7 +368,7 @@ const styles = StyleSheet.create({
   },
   sendButton: {
     backgroundColor: "#7511b5",
-    paddingVertical: 12,
+    paddingVertical: 9,
     paddingHorizontal: 30,
     alignItems: "center",
     borderRadius: 25,
@@ -384,8 +383,9 @@ const styles = StyleSheet.create({
   sendButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: "bold",
+    // fontWeight: "bold",
     fontFamily: "PlusJakartaSans-SemiBold",
+    marginBottom: 3.5,
   },
   backButton: {
     paddingVertical: 10,
