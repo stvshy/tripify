@@ -6,6 +6,7 @@ import {
   Dimensions,
   TouchableOpacity,
 } from "react-native";
+import { ScaledSheet } from "react-native-size-matters";
 
 const { width } = Dimensions.get("window");
 
@@ -26,15 +27,15 @@ const AuthFooter = React.memo(function AuthFooter({ onCreateAccount }: Props) {
   );
 });
 
-const styles = StyleSheet.create({
+const styles = ScaledSheet.create({
   container: {
     width: "100%",
     alignItems: "center",
-    paddingVertical: 16,
+    paddingVertical: "14.6@vs",
   },
   text: {
     color: "#D1D5DB",
-    fontSize: 13,
+    fontSize: "12.7@ms",
     fontFamily: "PlusJakartaSans-Regular",
   },
   link: {

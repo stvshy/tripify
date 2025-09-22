@@ -8,6 +8,7 @@ import {
   Image,
 } from "react-native";
 import { FontAwesome } from "@expo/vector-icons";
+import { ScaledSheet } from "react-native-size-matters";
 
 const { width } = Dimensions.get("window");
 
@@ -22,7 +23,7 @@ const SocialAuthRow = React.memo(function SocialAuthRow({
     <View style={styles.wrapper}>
       <View style={styles.separatorRow}>
         <View style={styles.separator} />
-        <Text style={styles.separatorText}>or sign in with</Text>
+        <Text style={styles.separatorText}>or continue with</Text>
         <View style={styles.separator} />
       </View>
       <View style={styles.row}>
@@ -62,46 +63,46 @@ const SocialAuthRow = React.memo(function SocialAuthRow({
   );
 });
 
-const styles = StyleSheet.create({
+const styles = ScaledSheet.create({
   wrapper: {
-    marginTop: 16,
+    marginTop: "14@vs",
   },
   separatorRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: "12@s",
     width: width * 0.9,
     alignSelf: "center",
   },
   separator: {
     flex: 1,
-    height: 1,
-    backgroundColor: "rgba(156,163,175,0.3)",
+    height: "0.8@s",
+    backgroundColor: "rgba(246, 246, 246, 0.31)",
   },
   separatorText: {
     color: "#D1D5DB",
-    fontSize: 12,
+    fontSize: "11.6@ms",
     fontFamily: "PlusJakartaSans-Regular",
   },
   row: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 12,
-    marginTop: 16,
+    gap: "11.6@s",
+    marginTop: "14.3@vs",
   },
   circle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderWidth: 1,
+    width: "54.5@s",
+    height: "54.5@s",
+    borderRadius: "28@s",
+    borderWidth: "0.7@s",
     borderColor: "rgba(156,163,175,0.3)",
     backgroundColor: "rgba(255,255,255,0.1)",
     alignItems: "center",
     justifyContent: "center",
   },
   iconImage: {
-    width: 24,
-    height: 24,
+    width: "22.5@s",
+    height: "22.5@s",
   },
 });
 
