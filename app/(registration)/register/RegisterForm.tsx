@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     borderColor: "#FFFFFF",
   },
   requirementsContainer: {
-    marginTop: 9,
+    marginTop: 6,
     width: width * 0.88,
     alignSelf: "center",
     // marginLeft: 3,

@@ -25,7 +25,11 @@ export default function RegisterHeader({
       <View style={styles.errorHolder}>
         {errorMessage ? (
           <Text style={styles.errorText}>{errorMessage}</Text>
-        ) : null}
+        ) : (
+          <Text style={styles.subtitle}>
+            E-mail verification will be required
+          </Text>
+        )}
       </View>
     </>
   );
@@ -34,14 +38,15 @@ export default function RegisterHeader({
 const styles = StyleSheet.create({
   logo: {
     // width: "40%",
-    height: height * 0.173,
+    height: height * 0.172,
   },
   logoContainer: {
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 15,
-    marginTop: height * 0.06,
+    marginTop: height * 0.055,
     width: "100%",
+    marginLeft: -1.3,
   },
   title: {
     fontSize: width * 0.0627,
@@ -51,7 +56,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   errorHolder: {
-    minHeight: 36,
+    minHeight: 45,
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
@@ -59,7 +64,15 @@ const styles = StyleSheet.create({
   errorText: {
     color: "#F472B6",
     marginBottom: 8,
-    fontSize: 13,
+    fontSize: 13.2,
+    textAlign: "center",
+    width: "90%",
+    fontFamily: "PlusJakartaSans-Regular",
+  },
+  subtitle: {
+    color: "#D1D5DB",
+    marginBottom: 8,
+    fontSize: 13.2,
     textAlign: "center",
     width: "90%",
     fontFamily: "PlusJakartaSans-Regular",
