@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   labelActive: {
     color: "#d216fa",
     // fontWeight: "bold",
-    fontFamily: "Figtree-Bold", // Użyj Roboto-Medium, jeśli jest dostępne
+    fontFamily: "Figtree-SemiBold", // Użyj Roboto-Medium, jeśli jest dostępne
     marginTop: -1,
   },
   labelCompleted: {

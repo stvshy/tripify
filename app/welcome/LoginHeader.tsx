@@ -38,11 +38,13 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   title: {
-    fontSize: width * 0.06,
-    fontFamily: "PlusJakartaSans-Bold",
+    fontSize: width * 0.063,
+    fontFamily: "Figtree-SemiBold",
     color: "#FFFFFF",
     textAlign: "center",
-    letterSpacing: -0.5,
+    // letterSpacing: -0.2,
+    marginTop: 5.3,
+    marginBottom: 0.2,
   },
   subtitle: {
     marginTop: 2,

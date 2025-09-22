@@ -102,9 +102,12 @@ export default function LoginForm(props: Props) {
         <View style={styles.inputWrapper}>
           <MaterialIcons
             name="lock"
-            size={20}
+            size={20.3}
             color={isFocused.password ? "#FFFFFF" : "rgb(228, 228, 230)"}
-            style={styles.inputIcon}
+            style={[
+              styles.inputIcon,
+              { marginBottom: 0.8, marginLeft: -0.8, marginRight: 12.8 },
+            ]}
           />
           <RNTextInput
             ref={passwordInputRef}
@@ -155,7 +158,9 @@ export default function LoginForm(props: Props) {
           <Text
             style={[
               styles.resendLabel,
-              { color: resendTimer > 0 ? "#A68EAC" : "#FFFFFF" },
+              {
+                color: resendTimer > 0 ? "rgba(255, 255, 255, 0.6)" : "#FFFFFF",
+              },
             ]}
           >
             {resendTimer > 0
@@ -197,6 +202,7 @@ const styles = StyleSheet.create({
   },
   inputIcon: {
     marginRight: 12,
+    marginBottom: 2.6,
   },
   inputIconRight: {
     marginLeft: 12,
@@ -207,6 +213,7 @@ const styles = StyleSheet.create({
     fontFamily: "PlusJakartaSans-Regular",
     color: "#E5E7EB",
     paddingVertical: 0,
+    marginBottom: 4,
   },
   inputFocused: {
     borderColor: "#FFFFFF",
