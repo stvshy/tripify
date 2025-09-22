@@ -66,7 +66,7 @@ export default function RegisterForm(props: Props) {
             style={styles.inputIcon}
           />
           <RNTextInput
-            placeholder="Email"
+            placeholder="E-mail"
             placeholderTextColor="#D1D5DB"
             value={email}
             onChangeText={setEmail}

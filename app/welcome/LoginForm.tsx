@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { Button } from "react-native-paper";
 import { MaterialIcons, Feather } from "@expo/vector-icons";
+import { s, ScaledSheet } from "react-native-size-matters";
 
 const { width, height } = Dimensions.get("window");
 
@@ -68,13 +69,13 @@ export default function LoginForm(props: Props) {
         <View style={styles.inputWrapper}>
           <Feather
             name="user"
-            size={20}
+            size={s(19.5)}
             color={isFocused.identifier ? "#FFFFFF" : "rgb(228, 228, 230)"}
             style={styles.inputIcon}
           />
           <RNTextInput
             ref={identifierInputRef}
-            placeholder="Nickname  /  Email"
+            placeholder="Nickname  /  E-mail"
             placeholderTextColor="#D1D5DB"
             value={identifier}
             onChangeText={setIdentifier}
@@ -102,7 +103,7 @@ export default function LoginForm(props: Props) {
         <View style={styles.inputWrapper}>
           <MaterialIcons
             name="lock"
-            size={20.3}
+            size={s(19.8)}
             color={isFocused.password ? "#FFFFFF" : "rgb(228, 228, 230)"}
             style={[
               styles.inputIcon,
@@ -130,7 +131,7 @@ export default function LoginForm(props: Props) {
           <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
             <MaterialIcons
               name={showPassword ? "visibility-off" : "visibility"}
-              size={20}
+              size={s(19.5)}
               color={isFocused.password ? "#FFFFFF" : "rgb(228, 228, 230)"}
               style={styles.inputIconRight}
             />
@@ -164,8 +165,8 @@ export default function LoginForm(props: Props) {
             ]}
           >
             {resendTimer > 0
-              ? `Resend verification email (${resendTimer}s)`
-              : "Resend verification email"}
+              ? `Resend verification e-mail (${resendTimer}s)`
+              : "Resend verification e-mail"}
           </Text>
         </TouchableOpacity>
       ) : null}
@@ -183,64 +184,64 @@ export default function LoginForm(props: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = ScaledSheet.create({
   inputContainer: {
     borderRadius: 999,
     overflow: "hidden",
-    marginBottom: 12,
+    marginBottom: "10.6@vs",
     width: width * 0.9,
     alignSelf: "center",
     backgroundColor: "rgba(255,255,255,0.1)",
-    borderWidth: 2,
+    borderWidth: "1.8@s",
     borderColor: "transparent",
   },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    height: 48,
-    paddingHorizontal: 16,
+    height: "43@vs",
+    paddingHorizontal: "15.7@s",
   },
   inputIcon: {
-    marginRight: 12,
-    marginBottom: 2.6,
+    marginRight: "11.6@s",
+    marginBottom: "2.25@vs",
   },
   inputIconRight: {
-    marginLeft: 12,
+    marginLeft: "11.7@s",
   },
   customInput: {
     flex: 1,
-    fontSize: 14.8,
+    fontSize: "14.6@ms",
     fontFamily: "PlusJakartaSans-Regular",
     color: "#E5E7EB",
     paddingVertical: 0,
-    marginBottom: 4,
+    marginBottom: "3.88@vs",
   },
   inputFocused: {
     borderColor: "#FFFFFF",
   },
   inputUnfocusedText: {
-    fontSize: 14,
+    fontSize: "14.6@ms",
   },
   forgotContainer: {
     width: width * 0.9,
     alignSelf: "center",
     alignItems: "flex-end",
-    marginTop: -8,
-    marginBottom: 12.7,
+    marginTop: "-7.17@vs",
+    marginBottom: "11.6@vs",
     marginLeft: -19,
   },
   forgotLabel: {
     color: "#FFFFFF",
-    fontSize: 11,
+    fontSize: "10.75@ms",
     fontFamily: "PlusJakartaSans-Medium",
   },
   forgotButton: {
     backgroundColor: "transparent",
   },
   resendButton: {
-    marginTop: 1.5,
+    marginTop: "7.5@vs",
     position: "absolute",
-    top: -50, // Position it above the form without affecting layout
+    top: "-44.5@vs", // Position it above the form without affecting layout
     left: 0,
     right: 0,
     zIndex: 1,
@@ -248,21 +249,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   resendLabel: {
-    fontSize: 12.6,
+    fontSize: "12.5@ms",
     fontFamily: "PlusJakartaSans-Regular",
     textAlign: "center",
   },
   loginButton: {
     width: width * 0.9,
-    height: 47,
+    height: "42@vs",
     backgroundColor: "#FFFFFF",
     justifyContent: "center",
     borderRadius: 999,
-    marginTop: 8,
+    marginTop: "7.2@vs",
     alignSelf: "center",
   },
   buttonLabel: {
-    fontSize: 14,
+    fontSize: "13.8@ms",
     fontFamily: "PlusJakartaSans-SemiBold",
     color: "#4F21A5",
   },

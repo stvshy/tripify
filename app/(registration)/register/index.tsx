@@ -82,7 +82,7 @@ export default function RegisterScreen() {
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     setEmailError(
       email && !emailPattern.test(email)
-        ? "Please enter a valid email address"
+        ? "Please enter a valid e-mail address"
         : null
     );
   }, [email]);
@@ -132,7 +132,7 @@ export default function RegisterScreen() {
     setIsLoading(true); // Ustawienie spinnera na "true"
 
     if (!email) {
-      setErrorMessage("Please enter your email address");
+      setErrorMessage("Please enter your e-mail address");
       setIsLoading(false);
       return;
     }
@@ -200,10 +200,10 @@ export default function RegisterScreen() {
     } catch (error: any) {
       switch (error.code) {
         case "auth/email-already-in-use":
-          setErrorMessage("This email is already registered.");
+          setErrorMessage("This e-mail is already registered.");
           break;
         case "auth/invalid-email":
-          setErrorMessage("Please enter a valid email address.");
+          setErrorMessage("Please enter a valid e-mail address.");
           break;
         case "auth/weak-password":
           setErrorMessage("The password is too weak.");

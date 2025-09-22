@@ -49,6 +49,7 @@ import SocialAuthRow from "./SocialAuthRow";
 import AuthFooter from "./AuthFooter";
 import GradientBackdrop from "./GradientBackdrop";
 import { useKeyboardAnimation } from "./useKeyboardAnimation";
+import { ScaledSheet } from "react-native-size-matters";
 
 const { width, height } = Dimensions.get("window");
 
@@ -95,7 +96,7 @@ export default function WelcomeScreen() {
       setEmailError(
         emailPattern.test(identifier.trim().toLowerCase())
           ? null
-          : "Please enter a valid email address."
+          : "Please enter a valid e-mail address."
       );
     } else {
       setEmailError(null);
@@ -234,7 +235,7 @@ export default function WelcomeScreen() {
     const identifierIsEmail = isEmail(emailLower);
 
     if (identifier.length === 0) {
-      setErrorMessage("Please enter your email or nickname.");
+      setErrorMessage("Please enter your e-mail or nickname.");
       setIsLoading(false);
       return;
     }
@@ -268,7 +269,7 @@ export default function WelcomeScreen() {
 
         const userData = querySnapshot.docs[0].data();
         email = userData.email;
-        console.log("Email found from nickname:", email);
+        console.log("E-mail found from nickname:", email);
       }
 
       console.log("Attempting to sign in with email:", email);
@@ -281,7 +282,7 @@ export default function WelcomeScreen() {
       console.log("User signed in:", user.uid);
 
       if (!user.emailVerified) {
-        console.log("Email not verified");
+        console.log("E-mail not verified");
         const userDocRef = doc(db, "users", user.uid);
         const userDoc = await getDoc(userDocRef);
 
@@ -306,25 +307,25 @@ export default function WelcomeScreen() {
             try {
               await sendEmailVerification(user);
               await updateDoc(userDocRef, { emailSentAt: Date.now() });
-              console.log("Verification email sent and emailSentAt updated");
+              console.log("Verification e-mail sent and e-mailSentAt updated");
               setVerificationMessage(
-                "A verification email has been sent to your email address. Please verify to log in."
+                "A verification e-mail has been sent to your e-mail address. Please verify to log in."
               );
               setResendTimer(60); // Ustaw cooldown na 60 sekund
             } catch (emailError) {
-              console.error("Failed to send verification email:", emailError);
+              console.error("Failed to send verification e-mail:", emailError);
               setErrorMessage(
-                "Failed to send verification email. Please try again later."
+                "Failed to send verification e-mail. Please try again later."
               );
             }
           } else {
             setVerificationMessage(
-              "Your account has not yet been verified. Please check your email inbox for the verification link."
+              "Your account has not yet been verified. Please check your e-mail inbox for the verification link."
             );
           }
         }
 
-        setErrorMessage("Please verify your email to log in.");
+        setErrorMessage("Please verify your e-mail to log in.");
         setIsLoading(false);
         return;
       }
@@ -378,7 +379,7 @@ export default function WelcomeScreen() {
         error.code === "auth/user-not-found" ||
         error.code === "auth/invalid-email"
       ) {
-        setErrorMessage("No account was found with this email or nickname.");
+        setErrorMessage("No account was found with this e-mail or nickname.");
       } else if (error.code === "auth/wrong-password") {
         setErrorMessage("The password you entered is incorrect.");
       } else {
@@ -398,13 +399,13 @@ export default function WelcomeScreen() {
           emailSentAt: Date.now(),
         });
         setVerificationMessage(
-          "Verification email resent. Please check your inbox."
+          "Verification e-mail resent. Please check your inbox."
         );
         setResendTimer(60);
       } catch (error) {
-        console.error("Error resending email verification:", error);
+        console.error("Error resending e-mail verification:", error);
         setErrorMessage(
-          "Failed to resend verification email. Please try again later."
+          "Failed to resend verification e-mail. Please try again later."
         );
       }
     }
@@ -438,7 +439,7 @@ export default function WelcomeScreen() {
             {},
             (error, result) => {
               if (error) {
-                console.log("Error fetching Facebook email:", error);
+                console.log("Error fetching Facebook e-mail:", error);
                 resolve(null);
               } else if (result && result.email) {
                 resolve(result.email as string);
@@ -460,7 +461,7 @@ export default function WelcomeScreen() {
         ) {
           Alert.alert(
             "Account exists",
-            `An account with this email is already associated with another login method. Please log in with: ${signInMethods[0]}.`
+            `An account with this e-mail is already associated with another login method. Please log in with: ${signInMethods[0]}.`
           );
           return;
         }
@@ -547,13 +548,13 @@ export default function WelcomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = ScaledSheet.create({
   container: {
     flex: 1,
     justifyContent: "space-between",
     alignItems: "center",
-    paddingBottom: 10,
-    marginTop: height * 0.015,
+    paddingBottom: "9.7@vs",
+    marginTop: "10.2@vs",
   },
   keyboardAvoidingViewContainer: {
     flex: 1,
@@ -566,10 +567,10 @@ const styles = StyleSheet.create({
   },
   headerWrapper: {
     alignItems: "center",
-    marginTop: 64,
+    marginTop: "58@vs",
   },
   formWrapper: {
-    marginTop: 24,
+    marginTop: "22@vs",
   },
   background: {
     flex: 1,

@@ -112,7 +112,7 @@ export default function ForgotPasswordScreen() {
     setError(null);
 
     if (!email) {
-      setError("Please enter your email address.");
+      setError("Please enter your e-mail address.");
       return;
     }
 
@@ -122,7 +122,7 @@ export default function ForgotPasswordScreen() {
       const querySnapshot = await getDocs(q);
 
       if (querySnapshot.empty) {
-        setError("No account found with this email.");
+        setError("No account found with this e-mail.");
         return;
       }
 
@@ -133,7 +133,7 @@ export default function ForgotPasswordScreen() {
       }
 
       await sendPasswordResetEmail(auth, email);
-      setMessage("A password reset link has been sent to your email.");
+      setMessage("A password reset link has been sent to your e-mail.");
     } catch (error: any) {
       if (error.code === "permission-denied") {
         setError("Permission denied. Please check your Firestore rules.");
@@ -180,7 +180,7 @@ export default function ForgotPasswordScreen() {
             </View>
             <Text style={styles.title}>Forgot your password?</Text>
             <Text style={styles.subtitle}>
-              Please enter your email address to receive a password reset link.
+              Please enter your e-mail address to receive a password reset link.
             </Text>
 
             <EmailInput

@@ -30,7 +30,7 @@ const EmailInput = forwardRef<RNTextInput, EmailInputProps>(
           />
           <RNTextInput
             ref={ref}
-            placeholder="Email"
+            placeholder="E-mail"
             placeholderTextColor="#D1D5DB"
             value={email}
             onChangeText={onEmailChange}
