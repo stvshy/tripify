@@ -17,6 +17,7 @@
     "@d11/react-native-fast-image": "^8.9.2",
     "@dudigital/react-native-zoomable-view": "^1.1.4",
     "@expo/vector-icons": "^14.0.3",
+    "@fanchenbao/react-native-scroll-indicator": "^0.4.0",
     "@firebasegen/default": "file:generated/javascript/default",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-community/blur": "^4.4.1",

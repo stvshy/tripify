@@ -32,6 +32,7 @@ import RegisterHeader from "./RegisterHeader";
 import RegisterForm from "./RegisterForm";
 import RegisterFooter from "./RegisterFooter";
 import { useAuthStore, UserProfileData } from "@/app/store/authStore";
+import { ScrollViewIndicator } from "@fanchenbao/react-native-scroll-indicator";
 const { width, height } = Dimensions.get("window");
 const db = getFirestore();
 const ESTIMATED_STEPPER_HEIGHT = 70;
@@ -260,16 +261,26 @@ export default function RegisterScreen() {
             keyboardVerticalOffset={0}
             style={styles.keyboardAvoidingViewContainer}
           >
-            <ScrollView
-              style={styles.scrollView}
-              contentContainerStyle={[
-                styles.scrollViewContent,
-                { paddingBottom: isKeyboardVisible ? 32 : 8 },
-              ]}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={isKeyboardVisible}
-              persistentScrollbar={isKeyboardVisible}
-              contentInsetAdjustmentBehavior="never"
+            <ScrollViewIndicator
+              position="right"
+              indStyle={{
+                backgroundColor: "#FFFFFF",
+                width: 3,
+                borderRadius: 2,
+                opacity: isKeyboardVisible ? 1 : 0,
+              }}
+              containerStyle={{ flex: 1, alignSelf: "stretch" }}
+              scrollViewProps={{
+                style: styles.scrollView,
+                contentContainerStyle: [
+                  styles.scrollViewContent,
+                  { paddingBottom: isKeyboardVisible ? 60 : 6 },
+                ],
+                keyboardShouldPersistTaps: "handled",
+                showsVerticalScrollIndicator: false,
+                contentInsetAdjustmentBehavior: "never",
+                indicatorStyle: "white",
+              }}
             >
               <View style={styles.stepperWrapperInScroll}>
                 <CustomStepIndicator
@@ -300,25 +311,35 @@ export default function RegisterScreen() {
                 passwordRequirements={passwordRequirements}
                 renderValidationIcon={renderValidationIcon}
               />
-            </ScrollView>
+              {isKeyboardVisible && <View style={{ height: 40 }} />}
+            </ScrollViewIndicator>
           </KeyboardAvoidingView>
         ) : (
           <View style={styles.keyboardAvoidingViewContainer}>
-            <ScrollView
-              style={styles.scrollView}
-              contentContainerStyle={[
-                styles.scrollViewContent,
-                { paddingBottom: isKeyboardVisible ? 36 : 0 },
-                isKeyboardVisible ? { minHeight: height + 160 } : null,
-              ]}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={isKeyboardVisible}
-              persistentScrollbar={isKeyboardVisible}
-              overScrollMode="always"
-              removeClippedSubviews={false}
-              scrollEventThrottle={16}
-              keyboardDismissMode="interactive"
-              nestedScrollEnabled
+            <ScrollViewIndicator
+              position="right"
+              indStyle={{
+                backgroundColor: "#FFFFFF",
+                width: 3,
+                borderRadius: 2,
+                opacity: isKeyboardVisible ? 1 : 0,
+              }}
+              containerStyle={{ flex: 1, alignSelf: "stretch" }}
+              scrollViewProps={{
+                style: styles.scrollView,
+                contentContainerStyle: [
+                  styles.scrollViewContent,
+                  { paddingBottom: isKeyboardVisible ? 60 : 0 },
+                  isKeyboardVisible ? { minHeight: height + 128 } : null,
+                ],
+                keyboardShouldPersistTaps: "handled",
+                showsVerticalScrollIndicator: false,
+                overScrollMode: "always",
+                removeClippedSubviews: false,
+                scrollEventThrottle: 16,
+                keyboardDismissMode: "interactive",
+                nestedScrollEnabled: true,
+              }}
             >
               <View style={styles.stepperWrapperInScroll}>
                 <CustomStepIndicator
@@ -349,7 +370,8 @@ export default function RegisterScreen() {
                 passwordRequirements={passwordRequirements}
                 renderValidationIcon={renderValidationIcon}
               />
-            </ScrollView>
+              {isKeyboardVisible && <View style={{ height: 40 }} />}
+            </ScrollViewIndicator>
           </View>
         )}
 
