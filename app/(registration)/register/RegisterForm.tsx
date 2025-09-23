@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { MaterialIcons, Ionicons } from "@expo/vector-icons";
+import { s, ScaledSheet } from "react-native-size-matters";
 
 const { width } = Dimensions.get("window");
 
@@ -61,7 +62,7 @@ export default function RegisterForm(props: Props) {
         <View style={styles.inputWrapper}>
           <Ionicons
             name="mail"
-            size={20}
+            size={s(19.4)}
             color={isFocused.email ? "#FFFFFF" : "rgb(228, 228, 230)"}
             style={styles.inputIcon}
           />
@@ -89,12 +90,9 @@ export default function RegisterForm(props: Props) {
         <View style={styles.inputWrapper}>
           <MaterialIcons
             name="lock"
-            size={20.3}
+            size={s(19.8)}
             color={isFocused.password ? "#FFFFFF" : "rgb(228, 228, 230)"}
-            style={[
-              styles.inputIcon,
-              { marginBottom: 0.8, marginLeft: -0.8, marginRight: 12.8 },
-            ]}
+            style={styles.lockIcon}
           />
           <RNTextInput
             placeholder="Password"
@@ -110,7 +108,7 @@ export default function RegisterForm(props: Props) {
           <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
             <MaterialIcons
               name={showPassword ? "visibility-off" : "visibility"}
-              size={20}
+              size={s(19.5)}
               color={isFocused.password ? "#FFFFFF" : "rgb(228, 228, 230)"}
               style={styles.inputIconRight}
             />
@@ -128,12 +126,9 @@ export default function RegisterForm(props: Props) {
         <View style={styles.inputWrapper}>
           <MaterialIcons
             name="lock"
-            size={20.3}
+            size={s(19.8)}
             color={isFocused.confirmPassword ? "#FFFFFF" : "rgb(228, 228, 230)"}
-            style={[
-              styles.inputIcon,
-              { marginBottom: 0.8, marginLeft: -0.8, marginRight: 12.8 },
-            ]}
+            style={styles.lockIcon}
           />
           <RNTextInput
             placeholder="Confirm Password"
@@ -155,7 +150,7 @@ export default function RegisterForm(props: Props) {
           >
             <MaterialIcons
               name={showConfirmPassword ? "visibility-off" : "visibility"}
-              size={20}
+              size={s(19.5)}
               color={
                 isFocused.confirmPassword ? "#FFFFFF" : "rgb(228, 228, 230)"
               }
@@ -202,43 +197,43 @@ const getRequirementText = (key: string) => {
   }
 };
 
-const styles = StyleSheet.create({
+const styles = ScaledSheet.create({
   inputContainer: {
     borderRadius: 999,
     overflow: "hidden",
-    marginBottom: 12,
+    marginBottom: "10.5@vs",
     width: width * 0.9,
     alignSelf: "center",
     backgroundColor: "rgba(255,255,255,0.1)",
-    borderWidth: 2,
+    borderWidth: "1.7@s",
     borderColor: "transparent",
   },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    height: 48,
-    paddingHorizontal: 16,
+    height: "43@vs",
+    paddingHorizontal: "15.5@s",
   },
   inputIcon: {
-    marginRight: 12,
-    marginBottom: 2.6,
+    marginRight: "12@s",
+    marginBottom: "1.0@vs",
   },
   inputIconRight: {
-    marginLeft: 12,
+    marginLeft: "11.7@s",
   },
   customInput: {
     flex: 1,
-    fontSize: 14.8,
+    fontSize: "14.5@ms",
     fontFamily: "PlusJakartaSans-Regular",
     color: "#E5E7EB",
     paddingVertical: 0,
-    marginBottom: 4,
+    marginBottom: "3.5@vs",
   },
   inputFocused: {
     borderColor: "#FFFFFF",
   },
   requirementsContainer: {
-    marginTop: 6,
+    marginTop: "5.5@vs",
     width: width * 0.88,
     alignSelf: "center",
     // marginLeft: 3,
@@ -246,23 +241,28 @@ const styles = StyleSheet.create({
   requirementRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 5,
+    marginBottom: "4.8@vs",
   },
   iconWrapper: {
-    paddingTop: 1,
-    marginRight: 5,
+    paddingTop: "1.05@vs",
+    marginRight: "4.8@s",
   },
   requirementText: {
-    fontSize: 13.6,
+    fontSize: "13.32@s",
     fontFamily: "PlusJakartaSans-Regular",
     flex: 1,
     flexWrap: "wrap",
-    lineHeight: 20,
+    lineHeight: "17.7@vs",
   },
   valid: {
     color: "#b0f5e5",
   },
   invalid: {
     color: "#fcc7e8",
+  },
+  lockIcon: {
+    marginRight: "11.8@s",
+    marginBottom: "1@vs",
+    marginLeft: "-0.4@s",
   },
 });

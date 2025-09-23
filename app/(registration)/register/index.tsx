@@ -33,6 +33,7 @@ import RegisterForm from "./RegisterForm";
 import RegisterFooter from "./RegisterFooter";
 import { useAuthStore, UserProfileData } from "@/app/store/authStore";
 import { ScrollViewIndicator } from "@fanchenbao/react-native-scroll-indicator";
+import { s, ScaledSheet, vs } from "react-native-size-matters";
 const { width, height } = Dimensions.get("window");
 const db = getFirestore();
 const ESTIMATED_STEPPER_HEIGHT = 70;
@@ -220,7 +221,7 @@ export default function RegisterScreen() {
   const renderValidationIcon = (isValid: boolean) => (
     <FontAwesome
       name={isValid ? "check-circle" : "times-circle"}
-      size={18}
+      size={s(18)}
       color={isValid ? "#00dea8" : "#a43267"}
       style={styles.iconRequirement}
     />
@@ -274,7 +275,7 @@ export default function RegisterScreen() {
                 style: styles.scrollView,
                 contentContainerStyle: [
                   styles.scrollViewContent,
-                  { paddingBottom: isKeyboardVisible ? 60 : 6 },
+                  { paddingBottom: isKeyboardVisible ? vs(57) : vs(6) },
                 ],
                 keyboardShouldPersistTaps: "handled",
                 showsVerticalScrollIndicator: false,
@@ -311,7 +312,7 @@ export default function RegisterScreen() {
                 passwordRequirements={passwordRequirements}
                 renderValidationIcon={renderValidationIcon}
               />
-              {isKeyboardVisible && <View style={{ height: 40 }} />}
+              {isKeyboardVisible && <View style={{ height: vs(40) }} />}
             </ScrollViewIndicator>
           </KeyboardAvoidingView>
         ) : (
@@ -329,8 +330,8 @@ export default function RegisterScreen() {
                 style: styles.scrollView,
                 contentContainerStyle: [
                   styles.scrollViewContent,
-                  { paddingBottom: isKeyboardVisible ? 60 : 0 },
-                  isKeyboardVisible ? { minHeight: height + 128 } : null,
+                  { paddingBottom: isKeyboardVisible ? vs(60) : 0 },
+                  isKeyboardVisible ? { minHeight: height + vs(111) } : null,
                 ],
                 keyboardShouldPersistTaps: "handled",
                 showsVerticalScrollIndicator: false,
@@ -370,7 +371,7 @@ export default function RegisterScreen() {
                 passwordRequirements={passwordRequirements}
                 renderValidationIcon={renderValidationIcon}
               />
-              {isKeyboardVisible && <View style={{ height: 40 }} />}
+              {isKeyboardVisible && <View style={{ height: vs(40) }} />}
             </ScrollViewIndicator>
           </View>
         )}
@@ -401,7 +402,7 @@ const getRequirementText = (key: string) => {
   }
 };
 
-const styles = StyleSheet.create({
+const styles = ScaledSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(255, 255, 255, 0.1)",
@@ -439,18 +440,17 @@ const styles = StyleSheet.create({
     // paddingBottom: -30, // Dodaj trochę przestrzeni na dole przewijanej zawartości
   },
   logo: {
-    width: "40%", // Procentowa szerokość
-    height: height * 0.183, // Możesz dostosować, jeśli chcesz bardziej responsywne
+    height: "150@vs",
   },
   logoContainer: {
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 15,
-    marginTop: height * 0.061, // Zmniejszony margines górny dla lepszego rozmieszczenia
+    marginBottom: "15@vs",
+    marginTop: "50@vs",
     width: "100%",
   },
   title: {
-    fontSize: width * 0.064,
+    fontSize: "24@ms",
     fontFamily: "Figtree-Medium",
     textAlign: "center",
     // marginBottom: 30.2,
@@ -460,33 +460,33 @@ const styles = StyleSheet.create({
   inputContainer: {
     borderRadius: 999,
     overflow: "hidden",
-    marginBottom: 12,
+    marginBottom: "12@vs",
     width: width * 0.9,
     alignSelf: "center",
     backgroundColor: "rgba(255,255,255,0.1)",
-    borderWidth: 2,
+    borderWidth: "1@s",
     borderColor: "transparent",
   },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    height: 48,
-    paddingHorizontal: 16,
+    height: "48@vs",
+    paddingHorizontal: "16@s",
   },
   inputIcon: {
-    marginRight: 12,
-    marginBottom: 2.6,
+    marginRight: "12@s",
+    marginBottom: "2.6@vs",
   },
   inputIconRight: {
-    marginLeft: 12,
+    marginLeft: "12@s",
   },
   customInput: {
     flex: 1,
-    fontSize: 14.8,
+    fontSize: "14.8@ms",
     fontFamily: "PlusJakartaSans-Regular",
     color: "#E5E7EB",
     paddingVertical: 0,
-    marginBottom: 4,
+    marginBottom: "4@vs",
   },
   inputFocused: {
     borderColor: "#FFFFFF",
@@ -495,35 +495,35 @@ const styles = StyleSheet.create({
     // Możesz dodać dodatkowe style dla tekstu w unfocused state, jeśli potrzebujesz
   },
   iconLeft: {
-    marginLeft: 10,
+    marginLeft: "10@s",
   },
   iconRight: {
-    marginRight: 10,
+    marginRight: "10@s",
   },
   iconRequirement: {
-    marginRight: 8,
-    fontSize: 16,
-    marginTop: 2,
+    marginRight: "8@s",
+    fontSize: "16@ms",
+    marginTop: "2@vs",
   },
   error: {
     color: "#F472B6",
-    marginBottom: 10,
-    fontSize: 13,
+    marginBottom: "10@vs",
+    fontSize: "13@ms",
     textAlign: "center",
     width: "90%",
     fontFamily: "PlusJakartaSans-Regular",
   },
   errorHolder: {
-    minHeight: 33,
+    minHeight: "33@vs",
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
   },
   errorTop: {
     color: "#F472B6",
-    marginBottom: 6,
+    marginBottom: "6@vs",
     marginTop: 0,
-    fontSize: 13,
+    fontSize: "13@ms",
     textAlign: "center",
     width: "90%",
     fontFamily: "PlusJakartaSans-Regular",
@@ -536,23 +536,23 @@ const styles = StyleSheet.create({
   stepperWrapperInScroll: {
     // Wrapper dla wskaźnika, gdy jest w ScrollView
     width: "88%", // Aby zajął całą szerokość i paddingi działały poprawnie
-    marginTop: 40, // Większy padding, gdy jest częścią scrolla
+    marginTop: "36@vs", // Większy padding, gdy jest częścią scrolla
     // paddingHorizontal: 0, // PaddingHorizontal będzie z scrollViewContent
     // backgroundColor: 'rgba(0,0,0,0.1)', // Test
     // marginLeft: 8.8,
-    marginRight: 2.3,
-    marginBottom: -20,
+    marginRight: "2.0@s",
+    marginBottom: "-18@vs",
   },
   requirementsContainer: {
-    marginTop: 6,
+    marginTop: "6@vs",
     // marginBottom: 20,
     width: width * 0.88,
-    marginLeft: -14,
+    marginLeft: "-14@s",
   },
   requirementRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    marginBottom: 5,
+    marginBottom: "5@vs",
   },
   screenContainer: {
     // Główny SafeAreaView dla ekranu
@@ -564,13 +564,13 @@ const styles = StyleSheet.create({
   },
   stepperWrapper: {
     // Ten wrapper zawiera wskaźnik i dba o jego paddingi
-    paddingVertical: 15,
-    paddingHorizontal: 20,
+    paddingVertical: "15@vs",
+    paddingHorizontal: "20@s",
     // backgroundColor: 'rgba(0,0,0,0.1)', // Dla testu, aby zobaczyć jego obszar
     // Nie potrzebuje position: absolute
   },
   requirementText: {
-    fontSize: 13.6,
+    fontSize: "13.6@ms",
     fontFamily: "PlusJakartaSans-Regular",
     flex: 1,
     flexWrap: "wrap",
@@ -584,14 +584,14 @@ const styles = StyleSheet.create({
   footer: {
     width: "100%", // Upewnij się, że footer zajmuje całą szerokość
     alignItems: "center",
-    paddingTop: 9,
-    paddingBottom: 16,
+    paddingTop: "9@vs",
+    paddingBottom: "16@vs",
     // marginBottom: 16,
     // Możesz dodać tło lub inne style, jeśli potrzebujesz
   },
   registerButton: {
     width: width * 0.9,
-    height: 47,
+    height: "47@vs",
     backgroundColor: "#FFFFFF",
     justifyContent: "center",
     borderRadius: 999,
