@@ -253,61 +253,105 @@ export default function RegisterScreen() {
     >
       <View style={styles.overlay} />
       <SafeAreaView style={styles.screenContainer}>
-        {/* KeyboardAvoidingView opakowuje teraz całą zawartość, która może być przesunięta */}
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.keyboardAvoidingViewContainer} // Zmieniony styl, aby zajmował całą dostępną przestrzeń
-        >
-          {/* ScrollView zawiera WSZYSTKO, co ma być scrollowalne, włącznie ze wskaźnikiem */}
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={[
-              styles.scrollViewContent,
-              // Dodajemy paddingBottom do scrollViewContent, gdy klawiatura jest widoczna,
-              // aby było miejsce na scroll do ostatniego inputu, jeśli footer jest długi
-              // To jest alternatywa dla skomplikowanego KAV.
-              // { paddingBottom: isKeyboardVisible ? keyboardHeight + 20 : 20 }
-              // LUB jeśli KAV dobrze działa z "padding" na iOS, to może nie być potrzebne.
-            ]}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            // Dla Androida, jeśli tło pojawia się pod klawiaturą:
-            contentInsetAdjustmentBehavior="never" // Może pomóc, ale ostrożnie
+        {/* iOS: KAV padding; Android: bez KAV (eliminacja artefaktu nad klawiaturą) */}
+        {Platform.OS === "ios" ? (
+          <KeyboardAvoidingView
+            behavior="padding"
+            keyboardVerticalOffset={0}
+            style={styles.keyboardAvoidingViewContainer}
           >
-            {/* 1. Wskaźnik kroków jako pierwszy element w ScrollView */}
-            <View style={styles.stepperWrapperInScroll}>
-              <CustomStepIndicator
-                currentPosition={0}
-                labels={["Register", "Username", "Success"]}
-                stepCount={3}
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={[
+                styles.scrollViewContent,
+                { paddingBottom: isKeyboardVisible ? 32 : 8 },
+              ]}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={isKeyboardVisible}
+              persistentScrollbar={isKeyboardVisible}
+              contentInsetAdjustmentBehavior="never"
+            >
+              <View style={styles.stepperWrapperInScroll}>
+                <CustomStepIndicator
+                  currentPosition={0}
+                  labels={["Register", "Username", "Success"]}
+                  stepCount={3}
+                />
+              </View>
+
+              <RegisterHeader
+                title="Create an Account in Tripify"
+                errorMessage={primaryError}
               />
-            </View>
 
-            {/* 2. Header + unified error */}
-            <RegisterHeader
-              title="Create an Account in Tripify"
-              errorMessage={primaryError}
-            />
+              <RegisterForm
+                email={email}
+                setEmail={setEmail}
+                password={password}
+                setPassword={setPassword}
+                confirmPassword={confirmPassword}
+                setConfirmPassword={setConfirmPassword}
+                showPassword={showPassword}
+                setShowPassword={setShowPassword}
+                showConfirmPassword={showConfirmPassword}
+                setShowConfirmPassword={setShowConfirmPassword}
+                isFocused={isFocused}
+                setIsFocused={setIsFocused}
+                passwordRequirements={passwordRequirements}
+                renderValidationIcon={renderValidationIcon}
+              />
+            </ScrollView>
+          </KeyboardAvoidingView>
+        ) : (
+          <View style={styles.keyboardAvoidingViewContainer}>
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={[
+                styles.scrollViewContent,
+                { paddingBottom: isKeyboardVisible ? 36 : 0 },
+                isKeyboardVisible ? { minHeight: height + 160 } : null,
+              ]}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={isKeyboardVisible}
+              persistentScrollbar={isKeyboardVisible}
+              overScrollMode="always"
+              removeClippedSubviews={false}
+              scrollEventThrottle={16}
+              keyboardDismissMode="interactive"
+              nestedScrollEnabled
+            >
+              <View style={styles.stepperWrapperInScroll}>
+                <CustomStepIndicator
+                  currentPosition={0}
+                  labels={["Register", "Username", "Success"]}
+                  stepCount={3}
+                />
+              </View>
 
-            {/* 3. Form */}
-            <RegisterForm
-              email={email}
-              setEmail={setEmail}
-              password={password}
-              setPassword={setPassword}
-              confirmPassword={confirmPassword}
-              setConfirmPassword={setConfirmPassword}
-              showPassword={showPassword}
-              setShowPassword={setShowPassword}
-              showConfirmPassword={showConfirmPassword}
-              setShowConfirmPassword={setShowConfirmPassword}
-              isFocused={isFocused}
-              setIsFocused={setIsFocused}
-              passwordRequirements={passwordRequirements}
-              renderValidationIcon={renderValidationIcon}
-            />
-          </ScrollView>
-        </KeyboardAvoidingView>
+              <RegisterHeader
+                title="Create an Account in Tripify"
+                errorMessage={primaryError}
+              />
+
+              <RegisterForm
+                email={email}
+                setEmail={setEmail}
+                password={password}
+                setPassword={setPassword}
+                confirmPassword={confirmPassword}
+                setConfirmPassword={setConfirmPassword}
+                showPassword={showPassword}
+                setShowPassword={setShowPassword}
+                showConfirmPassword={showConfirmPassword}
+                setShowConfirmPassword={setShowConfirmPassword}
+                isFocused={isFocused}
+                setIsFocused={setIsFocused}
+                passwordRequirements={passwordRequirements}
+                renderValidationIcon={renderValidationIcon}
+              />
+            </ScrollView>
+          </View>
+        )}
 
         {/* Footer with Buttons */}
         <RegisterFooter

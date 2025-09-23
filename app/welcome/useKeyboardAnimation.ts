@@ -1,12 +1,13 @@
 import { useRef, useCallback } from "react";
 import { Animated, Keyboard } from "react-native";
+import { verticalScale } from "react-native-size-matters";
 
 export const useKeyboardAnimation = () => {
   const contentTranslateY = useRef(new Animated.Value(0)).current;
 
   const animateToTop = useCallback(() => {
     Animated.timing(contentTranslateY, {
-      toValue: -110, // Większy dystans niż w forgotPassword
+      toValue: verticalScale(-98), // Większy dystans niż w forgotPassword
       duration: 200, // Szybsza animacja niż w forgotPassword
       useNativeDriver: true,
     }).start();
