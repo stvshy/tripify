@@ -129,7 +129,7 @@ export default function LoginForm(props: Props) {
             }}
             secureTextEntry={!showPassword}
             style={styles.customInput}
-            autoCapitalize="none"
+            autoCapitalize="sentences"
           />
           <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
             <MaterialIcons
@@ -271,10 +271,16 @@ const styles = ScaledSheet.create({
     borderRadius: 999,
     marginTop: "7.2@vs",
     alignSelf: "center",
+    display: "flex",
   },
   buttonLabel: {
     fontSize: "13.8@ms",
     fontFamily: "PlusJakartaSans-SemiBold",
     color: "#4F21A5",
+    textAlign: "center",
+    includeFontPadding: false,
+    textAlignVertical: "center",
+    lineHeight: "15.8@ms",
+    // marginTop: "-0.3@vs",
   },
 });

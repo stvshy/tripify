@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, StyleSheet, Dimensions, Pressable } from "react-native";
 import { ScaledSheet, vs } from "react-native-size-matters";
 
@@ -54,6 +54,7 @@ export default function RegisterFooter({
   onGoToLogin,
 }: Props) {
   const responsiveScaling = getResponsiveButtonScaling();
+  const [isFooterPressed, setIsFooterPressed] = useState(false);
 
   return (
     <View style={styles.footer}>
@@ -73,10 +74,22 @@ export default function RegisterFooter({
         <Text style={styles.registerButtonText}>Create account</Text>
       </Pressable>
 
-      <Pressable onPress={onGoToLogin} style={styles.authFooterContainer}>
+      <Pressable
+        onPress={onGoToLogin}
+        style={styles.authFooterContainer}
+        onPressIn={() => setIsFooterPressed(true)}
+        onPressOut={() => setIsFooterPressed(false)}
+      >
         <Text style={styles.authFooterText}>
           Already have an account?{" "}
-          <Text style={styles.authFooterLink}>Log in</Text>
+          <Text
+            style={[
+              styles.authFooterLink,
+              isFooterPressed && styles.authFooterLinkPressed,
+            ]}
+          >
+            Log in
+          </Text>
         </Text>
       </Pressable>
     </View>
@@ -104,6 +117,9 @@ const styles = ScaledSheet.create({
     color: "#4F21A5",
     textAlign: "center",
     includeFontPadding: false as unknown as boolean,
+    textAlignVertical: "center",
+    lineHeight: "15.8@ms",
+    // marginTop: "-0.3@vs",
   },
   authFooterContainer: {
     width: "100%",
@@ -119,5 +135,8 @@ const styles = ScaledSheet.create({
   authFooterLink: {
     color: "#FFFFFF",
     fontFamily: "PlusJakartaSans-SemiBold",
+  },
+  authFooterLinkPressed: {
+    color: "#B0B0B0",
   },
 });

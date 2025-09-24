@@ -187,7 +187,7 @@ export default function RegisterForm(props: Props) {
             onBlur={() => setIsFocused({ ...isFocused, password: false })}
             secureTextEntry={!showPassword}
             style={styles.customInput}
-            autoCapitalize="none"
+            autoCapitalize="sentences"
           />
           <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
             <MaterialIcons
@@ -235,7 +235,7 @@ export default function RegisterForm(props: Props) {
             }
             secureTextEntry={!showConfirmPassword}
             style={styles.customInput}
-            autoCapitalize="none"
+            autoCapitalize="sentences"
           />
           <TouchableOpacity
             onPress={() => setShowConfirmPassword(!showConfirmPassword)}
