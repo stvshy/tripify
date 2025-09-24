@@ -39,13 +39,13 @@ export default function RegisterHeader({
 const styles = ScaledSheet.create({
   logo: {
     // width: "40%",
-    height: "121@vs",
+    height: "116@vs",
   },
   logoContainer: {
     justifyContent: "center",
     alignItems: "center",
     marginBottom: "13@vs",
-    marginTop: "37.5@vs",
+    marginTop: "34.5@vs",
     width: "100%",
     marginLeft: "-1.1@s",
   },
@@ -57,7 +57,7 @@ const styles = ScaledSheet.create({
     width: "100%",
   },
   errorHolder: {
-    minHeight: "40.6@vs",
+    minHeight: "39.6@vs",
     alignItems: "center",
     justifyContent: "center",
     width: "100%",

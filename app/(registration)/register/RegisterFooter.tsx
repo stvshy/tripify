@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, Dimensions, Pressable } from "react-native";
+import { ScaledSheet } from "react-native-size-matters";
 
 const { width } = Dimensions.get("window");
 
@@ -36,45 +37,45 @@ export default function RegisterFooter({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = ScaledSheet.create({
   footer: {
     width: "100%",
     alignItems: "center",
-    paddingTop: 9,
-    paddingBottom: 26,
+    paddingTop: "6.4@vs",
+    paddingBottom: "23.4@vs",
   },
   registerButton: {
     width: width * 0.9,
-    height: 47,
+    height: "42.6@vs",
     backgroundColor: "#FFFFFF",
     justifyContent: "center",
     borderRadius: 999,
-    marginTop: 8,
+    // marginTop: "7.5@vs",
     alignSelf: "center",
   },
   registerButtonInner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    height: 47,
+    height: "42.6@vs",
   },
   registerButtonText: {
-    fontSize: 14,
+    fontSize: "13.8@ms",
     fontFamily: "PlusJakartaSans-SemiBold",
     color: "#4F21A5",
-    lineHeight: 47,
+    lineHeight: "42.6@vs",
     textAlignVertical: "center",
     includeFontPadding: false as unknown as boolean,
   },
   authFooterContainer: {
     width: "100%",
     alignItems: "center",
-    paddingTop: 16,
+    paddingTop: "16@vs",
     // paddingBottom: 24,
   },
   authFooterText: {
     color: "#D1D5DB",
-    fontSize: 13,
+    fontSize: "12.8@ms",
     fontFamily: "PlusJakartaSans-Regular",
   },
   authFooterLink: {

@@ -211,7 +211,7 @@ const styles = ScaledSheet.create({
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    height: "43@vs",
+    height: "42.6@vs",
     paddingHorizontal: "15.5@s",
   },
   inputIcon: {
@@ -237,6 +237,7 @@ const styles = ScaledSheet.create({
     width: width * 0.88,
     alignSelf: "center",
     // marginLeft: 3,
+    paddingBottom: "10.5@vs",
   },
   requirementRow: {
     flexDirection: "row",
@@ -248,7 +249,7 @@ const styles = ScaledSheet.create({
     marginRight: "4.8@s",
   },
   requirementText: {
-    fontSize: "13.32@s",
+    fontSize: "13.6@ms",
     fontFamily: "PlusJakartaSans-Regular",
     flex: 1,
     flexWrap: "wrap",
