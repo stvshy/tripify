@@ -1,8 +1,46 @@
 import React from "react";
 import { View, Text, StyleSheet, Dimensions, Pressable } from "react-native";
-import { ScaledSheet } from "react-native-size-matters";
+import { ScaledSheet, vs } from "react-native-size-matters";
 
-const { width } = Dimensions.get("window");
+const { width, height } = Dimensions.get("window");
+
+// Progressive responsive scaling for button
+const getResponsiveButtonScaling = () => {
+  const screenRatio = height / width;
+
+  // Base values for standard screens (around 2400x1080, ratio ~2.22)
+  const baseButtonHeight = vs(42.6);
+  const baseButtonWidth = width * 0.9;
+
+  // Calculate scaling factors
+  let heightScale = 1;
+
+  // Progressive scaling based on screen ratio
+  if (screenRatio > 2.4) {
+    // Very tall screens - reduce button height
+    heightScale = 0.85;
+  } else if (screenRatio > 2.3) {
+    // Tall screens - slight reduction
+    heightScale = 0.9;
+  } else if (screenRatio > 2.2) {
+    // Moderately tall screens - minimal reduction
+    heightScale = 0.94;
+  } else if (screenRatio < 1.8) {
+    // Short screens - increase height
+    heightScale = 1.1;
+  } else if (screenRatio < 1.9) {
+    // Moderately short screens
+    heightScale = 1.05;
+  } else if (screenRatio < 2.0) {
+    // Slightly short screens
+    heightScale = 1.02;
+  }
+
+  return {
+    buttonHeight: baseButtonHeight * heightScale,
+    buttonWidth: baseButtonWidth,
+  };
+};
 
 type Props = {
   isLoading: boolean;
@@ -15,16 +53,24 @@ export default function RegisterFooter({
   onSubmit,
   onGoToLogin,
 }: Props) {
+  const responsiveScaling = getResponsiveButtonScaling();
+
   return (
     <View style={styles.footer}>
       <Pressable
         onPress={onSubmit}
-        style={[styles.registerButton, isLoading && { opacity: 0.7 }]}
+        style={({ pressed }) => [
+          styles.registerButton,
+          {
+            height: responsiveScaling.buttonHeight,
+            width: responsiveScaling.buttonWidth,
+            opacity: isLoading ? 0.7 : pressed ? 0.8 : 1,
+            transform: [{ scale: pressed ? 0.98 : 1 }],
+          },
+        ]}
         disabled={isLoading}
       >
-        <View style={styles.registerButtonInner}>
-          <Text style={styles.registerButtonText}>Create account</Text>
-        </View>
+        <Text style={styles.registerButtonText}>Create account</Text>
       </Pressable>
 
       <Pressable onPress={onGoToLogin} style={styles.authFooterContainer}>
@@ -45,26 +91,18 @@ const styles = ScaledSheet.create({
     paddingBottom: "23.4@vs",
   },
   registerButton: {
-    width: width * 0.9,
-    height: "42.6@vs",
     backgroundColor: "#FFFFFF",
     justifyContent: "center",
-    borderRadius: 999,
-    // marginTop: "7.5@vs",
-    alignSelf: "center",
-  },
-  registerButtonInner: {
-    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    height: "42.6@vs",
+    borderRadius: 999,
+    alignSelf: "center",
+    // height and width will be set dynamically
   },
   registerButtonText: {
     fontSize: "13.8@ms",
     fontFamily: "PlusJakartaSans-SemiBold",
     color: "#4F21A5",
-    lineHeight: "42.6@vs",
-    textAlignVertical: "center",
+    textAlign: "center",
     includeFontPadding: false as unknown as boolean,
   },
   authFooterContainer: {
