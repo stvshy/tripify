@@ -6,6 +6,7 @@ import {
   Dimensions,
   TextInput as RNTextInput,
   TouchableOpacity,
+  Pressable,
 } from "react-native";
 import { Button } from "react-native-paper";
 import { MaterialIcons, Feather } from "@expo/vector-icons";
@@ -60,11 +61,12 @@ export default function LoginForm(props: Props) {
 
   return (
     <View>
-      <View
+      <Pressable
         style={[
           styles.inputContainer,
           isFocused.identifier && styles.inputFocused,
         ]}
+        onPress={() => identifierInputRef.current?.focus()}
       >
         <View style={styles.inputWrapper}>
           <Feather
@@ -92,13 +94,14 @@ export default function LoginForm(props: Props) {
             autoCapitalize="none"
           />
         </View>
-      </View>
+      </Pressable>
 
-      <View
+      <Pressable
         style={[
           styles.inputContainer,
           isFocused.password && styles.inputFocused,
         ]}
+        onPress={() => passwordInputRef.current?.focus()}
       >
         <View style={styles.inputWrapper}>
           <MaterialIcons
@@ -137,7 +140,7 @@ export default function LoginForm(props: Props) {
             />
           </TouchableOpacity>
         </View>
-      </View>
+      </Pressable>
 
       <View style={styles.forgotContainer}>
         <TouchableOpacity
@@ -171,15 +174,21 @@ export default function LoginForm(props: Props) {
         </TouchableOpacity>
       ) : null}
 
-      <Button
-        mode="contained"
+      <Pressable
         onPress={onSubmit}
-        style={styles.loginButton}
-        labelStyle={styles.buttonLabel}
-        loading={loading}
+        disabled={loading}
+        style={({ pressed }: { pressed: boolean }) => [
+          styles.loginButton,
+          {
+            opacity: loading ? 0.7 : pressed ? 0.8 : 1,
+            transform: [{ scale: pressed ? 0.98 : 1 }],
+          },
+        ]}
       >
-        Sign in
-      </Button>
+        <Text style={styles.buttonLabel}>
+          {loading ? "Signing in..." : "Sign in"}
+        </Text>
+      </Pressable>
     </View>
   );
 }
@@ -258,6 +267,7 @@ const styles = ScaledSheet.create({
     height: "42@vs",
     backgroundColor: "#FFFFFF",
     justifyContent: "center",
+    alignItems: "center",
     borderRadius: 999,
     marginTop: "7.2@vs",
     alignSelf: "center",

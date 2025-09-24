@@ -1,4 +1,4 @@
-import React from "react";
+import React, { forwardRef } from "react";
 import {
   View,
   StyleSheet,
@@ -6,6 +6,7 @@ import {
   Text,
   TextInput as RNTextInput,
   TouchableOpacity,
+  Pressable,
 } from "react-native";
 import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { s, ScaledSheet, vs } from "react-native-size-matters";
@@ -84,6 +85,9 @@ type Props = {
   }) => void;
   passwordRequirements: RequirementMap;
   renderValidationIcon: (isValid: boolean) => React.ReactNode;
+  emailInputRef: React.RefObject<RNTextInput>;
+  passwordInputRef: React.RefObject<RNTextInput>;
+  confirmPasswordInputRef: React.RefObject<RNTextInput>;
 };
 
 export default function RegisterForm(props: Props) {
@@ -102,6 +106,9 @@ export default function RegisterForm(props: Props) {
     setIsFocused,
     passwordRequirements,
     renderValidationIcon,
+    emailInputRef,
+    passwordInputRef,
+    confirmPasswordInputRef,
   } = props;
 
   const responsiveSpacing = getResponsiveFormSpacing();
@@ -114,12 +121,13 @@ export default function RegisterForm(props: Props) {
   return (
     <View>
       {/* Email */}
-      <View
+      <Pressable
         style={[
           styles.inputContainer,
           { marginBottom: responsiveSpacing.inputMarginBottom },
           isFocused.email && styles.inputFocused,
         ]}
+        onPress={() => emailInputRef.current?.focus()}
       >
         <View
           style={[
@@ -134,6 +142,7 @@ export default function RegisterForm(props: Props) {
             style={styles.inputIcon}
           />
           <RNTextInput
+            ref={emailInputRef}
             placeholder="E-mail"
             placeholderTextColor="#D1D5DB"
             value={email}
@@ -145,15 +154,16 @@ export default function RegisterForm(props: Props) {
             autoCapitalize="none"
           />
         </View>
-      </View>
+      </Pressable>
 
       {/* Password */}
-      <View
+      <Pressable
         style={[
           styles.inputContainer,
           { marginBottom: responsiveSpacing.inputMarginBottom },
           isFocused.password && styles.inputFocused,
         ]}
+        onPress={() => passwordInputRef.current?.focus()}
       >
         <View
           style={[
@@ -168,6 +178,7 @@ export default function RegisterForm(props: Props) {
             style={styles.lockIcon}
           />
           <RNTextInput
+            ref={passwordInputRef}
             placeholder="Password"
             placeholderTextColor="#D1D5DB"
             value={password}
@@ -187,15 +198,16 @@ export default function RegisterForm(props: Props) {
             />
           </TouchableOpacity>
         </View>
-      </View>
+      </Pressable>
 
       {/* Confirm Password */}
-      <View
+      <Pressable
         style={[
           styles.inputContainer,
           { marginBottom: responsiveSpacing.inputMarginBottom },
           isFocused.confirmPassword && styles.inputFocused,
         ]}
+        onPress={() => confirmPasswordInputRef.current?.focus()}
       >
         <View
           style={[
@@ -210,6 +222,7 @@ export default function RegisterForm(props: Props) {
             style={styles.lockIcon}
           />
           <RNTextInput
+            ref={confirmPasswordInputRef}
             placeholder="Confirm Password"
             placeholderTextColor="#D1D5DB"
             value={confirmPassword}
@@ -237,7 +250,7 @@ export default function RegisterForm(props: Props) {
             />
           </TouchableOpacity>
         </View>
-      </View>
+      </Pressable>
 
       {/* Requirements */}
       <View

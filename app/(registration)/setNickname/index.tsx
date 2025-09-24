@@ -427,11 +427,15 @@ export default function SetNicknameScreen() {
               )}
               <Pressable
                 onPress={handleSetNickname}
-                style={[
+                disabled={isButtonDisabled}
+                style={({ pressed }: { pressed: boolean }) => [
                   styles.sendButton,
                   isButtonDisabled && styles.sendButtonDisabled,
+                  {
+                    opacity: isButtonDisabled ? 0.6 : pressed ? 0.8 : 1,
+                    transform: [{ scale: pressed ? 0.98 : 1 }],
+                  },
                 ]}
-                disabled={isButtonDisabled}
               >
                 <Text style={styles.sendButtonText}>Save Nickname</Text>
               </Pressable>

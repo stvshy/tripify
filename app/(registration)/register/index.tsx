@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useContext, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useContext,
+  useCallback,
+  useRef,
+} from "react";
 import {
   View,
   Text,
@@ -68,6 +74,11 @@ export default function RegisterScreen() {
     confirmPassword: false,
   });
   const primaryError = emailError || errorMessage;
+
+  // Refs for text inputs
+  const emailInputRef = useRef<RNTextInput>(null);
+  const passwordInputRef = useRef<RNTextInput>(null);
+  const confirmPasswordInputRef = useRef<RNTextInput>(null);
 
   // Timer odliczający czas do ponownego wysłania maila
   useEffect(() => {
@@ -311,6 +322,9 @@ export default function RegisterScreen() {
                 setIsFocused={setIsFocused}
                 passwordRequirements={passwordRequirements}
                 renderValidationIcon={renderValidationIcon}
+                emailInputRef={emailInputRef}
+                passwordInputRef={passwordInputRef}
+                confirmPasswordInputRef={confirmPasswordInputRef}
               />
               {isKeyboardVisible && <View style={{ height: vs(40) }} />}
             </ScrollViewIndicator>
@@ -370,6 +384,9 @@ export default function RegisterScreen() {
                 setIsFocused={setIsFocused}
                 passwordRequirements={passwordRequirements}
                 renderValidationIcon={renderValidationIcon}
+                emailInputRef={emailInputRef}
+                passwordInputRef={passwordInputRef}
+                confirmPasswordInputRef={confirmPasswordInputRef}
               />
               {isKeyboardVisible && <View style={{ height: vs(40) }} />}
             </ScrollViewIndicator>
