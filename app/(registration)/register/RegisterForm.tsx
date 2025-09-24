@@ -8,9 +8,60 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { MaterialIcons, Ionicons } from "@expo/vector-icons";
-import { s, ScaledSheet } from "react-native-size-matters";
+import { s, ScaledSheet, vs } from "react-native-size-matters";
 
-const { width } = Dimensions.get("window");
+const { width, height } = Dimensions.get("window");
+
+// Progressive responsive spacing for all screen ratios
+const getResponsiveFormSpacing = () => {
+  const screenRatio = height / width;
+
+  // Base values for standard screens (around 2400x1080, ratio ~2.22)
+  const baseInputMarginBottom = vs(10.5);
+  const baseInputHeight = vs(42.6);
+  const baseRequirementsMarginTop = vs(5.5);
+  const baseRequirementsPaddingBottom = vs(10.5);
+  const baseRequirementMarginBottom = vs(4.8);
+
+  // Calculate scaling factors
+  let inputScale = 1.01;
+  let spacingScale = 1;
+
+  // Progressive scaling based on screen ratio
+  if (screenRatio > 2.4) {
+    // Very tall screens (like 2992x1344) - moderate reduction with slight increase
+    inputScale = 0.91; // Slightly larger than before
+    spacingScale = 0.78; // Reduced spacing
+  } else if (screenRatio > 2.3) {
+    // Tall screens - slight reduction
+    inputScale = 0.93;
+    spacingScale = 0.85;
+  } else if (screenRatio > 2.2) {
+    // Moderately tall screens - minimal reduction
+    inputScale = 0.95;
+    spacingScale = 0.94;
+  } else if (screenRatio < 1.8) {
+    // Short screens - increase everything
+    inputScale = 1.04;
+    spacingScale = 1.15;
+  } else if (screenRatio < 1.9) {
+    // Moderately short screens
+    inputScale = 1.01;
+    spacingScale = 1.08;
+  } else if (screenRatio < 2.0) {
+    // Slightly short screens
+    inputScale = 0.99;
+    spacingScale = 1.05;
+  }
+
+  return {
+    inputMarginBottom: baseInputMarginBottom * spacingScale,
+    inputHeight: baseInputHeight * inputScale,
+    requirementsMarginTop: baseRequirementsMarginTop * spacingScale,
+    requirementsPaddingBottom: baseRequirementsPaddingBottom * spacingScale,
+    requirementMarginBottom: baseRequirementMarginBottom * spacingScale,
+  };
+};
 
 type RequirementMap = Record<string, boolean>;
 
@@ -53,13 +104,29 @@ export default function RegisterForm(props: Props) {
     renderValidationIcon,
   } = props;
 
+  const responsiveSpacing = getResponsiveFormSpacing();
+
+  // Debug info (remove in production)
+  if (__DEV__) {
+    console.log("Form responsive spacing:", responsiveSpacing);
+  }
+
   return (
     <View>
       {/* Email */}
       <View
-        style={[styles.inputContainer, isFocused.email && styles.inputFocused]}
+        style={[
+          styles.inputContainer,
+          { marginBottom: responsiveSpacing.inputMarginBottom },
+          isFocused.email && styles.inputFocused,
+        ]}
       >
-        <View style={styles.inputWrapper}>
+        <View
+          style={[
+            styles.inputWrapper,
+            { height: responsiveSpacing.inputHeight },
+          ]}
+        >
           <Ionicons
             name="mail"
             size={s(19.4)}
@@ -84,10 +151,16 @@ export default function RegisterForm(props: Props) {
       <View
         style={[
           styles.inputContainer,
+          { marginBottom: responsiveSpacing.inputMarginBottom },
           isFocused.password && styles.inputFocused,
         ]}
       >
-        <View style={styles.inputWrapper}>
+        <View
+          style={[
+            styles.inputWrapper,
+            { height: responsiveSpacing.inputHeight },
+          ]}
+        >
           <MaterialIcons
             name="lock"
             size={s(19.8)}
@@ -120,10 +193,16 @@ export default function RegisterForm(props: Props) {
       <View
         style={[
           styles.inputContainer,
+          { marginBottom: responsiveSpacing.inputMarginBottom },
           isFocused.confirmPassword && styles.inputFocused,
         ]}
       >
-        <View style={styles.inputWrapper}>
+        <View
+          style={[
+            styles.inputWrapper,
+            { height: responsiveSpacing.inputHeight },
+          ]}
+        >
           <MaterialIcons
             name="lock"
             size={s(19.8)}
@@ -161,9 +240,25 @@ export default function RegisterForm(props: Props) {
       </View>
 
       {/* Requirements */}
-      <View style={styles.requirementsContainer}>
+      <View
+        style={[
+          styles.requirementsContainer,
+          {
+            marginTop: responsiveSpacing.requirementsMarginTop,
+            paddingBottom: responsiveSpacing.requirementsPaddingBottom,
+          },
+        ]}
+      >
         {Object.entries(passwordRequirements).map(([key, value]) => (
-          <View style={styles.requirementRow} key={key}>
+          <View
+            style={[
+              styles.requirementRow,
+              {
+                marginBottom: responsiveSpacing.requirementMarginBottom,
+              },
+            ]}
+            key={key}
+          >
             <View style={styles.iconWrapper}>
               {renderValidationIcon(value as boolean)}
             </View>
@@ -201,7 +296,7 @@ const styles = ScaledSheet.create({
   inputContainer: {
     borderRadius: 999,
     overflow: "hidden",
-    marginBottom: "10.5@vs",
+    // marginBottom will be set dynamically
     width: width * 0.9,
     alignSelf: "center",
     backgroundColor: "rgba(255,255,255,0.1)",
@@ -211,7 +306,7 @@ const styles = ScaledSheet.create({
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    height: "42.6@vs",
+    height: "43@vs",
     paddingHorizontal: "15.5@s",
   },
   inputIcon: {
@@ -233,16 +328,15 @@ const styles = ScaledSheet.create({
     borderColor: "#FFFFFF",
   },
   requirementsContainer: {
-    marginTop: "5.5@vs",
+    // marginTop and paddingBottom will be set dynamically
     width: width * 0.88,
     alignSelf: "center",
     // marginLeft: 3,
-    paddingBottom: "10.5@vs",
   },
   requirementRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: "4.8@vs",
+    // marginBottom will be set dynamically
   },
   iconWrapper: {
     paddingTop: "1.05@vs",
