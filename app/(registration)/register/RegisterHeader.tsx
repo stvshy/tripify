@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, Image, Dimensions } from "react-native";
+import { ScaledSheet } from "react-native-size-matters";
 
 const { width, height } = Dimensions.get("window");
 
@@ -35,28 +36,28 @@ export default function RegisterHeader({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = ScaledSheet.create({
   logo: {
     // width: "40%",
-    height: height * 0.172,
+    height: "121@vs",
   },
   logoContainer: {
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 15,
-    marginTop: height * 0.055,
+    marginBottom: "13@vs",
+    marginTop: "37.5@vs",
     width: "100%",
-    marginLeft: -1.3,
+    marginLeft: "-1.1@s",
   },
   title: {
-    fontSize: width * 0.0627,
+    fontSize: "22.1@ms",
     fontFamily: "Figtree-Medium",
     textAlign: "center",
     color: "#FFFFFF",
     width: "100%",
   },
   errorHolder: {
-    minHeight: 45,
+    minHeight: "40.6@vs",
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
