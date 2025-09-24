@@ -29,8 +29,8 @@ const getResponsiveSpacing = () => {
     marginScale = 0.85;
   } else if (screenRatio > 2.2) {
     // Moderately tall screens - minimal reduction
-    logoScale = 0.97;
-    marginScale = 0.94;
+    logoScale = 0.98;
+    marginScale = 0.95;
   } else if (screenRatio < 1.8) {
     // Short screens - increase spacing
     logoScale = 0.95;

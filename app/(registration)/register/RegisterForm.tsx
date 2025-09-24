@@ -38,8 +38,8 @@ const getResponsiveFormSpacing = () => {
     spacingScale = 0.85;
   } else if (screenRatio > 2.2) {
     // Moderately tall screens - minimal reduction
-    inputScale = 0.95;
-    spacingScale = 0.94;
+    inputScale = 0.94;
+    spacingScale = 0.93;
   } else if (screenRatio < 1.8) {
     // Short screens - increase everything
     inputScale = 1.04;
