@@ -1,13 +1,17 @@
 import { useRef, useCallback } from "react";
 import { Animated, Keyboard } from "react-native";
-import { verticalScale } from "react-native-size-matters";
+import { moderateScale } from "react-native-size-matters";
 
 export const useKeyboardAnimation = () => {
   const contentTranslateY = useRef(new Animated.Value(0)).current;
 
   const animateToTop = useCallback(() => {
+    // Używamy moderateScale dla lepszego skalowania na różnych ekranach
+    // moderateScale zapewnia bardziej liniowe skalowanie niż verticalScale
+    const animationDistance = moderateScale(-108, 0.3);
+
     Animated.timing(contentTranslateY, {
-      toValue: verticalScale(-98), // Większy dystans niż w forgotPassword
+      toValue: animationDistance,
       duration: 200, // Szybsza animacja niż w forgotPassword
       useNativeDriver: true,
     }).start();
