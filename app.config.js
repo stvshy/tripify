@@ -36,7 +36,7 @@ export default {
       },
       androidNavigationBar: {
         visible: "sticky",
-        backgroundColor: "transparent",
+        backgroundColor: "#f0efef", // Light theme default
         barStyle: "dark-content",
       },
     },

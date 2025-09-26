@@ -4,9 +4,9 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as ExpoSplashScreen from "expo-splash-screen";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { auth, db, app as firebaseApp } from "./config/firebaseConfig";
-import { View, StyleSheet } from "react-native";
+import { View, StyleSheet, Platform } from "react-native";
 import LoadingScreen from "@/components/LoadingScreen";
 import { ThemeContext, ThemeProvider } from "./config/ThemeContext";
 import { DraxProvider } from "react-native-drax";
@@ -20,6 +20,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as NavigationBar from "expo-navigation-bar";
+import * as SystemUI from "expo-system-ui";
 import {
   hideNavBar,
   restoreNavBar,
@@ -39,6 +40,21 @@ import { useCountryStore } from "./store/countryStore";
 import { CountriesProvider } from "./config/CountryContext";
 import { MapStateProvider } from "./config/MapStateProvider";
 import { LocalCountProvider } from "./config/LocalCountContext";
+
+// Set navbar color IMMEDIATELY on app start (before any component rendering)
+if (Platform.OS === "android") {
+  try {
+    // Set navbar to light color by default to prevent dark flash in light mode
+    NavigationBar.setBackgroundColorAsync("#FFFFFF");
+    NavigationBar.setButtonStyleAsync("dark");
+    NavigationBar.setPositionAsync("relative");
+    NavigationBar.setVisibilityAsync("hidden");
+    console.log("🚀 IMMEDIATE navbar set to light");
+  } catch (error) {
+    console.log("Error setting immediate navbar:", error);
+  }
+}
+
 ExpoSplashScreen.preventAutoHideAsync();
 
 function AppNavigator({ initialRouteName }: { initialRouteName: string }) {
@@ -78,21 +94,34 @@ const SPLASH_BACKGROUNDS_PATH = "splash_backgrounds";
 
 const fetchAndCacheBackgrounds = async () => {
   try {
-    const storage = getStorage(firebaseApp);
-    const listRef = ref(storage, SPLASH_BACKGROUNDS_PATH);
-    const res = await listAll(listRef);
-    if (res.items.length === 0) return;
-    const urls = await Promise.all(
-      res.items.map((itemRef) => getDownloadURL(itemRef))
+    // Use timeout to prevent blocking
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Timeout")), 5000)
     );
-    await AsyncStorage.setItem(CACHED_URLS_KEY, JSON.stringify(urls));
-    const preloadObjects = urls.map((url) => ({ uri: url }));
-    // Check if FastImage.preload is available before calling
-    if (FastImage && typeof FastImage.preload === "function") {
-      FastImage.preload(preloadObjects);
-    }
+
+    const fetchPromise = (async () => {
+      const storage = getStorage(firebaseApp);
+      const listRef = ref(storage, SPLASH_BACKGROUNDS_PATH);
+      const res = await listAll(listRef);
+      if (res.items.length === 0) return;
+      const urls = await Promise.all(
+        res.items.map((itemRef) => getDownloadURL(itemRef))
+      );
+      await AsyncStorage.setItem(CACHED_URLS_KEY, JSON.stringify(urls));
+      const preloadObjects = urls.map((url) => ({ uri: url }));
+      // Check if FastImage.preload is available before calling
+      if (FastImage && typeof FastImage.preload === "function") {
+        FastImage.preload(preloadObjects);
+      }
+    })();
+
+    await Promise.race([fetchPromise, timeoutPromise]);
   } catch (error) {
-    console.error("Error fetching/caching splash backgrounds:", error);
+    // Silently fail - this is non-critical
+    console.log(
+      "Background caching failed (non-critical):",
+      error instanceof Error ? error.message : "Unknown error"
+    );
   }
 };
 
@@ -192,6 +221,7 @@ function NavBarManager({
 export default function RootLayout() {
   const isLoadingAuth = useAuthStore((state) => state.isLoadingAuth);
   const theme = useTheme();
+  const { isDarkTheme } = useContext(ThemeContext);
 
   // AKCJE (funkcje) pobieramy pojedynczo, używając selektorów.
   // To gwarantuje, że ich referencje będą stabilne.
@@ -230,6 +260,8 @@ export default function RootLayout() {
   });
   const [initialRouteName, setInitialRouteName] = useState<string | null>(null);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
+  const [isAppFullyLoaded, setIsAppFullyLoaded] = useState(false);
+
   // Hide navbar during splash screen (loading)
   useEffect(() => {
     if (isLoadingAuth) {
@@ -238,10 +270,17 @@ export default function RootLayout() {
     }
   }, [isLoadingAuth]);
 
-  // Inicjalizacje (bez zmian)
+  // Critical initialization - do immediately
   useEffect(() => {
     useCountryStore.getState().initializeCountries();
-    fetchAndCacheBackgrounds();
+  }, []);
+
+  // Non-critical initialization - defer to avoid blocking
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchAndCacheBackgrounds();
+    }, 500); // Defer background caching
+    return () => clearTimeout(timer);
   }, []);
   useEffect(() => {
     if (!fontsLoaded && !fontError) {
@@ -375,24 +414,32 @@ export default function RootLayout() {
     };
   }, [firebaseUser]); // <-- Zależność tylko od obiektu użytkownika!
 
+  // Check if all resources are loaded
   useEffect(() => {
-    if (fontsLoaded && isNavigationReady) {
-      // Ukryj Splash Screen, gdy fonty są załadowane i nawigacja jest gotowa
+    if (fontsLoaded && isNavigationReady && !fontError && initialRouteName) {
+      // All critical resources are loaded
+      setIsAppFullyLoaded(true);
+    }
+  }, [fontsLoaded, isNavigationReady, fontError, initialRouteName]);
+
+  // Hide splash screen when app is fully loaded
+  useEffect(() => {
+    if (isAppFullyLoaded) {
+      // Wait a bit more to ensure smooth transition
       const timer = setTimeout(() => {
         ExpoSplashScreen.hideAsync();
-      }, 50); // Krótkie opóźnienie dla pewności
+      }, 300); // Longer delay to ensure smooth transition
       return () => clearTimeout(timer);
     }
-  }, [fontsLoaded, isNavigationReady, fontError]);
+  }, [isAppFullyLoaded]);
 
   if (fontError) {
     console.error("Font loading error:", fontError);
     return <LoadingScreen />;
   }
 
-  // Pokazuj LoadingScreen dopóki nawigacja nie jest gotowa
-  // (co obejmuje załadowanie fontów, zakończenie isLoadingAuth ze store'u i ustalenie initialRouteName)
-  if (!isNavigationReady) {
+  // Show LoadingScreen until app is fully loaded
+  if (!isAppFullyLoaded) {
     return <LoadingScreen />;
   }
 
