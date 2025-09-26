@@ -202,11 +202,11 @@ const NewOverlay: React.FC<Props> = ({
       cancelAnimation(borderShiftY);
     } catch {}
 
-    // Przywrócone oryginalne wartości ale z prostszym easing
+    // Przyspieszone animacje gradientu dla szybszego ruchu
     const travelX = BUTTON_SIZE * 1.6;
     const travelY = BUTTON_SIZE * 0.6;
-    const durationX = 4200;
-    const durationY = 3800;
+    const durationX = 2500; // Przyspieszone z 4200ms
+    const durationY = 2200; // Przyspieszone z 3800ms
 
     borderShiftX.value = -travelX;
     borderShiftY.value = -travelY;

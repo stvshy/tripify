@@ -476,12 +476,12 @@ const InteractiveMapComponent = forwardRef<
       cancelAnimation(borderShiftY);
     } catch {}
 
-    // Przywrócone oryginalne random animacje ale z prostszym easing
+    // Przyspieszone random animacje gradientu dla szybszego ruchu
     const totalWidth = BUTTON_SIZE * 2.2;
     const travelX = totalWidth * (0.55 + Math.random() * 0.2); // 55%..75% width
     const travelY = BUTTON_SIZE * (0.1 + Math.random() * 0.12); // 10%..22% height
-    const durX = Math.round(1300 + Math.random() * 700);
-    const durY = Math.round(1200 + Math.random() * 600);
+    const durX = Math.round(800 + Math.random() * 400); // Przyspieszone z 1300-2000ms do 800-1200ms
+    const durY = Math.round(700 + Math.random() * 350); // Przyspieszone z 1200-1800ms do 700-1050ms
 
     borderShiftX.value = -travelX;
     borderShiftY.value = -travelY;
