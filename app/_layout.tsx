@@ -101,7 +101,7 @@ function NavBarManager({
   useEffect(() => {
     if (isLoadingAuth) {
       // Hide navbar during splash screen
-      hideNavBar();
+      NavigationBar.setVisibilityAsync("hidden");
     }
   }, [isLoadingAuth]);
 
@@ -134,7 +134,10 @@ function NavBarManager({
         console.log(
           `Setting navbar: route=${currentRoute}, dark=${isDarkTheme}, color=${navbarColor}`
         );
-        restoreNavBar(navbarColor, isDarkTheme);
+        NavigationBar.setPositionAsync("relative");
+        NavigationBar.setBackgroundColorAsync(navbarColor);
+        NavigationBar.setButtonStyleAsync(isDarkTheme ? "light" : "dark");
+        NavigationBar.setVisibilityAsync("visible");
       }
     };
 
@@ -172,7 +175,10 @@ function NavBarManager({
         `Theme change - Setting navbar: route=${currentRoute}, dark=${isDarkTheme}, color=${navbarColor}`
       );
       // Immediate change for better responsiveness
-      restoreNavBar(navbarColor, isDarkTheme);
+      NavigationBar.setPositionAsync("relative");
+      NavigationBar.setBackgroundColorAsync(navbarColor);
+      NavigationBar.setButtonStyleAsync(isDarkTheme ? "light" : "dark");
+      NavigationBar.setVisibilityAsync("visible");
     }
   }, [isDarkTheme, initialRouteName, isLoadingAuth, theme.colors.surface]);
 
