@@ -44,7 +44,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { useCommunityStore } from "../store/communityStore";
 import { useLocalCount } from "../config/LocalCountContext";
-import { moderateScale, ScaledSheet } from "react-native-size-matters";
+import { moderateScale, ScaledSheet, vs } from "react-native-size-matters";
 const mmkv = new MMKV();
 const db = getFirestore();
 const persister = createSyncStoragePersister({
@@ -344,7 +344,7 @@ const TabLayoutContent: React.FC = () => {
   const handleNavigateToAccount = () => {
     router.push("/account");
   };
-  const HEADER_HEIGHT = 75; // Stała wysokość headera w pikselach
+  // const HEADER_HEIGHT = 75; // Stała wysokość headera w pikselach
   const TAB_BAR_HEIGHT = 50; // Stała wysokość paska zakładek w pikselach
   const TAB_ICON_MARGIN_TOP = 12; // Stały margines górny ikon w pikselach
   return (
@@ -354,29 +354,33 @@ const TabLayoutContent: React.FC = () => {
         backBehavior="none"
         screenOptions={{
           tabBarIconStyle: {
-            marginTop: TAB_ICON_MARGIN_TOP, // Stała wartość zamiast window.height * 0.014
+            // marginTop: moderateScale(12, 0.3),// Stała wartość zamiast window.height * 0.014
           },
           tabBarActiveTintColor: theme.colors.primary,
           tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
           tabBarStyle: {
             backgroundColor: theme.colors.surface,
-            height: TAB_BAR_HEIGHT, // Stała wartość zamiast window.height * 0.067
+            height: moderateScale(47, 0.3), // Stała wartość zamiast window.height * 0.067
             borderTopWidth: 0,
-            justifyContent: "center",
+            // justifyContent: "center",
+            // paddingTop: moderateScale(10, 0.3),
+            // alignItems: "center",
           },
           tabBarItemStyle: {
+            flex: 1,
             justifyContent: "center",
             alignItems: "center",
-            marginTop: TAB_ICON_MARGIN_TOP, // Stała wartość zamiast window.height * 0.014
+            // marginBottom: moderateScale(-13, 0.3), // Stała wartość zamiast window.height * 0.014
           },
           headerStyle: {
             backgroundColor: theme.colors.surface,
-            height: HEADER_HEIGHT, // Stała wartość zamiast window.height * 0.108
+            height: vs(65), // Stała wartość zamiast window.height * 0.108
             shadowOpacity: 0,
+            // paddingBottom: moderateScale(5, 0.4),
             elevation: 0,
           },
           headerTitle: () => (
-            <SafeAreaView>
+            <SafeAreaView style={{ flex: 1 }}>
               <Pressable
                 onPress={handleNavigateToAccount}
                 style={({ pressed }) => [
@@ -414,11 +418,13 @@ const TabLayoutContent: React.FC = () => {
               </CustomTabBarButton>
             ),
             tabBarIcon: ({ color }) => (
-              <Ionicons
-                name="people"
-                size={moderateScale(25.5, 0.5)}
-                color={color}
-              />
+              <View style={styles.tabIconContainer}>
+                <Ionicons
+                  name="people"
+                  size={moderateScale(25.5, 0.5)}
+                  color={color}
+                />
+              </View>
             ),
             headerRight: () => (
               <Pressable
@@ -455,11 +461,13 @@ const TabLayoutContent: React.FC = () => {
               </CustomTabBarButton>
             ),
             tabBarIcon: ({ color }) => (
-              <Ionicons
-                name="earth"
-                size={moderateScale(25.5, 0.5)}
-                color={color}
-              />
+              <View style={styles.tabIconContainer}>
+                <Ionicons
+                  name="earth"
+                  size={moderateScale(25.5, 0.5)}
+                  color={color}
+                />
+              </View>
             ),
             headerRight: () => (
               <Pressable
@@ -512,6 +520,7 @@ const styles = ScaledSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    flex: 1,
   },
   pressedHeader: {
     opacity: 0.6,
@@ -533,6 +542,7 @@ const styles = ScaledSheet.create({
   tabIconContainer: {
     justifyContent: "center",
     alignItems: "center",
+    paddingTop: "7.7@mvs",
   },
   userIcon: {
     marginRight: "7@ms", // Skalowanie marginesu
