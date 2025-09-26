@@ -27,6 +27,7 @@ export default {
         "INTERNET",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
+        "SYSTEM_ALERT_WINDOW",
       ],
       androidStatusBar: {
         backgroundColor: "transparent",
@@ -35,7 +36,7 @@ export default {
       },
       androidNavigationBar: {
         visible: "sticky",
-        backgroundColor: "#F5F5F5",
+        backgroundColor: "transparent",
         barStyle: "dark-content",
       },
     },
@@ -77,7 +78,15 @@ export default {
             gradleProperties: {
               glideVersion: "4.13.2",
             },
+            enableProguardInReleaseBuilds: false,
+            enableShrinkResourcesInReleaseBuilds: false,
           },
+        },
+      ],
+      [
+        "react-native-edge-to-edge",
+        {
+          enforceNavigationBarContrast: false,
         },
       ],
     ],

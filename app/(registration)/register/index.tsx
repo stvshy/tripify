@@ -24,6 +24,13 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
+import {
+  hideNavBar,
+  showNavBar,
+  cleanupNavBarTimer,
+  startNavBarAutoHide,
+  stopNavBarAutoHide,
+} from "../../utils/navigationBar";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import {
   createUserWithEmailAndPassword,
@@ -31,6 +38,7 @@ import {
 } from "firebase/auth";
 import { auth } from "../../config/firebaseConfig";
 import { useRouter } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { getFirestore, setDoc, doc, serverTimestamp } from "firebase/firestore";
 import CustomStepIndicator from "../../../components/CustomStepIndicator";
 import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
@@ -59,6 +67,17 @@ export default function RegisterScreen() {
   const [isLoading, setIsLoading] = useState(false);
   //   const stepperHeight = useContext(StepperHeightContext);
   const router = useRouter();
+  // Ukryj pasek natychmiast po wejściu oraz przy każdym fokusie ekranu
+  useFocusEffect(
+    useCallback(() => {
+      // Wymuś ukrycie tuż po wejściu i restartuj auto-hide
+      hideNavBar();
+      startNavBarAutoHide();
+      return () => {
+        // nic – nie pokazujemy z powrotem aby uniknąć migotania
+      };
+    }, [])
+  );
 
   const [passwordRequirements, setPasswordRequirements] = useState({
     length: false,
@@ -91,6 +110,20 @@ export default function RegisterScreen() {
     }
   }, [resendTimer]);
 
+  // Hide nav bar by default on this auth screen
+  useEffect(() => {
+    // Krótka zwłoka, aby pozwolić systemowi dokończyć animacje stacka, potem ukryj
+    const t = setTimeout(() => {
+      hideNavBar();
+      startNavBarAutoHide();
+    }, 10);
+    return () => {
+      clearTimeout(t);
+      cleanupNavBarTimer();
+      stopNavBarAutoHide();
+    };
+  }, []);
+
   useEffect(() => {
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     setEmailError(
@@ -119,6 +152,9 @@ export default function RegisterScreen() {
       "keyboardDidHide",
       () => {
         setKeyboardVisible(false); // Klawiatura została ukryta
+        // Po zamknięciu klawiatury schowaj pasek i wznow auto-hide
+        hideNavBar();
+        startNavBarAutoHide();
       }
     );
 
@@ -266,6 +302,7 @@ export default function RegisterScreen() {
     >
       <View style={styles.overlay} />
       <SafeAreaView style={styles.screenContainer}>
+        {/* SystemBars removed to avoid native module requirement in current build */}
         {/* iOS: KAV padding; Android: bez KAV (eliminacja artefaktu nad klawiaturą) */}
         {Platform.OS === "ios" ? (
           <KeyboardAvoidingView

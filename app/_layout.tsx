@@ -4,7 +4,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as ExpoSplashScreen from "expo-splash-screen";
-import { useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { auth, db, app as firebaseApp } from "./config/firebaseConfig";
 import { View, StyleSheet } from "react-native";
 import LoadingScreen from "@/components/LoadingScreen";
@@ -20,7 +20,15 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as NavigationBar from "expo-navigation-bar";
+import {
+  hideNavBar,
+  restoreNavBar,
+  cleanupNavBarTimer,
+  startNavBarAutoHide,
+  stopNavBarAutoHide,
+} from "./utils/navigationBar";
 import { useTheme } from "react-native-paper";
+import { useContext } from "react";
 import { getStorage, ref, listAll, getDownloadURL } from "firebase/storage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import FastImage from "@d11/react-native-fast-image";
@@ -79,14 +87,111 @@ const fetchAndCacheBackgrounds = async () => {
     );
     await AsyncStorage.setItem(CACHED_URLS_KEY, JSON.stringify(urls));
     const preloadObjects = urls.map((url) => ({ uri: url }));
-    FastImage.preload(preloadObjects);
+    // Check if FastImage.preload is available before calling
+    if (FastImage && typeof FastImage.preload === "function") {
+      FastImage.preload(preloadObjects);
+    }
   } catch (error) {
     console.error("Error fetching/caching splash backgrounds:", error);
   }
 };
 
+// Component that manages navbar inside ThemeProvider
+function NavBarManager({
+  initialRouteName,
+  isLoadingAuth,
+}: {
+  initialRouteName: string | null;
+  isLoadingAuth: boolean;
+}) {
+  const { isDarkTheme } = useContext(ThemeContext);
+  const theme = useTheme();
+
+  // Hide navbar during splash screen (loading)
+  useEffect(() => {
+    if (isLoadingAuth) {
+      // Hide navbar during splash screen
+      hideNavBar();
+    }
+  }, [isLoadingAuth]);
+
+  // Global navigation bar management based on current route
+  useEffect(() => {
+    console.log(
+      `Route/Auth changed: isDarkTheme=${isDarkTheme}, initialRouteName=${initialRouteName}, isLoadingAuth=${isLoadingAuth}`
+    );
+    const manageNavBar = () => {
+      const currentRoute = initialRouteName;
+
+      // Auth screens: these handle their own navbar management (hide with auto-hide)
+      const authScreens = [
+        "welcome",
+        "setNickname",
+        "chooseCountries",
+        "forgotPassword",
+        "(registration)",
+      ];
+
+      if (authScreens.includes(currentRoute || "")) {
+        // These screens handle their own navbar management
+        return;
+      }
+
+      // All other screens: restore normal navbar with theme color
+      if (currentRoute && !authScreens.includes(currentRoute)) {
+        // Use theme colors for proper theming
+        const navbarColor = theme.colors.surface;
+        console.log(
+          `Setting navbar: route=${currentRoute}, dark=${isDarkTheme}, color=${navbarColor}`
+        );
+        restoreNavBar(navbarColor, isDarkTheme);
+      }
+    };
+
+    if (initialRouteName && !isLoadingAuth) {
+      manageNavBar();
+    }
+  }, [initialRouteName, isLoadingAuth]);
+
+  // Separate useEffect for theme changes
+  useEffect(() => {
+    console.log(
+      `🎨 Theme useEffect triggered: isDarkTheme=${isDarkTheme}, initialRouteName=${initialRouteName}, isLoadingAuth=${isLoadingAuth}`
+    );
+    const currentRoute = initialRouteName;
+
+    // Auth screens: these handle their own navbar management (hide with auto-hide)
+    const authScreens = [
+      "welcome",
+      "setNickname",
+      "chooseCountries",
+      "forgotPassword",
+      "(registration)",
+    ];
+
+    if (authScreens.includes(currentRoute || "")) {
+      // These screens handle their own navbar management
+      return;
+    }
+
+    // All other screens: restore normal navbar with theme color
+    if (currentRoute && !authScreens.includes(currentRoute) && !isLoadingAuth) {
+      // Use theme colors for proper theming
+      const navbarColor = theme.colors.surface;
+      console.log(
+        `Theme change - Setting navbar: route=${currentRoute}, dark=${isDarkTheme}, color=${navbarColor}`
+      );
+      // Immediate change for better responsiveness
+      restoreNavBar(navbarColor, isDarkTheme);
+    }
+  }, [isDarkTheme, initialRouteName, isLoadingAuth, theme.colors.surface]);
+
+  return null; // This component doesn't render anything
+}
+
 export default function RootLayout() {
   const isLoadingAuth = useAuthStore((state) => state.isLoadingAuth);
+  const theme = useTheme();
 
   // AKCJE (funkcje) pobieramy pojedynczo, używając selektorów.
   // To gwarantuje, że ich referencje będą stabilne.
@@ -125,6 +230,13 @@ export default function RootLayout() {
   });
   const [initialRouteName, setInitialRouteName] = useState<string | null>(null);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
+  // Hide navbar during splash screen (loading)
+  useEffect(() => {
+    if (isLoadingAuth) {
+      // Hide navbar during splash screen
+      hideNavBar();
+    }
+  }, [isLoadingAuth]);
 
   // Inicjalizacje (bez zmian)
   useEffect(() => {
@@ -292,6 +404,10 @@ export default function RootLayout() {
       >
         <DraxProvider>
           <ThemeProvider>
+            <NavBarManager
+              initialRouteName={initialRouteName}
+              isLoadingAuth={isLoadingAuth}
+            />
             <ThemedStatusBarAndNavBar tooltipVisible={false} />
             <QueryClientProvider client={queryClient}>
               <CountriesProvider>
@@ -321,12 +437,7 @@ function ThemedStatusBarAndNavBar({
   const theme = useTheme();
 
   useEffect(() => {
-    // Ustaw kolor tła paska nawigacji (dolnego)
-    NavigationBar.setBackgroundColorAsync(
-      isDarkTheme ? theme.colors.surface : theme.colors.surface
-    );
-    // Ustaw styl przycisków paska nawigacji (dolnego)
-    NavigationBar.setButtonStyleAsync(isDarkTheme ? "light" : "dark");
+    // Do not touch nav bar background/buttons here to avoid initial flicker.
   }, [isDarkTheme, theme.colors.surface]);
 
   return (

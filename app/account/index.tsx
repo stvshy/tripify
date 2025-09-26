@@ -548,6 +548,8 @@ export default function AccountScreen() {
   );
   const [menuMounted, setMenuMounted] = useState(false);
   useEffect(() => {
+    // Navigation bar is managed globally in _layout.tsx
+
     const t = InteractionManager.runAfterInteractions(() =>
       setMenuMounted(true)
     );

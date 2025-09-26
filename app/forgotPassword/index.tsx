@@ -22,6 +22,13 @@ import EmailInput from "./EmailInput";
 import ActionButtons from "./ActionButtons";
 import StatusMessages from "./StatusMessages";
 import { useKeyboardAnimation } from "./useKeyboardAnimation";
+import {
+  hideNavBar,
+  showNavBar,
+  cleanupNavBarTimer,
+  startNavBarAutoHide,
+  stopNavBarAutoHide,
+} from "../utils/navigationBar";
 
 const { width, height } = Dimensions.get("window");
 
@@ -72,17 +79,29 @@ export default function ForgotPasswordScreen() {
     );
     const keyboardDidHideListener = Keyboard.addListener(
       "keyboardDidHide",
-      handleKeyboardHide
+      () => {
+        handleKeyboardHide();
+        hideNavBar();
+        startNavBarAutoHide();
+      }
     );
     const backHandler = BackHandler.addEventListener(
       "hardwareBackPress",
       handleBackPress
     );
 
+    const t = setTimeout(() => {
+      hideNavBar();
+      startNavBarAutoHide();
+    }, 10);
+
     return () => {
+      clearTimeout(t);
       keyboardDidShowListener?.remove();
       keyboardDidHideListener?.remove();
       backHandler.remove();
+      cleanupNavBarTimer();
+      stopNavBarAutoHide();
     };
   }, [handleKeyboardHide, handleBackPress]);
 
@@ -163,6 +182,7 @@ export default function ForgotPasswordScreen() {
       >
         <View style={styles.overlay} />
         <SafeAreaView style={styles.container}>
+          {/* SystemBars removed to avoid native module requirement in current build */}
           <Animated.View
             style={[
               styles.contentContainer,

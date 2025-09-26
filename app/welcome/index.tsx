@@ -16,6 +16,17 @@ import {
   BackHandler,
   TextInput as RNTextInput,
 } from "react-native";
+import * as NavigationBar from "expo-navigation-bar";
+import * as SystemUI from "expo-system-ui";
+import { StatusBar } from "expo-status-bar";
+import {
+  hideNavBar,
+  showNavBar,
+  cleanupNavBarTimer,
+  startNavBarAutoHide,
+  stopNavBarAutoHide,
+} from "../utils/navigationBar";
+import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import {
   LoginManager,
@@ -89,6 +100,28 @@ export default function WelcomeScreen() {
       return () => clearInterval(timerId);
     }
   }, [resendTimer]);
+
+  // Prefer SystemBars to control transient nav bar; keep helpers as fallback
+  useEffect(() => {
+    hideNavBar();
+    startNavBarAutoHide();
+    return () => {
+      cleanupNavBarTimer();
+      stopNavBarAutoHide();
+    };
+  }, []);
+
+  // Ensure nav bar is hidden immediately on screen focus (prevents brief icon flash)
+  useFocusEffect(
+    useCallback(() => {
+      hideNavBar();
+      startNavBarAutoHide();
+      return () => {
+        cleanupNavBarTimer();
+        stopNavBarAutoHide();
+      };
+    }, [])
+  );
 
   useEffect(() => {
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -489,6 +522,7 @@ export default function WelcomeScreen() {
   return (
     <TouchableWithoutFeedback onPress={handleScreenPress}>
       <View style={styles.background}>
+        {/* SystemBars removed to avoid native module requirement in current build */}
         <GradientBackdrop />
         <SafeAreaView style={styles.container}>
           <KeyboardAvoidingView

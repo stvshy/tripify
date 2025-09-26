@@ -44,6 +44,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { useCommunityStore } from "../store/communityStore";
 import { useLocalCount } from "../config/LocalCountContext";
+import { moderateScale, ScaledSheet } from "react-native-size-matters";
 const mmkv = new MMKV();
 const db = getFirestore();
 const persister = createSyncStoragePersister({
@@ -136,7 +137,7 @@ function VisitedToggle() {
         style={{
           marginRight: 7,
           color: theme.colors.onSurface,
-          fontSize: 14.3,
+          fontSize: moderateScale(14.3, 0.4),
           fontFamily: "Figtree-Regular",
         }}
       >
@@ -144,7 +145,7 @@ function VisitedToggle() {
       </Text>
       <MaterialCommunityIcons
         name={iconName}
-        size={20}
+        size={moderateScale(20, 0.5)}
         color={theme.colors.primary}
         style={{ marginRight: -2 }}
       />
@@ -179,6 +180,8 @@ const TabLayoutContent: React.FC = () => {
         "userProfile:",
         userProfile
       );
+
+      // Navigation bar is managed globally in _layout.tsx
 
       // 1. Jeśli RootLayout nadal ładuje, nic nie rób tutaj.
       //    RootLayout sam pokaże LoadingScreen.
@@ -383,7 +386,7 @@ const TabLayoutContent: React.FC = () => {
               >
                 <AntDesign
                   name="user"
-                  size={19}
+                  size={moderateScale(19.2, 0.5)}
                   color={theme.colors.onSurface}
                   style={styles.userIcon}
                 />
@@ -411,7 +414,11 @@ const TabLayoutContent: React.FC = () => {
               </CustomTabBarButton>
             ),
             tabBarIcon: ({ color }) => (
-              <Ionicons name="people" size={26} color={color} />
+              <Ionicons
+                name="people"
+                size={moderateScale(25.5, 0.5)}
+                color={color}
+              />
             ),
             headerRight: () => (
               <Pressable
@@ -424,8 +431,11 @@ const TabLayoutContent: React.FC = () => {
                 <View style={{ position: "relative" }}>
                   <Ionicons
                     name="mail-outline"
-                    size={23}
+                    size={moderateScale(23, 0.5)}
                     color={theme.colors.onSurface}
+                    style={{
+                      transform: [{ translateY: moderateScale(1.1, 0.5) }],
+                    }}
                   />
                   <Badge count={friendRequestsCount} />
                 </View>
@@ -445,7 +455,11 @@ const TabLayoutContent: React.FC = () => {
               </CustomTabBarButton>
             ),
             tabBarIcon: ({ color }) => (
-              <Ionicons name="earth" size={26} color={color} />
+              <Ionicons
+                name="earth"
+                size={moderateScale(25.5, 0.5)}
+                color={color}
+              />
             ),
             headerRight: () => (
               <Pressable
@@ -459,7 +473,7 @@ const TabLayoutContent: React.FC = () => {
               >
                 <AntDesign
                   name="search1"
-                  size={20.1}
+                  size={moderateScale(19.9, 0.5)}
                   color={theme.colors.onSurface}
                 />
               </Pressable>
@@ -478,7 +492,11 @@ const TabLayoutContent: React.FC = () => {
             ),
             tabBarIcon: ({ color }) => (
               <View style={styles.tabIconContainer}>
-                <FontAwesome6 name="list-check" size={22} color={color} />
+                <FontAwesome6
+                  name="list-check"
+                  size={moderateScale(21.5, 0.5)}
+                  color={color}
+                />
               </View>
             ),
             headerRight: () => <VisitedToggle />,
@@ -489,7 +507,7 @@ const TabLayoutContent: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = ScaledSheet.create({
   headerTitleContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -517,33 +535,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   userIcon: {
-    marginRight: 8,
-    marginLeft: -4,
+    marginRight: "7@ms", // Skalowanie marginesu
+    marginLeft: "-3@ms", // Skalowanie marginesu
   },
   headerTitleText: {
-    fontSize: 17,
+    fontSize: "17.2@ms0.4",
     fontFamily: "Figtree-Regular",
   },
   badgeContainer: {
     position: "absolute",
-    right: -6,
-    top: -3,
-    // backgroundColor: "#8A2BE2",
-    borderRadius: 8,
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    minWidth: 16,
+    right: "-6@ms", // Skalowanie pozycji
+    top: "-3@mvs", // Skalowanie pozycji
+    borderRadius: "8@ms", // Skalowanie zaokrąglenia
+    paddingHorizontal: "4@ms",
+    paddingVertical: "1@mvs",
+    minWidth: "16@ms",
     alignItems: "center",
     justifyContent: "center",
   },
   badgeText: {
     color: "#fff",
-    fontSize: 10,
+    fontSize: "10@ms0.3",
     fontWeight: "bold",
   },
   visitedCountriesContainer: {
-    marginRight: 16,
-    borderRadius: 12,
+    marginRight: "16@ms",
+    borderRadius: "12@ms",
   },
   visitedCountriesText: {
     color: "#fff",

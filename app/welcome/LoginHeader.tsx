@@ -26,7 +26,7 @@ const LoginHeader = React.memo(function LoginHeader({
       >
         {errorMessage ||
           verificationMessage ||
-          "Sign in to continue your journey and discover new places."}
+          "Sign in to map your journey and discover destinations"}
       </Text>
     </View>
   );

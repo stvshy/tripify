@@ -35,6 +35,13 @@ import { sendEmailVerification } from "firebase/auth";
 import { auth } from "../../config/firebaseConfig";
 import { useRouter } from "expo-router";
 import CustomStepIndicator from "../../../components/CustomStepIndicator"; // <<< DODANE
+import {
+  hideNavBar,
+  showNavBar,
+  cleanupNavBarTimer,
+  startNavBarAutoHide,
+  stopNavBarAutoHide,
+} from "../../utils/navigationBar";
 import { Ionicons } from "@expo/vector-icons";
 
 const { width, height } = Dimensions.get("window");
@@ -61,6 +68,20 @@ export default function SetNicknameScreen() {
       return () => clearInterval(timerId);
     }
   }, [resendTimer]);
+
+  // Hide nav bar by default on this auth screen
+  useEffect(() => {
+    // krótka zwłoka i ukrycie – stabilność po animacji przejścia
+    const t = setTimeout(() => {
+      hideNavBar();
+      startNavBarAutoHide();
+    }, 10);
+    return () => {
+      clearTimeout(t);
+      cleanupNavBarTimer();
+      stopNavBarAutoHide();
+    };
+  }, []);
 
   useEffect(() => {
     const backAction = () => {
@@ -328,6 +349,7 @@ export default function SetNicknameScreen() {
     >
       <View style={styles.overlay} />
       <SafeAreaView style={styles.safeAreaContainer}>
+        {/* SystemBars removed to avoid native module requirement in current build */}
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardAvoidingViewContainer}

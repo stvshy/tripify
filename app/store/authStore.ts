@@ -46,17 +46,33 @@ export const useAuthStore = create<AuthState & AuthActions>()((set, get) => ({
   },
   listenToFriendRequests: (uid: string) => {
     get().unsubscribeRequests?.();
-    const requestsRef = collection(db, "users", uid, "incomingFriendRequests");
-    const unsubscribe = onSnapshot(
-      requestsRef,
-      (snapshot) => {
-        set({ friendRequestsCount: snapshot.size });
-      },
-      (error) => {
-        console.error("Error listening to friend requests count:", error);
-        set({ friendRequestsCount: 0 });
-      }
-    );
-    set({ unsubscribeRequests: unsubscribe });
+    try {
+      const requestsRef = collection(
+        db,
+        "users",
+        uid,
+        "incomingFriendRequests"
+      );
+      const unsubscribe = onSnapshot(
+        requestsRef,
+        (snapshot) => {
+          set({ friendRequestsCount: snapshot.size });
+        },
+        (error) => {
+          // Silently handle permission errors - user might not have access yet
+          if (error.code === "permission-denied") {
+            console.log("Friend requests collection not accessible yet");
+            set({ friendRequestsCount: 0 });
+          } else {
+            console.error("Error listening to friend requests count:", error);
+            set({ friendRequestsCount: 0 });
+          }
+        }
+      );
+      set({ unsubscribeRequests: unsubscribe });
+    } catch (error) {
+      console.log("Friend requests listener setup failed:", error);
+      set({ friendRequestsCount: 0 });
+    }
   },
 }));

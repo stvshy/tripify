@@ -459,6 +459,8 @@ export default function ChooseCountriesScreen({
     return result;
   }, [filterQuery, allCountries]);
   useEffect(() => {
+    // Navigation bar is managed globally in _layout.tsx
+
     const checkPopup = async () => {
       try {
         const value = await AsyncStorage.getItem("hasShownPopup");
