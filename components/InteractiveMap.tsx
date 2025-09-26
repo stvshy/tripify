@@ -403,18 +403,18 @@ const InteractiveMapComponent = forwardRef<
   // Synchronize: when showNewIndicator becomes true, start animations immediately
   useLayoutEffect(() => {
     if (!showNewIndicator) return;
-    // Start button scale animation immediately
+    // Start button scale animation immediately - przywrócone oryginalne
     newButtonScale.value = 1.0;
     newButtonScale.value = withSequence(
-      withTiming(1.13, { duration: 120, easing: Easing.out(Easing.ease) }),
-      withTiming(1.0, { duration: 180, easing: Easing.out(Easing.ease) })
+      withTiming(1.13, { duration: 120, easing: Easing.out(Easing.ease) }), // Oryginalne
+      withTiming(1.0, { duration: 180, easing: Easing.out(Easing.ease) }) // Oryginalne
     );
   }, [showNewIndicator]);
 
   // Also handle the local forced visibility path (before provider flips)
   useLayoutEffect(() => {
     if (!forceNewVisible) return;
-    // Immediate scale pop without waiting a frame
+    // Immediate scale pop without waiting a frame - przywrócone oryginalne
     try {
       cancelAnimation(newButtonScale);
       cancelAnimation(confettiOpacity);
@@ -422,8 +422,8 @@ const InteractiveMapComponent = forwardRef<
     toggleProgress.value = 1;
     newButtonScale.value = 1.0;
     newButtonScale.value = withSequence(
-      withTiming(1.08, { duration: 80, easing: Easing.out(Easing.ease) }),
-      withTiming(1.0, { duration: 110, easing: Easing.out(Easing.ease) })
+      withTiming(1.08, { duration: 80, easing: Easing.out(Easing.ease) }), // Oryginalne
+      withTiming(1.0, { duration: 110, easing: Easing.out(Easing.ease) }) // Oryginalne
     );
     // Start confetti immediately after mount
     try {
@@ -475,17 +475,20 @@ const InteractiveMapComponent = forwardRef<
       cancelAnimation(borderShiftX);
       cancelAnimation(borderShiftY);
     } catch {}
+
+    // Przywrócone oryginalne random animacje ale z prostszym easing
     const totalWidth = BUTTON_SIZE * 2.2;
     const travelX = totalWidth * (0.55 + Math.random() * 0.2); // 55%..75% width
     const travelY = BUTTON_SIZE * (0.1 + Math.random() * 0.12); // 10%..22% height
     const durX = Math.round(1300 + Math.random() * 700);
     const durY = Math.round(1200 + Math.random() * 600);
+
     borderShiftX.value = -travelX;
     borderShiftY.value = -travelY;
     borderShiftX.value = withRepeat(
       withTiming(travelX, {
         duration: durX,
-        easing: Easing.inOut(Easing.ease),
+        easing: Easing.inOut(Easing.ease), // Prostsze easing dla lepszej wydajności
       }),
       -1,
       true
@@ -493,7 +496,7 @@ const InteractiveMapComponent = forwardRef<
     borderShiftY.value = withRepeat(
       withTiming(travelY, {
         duration: durY,
-        easing: Easing.inOut(Easing.ease),
+        easing: Easing.inOut(Easing.ease), // Prostsze easing dla lepszej wydajności
       }),
       -1,
       true
@@ -534,10 +537,10 @@ const InteractiveMapComponent = forwardRef<
   const showNewSV = useSharedValue(showNewIndicator || forceNewVisible ? 1 : 0);
 
   useEffect(() => {
-    // Natychmiastowe pojawienie na wejściu (zero ms), szybkie wygaszanie
+    // Natychmiastowe pojawienie na wejściu (zero ms), szybkie wygaszanie - przywrócone oryginalne
     const appearing = !prevShowRef.current && showNewIndicator;
     toggleProgress.value = withTiming(showNewIndicator ? 1 : 0, {
-      duration: showNewIndicator ? (appearing ? 0 : 120) : 140,
+      duration: showNewIndicator ? (appearing ? 0 : 120) : 140, // Oryginalne
       easing: Easing.out(Easing.ease),
     });
     prevShowRef.current = showNewIndicator;
@@ -547,7 +550,7 @@ const InteractiveMapComponent = forwardRef<
   // Layout-efekt, który w pierwszej klatce po ustawieniu showNewIndicator ustawia widok bez animacji
   useLayoutEffect(() => {
     if (showNewIndicator && !prevShowRef.current) {
-      // Zero-delay show and immediate confetti start to perfectly sync with highlights
+      // Zero-delay show and immediate confetti start to perfectly sync with highlights - przywrócone oryginalne
       toggleProgress.value = 1;
       try {
         cancelAnimation(newButtonScale);
@@ -556,8 +559,8 @@ const InteractiveMapComponent = forwardRef<
       // no pre-hide of button; confetti wrapper managed separately
       newButtonScale.value = 1.0;
       newButtonScale.value = withSequence(
-        withTiming(1.08, { duration: 80, easing: Easing.out(Easing.ease) }),
-        withTiming(1.0, { duration: 110, easing: Easing.out(Easing.ease) })
+        withTiming(1.08, { duration: 80, easing: Easing.out(Easing.ease) }), // Oryginalne
+        withTiming(1.0, { duration: 110, easing: Easing.out(Easing.ease) }) // Oryginalne
       );
       // rely on ConfettiCannon autoStart on remount
     }

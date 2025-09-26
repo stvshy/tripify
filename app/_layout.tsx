@@ -53,177 +53,119 @@ if (Platform.OS === "android") {
 
 ExpoSplashScreen.preventAutoHideAsync();
 
-function AppNavigator({ initialRouteName }: { initialRouteName: string }) {
-  const theme = useTheme(); // Używamy hooka, aby pobrać motyw
+const AppNavigator = React.memo(
+  ({ initialRouteName }: { initialRouteName: string }) => {
+    const theme = useTheme();
 
-  return (
-    <Stack
-      initialRouteName={initialRouteName}
-      screenOptions={{
-        headerShown: false,
-        // === KLUCZOWA ZMIANA ===
-        // Ustawiamy kolor tła bezpośrednio tutaj!
-        contentStyle: { backgroundColor: theme.colors.background },
-        presentation: "card",
-        animation: "ios",
-        gestureEnabled: true,
-        gestureDirection: "horizontal",
-      }}
-    >
-      {/* Skopiuj wszystkie ekrany ze swojego oryginalnego Stack'a */}
-      <Stack.Screen name="welcome/index" options={{ animation: "fade" }} />
-      <Stack.Screen name="setNickname/index" />
-      <Stack.Screen name="chooseCountries/index" />
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="(registration)" />
-      <Stack.Screen name="forgotPassword/index" />
-      <Stack.Screen name="login/index" />
-      {/* Możesz też dodać ekran profilu, jeśli chcesz mieć nad nim specyficzną kontrolę */}
-      <Stack.Screen name="profile/[uid]" />
-    </Stack>
-  );
-}
+    return (
+      <Stack
+        initialRouteName={initialRouteName}
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: theme.colors.background },
+          presentation: "card",
+          animation: "ios",
+          gestureEnabled: true,
+          gestureDirection: "horizontal",
+        }}
+      >
+        <Stack.Screen name="welcome/index" options={{ animation: "fade" }} />
+        <Stack.Screen name="setNickname/index" />
+        <Stack.Screen name="chooseCountries/index" />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(registration)" />
+        <Stack.Screen name="forgotPassword/index" />
+        <Stack.Screen name="login/index" />
+        <Stack.Screen name="profile/[uid]" />
+      </Stack>
+    );
+  }
+);
+
+AppNavigator.displayName = "AppNavigator";
 
 const queryClient = new QueryClient();
 
-// Component that manages navbar inside ThemeProvider
-function NavBarManager({
-  initialRouteName,
-  isLoadingAuth,
-}: {
-  initialRouteName: string | null;
-  isLoadingAuth: boolean;
-}) {
-  const { isDarkTheme } = useContext(ThemeContext);
-  const theme = useTheme();
+// Optimized NavBarManager with reduced re-renders
+const NavBarManager = React.memo(
+  ({
+    initialRouteName,
+    isLoadingAuth,
+  }: {
+    initialRouteName: string | null;
+    isLoadingAuth: boolean;
+  }) => {
+    const { isDarkTheme } = useContext(ThemeContext);
+    const theme = useTheme();
 
-  // Hide navbar during splash screen (loading)
-  useEffect(() => {
-    if (isLoadingAuth) {
-      // Hide navbar during splash screen
-      NavigationBar.setVisibilityAsync("hidden");
-    }
-  }, [isLoadingAuth]);
-
-  // Global navigation bar management based on current route
-  useEffect(() => {
-    console.log(
-      `Route/Auth changed: isDarkTheme=${isDarkTheme}, initialRouteName=${initialRouteName}, isLoadingAuth=${isLoadingAuth}`
-    );
-    const manageNavBar = () => {
-      const currentRoute = initialRouteName;
-
-      // Auth screens: these handle their own navbar management (hide with auto-hide)
-      const authScreens = [
+    // Memoize auth screens list to prevent recreation
+    const authScreens = React.useMemo(
+      () => [
         "welcome",
         "setNickname",
         "chooseCountries",
         "forgotPassword",
         "(registration)",
-      ];
+      ],
+      []
+    );
 
-      if (authScreens.includes(currentRoute || "")) {
-        // These screens handle their own navbar management
+    // Optimized navbar management with single useEffect
+    useEffect(() => {
+      if (isLoadingAuth) {
+        NavigationBar.setVisibilityAsync("hidden");
+        return;
+      }
+
+      const currentRoute = initialRouteName;
+
+      if (!currentRoute || authScreens.includes(currentRoute)) {
         return;
       }
 
       // All other screens: restore normal navbar with theme color
-      if (currentRoute && !authScreens.includes(currentRoute)) {
-        // Use theme colors for proper theming
-        const navbarColor = theme.colors.surface;
-        console.log(
-          `Setting navbar: route=${currentRoute}, dark=${isDarkTheme}, color=${navbarColor}`
-        );
-        NavigationBar.setPositionAsync("relative");
-        NavigationBar.setBackgroundColorAsync(navbarColor);
-        NavigationBar.setButtonStyleAsync(isDarkTheme ? "light" : "dark");
-        NavigationBar.setVisibilityAsync("visible");
-      }
-    };
-
-    if (initialRouteName && !isLoadingAuth) {
-      manageNavBar();
-    }
-  }, [initialRouteName, isLoadingAuth]);
-
-  // Separate useEffect for theme changes
-  useEffect(() => {
-    console.log(
-      `🎨 Theme useEffect triggered: isDarkTheme=${isDarkTheme}, initialRouteName=${initialRouteName}, isLoadingAuth=${isLoadingAuth}`
-    );
-    const currentRoute = initialRouteName;
-
-    // Auth screens: these handle their own navbar management (hide with auto-hide)
-    const authScreens = [
-      "welcome",
-      "setNickname",
-      "chooseCountries",
-      "forgotPassword",
-      "(registration)",
-    ];
-
-    if (authScreens.includes(currentRoute || "")) {
-      // These screens handle their own navbar management
-      return;
-    }
-
-    // All other screens: restore normal navbar with theme color
-    if (currentRoute && !authScreens.includes(currentRoute) && !isLoadingAuth) {
-      // Use theme colors for proper theming
       const navbarColor = theme.colors.surface;
       console.log(
-        `Theme change - Setting navbar: route=${currentRoute}, dark=${isDarkTheme}, color=${navbarColor}`
+        `Setting navbar: route=${currentRoute}, dark=${isDarkTheme}, color=${navbarColor}`
       );
-      // Immediate change for better responsiveness
+
       NavigationBar.setPositionAsync("relative");
       NavigationBar.setBackgroundColorAsync(navbarColor);
       NavigationBar.setButtonStyleAsync(isDarkTheme ? "light" : "dark");
       NavigationBar.setVisibilityAsync("visible");
-    }
-  }, [isDarkTheme, initialRouteName, isLoadingAuth, theme.colors.surface]);
+    }, [
+      initialRouteName,
+      isLoadingAuth,
+      isDarkTheme,
+      theme.colors.surface,
+      authScreens,
+    ]);
 
-  return null; // This component doesn't render anything
-}
+    return null;
+  }
+);
+
+NavBarManager.displayName = "NavBarManager";
 
 export default function RootLayout() {
   const isLoadingAuth = useAuthStore((state) => state.isLoadingAuth);
-  const theme = useTheme();
-  const { isDarkTheme } = useContext(ThemeContext);
+  const firebaseUser = useAuthStore((state) => state.firebaseUser);
 
-  // AKCJE (funkcje) pobieramy pojedynczo, używając selektorów.
-  // To gwarantuje, że ich referencje będą stabilne.
+  // Memoize selectors to prevent unnecessary re-renders
   const setFirebaseUser = useAuthStore((state) => state.setFirebaseUser);
   const setUserProfile = useAuthStore((state) => state.setUserProfile);
   const setIsLoadingAuth = useAuthStore((state) => state.setIsLoadingAuth);
-  const setErrorAuth = useAuthStore((state) => state.setErrorAuth); // Jeśli używasz
 
   const listenForCommunityData = useCommunityStore(
     (state) => state.listenForCommunityData
   );
   const cleanupCommunity = useCommunityStore((state) => state.cleanup);
-  const firebaseUser = useAuthStore((state) => state.firebaseUser);
+  // Load only critical fonts initially for faster startup
   const [fontsLoaded, fontError] = useFonts({
-    "PlusJakartaSans-Bold": require("../assets/fonts/PlusJakartaSans-Bold.ttf"),
-    "DMSans-Bold": require("../assets/fonts/DMSans-Bold.ttf"),
-    "DMSans-SemiBold": require("../assets/fonts/DMSans-SemiBold.ttf"),
-    "Inter-Bold": require("../assets/fonts/Inter-Bold.ttf"),
-    "Inter-SemiBold": require("../assets/fonts/Inter-SemiBold.ttf"),
     "Inter-Regular": require("../assets/fonts/Inter-Regular.ttf"),
     "Inter-Medium": require("../assets/fonts/Inter-Medium.ttf"),
-    "Figtree-Regular": require("../assets/fonts/Figtree-Regular.ttf"),
-    "Figtree-SemiBold": require("../assets/fonts/Figtree-SemiBold.ttf"),
-    "Figtree-Medium": require("../assets/fonts/Figtree-Medium.ttf"),
-    "Figtree-Bold": require("../assets/fonts/Figtree-Bold.ttf"),
-    Inter: require("../assets/fonts/Inter-VariableFont_opsz,wght.ttf"),
-    "PlusJakartaSans-Regular": require("../assets/fonts/PlusJakartaSans-Regular.ttf"),
-    "PlusJakartaSans-Medium": require("../assets/fonts/PlusJakartaSans-Medium.ttf"),
-    "PlusJakartaSans-SemiBold": require("../assets/fonts/PlusJakartaSans-SemiBold.ttf"),
-    "PlusJakartaSans-ExtraBold": require("../assets/fonts/PlusJakartaSans-ExtraBold.ttf"),
-    "NotoSans-Regular": require("../assets/fonts/NotoSans-Regular.ttf"),
-    "NotoSans-Medium": require("../assets/fonts/NotoSans-Medium.ttf"),
-    "NotoSans-SemiBold": require("../assets/fonts/NotoSans-SemiBold.ttf"),
-    "NotoSans-Bold": require("../assets/fonts/NotoSans-Bold.ttf"),
-    "NotoSans-Black": require("../assets/fonts/NotoSans-Black.ttf"),
+    "Inter-SemiBold": require("../assets/fonts/Inter-SemiBold.ttf"),
+    "Inter-Bold": require("../assets/fonts/Inter-Bold.ttf"),
   });
   const [initialRouteName, setInitialRouteName] = useState<string | null>(null);
   const [isAppReady, setIsAppReady] = useState(false);
@@ -240,16 +182,18 @@ export default function RootLayout() {
   useEffect(() => {
     useCountryStore.getState().initializeCountries();
   }, []);
+
+  // Memoized finalizePreparation function
+  const finalizePreparation = React.useCallback((route: string) => {
+    setInitialRouteName(route);
+    setIsLoadingAuth(false);
+    setIsAppReady(true);
+  }, []);
+
   useEffect(() => {
     if (!fontsLoaded && !fontError) {
       return;
     }
-
-    const finalizePreparation = (route: string) => {
-      setInitialRouteName(route);
-      setIsLoadingAuth(false);
-      setIsAppReady(true);
-    };
 
     console.log("RootLayout: Setting up onAuthStateChanged listener.");
     setIsLoadingAuth(true);
@@ -405,7 +349,7 @@ export default function RootLayout() {
               initialRouteName={initialRouteName}
               isLoadingAuth={isLoadingAuth}
             />
-            <ThemedStatusBarAndNavBar tooltipVisible={false} />
+            <ThemedStatusBarAndNavBar />
             <QueryClientProvider client={queryClient}>
               <CountriesProvider>
                 <MapStateProvider>
@@ -424,18 +368,9 @@ export default function RootLayout() {
   );
 }
 
-// Komponent do stylizacji paska statusu i nawigacji
-function ThemedStatusBarAndNavBar({
-  tooltipVisible,
-}: {
-  tooltipVisible: boolean;
-}) {
+// Memoized status bar component
+const ThemedStatusBarAndNavBar = React.memo(() => {
   const { isDarkTheme } = useContext(ThemeContext);
-  const theme = useTheme();
-
-  useEffect(() => {
-    // Do not touch nav bar background/buttons here to avoid initial flicker.
-  }, [isDarkTheme, theme.colors.surface]);
 
   return (
     <StatusBar
@@ -444,7 +379,9 @@ function ThemedStatusBarAndNavBar({
       translucent
     />
   );
-}
+});
+
+ThemedStatusBarAndNavBar.displayName = "ThemedStatusBarAndNavBar";
 
 const styles = StyleSheet.create({
   rootLayoutBackground: {

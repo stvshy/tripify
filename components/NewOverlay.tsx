@@ -25,6 +25,7 @@ import Animated, {
 import { LinearGradient } from "expo-linear-gradient";
 import ConfettiCannon from "react-native-confetti-cannon";
 import { useTheme } from "react-native-paper";
+import OptimizedConfetti from "./PerformanceOptimizedConfetti";
 
 type Props = {
   visible: boolean;
@@ -38,8 +39,8 @@ type Props = {
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 const BUTTON_SIZE = Math.min(screenWidth, screenHeight) * 0.08;
 const ICON_SIZE = BUTTON_SIZE * 0.5;
-const MORPH_DURATION = 380; // centralize to sync confetti delay
-const COLLAPSE_DURATION = 260; // quick, smooth reverse morph
+const MORPH_DURATION = 380; // Przywrócone oryginalne
+const COLLAPSE_DURATION = 260; // Przywrócone oryginalne
 const COLLAPSE_TARGET = 0; // collapse to a perfect circle
 
 // Confetti origin tuning (mirrors InteractiveMap defaults)
@@ -75,28 +76,7 @@ type ConfettiProps = {
   isMapActive: boolean;
 };
 
-const ConfettiWrapper = React.memo(function ConfettiWrapper({
-  visible,
-  origin,
-  colors,
-  updateSequence,
-  isMapActive,
-}: ConfettiProps) {
-  if (!visible) return null;
-  return (
-    <ConfettiCannon
-      key={`confetti-${updateSequence}-${isMapActive ? 1 : 0}-${visible ? 1 : 0}`}
-      count={140}
-      origin={origin}
-      colors={colors}
-      fadeOut
-      autoStart
-      autoStartDelay={MORPH_DURATION}
-      explosionSpeed={700}
-      fallSpeed={2400}
-    />
-  );
-});
+// Usunięto ConfettiWrapper - używamy teraz OptimizedConfetti
 
 function computeConfettiOrigin() {
   const buttonWidth = BUTTON_SIZE * 2.2;
@@ -221,16 +201,19 @@ const NewOverlay: React.FC<Props> = ({
     try {
       cancelAnimation(borderShiftY);
     } catch {}
+
+    // Przywrócone oryginalne wartości ale z prostszym easing
     const travelX = BUTTON_SIZE * 1.6;
     const travelY = BUTTON_SIZE * 0.6;
     const durationX = 4200;
     const durationY = 3800;
+
     borderShiftX.value = -travelX;
     borderShiftY.value = -travelY;
     borderShiftX.value = withRepeat(
       withTiming(travelX, {
         duration: durationX,
-        easing: Easing.inOut(Easing.quad),
+        easing: Easing.inOut(Easing.ease), // Prostsze easing dla lepszej wydajności
       }),
       -1,
       true
@@ -238,7 +221,7 @@ const NewOverlay: React.FC<Props> = ({
     borderShiftY.value = withRepeat(
       withTiming(travelY, {
         duration: durationY,
-        easing: Easing.inOut(Easing.quad),
+        easing: Easing.inOut(Easing.ease), // Prostsze easing dla lepszej wydajności
       }),
       -1,
       true
@@ -411,7 +394,7 @@ const NewOverlay: React.FC<Props> = ({
         pointerEvents="none"
         style={[CONFETTI_CONTAINER_STYLE, confettiWrapperAnimatedStyle]}
       >
-        <ConfettiWrapper
+        <OptimizedConfetti
           visible={visible && !collapsing}
           origin={confettiOrigin}
           colors={confettiColors}

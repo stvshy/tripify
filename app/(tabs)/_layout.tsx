@@ -44,6 +44,7 @@ import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persist
 import { useCommunityStore } from "../store/communityStore";
 import { useLocalCount } from "../config/LocalCountContext";
 import { moderateScale, ScaledSheet, vs } from "react-native-size-matters";
+import { OptionalFontLoader } from "../../components/OptionalFontLoader";
 const mmkv = new MMKV();
 const db = getFirestore();
 const persister = createSyncStoragePersister({
@@ -347,170 +348,172 @@ const TabLayoutContent: React.FC = () => {
   const TAB_BAR_HEIGHT = 50; // Stała wysokość paska zakładek w pikselach
   const TAB_ICON_MARGIN_TOP = 12; // Stały margines górny ikon w pikselach
   return (
-    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <Tabs
-        initialRouteName="index"
-        backBehavior="none"
-        screenOptions={{
-          tabBarIconStyle: {
-            // marginTop: moderateScale(12, 0.3),// Stała wartość zamiast window.height * 0.014
-          },
-          tabBarActiveTintColor: theme.colors.primary,
-          tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
-          tabBarStyle: {
-            backgroundColor: theme.colors.surface,
-            height: moderateScale(47, 0.3), // Stała wartość zamiast window.height * 0.067
-            borderTopWidth: 0,
-            // justifyContent: "center",
-            // paddingTop: moderateScale(10, 0.3),
-            // alignItems: "center",
-          },
-          tabBarItemStyle: {
-            flex: 1,
-            justifyContent: "center",
-            alignItems: "center",
-            // marginBottom: moderateScale(-13, 0.3), // Stała wartość zamiast window.height * 0.014
-          },
-          headerStyle: {
-            backgroundColor: theme.colors.surface,
-            height: vs(65), // Stała wartość zamiast window.height * 0.108
-            shadowOpacity: 0,
-            // paddingBottom: moderateScale(5, 0.4),
-            elevation: 0,
-          },
-          headerTitle: () => (
-            <SafeAreaView style={{ flex: 1 }}>
-              <Pressable
-                onPress={handleNavigateToAccount}
-                style={({ pressed }) => [
-                  styles.headerTitleContainer,
-                  pressed && styles.pressedHeader,
-                ]}
-              >
-                <AntDesign
-                  name="user"
-                  size={moderateScale(19.2, 0.5)}
-                  color={theme.colors.onSurface}
-                  style={styles.userIcon}
-                />
-                <Text
-                  style={[
-                    styles.headerTitleText,
-                    { color: theme.colors.onSurface },
+    <OptionalFontLoader>
+      <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+        <Tabs
+          initialRouteName="index"
+          backBehavior="none"
+          screenOptions={{
+            tabBarIconStyle: {
+              // marginTop: moderateScale(12, 0.3),// Stała wartość zamiast window.height * 0.014
+            },
+            tabBarActiveTintColor: theme.colors.primary,
+            tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
+            tabBarStyle: {
+              backgroundColor: theme.colors.surface,
+              height: moderateScale(47, 0.3), // Stała wartość zamiast window.height * 0.067
+              borderTopWidth: 0,
+              // justifyContent: "center",
+              // paddingTop: moderateScale(10, 0.3),
+              // alignItems: "center",
+            },
+            tabBarItemStyle: {
+              flex: 1,
+              justifyContent: "center",
+              alignItems: "center",
+              // marginBottom: moderateScale(-13, 0.3), // Stała wartość zamiast window.height * 0.014
+            },
+            headerStyle: {
+              backgroundColor: theme.colors.surface,
+              height: vs(65), // Stała wartość zamiast window.height * 0.108
+              shadowOpacity: 0,
+              // paddingBottom: moderateScale(5, 0.4),
+              elevation: 0,
+            },
+            headerTitle: () => (
+              <SafeAreaView style={{ flex: 1 }}>
+                <Pressable
+                  onPress={handleNavigateToAccount}
+                  style={({ pressed }) => [
+                    styles.headerTitleContainer,
+                    pressed && styles.pressedHeader,
                   ]}
                 >
-                  {userProfile.nickname ? userProfile.nickname : "Welcome"}
-                </Text>
-              </Pressable>
-            </SafeAreaView>
-          ),
-        }}
-      >
-        {/* Three Tab (Community) - Pierwsze miejsce w UI */}
-        <Tabs.Screen
-          name="three"
-          options={{
-            title: "",
-            tabBarButton: (props) => (
-              <CustomTabBarButton onPress={props.onPress}>
-                {props.children}
-              </CustomTabBarButton>
-            ),
-            tabBarIcon: ({ color }) => (
-              <View style={styles.tabIconContainer}>
-                <Ionicons
-                  name="people"
-                  size={moderateScale(25.5, 0.5)}
-                  color={color}
-                />
-              </View>
-            ),
-            headerRight: () => (
-              <Pressable
-                onPress={() => router.push("/community/friendRequests")}
-                style={({ pressed }) => [
-                  styles.headerRightContainer,
-                  pressed && styles.pressedHeaderRight,
-                ]}
-              >
-                <View style={{ position: "relative" }}>
-                  <Ionicons
-                    name="mail-outline"
-                    size={moderateScale(23, 0.5)}
+                  <AntDesign
+                    name="user"
+                    size={moderateScale(19.2, 0.5)}
                     color={theme.colors.onSurface}
-                    style={{
-                      transform: [{ translateY: moderateScale(1.1, 0.5) }],
-                    }}
+                    style={styles.userIcon}
                   />
-                  <Badge count={friendRequestsCount} />
+                  <Text
+                    style={[
+                      styles.headerTitleText,
+                      { color: theme.colors.onSurface },
+                    ]}
+                  >
+                    {userProfile.nickname ? userProfile.nickname : "Welcome"}
+                  </Text>
+                </Pressable>
+              </SafeAreaView>
+            ),
+          }}
+        >
+          {/* Three Tab (Community) - Pierwsze miejsce w UI */}
+          <Tabs.Screen
+            name="three"
+            options={{
+              title: "",
+              tabBarButton: (props) => (
+                <CustomTabBarButton onPress={props.onPress}>
+                  {props.children}
+                </CustomTabBarButton>
+              ),
+              tabBarIcon: ({ color }) => (
+                <View style={styles.tabIconContainer}>
+                  <Ionicons
+                    name="people"
+                    size={moderateScale(25.5, 0.5)}
+                    color={color}
+                  />
                 </View>
-              </Pressable>
-            ),
-          }}
-        />
-        {/* Index Tab (Main/InteractiveMap) - Środkowe miejsce w UI */}
-        <Tabs.Screen
-          name="index"
-          options={{
-            // unmountOnBlur: true,
-            title: "",
-            tabBarButton: (props) => (
-              <CustomTabBarButton onPress={props.onPress}>
-                {props.children}
-              </CustomTabBarButton>
-            ),
-            tabBarIcon: ({ color }) => (
-              <View style={styles.tabIconContainer}>
-                <Ionicons
-                  name="earth"
-                  size={moderateScale(25.5, 0.5)}
-                  color={color}
-                />
-              </View>
-            ),
-            headerRight: () => (
-              <Pressable
-                onPress={() => {
-                  /* TODO: Implement search functionality */
-                }}
-                style={({ pressed }) => [
-                  styles.headerRightContainer,
-                  pressed && styles.pressedHeaderRight,
-                ]}
-              >
-                <AntDesign
-                  name="search1"
-                  size={moderateScale(19.9, 0.5)}
-                  color={theme.colors.onSurface}
-                />
-              </Pressable>
-            ),
-          }}
-        />
-        {/* Two Tab (ChooseCountries) - Trzecie miejsce w UI */}
-        <Tabs.Screen
-          name="two"
-          options={{
-            title: "",
-            tabBarButton: (props) => (
-              <CustomTabBarButton onPress={props.onPress}>
-                {props.children}
-              </CustomTabBarButton>
-            ),
-            tabBarIcon: ({ color }) => (
-              <View style={styles.tabIconContainer}>
-                <FontAwesome6
-                  name="list-check"
-                  size={moderateScale(21.5, 0.5)}
-                  color={color}
-                />
-              </View>
-            ),
-            headerRight: () => <VisitedToggle />,
-          }}
-        />
-      </Tabs>
-    </View>
+              ),
+              headerRight: () => (
+                <Pressable
+                  onPress={() => router.push("/community/friendRequests")}
+                  style={({ pressed }) => [
+                    styles.headerRightContainer,
+                    pressed && styles.pressedHeaderRight,
+                  ]}
+                >
+                  <View style={{ position: "relative" }}>
+                    <Ionicons
+                      name="mail-outline"
+                      size={moderateScale(23, 0.5)}
+                      color={theme.colors.onSurface}
+                      style={{
+                        transform: [{ translateY: moderateScale(1.1, 0.5) }],
+                      }}
+                    />
+                    <Badge count={friendRequestsCount} />
+                  </View>
+                </Pressable>
+              ),
+            }}
+          />
+          {/* Index Tab (Main/InteractiveMap) - Środkowe miejsce w UI */}
+          <Tabs.Screen
+            name="index"
+            options={{
+              // unmountOnBlur: true,
+              title: "",
+              tabBarButton: (props) => (
+                <CustomTabBarButton onPress={props.onPress}>
+                  {props.children}
+                </CustomTabBarButton>
+              ),
+              tabBarIcon: ({ color }) => (
+                <View style={styles.tabIconContainer}>
+                  <Ionicons
+                    name="earth"
+                    size={moderateScale(25.5, 0.5)}
+                    color={color}
+                  />
+                </View>
+              ),
+              headerRight: () => (
+                <Pressable
+                  onPress={() => {
+                    /* TODO: Implement search functionality */
+                  }}
+                  style={({ pressed }) => [
+                    styles.headerRightContainer,
+                    pressed && styles.pressedHeaderRight,
+                  ]}
+                >
+                  <AntDesign
+                    name="search1"
+                    size={moderateScale(19.9, 0.5)}
+                    color={theme.colors.onSurface}
+                  />
+                </Pressable>
+              ),
+            }}
+          />
+          {/* Two Tab (ChooseCountries) - Trzecie miejsce w UI */}
+          <Tabs.Screen
+            name="two"
+            options={{
+              title: "",
+              tabBarButton: (props) => (
+                <CustomTabBarButton onPress={props.onPress}>
+                  {props.children}
+                </CustomTabBarButton>
+              ),
+              tabBarIcon: ({ color }) => (
+                <View style={styles.tabIconContainer}>
+                  <FontAwesome6
+                    name="list-check"
+                    size={moderateScale(21.5, 0.5)}
+                    color={color}
+                  />
+                </View>
+              ),
+              headerRight: () => <VisitedToggle />,
+            }}
+          />
+        </Tabs>
+      </View>
+    </OptionalFontLoader>
   );
 };
 

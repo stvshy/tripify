@@ -83,8 +83,9 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
   const toggleMenu = useCallback(() => {
     const next = !menuOpen;
     setMenuOpen(next);
+    // Przywrócone oryginalne animacje menu
     menuProgress.value = withTiming(next ? 1 : 0, {
-      duration: next ? 240 : 180,
+      duration: next ? 240 : 180, // Oryginalne
       easing: Easing.out(Easing.ease),
     });
   }, [menuOpen]);
@@ -93,8 +94,9 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
   useEffect(() => {
     if (isMapActive === false && menuOpen) {
       setMenuOpen(false);
+      // Przywrócone oryginalne zamykanie menu
       menuProgress.value = withTiming(0, {
-        duration: 160,
+        duration: 160, // Oryginalne
         easing: Easing.out(Easing.ease),
       });
     }
@@ -172,8 +174,9 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
           onPress={async () => {
             await onShare();
             setMenuOpen(false);
+            // Przywrócone oryginalne zamykanie po udostępnieniu
             menuProgress.value = withTiming(0, {
-              duration: 160,
+              duration: 160, // Oryginalne
               easing: Easing.out(Easing.ease),
             });
           }}
@@ -202,8 +205,9 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
           onPress={() => {
             onToggleTheme();
             setMenuOpen(false);
+            // Przywrócone oryginalne zamykanie po zmianie tematu
             menuProgress.value = withTiming(0, {
-              duration: 160,
+              duration: 160, // Oryginalne
               easing: Easing.out(Easing.ease),
             });
           }}
