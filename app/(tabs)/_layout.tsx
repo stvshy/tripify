@@ -30,7 +30,6 @@ import {
 import { auth } from "../config/firebaseConfig";
 import { ThemeContext } from "../config/ThemeContext";
 import { useTheme } from "react-native-paper";
-import LoadingScreen from "@/components/LoadingScreen";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
@@ -184,7 +183,7 @@ const TabLayoutContent: React.FC = () => {
       // Navigation bar is managed globally in _layout.tsx
 
       // 1. Jeśli RootLayout nadal ładuje, nic nie rób tutaj.
-      //    RootLayout sam pokaże LoadingScreen.
+      //    RootLayout sam zarządza natywnym splash screen.
       if (isLoadingAuth) {
         console.log("TabLayout: isLoadingAuth is TRUE, waiting.");
         return;
@@ -242,7 +241,7 @@ const TabLayoutContent: React.FC = () => {
 
   // if (isLoadingAuth) {
   //   // Jeśli RootLayout (i store) nadal ładuje podstawowe dane autentykacji/profilu
-  //   return <LoadingScreen showLogo={true} />;
+  //   return null; // Native splash screen will handle this
   // }
   // useFocusEffect dla BackHandler (ten jest OK, bo jest hookiem)
   useFocusEffect(
@@ -311,12 +310,12 @@ const TabLayoutContent: React.FC = () => {
   );
 
   // --- Logika renderowania ---
-  // Pokazuj LoadingScreen tylko, gdy RootLayout (i store) sygnalizuje ładowanie.
+  // Pokazuj natywny splash screen tylko, gdy RootLayout (i store) sygnalizuje ładowanie.
   // Jeśli isLoadingAuth jest false, ale nie ma użytkownika, useFocusEffect powinien
   // był już zainicjować przekierowanie, a my tu zwrócimy null lub lekki placeholder,
   // aby uniknąć renderowania Tabs.
   if (isLoadingAuth) {
-    return <LoadingScreen showLogo={true} />;
+    return null; // Native splash screen will remain visible
   }
 
   // Jeśli nie ładujemy, ale nie ma użytkownika lub profilu

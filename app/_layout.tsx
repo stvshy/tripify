@@ -7,7 +7,6 @@ import * as ExpoSplashScreen from "expo-splash-screen";
 import React, { useEffect, useState } from "react";
 import { auth, db, app as firebaseApp } from "./config/firebaseConfig";
 import { View, StyleSheet, Platform } from "react-native";
-import LoadingScreen from "@/components/LoadingScreen";
 import { ThemeContext, ThemeProvider } from "./config/ThemeContext";
 import { DraxProvider } from "react-native-drax";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -30,9 +29,6 @@ import {
 } from "./utils/navigationBar";
 import { useTheme } from "react-native-paper";
 import { useContext } from "react";
-import { getStorage, ref, listAll, getDownloadURL } from "firebase/storage";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import FastImage from "@d11/react-native-fast-image";
 import { useAuthStore, UserProfileData } from "./store/authStore";
 import { User as FirebaseUser } from "firebase/auth"; // Zmień alias lub użyj User bezpośrednio
 import { useCommunityStore } from "./store/communityStore";
@@ -89,41 +85,6 @@ function AppNavigator({ initialRouteName }: { initialRouteName: string }) {
 }
 
 const queryClient = new QueryClient();
-const CACHED_URLS_KEY = "cachedSplashBackgroundUrls";
-const SPLASH_BACKGROUNDS_PATH = "splash_backgrounds";
-
-const fetchAndCacheBackgrounds = async () => {
-  try {
-    // Use timeout to prevent blocking
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Timeout")), 5000)
-    );
-
-    const fetchPromise = (async () => {
-      const storage = getStorage(firebaseApp);
-      const listRef = ref(storage, SPLASH_BACKGROUNDS_PATH);
-      const res = await listAll(listRef);
-      if (res.items.length === 0) return;
-      const urls = await Promise.all(
-        res.items.map((itemRef) => getDownloadURL(itemRef))
-      );
-      await AsyncStorage.setItem(CACHED_URLS_KEY, JSON.stringify(urls));
-      const preloadObjects = urls.map((url) => ({ uri: url }));
-      // Check if FastImage.preload is available before calling
-      if (FastImage && typeof FastImage.preload === "function") {
-        FastImage.preload(preloadObjects);
-      }
-    })();
-
-    await Promise.race([fetchPromise, timeoutPromise]);
-  } catch (error) {
-    // Silently fail - this is non-critical
-    console.log(
-      "Background caching failed (non-critical):",
-      error instanceof Error ? error.message : "Unknown error"
-    );
-  }
-};
 
 // Component that manages navbar inside ThemeProvider
 function NavBarManager({
@@ -259,8 +220,7 @@ export default function RootLayout() {
     "NotoSans-Black": require("../assets/fonts/NotoSans-Black.ttf"),
   });
   const [initialRouteName, setInitialRouteName] = useState<string | null>(null);
-  const [isNavigationReady, setIsNavigationReady] = useState(false);
-  const [isAppFullyLoaded, setIsAppFullyLoaded] = useState(false);
+  const [isAppReady, setIsAppReady] = useState(false);
 
   // Hide navbar during splash screen (loading)
   useEffect(() => {
@@ -274,14 +234,6 @@ export default function RootLayout() {
   useEffect(() => {
     useCountryStore.getState().initializeCountries();
   }, []);
-
-  // Non-critical initialization - defer to avoid blocking
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchAndCacheBackgrounds();
-    }, 500); // Defer background caching
-    return () => clearTimeout(timer);
-  }, []);
   useEffect(() => {
     if (!fontsLoaded && !fontError) {
       return;
@@ -290,7 +242,7 @@ export default function RootLayout() {
     const finalizePreparation = (route: string) => {
       setInitialRouteName(route);
       setIsLoadingAuth(false);
-      setIsNavigationReady(true);
+      setIsAppReady(true);
     };
 
     console.log("RootLayout: Setting up onAuthStateChanged listener.");
@@ -414,33 +366,25 @@ export default function RootLayout() {
     };
   }, [firebaseUser]); // <-- Zależność tylko od obiektu użytkownika!
 
-  // Check if all resources are loaded
+  // Hide splash screen when app is ready
   useEffect(() => {
-    if (fontsLoaded && isNavigationReady && !fontError && initialRouteName) {
-      // All critical resources are loaded
-      setIsAppFullyLoaded(true);
-    }
-  }, [fontsLoaded, isNavigationReady, fontError, initialRouteName]);
-
-  // Hide splash screen when app is fully loaded
-  useEffect(() => {
-    if (isAppFullyLoaded) {
-      // Wait a bit more to ensure smooth transition
+    if (isAppReady && initialRouteName) {
+      // Hide splash screen when everything is ready
       const timer = setTimeout(() => {
         ExpoSplashScreen.hideAsync();
-      }, 300); // Longer delay to ensure smooth transition
+      }, 100); // Minimal delay for smooth transition
       return () => clearTimeout(timer);
     }
-  }, [isAppFullyLoaded]);
+  }, [isAppReady, initialRouteName]);
 
   if (fontError) {
     console.error("Font loading error:", fontError);
-    return <LoadingScreen />;
+    return null; // Let native splash screen handle the error state
   }
 
-  // Show LoadingScreen until app is fully loaded
-  if (!isAppFullyLoaded) {
-    return <LoadingScreen />;
+  // Show native splash screen until app is ready
+  if (!isAppReady || !initialRouteName) {
+    return null; // Native splash screen will remain visible
   }
 
   // Jeśli dotarliśmy tutaj, nawigacja jest gotowa i initialRouteName jest ustawione
@@ -497,29 +441,11 @@ function ThemedStatusBarAndNavBar({
 }
 
 const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  centerContainer: {
-    justifyContent: "center",
-    alignItems: "center",
-    flex: 1,
-  },
   rootLayoutBackground: {
     flex: 1,
   },
   transparentContainer: {
     flex: 1,
     backgroundColor: "transparent", // Kluczowe dla przezroczystości
-  },
-  logo: {
-    width: 120,
-    height: 120,
-    marginBottom: 20,
-  },
-  loader: {
-    marginTop: 20,
   },
 });
