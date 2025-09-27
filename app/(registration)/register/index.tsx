@@ -46,7 +46,7 @@ import RegisterHeader from "./RegisterHeader";
 import RegisterForm from "./RegisterForm";
 import RegisterFooter from "./RegisterFooter";
 import { useAuthStore, UserProfileData } from "@/app/store/authStore";
-import { ScrollViewIndicator } from "@fanchenbao/react-native-scroll-indicator";
+import CustomScrollIndicator from "../../../components/CustomScrollIndicator";
 import { s, ScaledSheet, vs } from "react-native-size-matters";
 const { width, height } = Dimensions.get("window");
 const db = getFirestore();
@@ -310,27 +310,15 @@ export default function RegisterScreen() {
             keyboardVerticalOffset={0}
             style={styles.keyboardAvoidingViewContainer}
           >
-            <ScrollViewIndicator
-              position="right"
-              indStyle={{
-                backgroundColor: "rgba(255, 255, 255, 0.5)",
-                width: 3,
-                borderRadius: 2,
-                opacity: 1,
-                height: "60%",
-              }}
-              containerStyle={{ flex: 1, alignSelf: "stretch" }}
-              scrollViewProps={{
-                style: styles.scrollView,
-                contentContainerStyle: [
-                  styles.scrollViewContent,
-                  { paddingBottom: isKeyboardVisible ? vs(57) : vs(6) },
-                ],
-                keyboardShouldPersistTaps: "handled",
-                showsVerticalScrollIndicator: false,
-                contentInsetAdjustmentBehavior: "never",
-                indicatorStyle: "white",
-              }}
+            <CustomScrollIndicator
+              contentContainerStyle={[
+                styles.scrollViewContent,
+                { paddingBottom: isKeyboardVisible ? vs(57) : vs(6) },
+              ]}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentInsetAdjustmentBehavior="never"
+              style={styles.scrollView}
             >
               <View style={styles.centerWrapper}>
                 <View style={styles.stepperWrapperInScroll}>
@@ -372,35 +360,24 @@ export default function RegisterScreen() {
 
                 {isKeyboardVisible && <View style={{ height: vs(40) }} />}
               </View>
-            </ScrollViewIndicator>
+            </CustomScrollIndicator>
           </KeyboardAvoidingView>
         ) : (
           <View style={styles.keyboardAvoidingViewContainer}>
-            <ScrollViewIndicator
-              position="right"
-              indStyle={{
-                backgroundColor: "rgba(255, 255, 255, 0.4)",
-                width: 3,
-                borderRadius: 2,
-                opacity: 1,
-                height: "60%",
-              }}
-              containerStyle={{ flex: 1, alignSelf: "stretch" }}
-              scrollViewProps={{
-                style: styles.scrollView,
-                contentContainerStyle: [
-                  styles.scrollViewContent,
-                  { paddingBottom: isKeyboardVisible ? vs(60) : 0 },
-                  isKeyboardVisible ? { minHeight: height + vs(111) } : null,
-                ],
-                keyboardShouldPersistTaps: "handled",
-                showsVerticalScrollIndicator: false,
-                overScrollMode: "always",
-                removeClippedSubviews: false,
-                scrollEventThrottle: 16,
-                keyboardDismissMode: "interactive",
-                nestedScrollEnabled: true,
-              }}
+            <CustomScrollIndicator
+              contentContainerStyle={[
+                styles.scrollViewContent,
+                { paddingBottom: isKeyboardVisible ? vs(60) : 0 },
+                isKeyboardVisible ? { minHeight: height + vs(111) } : null,
+              ]}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              overScrollMode="always"
+              removeClippedSubviews={false}
+              scrollEventThrottle={16}
+              keyboardDismissMode="interactive"
+              nestedScrollEnabled={true}
+              style={styles.scrollView}
             >
               <View style={styles.centerWrapper}>
                 <View style={styles.stepperWrapperInScroll}>
@@ -442,7 +419,7 @@ export default function RegisterScreen() {
 
                 {isKeyboardVisible && <View style={{ height: vs(40) }} />}
               </View>
-            </ScrollViewIndicator>
+            </CustomScrollIndicator>
           </View>
         )}
 
