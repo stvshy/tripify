@@ -36,6 +36,7 @@ import { useCountryStore } from "./store/countryStore";
 import { CountriesProvider } from "./config/CountryContext";
 import { MapStateProvider } from "./config/MapStateProvider";
 import { LocalCountProvider } from "./config/LocalCountContext";
+import { useAllFonts } from "./config/fonts";
 
 // Set navbar color IMMEDIATELY on app start (before any component rendering)
 if (Platform.OS === "android") {
@@ -160,13 +161,8 @@ export default function RootLayout() {
     (state) => state.listenForCommunityData
   );
   const cleanupCommunity = useCommunityStore((state) => state.cleanup);
-  // Load only critical fonts initially for faster startup
-  const [fontsLoaded, fontError] = useFonts({
-    "Inter-Regular": require("../assets/fonts/Inter-Regular.ttf"),
-    "Inter-Medium": require("../assets/fonts/Inter-Medium.ttf"),
-    "Inter-SemiBold": require("../assets/fonts/Inter-SemiBold.ttf"),
-    "Inter-Bold": require("../assets/fonts/Inter-Bold.ttf"),
-  });
+  // Load all fonts for complete app functionality
+  const [fontsLoaded, fontError] = useAllFonts();
   const [initialRouteName, setInitialRouteName] = useState<string | null>(null);
   const [isAppReady, setIsAppReady] = useState(false);
 

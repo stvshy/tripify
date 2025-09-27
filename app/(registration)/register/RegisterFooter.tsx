@@ -1,44 +1,18 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, Dimensions, Pressable } from "react-native";
 import { ScaledSheet, vs } from "react-native-size-matters";
+import {
+  heightPercentageToDP as hp,
+  widthPercentageToDP as wp,
+} from "react-native-responsive-screen";
 
 const { width, height } = Dimensions.get("window");
 
-// Progressive responsive scaling for button
+// Simple responsive button metrics
 const getResponsiveButtonScaling = () => {
-  const screenRatio = height / width;
-
-  // Base values for standard screens (around 2400x1080, ratio ~2.22)
-  const baseButtonHeight = vs(42.6);
-  const baseButtonWidth = width * 0.9;
-
-  // Calculate scaling factors
-  let heightScale = 1;
-
-  // Progressive scaling based on screen ratio
-  if (screenRatio > 2.4) {
-    // Very tall screens - reduce button height
-    heightScale = 0.85;
-  } else if (screenRatio > 2.3) {
-    // Tall screens - slight reduction
-    heightScale = 0.9;
-  } else if (screenRatio > 2.2) {
-    // Moderately tall screens - minimal reduction
-    heightScale = 0.94;
-  } else if (screenRatio < 1.8) {
-    // Short screens - increase height
-    heightScale = 1.1;
-  } else if (screenRatio < 1.9) {
-    // Moderately short screens
-    heightScale = 1.05;
-  } else if (screenRatio < 2.0) {
-    // Slightly short screens
-    heightScale = 1.02;
-  }
-
   return {
-    buttonHeight: baseButtonHeight * heightScale,
-    buttonWidth: baseButtonWidth,
+    buttonHeight: hp("6.4%"),
+    buttonWidth: wp("90%"),
   };
 };
 

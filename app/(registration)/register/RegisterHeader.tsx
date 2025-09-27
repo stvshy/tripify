@@ -1,56 +1,16 @@
 import React from "react";
 import { View, Text, StyleSheet, Image, Dimensions } from "react-native";
-import { ScaledSheet, vs } from "react-native-size-matters";
+import { moderateScale, ScaledSheet, vs } from "react-native-size-matters";
+import { heightPercentageToDP as hp } from "react-native-responsive-screen";
 
 const { width, height } = Dimensions.get("window");
 
-// Progressive responsive spacing for all screen ratios
-const getResponsiveSpacing = () => {
-  const screenRatio = height / width;
-
-  // Base values for standard screens (around 2400x1080, ratio ~2.22)
-  const baseLogoHeight = vs(118);
-  const baseLogoMarginTop = vs(34.5);
-  const baseLogoMarginBottom = vs(13);
-  const baseErrorHolderMinHeight = vs(39.6);
-
-  // Calculate scaling factors based on screen ratio
-  let logoScale = 1;
-  let marginScale = 1;
-
-  // Progressive scaling based on screen ratio
-  if (screenRatio > 2.4) {
-    // Very tall screens (like 2992x1344) - moderate reduction with slight increase
-    logoScale = 0.913; // Slightly larger than before
-    marginScale = 0.743; // Reduced margins
-  } else if (screenRatio > 2.3) {
-    // Tall screens - slight reduction
-    logoScale = 0.943;
-    marginScale = 0.843;
-  } else if (screenRatio > 2.2) {
-    // Moderately tall screens - minimal reduction
-    logoScale = 0.973;
-    marginScale = 0.943;
-  } else if (screenRatio < 1.8) {
-    // Short screens - increase spacing
-    logoScale = 0.95;
-    marginScale = 1.15;
-  } else if (screenRatio < 1.9) {
-    // Moderately short screens
-    logoScale = 0.98;
-    marginScale = 1.08;
-  } else if (screenRatio < 2.0) {
-    // Slightly short screens
-    logoScale = 1.0;
-    marginScale = 1.05;
-  }
-
-  return {
-    logoHeight: baseLogoHeight * logoScale,
-    logoMarginTop: baseLogoMarginTop * marginScale,
-    logoMarginBottom: baseLogoMarginBottom * marginScale,
-    errorHolderMinHeight: baseErrorHolderMinHeight * marginScale,
-  };
+// Custom scaling only for logo top margin – increases on taller screens
+const getLogoTopMargin = () => {
+  const ratio = height / width;
+  const extra = Math.max(0, ratio - 2.0); // start increasing above ~2.0 ratio
+  const percent = Math.min(4 + extra * 4, 10); // base 4% + 4% per extra ratio, clamp 10%
+  return hp(`${percent}%`);
 };
 
 type Props = {
@@ -62,13 +22,7 @@ export default function RegisterHeader({
   title = "Create an Account in Tripify",
   errorMessage,
 }: Props) {
-  const responsiveSpacing = getResponsiveSpacing();
-
-  // Debug info (remove in production)
-  if (__DEV__) {
-    console.log("Screen dimensions:", { width, height, ratio: height / width });
-    console.log("Responsive spacing:", responsiveSpacing);
-  }
+  const logoTopMargin = getLogoTopMargin();
 
   return (
     <>
@@ -76,14 +30,14 @@ export default function RegisterHeader({
         style={[
           styles.logoContainer,
           {
-            marginTop: responsiveSpacing.logoMarginTop,
-            marginBottom: responsiveSpacing.logoMarginBottom,
+            marginTop: logoTopMargin,
+            marginBottom: hp("1.6%"),
           },
         ]}
       >
         <Image
           source={require("../../../assets/images/tripify-icon.png")}
-          style={[styles.logo, { height: responsiveSpacing.logoHeight }]}
+          style={styles.logo}
           resizeMode="contain"
         />
       </View>
@@ -92,7 +46,7 @@ export default function RegisterHeader({
         style={[
           styles.errorHolder,
           {
-            minHeight: responsiveSpacing.errorHolderMinHeight,
+            minHeight: moderateScale(40.3),
           },
         ]}
       >
@@ -111,7 +65,7 @@ export default function RegisterHeader({
 const styles = ScaledSheet.create({
   logo: {
     // width: "40%",
-    // height will be set dynamically
+    height: hp("18.6%"),
   },
   logoContainer: {
     justifyContent: "center",
@@ -121,7 +75,7 @@ const styles = ScaledSheet.create({
     marginLeft: "-1.1@s",
   },
   title: {
-    fontSize: "22.1@ms",
+    fontSize: "21.1@vs",
     fontFamily: "Figtree-Medium",
     textAlign: "center",
     color: "#FFFFFF",
@@ -144,7 +98,7 @@ const styles = ScaledSheet.create({
   subtitle: {
     color: "#D1D5DB",
     marginBottom: "7.5@vs",
-    fontSize: "13@ms",
+    fontSize: "13.3@ms",
     textAlign: "center",
     width: "90%",
     fontFamily: "PlusJakartaSans-Regular",

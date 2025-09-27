@@ -10,57 +10,18 @@ import {
 } from "react-native";
 import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { s, ScaledSheet, vs } from "react-native-size-matters";
+import { heightPercentageToDP as hp } from "react-native-responsive-screen";
 
 const { width, height } = Dimensions.get("window");
 
-// Progressive responsive spacing for all screen ratios
+// Simple responsive spacing using responsive-screen
 const getResponsiveFormSpacing = () => {
-  const screenRatio = height / width;
-
-  // Base values for standard screens (around 2400x1080, ratio ~2.22)
-  const baseInputMarginBottom = vs(10.5);
-  const baseInputHeight = vs(42.6);
-  const baseRequirementsMarginTop = vs(5.5);
-  const baseRequirementsPaddingBottom = vs(10.5);
-  const baseRequirementMarginBottom = vs(4.8);
-
-  // Calculate scaling factors
-  let inputScale = 1.01;
-  let spacingScale = 1;
-
-  // Progressive scaling based on screen ratio
-  if (screenRatio > 2.4) {
-    // Very tall screens (like 2992x1344) - moderate reduction with slight increase
-    inputScale = 0.91; // Slightly larger than before
-    spacingScale = 0.78; // Reduced spacing
-  } else if (screenRatio > 2.3) {
-    // Tall screens - slight reduction
-    inputScale = 0.93;
-    spacingScale = 0.85;
-  } else if (screenRatio > 2.2) {
-    // Moderately tall screens - minimal reduction
-    inputScale = 0.94;
-    spacingScale = 0.93;
-  } else if (screenRatio < 1.8) {
-    // Short screens - increase everything
-    inputScale = 1.04;
-    spacingScale = 1.15;
-  } else if (screenRatio < 1.9) {
-    // Moderately short screens
-    inputScale = 1.01;
-    spacingScale = 1.08;
-  } else if (screenRatio < 2.0) {
-    // Slightly short screens
-    inputScale = 0.99;
-    spacingScale = 1.05;
-  }
-
   return {
-    inputMarginBottom: baseInputMarginBottom * spacingScale,
-    inputHeight: baseInputHeight * inputScale,
-    requirementsMarginTop: baseRequirementsMarginTop * spacingScale,
-    requirementsPaddingBottom: baseRequirementsPaddingBottom * spacingScale,
-    requirementMarginBottom: baseRequirementMarginBottom * spacingScale,
+    inputMarginBottom: hp("1.5%"),
+    inputHeight: hp("6.6%"),
+    requirementsMarginTop: hp("0.8%"),
+    requirementsPaddingBottom: hp("1.2%"),
+    requirementMarginBottom: hp("0.7%"),
   };
 };
 
@@ -319,7 +280,7 @@ const styles = ScaledSheet.create({
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    height: "43@vs",
+    height: hp("5.4%"),
     paddingHorizontal: "15.5@s",
   },
   inputIcon: {
@@ -356,11 +317,11 @@ const styles = ScaledSheet.create({
     marginRight: "4.8@s",
   },
   requirementText: {
-    fontSize: "13.6@ms",
+    fontSize: "13.7@ms",
     fontFamily: "PlusJakartaSans-Regular",
     flex: 1,
     flexWrap: "wrap",
-    lineHeight: "17.7@vs",
+    lineHeight: hp("2.8%"),
   },
   valid: {
     color: "#b0f5e5",

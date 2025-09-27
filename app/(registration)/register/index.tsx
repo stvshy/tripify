@@ -331,39 +331,46 @@ export default function RegisterScreen() {
                 indicatorStyle: "white",
               }}
             >
-              <View style={styles.stepperWrapperInScroll}>
-                <CustomStepIndicator
-                  currentPosition={0}
-                  labels={["Register", "Username", "Success"]}
-                  stepCount={3}
+              <View style={styles.centerWrapper}>
+                <View style={styles.stepperWrapperInScroll}>
+                  <CustomStepIndicator
+                    currentPosition={0}
+                    labels={["Register", "Username", "Success"]}
+                    stepCount={3}
+                  />
+                </View>
+
+                {!isKeyboardVisible && <View style={styles.flexSpacer} />}
+
+                <RegisterHeader
+                  title="Create an Account in Tripify"
+                  errorMessage={primaryError}
                 />
+
+                <RegisterForm
+                  email={email}
+                  setEmail={setEmail}
+                  password={password}
+                  setPassword={setPassword}
+                  confirmPassword={confirmPassword}
+                  setConfirmPassword={setConfirmPassword}
+                  showPassword={showPassword}
+                  setShowPassword={setShowPassword}
+                  showConfirmPassword={showConfirmPassword}
+                  setShowConfirmPassword={setShowConfirmPassword}
+                  isFocused={isFocused}
+                  setIsFocused={setIsFocused}
+                  passwordRequirements={passwordRequirements}
+                  renderValidationIcon={renderValidationIcon}
+                  emailInputRef={emailInputRef}
+                  passwordInputRef={passwordInputRef}
+                  confirmPasswordInputRef={confirmPasswordInputRef}
+                />
+
+                {!isKeyboardVisible && <View style={styles.flexSpacer} />}
+
+                {isKeyboardVisible && <View style={{ height: vs(40) }} />}
               </View>
-
-              <RegisterHeader
-                title="Create an Account in Tripify"
-                errorMessage={primaryError}
-              />
-
-              <RegisterForm
-                email={email}
-                setEmail={setEmail}
-                password={password}
-                setPassword={setPassword}
-                confirmPassword={confirmPassword}
-                setConfirmPassword={setConfirmPassword}
-                showPassword={showPassword}
-                setShowPassword={setShowPassword}
-                showConfirmPassword={showConfirmPassword}
-                setShowConfirmPassword={setShowConfirmPassword}
-                isFocused={isFocused}
-                setIsFocused={setIsFocused}
-                passwordRequirements={passwordRequirements}
-                renderValidationIcon={renderValidationIcon}
-                emailInputRef={emailInputRef}
-                passwordInputRef={passwordInputRef}
-                confirmPasswordInputRef={confirmPasswordInputRef}
-              />
-              {isKeyboardVisible && <View style={{ height: vs(40) }} />}
             </ScrollViewIndicator>
           </KeyboardAvoidingView>
         ) : (
@@ -393,39 +400,46 @@ export default function RegisterScreen() {
                 nestedScrollEnabled: true,
               }}
             >
-              <View style={styles.stepperWrapperInScroll}>
-                <CustomStepIndicator
-                  currentPosition={0}
-                  labels={["Register", "Username", "Success"]}
-                  stepCount={3}
+              <View style={styles.centerWrapper}>
+                <View style={styles.stepperWrapperInScroll}>
+                  <CustomStepIndicator
+                    currentPosition={0}
+                    labels={["Register", "Username", "Success"]}
+                    stepCount={3}
+                  />
+                </View>
+
+                {!isKeyboardVisible && <View style={styles.flexSpacer} />}
+
+                <RegisterHeader
+                  title="Create an Account in Tripify"
+                  errorMessage={primaryError}
                 />
+
+                <RegisterForm
+                  email={email}
+                  setEmail={setEmail}
+                  password={password}
+                  setPassword={setPassword}
+                  confirmPassword={confirmPassword}
+                  setConfirmPassword={setConfirmPassword}
+                  showPassword={showPassword}
+                  setShowPassword={setShowPassword}
+                  showConfirmPassword={showConfirmPassword}
+                  setShowConfirmPassword={setShowConfirmPassword}
+                  isFocused={isFocused}
+                  setIsFocused={setIsFocused}
+                  passwordRequirements={passwordRequirements}
+                  renderValidationIcon={renderValidationIcon}
+                  emailInputRef={emailInputRef}
+                  passwordInputRef={passwordInputRef}
+                  confirmPasswordInputRef={confirmPasswordInputRef}
+                />
+
+                {!isKeyboardVisible && <View style={styles.flexSpacer} />}
+
+                {isKeyboardVisible && <View style={{ height: vs(40) }} />}
               </View>
-
-              <RegisterHeader
-                title="Create an Account in Tripify"
-                errorMessage={primaryError}
-              />
-
-              <RegisterForm
-                email={email}
-                setEmail={setEmail}
-                password={password}
-                setPassword={setPassword}
-                confirmPassword={confirmPassword}
-                setConfirmPassword={setConfirmPassword}
-                showPassword={showPassword}
-                setShowPassword={setShowPassword}
-                showConfirmPassword={showConfirmPassword}
-                setShowConfirmPassword={setShowConfirmPassword}
-                isFocused={isFocused}
-                setIsFocused={setIsFocused}
-                passwordRequirements={passwordRequirements}
-                renderValidationIcon={renderValidationIcon}
-                emailInputRef={emailInputRef}
-                passwordInputRef={passwordInputRef}
-                confirmPasswordInputRef={confirmPasswordInputRef}
-              />
-              {isKeyboardVisible && <View style={{ height: vs(40) }} />}
             </ScrollViewIndicator>
           </View>
         )}
@@ -492,6 +506,14 @@ const styles = ScaledSheet.create({
     // marginTop: 10, // Możesz dostosować lub usunąć, jeśli niepotrzebne
     // marginBottom: 5, // Możesz dostosować lub usunąć
     // paddingBottom: -30, // Dodaj trochę przestrzeni na dole przewijanej zawartości
+  },
+  centerWrapper: {
+    width: "100%",
+    flexGrow: 1,
+    alignItems: "center",
+  },
+  flexSpacer: {
+    flexGrow: 1,
   },
   logo: {
     height: "150@vs",
