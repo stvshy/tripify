@@ -1,12 +1,16 @@
 import { useRef, useCallback } from "react";
 import { Animated, Keyboard } from "react-native";
+import { moderateScale } from "react-native-size-matters";
 
 export const useKeyboardAnimation = () => {
   const contentTranslateY = useRef(new Animated.Value(0)).current;
 
   const animateToTop = useCallback(() => {
+    // Używamy moderateScale dla lepszego skalowania na różnych ekranach
+    const animationDistance = moderateScale(-60, 0.3);
+
     Animated.timing(contentTranslateY, {
-      toValue: -60,
+      toValue: animationDistance,
       duration: 250,
       useNativeDriver: true,
     }).start();
