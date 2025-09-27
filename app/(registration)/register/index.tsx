@@ -313,10 +313,11 @@ export default function RegisterScreen() {
             <ScrollViewIndicator
               position="right"
               indStyle={{
-                backgroundColor: "#FFFFFF",
+                backgroundColor: "rgba(255, 255, 255, 0.5)",
                 width: 3,
                 borderRadius: 2,
-                opacity: isKeyboardVisible ? 1 : 0,
+                opacity: 1,
+                height: "60%",
               }}
               containerStyle={{ flex: 1, alignSelf: "stretch" }}
               scrollViewProps={{
@@ -378,10 +379,11 @@ export default function RegisterScreen() {
             <ScrollViewIndicator
               position="right"
               indStyle={{
-                backgroundColor: "#FFFFFF",
+                backgroundColor: "rgba(255, 255, 255, 0.4)",
                 width: 3,
                 borderRadius: 2,
-                opacity: isKeyboardVisible ? 1 : 0,
+                opacity: 1,
+                height: "60%",
               }}
               containerStyle={{ flex: 1, alignSelf: "stretch" }}
               scrollViewProps={{
