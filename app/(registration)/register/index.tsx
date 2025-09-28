@@ -48,9 +48,30 @@ import RegisterFooter from "./RegisterFooter";
 import { useAuthStore, UserProfileData } from "@/app/store/authStore";
 import CustomScrollIndicator from "../../../components/CustomScrollIndicator";
 import { s, ScaledSheet, vs } from "react-native-size-matters";
+import { heightPercentageToDP as hp } from "react-native-responsive-screen";
 const { width, height } = Dimensions.get("window");
 const db = getFirestore();
 const ESTIMATED_STEPPER_HEIGHT = 70;
+
+// Funkcja do obliczania skalowalnych wartości dla przewijania z klawiaturą
+const getKeyboardScrollValues = () => {
+  const screenRatio = height / width;
+  const isTallScreen = screenRatio > 2.0;
+
+  return {
+    // Paddingi dla iOS z klawiaturą - skalowalne w zależności od wysokości ekranu
+    iosKeyboardPaddingBottom: hp(isTallScreen ? "8%" : "7%"),
+    iosKeyboardMinHeight: height + hp(isTallScreen ? "15%" : "12%"),
+
+    // Paddingi dla Android z klawiaturą - skalowalne w zależności od wysokości ekranu
+    androidKeyboardPaddingBottom: hp(isTallScreen ? "9.5%" : "8.5%"),
+    androidKeyboardMinHeight: height + hp(isTallScreen ? "23%" : "29%"),
+
+    // Dodatkowy spacer gdy klawiatura jest widoczna
+    keyboardSpacerHeight: hp(isTallScreen ? "5%" : "4%"),
+  };
+};
+
 export default function RegisterScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -313,7 +334,14 @@ export default function RegisterScreen() {
             <CustomScrollIndicator
               contentContainerStyle={[
                 styles.scrollViewContent,
-                { paddingBottom: isKeyboardVisible ? vs(57) : vs(6) },
+                {
+                  paddingBottom: isKeyboardVisible
+                    ? getKeyboardScrollValues().iosKeyboardPaddingBottom
+                    : vs(6),
+                  minHeight: isKeyboardVisible
+                    ? getKeyboardScrollValues().iosKeyboardMinHeight
+                    : undefined,
+                },
               ]}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
@@ -358,7 +386,13 @@ export default function RegisterScreen() {
 
                 {!isKeyboardVisible && <View style={styles.flexSpacer} />}
 
-                {isKeyboardVisible && <View style={{ height: vs(40) }} />}
+                {isKeyboardVisible && (
+                  <View
+                    style={{
+                      height: getKeyboardScrollValues().keyboardSpacerHeight,
+                    }}
+                  />
+                )}
               </View>
             </CustomScrollIndicator>
           </KeyboardAvoidingView>
@@ -367,8 +401,14 @@ export default function RegisterScreen() {
             <CustomScrollIndicator
               contentContainerStyle={[
                 styles.scrollViewContent,
-                { paddingBottom: isKeyboardVisible ? vs(60) : 0 },
-                isKeyboardVisible ? { minHeight: height + vs(111) } : null,
+                {
+                  paddingBottom: isKeyboardVisible
+                    ? getKeyboardScrollValues().androidKeyboardPaddingBottom
+                    : 0,
+                  minHeight: isKeyboardVisible
+                    ? getKeyboardScrollValues().androidKeyboardMinHeight
+                    : undefined,
+                },
               ]}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
@@ -417,7 +457,13 @@ export default function RegisterScreen() {
 
                 {!isKeyboardVisible && <View style={styles.flexSpacer} />}
 
-                {isKeyboardVisible && <View style={{ height: vs(40) }} />}
+                {isKeyboardVisible && (
+                  <View
+                    style={{
+                      height: getKeyboardScrollValues().keyboardSpacerHeight,
+                    }}
+                  />
+                )}
               </View>
             </CustomScrollIndicator>
           </View>
