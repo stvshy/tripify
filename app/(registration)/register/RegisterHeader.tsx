@@ -75,7 +75,7 @@ const styles = ScaledSheet.create({
     marginLeft: "-1.5@s",
   },
   title: {
-    fontSize: "21.1@vs",
+    fontSize: "22.1@ms",
     fontFamily: "Figtree-Medium",
     textAlign: "center",
     color: "#FFFFFF",
