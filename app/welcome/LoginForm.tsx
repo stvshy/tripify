@@ -21,12 +21,41 @@ import Animated, {
 
 const { width, height } = Dimensions.get("window");
 
+// More moderate scaling for text elements
+const getTextScale = () => {
+  const baseWidth = 375;
+  const baseHeight = 812; // iPhone X height baseline
+  const shortSide = Math.min(width, height);
+  const longSide = Math.max(width, height);
+
+  // Calculate screen area ratio for more accurate detection
+  const currentArea = width * height;
+  const baseArea = baseWidth * baseHeight;
+  const areaRatio = Math.sqrt(currentArea / baseArea);
+
+  // Use more aggressive scaling for very small screens
+  if (areaRatio < 0.91) {
+    return Math.max(0.94, Math.min(areaRatio, 0.98)); // Much higher minimum for small screens
+  }
+  return Math.max(0.98, Math.min(areaRatio, 1.15)); // Higher maximum for large screens
+};
+
 // Clamp UI scale so inputs/buttons don't overgrow on large displays
 const getClampedUiScale = () => {
   const baseWidth = 375;
   const shortSide = Math.min(width, height);
   const rawScale = shortSide / baseWidth;
-  return Math.max(0.9, Math.min(rawScale, 1.08));
+
+  // Calculate screen area ratio for more accurate small screen detection
+  const currentArea = width * height;
+  const baseArea = 375 * 812; // iPhone X baseline
+  const areaRatio = Math.sqrt(currentArea / baseArea);
+
+  // Use more aggressive scaling for very small screens
+  if (areaRatio < 0.91) {
+    return Math.max(0.92, Math.min(rawScale, 0.98)); // Much higher minimum for small screens
+  }
+  return Math.max(0.98, Math.min(rawScale, 1.15)); // Higher maximum for large screens
 };
 
 type Props = {
@@ -117,10 +146,11 @@ export default function LoginForm(props: Props) {
   }));
 
   const uiScale = getClampedUiScale();
-  const inputHeight = Math.round(46 * uiScale); // base 46dp
-  const fontSize = 14.6 * uiScale;
-  const buttonHeight = Math.round(42 * uiScale);
-  const buttonFontSize = 13.8 * uiScale;
+  const textScale = getTextScale();
+  const inputHeight = Math.round(47.4 * uiScale); // base 46dp
+  const fontSize = 14.6 * textScale;
+  const buttonHeight = Math.round(44.6 * uiScale);
+  const buttonFontSize = 13.8 * textScale;
 
   return (
     <View>

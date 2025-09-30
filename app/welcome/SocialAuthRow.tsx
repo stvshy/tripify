@@ -10,7 +10,45 @@ import {
 import { FontAwesome } from "@expo/vector-icons";
 import { ScaledSheet } from "react-native-size-matters";
 
-const { width } = Dimensions.get("window");
+const { width, height } = Dimensions.get("window");
+
+// Clamp UI scale so elements don't grow too much on large displays
+const getClampedUiScale = () => {
+  const baseWidth = 375;
+  const shortSide = Math.min(width, height);
+  const rawScale = shortSide / baseWidth;
+
+  // Calculate screen area ratio for more accurate small screen detection
+  const currentArea = width * height;
+  const baseArea = 375 * 812; // iPhone X baseline
+  const areaRatio = Math.sqrt(currentArea / baseArea);
+
+  // Use more aggressive scaling for very small screens
+  if (areaRatio < 0.91) {
+    return Math.max(0.92, Math.min(rawScale, 0.98)); // Much higher minimum for small screens
+  }
+
+  return Math.max(0.98, Math.min(rawScale, 1.15)); // Higher maximum for large screens
+};
+
+// More moderate scaling for text elements
+const getTextScale = () => {
+  const baseWidth = 375;
+  const baseHeight = 812; // iPhone X height baseline
+  const shortSide = Math.min(width, height);
+  const longSide = Math.max(width, height);
+
+  // Calculate screen area ratio for more accurate detection
+  const currentArea = width * height;
+  const baseArea = baseWidth * baseHeight;
+  const areaRatio = Math.sqrt(currentArea / baseArea);
+
+  // Use more aggressive scaling for very small screens
+  if (areaRatio < 0.91) {
+    return Math.max(0.94, Math.min(areaRatio, 0.98)); // Much higher minimum for small screens
+  }
+  return Math.max(0.98, Math.min(areaRatio, 1.15)); // Higher maximum for large screens
+};
 
 type Props = {
   onContinueWithFacebook: () => void;
@@ -19,42 +57,72 @@ type Props = {
 const SocialAuthRow = React.memo(function SocialAuthRow({
   onContinueWithFacebook,
 }: Props) {
+  const uiScale = getClampedUiScale();
+  const textScale = getTextScale();
+  const circleSize = Math.round(54.5 * uiScale);
+  const iconSize = Math.round(24 * uiScale);
+  const imageSize = Math.round(22.5 * uiScale);
+  const separatorFontSize = 11.6 * textScale;
+
   return (
     <View style={styles.wrapper}>
       <View style={styles.separatorRow}>
         <View style={styles.separator} />
-        <Text style={styles.separatorText}>or continue with</Text>
+        <Text style={[styles.separatorText, { fontSize: separatorFontSize }]}>
+          or continue with
+        </Text>
         <View style={styles.separator} />
       </View>
       <View style={styles.row}>
         <TouchableOpacity
-          style={styles.circle}
+          style={[
+            styles.circle,
+            {
+              width: circleSize,
+              height: circleSize,
+              borderRadius: circleSize / 2,
+            },
+          ]}
           onPress={onContinueWithFacebook}
         >
-          <FontAwesome name="facebook" size={24} color="#FFFFFF" />
+          <FontAwesome name="facebook" size={iconSize} color="#FFFFFF" />
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.circle}
+          style={[
+            styles.circle,
+            {
+              width: circleSize,
+              height: circleSize,
+              borderRadius: circleSize / 2,
+            },
+          ]}
           onPress={() => {
             /* placeholder only */
           }}
         >
           <Image
             source={require("../../assets/icons/Google_Symbol_1.png")}
-            style={styles.iconImage}
+            style={[styles.iconImage, { width: imageSize, height: imageSize }]}
             resizeMode="contain"
           />
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.circle}
+          style={[
+            styles.circle,
+            {
+              width: circleSize,
+              height: circleSize,
+              borderRadius: circleSize / 2,
+            },
+          ]}
           onPress={() => {
             /* placeholder only */
           }}
         >
           <Image
             source={require("../../assets/icons/X_idJxGuURW1_1.png")}
-            style={styles.iconImage}
+            style={[styles.iconImage, { width: imageSize, height: imageSize }]}
             resizeMode="contain"
           />
         </TouchableOpacity>

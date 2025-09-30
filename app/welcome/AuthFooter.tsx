@@ -9,7 +9,26 @@ import {
 } from "react-native";
 import { ScaledSheet } from "react-native-size-matters";
 
-const { width } = Dimensions.get("window");
+const { width, height } = Dimensions.get("window");
+
+// More moderate scaling for text elements
+const getTextScale = () => {
+  const baseWidth = 375;
+  const baseHeight = 812; // iPhone X height baseline
+  const shortSide = Math.min(width, height);
+  const longSide = Math.max(width, height);
+
+  // Calculate screen area ratio for more accurate detection
+  const currentArea = width * height;
+  const baseArea = baseWidth * baseHeight;
+  const areaRatio = Math.sqrt(currentArea / baseArea);
+
+  // Use more aggressive scaling for very small screens
+  if (areaRatio < 0.91) {
+    return Math.max(0.94, Math.min(areaRatio, 0.98)); // Much higher minimum for small screens
+  }
+  return Math.max(0.98, Math.min(areaRatio, 1.15)); // Higher maximum for large screens
+};
 
 type Props = {
   onCreateAccount: () => void;
@@ -17,6 +36,8 @@ type Props = {
 
 const AuthFooter = React.memo(function AuthFooter({ onCreateAccount }: Props) {
   const [isPressed, setIsPressed] = useState(false);
+  const textScale = getTextScale();
+  const fontSize = 12.7 * textScale;
 
   return (
     <View style={styles.container}>
@@ -26,7 +47,7 @@ const AuthFooter = React.memo(function AuthFooter({ onCreateAccount }: Props) {
         onPressIn={() => setIsPressed(true)}
         onPressOut={() => setIsPressed(false)}
       >
-        <Text style={styles.text}>
+        <Text style={[styles.text, { fontSize }]}>
           Don't have an account?{" "}
           <Text style={[styles.link, isPressed && styles.linkPressed]}>
             Create account
