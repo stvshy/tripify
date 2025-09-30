@@ -641,7 +641,7 @@ const styles = ScaledSheet.create({
     // paddingHorizontal: 0, // PaddingHorizontal będzie z scrollViewContent
     // backgroundColor: 'rgba(0,0,0,0.1)', // Test
     // marginLeft: 8.8,
-    marginRight: "2.0@s",
+    marginRight: "1.1@s",
     marginBottom: "-18@vs",
   },
   requirementsContainer: {

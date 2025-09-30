@@ -1,5 +1,6 @@
 import React from "react";
-import { Text, StyleSheet } from "react-native";
+import { Text } from "react-native";
+import { ScaledSheet } from "react-native-size-matters";
 
 interface StatusMessagesProps {
   message: string | null;
@@ -17,15 +18,15 @@ const StatusMessages: React.FC<StatusMessagesProps> = ({ message, error }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = ScaledSheet.create({
   successMessage: {
     color: "#50baa1",
     textAlign: "center",
-    marginBottom: 16,
-    fontSize: 12,
+    marginBottom: "16@vs",
+    fontSize: "12@ms",
     fontFamily: "PlusJakartaSans-Regular",
     position: "absolute",
-    bottom: 120, // Pozycjonowane względem dolnej części ekranu
+    bottom: "120@vs", // Pozycjonowane względem dolnej części ekranu
     left: 0,
     right: 0,
     zIndex: 5, // Zmniejszony zIndex żeby nie przesłaniał przycisków
@@ -33,11 +34,11 @@ const styles = StyleSheet.create({
   errorMessage: {
     color: "violet",
     textAlign: "center",
-    marginBottom: 16,
-    fontSize: 12.5,
+    marginBottom: "16@vs",
+    fontSize: "12.5@ms",
     fontFamily: "PlusJakartaSans-Regular",
     position: "absolute",
-    bottom: 120, // Pozycjonowane względem dolnej części ekranu
+    bottom: "120@vs", // Pozycjonowane względem dolnej części ekranu
     left: 0,
     right: 0,
     zIndex: 5, // Zmniejszony zIndex żeby nie przesłaniał przycisków

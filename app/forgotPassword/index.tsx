@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
-  StyleSheet,
   Image,
   ImageBackground,
   SafeAreaView,
@@ -13,7 +12,9 @@ import {
   BackHandler,
   TextInput as RNTextInput,
   Animated,
+  StyleSheet,
 } from "react-native";
+import { ScaledSheet } from "react-native-size-matters";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth, db } from "../config/firebaseConfig";
 import { collection, query, where, getDocs } from "firebase/firestore";
@@ -224,7 +225,7 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = ScaledSheet.create({
   fullScreen: {
     flex: 1,
   },
@@ -240,8 +241,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
-    paddingBottom: 10,
+    padding: "16@s",
+    paddingBottom: "10@vs",
     backgroundColor: "rgba(0, 0, 0, 0.02)",
   },
   contentContainer: {
@@ -256,22 +257,22 @@ const styles = StyleSheet.create({
   logoContainer: {
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 16,
-    marginTop: 20,
+    marginBottom: "16@vs",
+    marginTop: "20@vs",
   },
   title: {
     fontSize: width * 0.058,
     textAlign: "center",
-    marginBottom: 10,
+    marginBottom: "10@vs",
     color: "#FFEEFCFF",
     fontFamily: "PlusJakartaSans-Bold",
   },
   subtitle: {
     fontSize: width * 0.04,
     textAlign: "center",
-    marginBottom: 20,
+    marginBottom: "20@vs",
     color: "#FFE3F9D1",
-    marginTop: 5,
+    marginTop: "5@vs",
     fontFamily: "PlusJakartaSans-Regular",
   },
 });

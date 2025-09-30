@@ -7,11 +7,12 @@ export const useKeyboardAnimation = () => {
 
   const animateToTop = useCallback(() => {
     // Używamy moderateScale dla lepszego skalowania na różnych ekranach
-    const animationDistance = moderateScale(-60, 0.3);
+    // moderateScale zapewnia bardziej liniowe skalowanie niż verticalScale
+    const animationDistance = moderateScale(-108, 0.3);
 
     Animated.timing(contentTranslateY, {
       toValue: animationDistance,
-      duration: 250,
+      duration: 200, // Szybsza animacja niż wcześniej
       useNativeDriver: true,
     }).start();
   }, [contentTranslateY]);
@@ -19,7 +20,7 @@ export const useKeyboardAnimation = () => {
   const animateToBottom = useCallback(() => {
     Animated.timing(contentTranslateY, {
       toValue: 0,
-      duration: 70,
+      duration: 180, // Szybsza animacja niż wcześniej
       useNativeDriver: true,
     }).start();
   }, [contentTranslateY]);

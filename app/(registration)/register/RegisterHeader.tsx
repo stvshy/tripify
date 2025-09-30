@@ -72,7 +72,7 @@ const styles = ScaledSheet.create({
     alignItems: "center",
     // marginBottom and marginTop will be set dynamically
     width: "100%",
-    marginLeft: "-1.1@s",
+    marginLeft: "-1.5@s",
   },
   title: {
     fontSize: "21.1@vs",

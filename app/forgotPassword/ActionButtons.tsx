@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { View, Text, Pressable } from "react-native";
+import { ScaledSheet } from "react-native-size-matters";
 
 interface ActionButtonsProps {
   onSendReset: () => void;
@@ -37,21 +38,21 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const styles = ScaledSheet.create({
   footer: {
     width: "100%",
     alignItems: "center",
-    paddingVertical: 10,
+    paddingVertical: "10@vs",
     zIndex: 10, // Przyciski na wierzchu
   },
   sendButton: {
     backgroundColor: "#7511b5",
-    paddingVertical: 9,
-    paddingHorizontal: 30,
+    paddingVertical: "9@vs",
+    paddingHorizontal: "30@s",
     alignItems: "center",
-    borderRadius: 25,
+    borderRadius: "25@s",
     width: "90%",
-    marginBottom: 10,
+    marginBottom: "10@vs",
     elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -65,13 +66,13 @@ const styles = StyleSheet.create({
   },
   sendButtonText: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: "16@ms",
     fontFamily: "PlusJakartaSans-SemiBold",
-    marginBottom: 3.5,
+    marginBottom: "3.5@vs",
   },
   backButton: {
-    paddingVertical: 10,
-    marginBottom: -5,
+    paddingVertical: "10@vs",
+    marginBottom: "-5@vs",
   },
   backButtonPressed: {
     opacity: 0.7, // Zmniejszona przezroczystość przy naciśnięciu
@@ -79,7 +80,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     color: "#4a136c",
-    fontSize: 14,
+    fontSize: "14@ms",
     textAlign: "center",
     fontFamily: "PlusJakartaSans-Medium",
   },
