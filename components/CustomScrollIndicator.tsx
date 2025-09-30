@@ -28,7 +28,7 @@ const CustomScrollIndicator: React.FC<CustomScrollIndicatorProps> = ({
   contentContainerStyle,
   keyboardShouldPersistTaps = "handled",
   showsVerticalScrollIndicator = false,
-  scrollEventThrottle = 16,
+  scrollEventThrottle = 1,
   overScrollMode = "always",
   removeClippedSubviews = false,
   keyboardDismissMode = "interactive",

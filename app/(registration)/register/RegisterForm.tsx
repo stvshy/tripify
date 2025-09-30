@@ -1,4 +1,4 @@
-import React, { forwardRef } from "react";
+import React, { forwardRef, memo } from "react";
 import {
   View,
   StyleSheet,
@@ -40,11 +40,7 @@ type Props = {
   showConfirmPassword: boolean;
   setShowConfirmPassword: (v: boolean) => void;
   isFocused: { email: boolean; password: boolean; confirmPassword: boolean };
-  setIsFocused: (s: {
-    email: boolean;
-    password: boolean;
-    confirmPassword: boolean;
-  }) => void;
+  handleFocusChange: (field: string, focused: boolean) => void;
   passwordRequirements: RequirementMap;
   renderValidationIcon: (isValid: boolean) => React.ReactNode;
   emailInputRef: React.RefObject<RNTextInput>;
@@ -52,7 +48,7 @@ type Props = {
   confirmPasswordInputRef: React.RefObject<RNTextInput>;
 };
 
-export default function RegisterForm(props: Props) {
+export default memo(function RegisterForm(props: Props) {
   const {
     email,
     setEmail,
@@ -65,7 +61,7 @@ export default function RegisterForm(props: Props) {
     showConfirmPassword,
     setShowConfirmPassword,
     isFocused,
-    setIsFocused,
+    handleFocusChange,
     passwordRequirements,
     renderValidationIcon,
     emailInputRef,
@@ -104,8 +100,8 @@ export default function RegisterForm(props: Props) {
             placeholderTextColor="#D1D5DB"
             value={email}
             onChangeText={setEmail}
-            onFocus={() => setIsFocused({ ...isFocused, email: true })}
-            onBlur={() => setIsFocused({ ...isFocused, email: false })}
+            onFocus={() => handleFocusChange("email", true)}
+            onBlur={() => handleFocusChange("email", false)}
             keyboardType="email-address"
             style={[styles.customInput, { fontSize }]}
             autoCapitalize="none"
@@ -135,8 +131,8 @@ export default function RegisterForm(props: Props) {
             placeholderTextColor="#D1D5DB"
             value={password}
             onChangeText={setPassword}
-            onFocus={() => setIsFocused({ ...isFocused, password: true })}
-            onBlur={() => setIsFocused({ ...isFocused, password: false })}
+            onFocus={() => handleFocusChange("password", true)}
+            onBlur={() => handleFocusChange("password", false)}
             secureTextEntry={!showPassword}
             style={[styles.customInput, { fontSize }]}
             autoCapitalize="sentences"
@@ -174,12 +170,8 @@ export default function RegisterForm(props: Props) {
             placeholderTextColor="#D1D5DB"
             value={confirmPassword}
             onChangeText={setConfirmPassword}
-            onFocus={() =>
-              setIsFocused({ ...isFocused, confirmPassword: true })
-            }
-            onBlur={() =>
-              setIsFocused({ ...isFocused, confirmPassword: false })
-            }
+            onFocus={() => handleFocusChange("confirmPassword", true)}
+            onBlur={() => handleFocusChange("confirmPassword", false)}
             secureTextEntry={!showConfirmPassword}
             style={[styles.customInput, { fontSize }]}
             autoCapitalize="sentences"
@@ -236,7 +228,7 @@ export default function RegisterForm(props: Props) {
       </View>
     </View>
   );
-}
+});
 
 const getRequirementText = (key: string) => {
   switch (key) {

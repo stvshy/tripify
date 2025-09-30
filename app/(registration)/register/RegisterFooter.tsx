@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, memo } from "react";
 import { View, Text, StyleSheet, Dimensions, Pressable } from "react-native";
 import { ScaledSheet, vs } from "react-native-size-matters";
 import {
@@ -41,7 +41,7 @@ type Props = {
   onGoToLogin: () => void;
 };
 
-export default function RegisterFooter({
+export default memo(function RegisterFooter({
   isLoading,
   onSubmit,
   onGoToLogin,
@@ -92,7 +92,7 @@ export default function RegisterFooter({
       </Pressable>
     </View>
   );
-}
+});
 
 const styles = ScaledSheet.create({
   footer: {

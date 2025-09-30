@@ -4,6 +4,7 @@ import React, {
   useContext,
   useCallback,
   useRef,
+  useMemo,
 } from "react";
 import {
   View,
@@ -113,6 +114,11 @@ export default function RegisterScreen() {
     password: false,
     confirmPassword: false,
   });
+
+  // Memoized focus handlers to prevent unnecessary re-renders
+  const handleFocusChange = useCallback((field: string, focused: boolean) => {
+    setIsFocused((prev) => ({ ...prev, [field]: focused }));
+  }, []);
   const primaryError = emailError || errorMessage;
 
   // Refs for text inputs
@@ -163,16 +169,31 @@ export default function RegisterScreen() {
     });
   }, [password]);
   useEffect(() => {
+    const keyboardWillShowListener = Keyboard.addListener(
+      "keyboardWillShow",
+      () => {
+        setKeyboardVisible(true); // Klawiatura będzie widoczna (iOS)
+      }
+    );
     const keyboardDidShowListener = Keyboard.addListener(
       "keyboardDidShow",
       () => {
-        setKeyboardVisible(true); // Klawiatura jest widoczna
+        setKeyboardVisible(true); // Klawiatura jest widoczna (Android)
+      }
+    );
+    const keyboardWillHideListener = Keyboard.addListener(
+      "keyboardWillHide",
+      () => {
+        setKeyboardVisible(false); // Klawiatura będzie ukryta (iOS)
+        // Po zamknięciu klawiatury schowaj pasek i wznow auto-hide
+        hideNavBar();
+        startNavBarAutoHide();
       }
     );
     const keyboardDidHideListener = Keyboard.addListener(
       "keyboardDidHide",
       () => {
-        setKeyboardVisible(false); // Klawiatura została ukryta
+        setKeyboardVisible(false); // Klawiatura została ukryta (Android)
         // Po zamknięciu klawiatury schowaj pasek i wznow auto-hide
         hideNavBar();
         startNavBarAutoHide();
@@ -191,7 +212,9 @@ export default function RegisterScreen() {
 
     // Czyszczenie nasłuchiwaczy po odmontowaniu komponentu
     return () => {
+      keyboardWillShowListener.remove();
       keyboardDidShowListener.remove();
+      keyboardWillHideListener.remove();
       keyboardDidHideListener.remove();
       backHandler.remove();
     };
@@ -346,6 +369,9 @@ export default function RegisterScreen() {
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
               contentInsetAdjustmentBehavior="never"
+              scrollEventThrottle={1}
+              removeClippedSubviews={false}
+              keyboardDismissMode="interactive"
               style={styles.scrollView}
             >
               <View style={styles.centerWrapper}>
@@ -376,7 +402,7 @@ export default function RegisterScreen() {
                   showConfirmPassword={showConfirmPassword}
                   setShowConfirmPassword={setShowConfirmPassword}
                   isFocused={isFocused}
-                  setIsFocused={setIsFocused}
+                  handleFocusChange={handleFocusChange}
                   passwordRequirements={passwordRequirements}
                   renderValidationIcon={renderValidationIcon}
                   emailInputRef={emailInputRef}
@@ -414,7 +440,7 @@ export default function RegisterScreen() {
               showsVerticalScrollIndicator={false}
               overScrollMode="always"
               removeClippedSubviews={false}
-              scrollEventThrottle={16}
+              scrollEventThrottle={1}
               keyboardDismissMode="interactive"
               nestedScrollEnabled={true}
               style={styles.scrollView}
@@ -447,7 +473,7 @@ export default function RegisterScreen() {
                   showConfirmPassword={showConfirmPassword}
                   setShowConfirmPassword={setShowConfirmPassword}
                   isFocused={isFocused}
-                  setIsFocused={setIsFocused}
+                  handleFocusChange={handleFocusChange}
                   passwordRequirements={passwordRequirements}
                   renderValidationIcon={renderValidationIcon}
                   emailInputRef={emailInputRef}

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { memo } from "react";
 import { View, Text, StyleSheet, Image, Dimensions } from "react-native";
 import {
   moderateScale,
@@ -70,7 +70,7 @@ type Props = {
   errorMessage?: string | null;
 };
 
-export default function RegisterHeader({
+export default memo(function RegisterHeader({
   title = "Create an Account in Tripify",
   errorMessage,
 }: Props) {
@@ -104,7 +104,7 @@ export default function RegisterHeader({
         style={[
           styles.errorHolder,
           {
-            minHeight: scale(35.8),
+            minHeight: scale(36.8),
           },
         ]}
       >
@@ -120,7 +120,7 @@ export default function RegisterHeader({
       </View>
     </>
   );
-}
+});
 
 const styles = ScaledSheet.create({
   logo: {
