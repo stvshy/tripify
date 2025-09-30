@@ -11,7 +11,13 @@ import {
 import { Button } from "react-native-paper";
 import { MaterialIcons, Feather } from "@expo/vector-icons";
 import { s, ScaledSheet } from "react-native-size-matters";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withDelay,
+  withTiming,
+  Easing,
+} from "react-native-reanimated";
 
 const { width, height } = Dimensions.get("window");
 
@@ -60,9 +66,51 @@ export default function LoginForm(props: Props) {
     passwordInputRef,
   } = props;
 
+  // Intro stagger controlled by shared values to avoid layout jumps on cold start
+  const idProgress = useSharedValue(0);
+  const passProgress = useSharedValue(0);
+  const forgotProgress = useSharedValue(0);
+  const buttonProgress = useSharedValue(0);
+
+  React.useEffect(() => {
+    idProgress.value = withTiming(1, {
+      duration: 520,
+      easing: Easing.out(Easing.cubic),
+    });
+    passProgress.value = withDelay(
+      150,
+      withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) })
+    );
+    forgotProgress.value = withDelay(
+      280,
+      withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) })
+    );
+    buttonProgress.value = withDelay(
+      420,
+      withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) })
+    );
+  }, []);
+
+  const idStyle = useAnimatedStyle(() => ({
+    opacity: idProgress.value,
+    transform: [{ translateY: -(1 - idProgress.value) * 12 }],
+  }));
+  const passStyle = useAnimatedStyle(() => ({
+    opacity: passProgress.value,
+    transform: [{ translateY: -(1 - passProgress.value) * 12 }],
+  }));
+  const forgotStyle = useAnimatedStyle(() => ({
+    opacity: forgotProgress.value,
+    transform: [{ translateY: -(1 - forgotProgress.value) * 12 }],
+  }));
+  const buttonStyle = useAnimatedStyle(() => ({
+    opacity: buttonProgress.value,
+    transform: [{ translateY: -(1 - buttonProgress.value) * 12 }],
+  }));
+
   return (
     <View>
-      <Animated.View entering={FadeInDown.duration(700).springify()}>
+      <Animated.View style={idStyle}>
         <Pressable
           style={[
             styles.inputContainer,
@@ -99,7 +147,7 @@ export default function LoginForm(props: Props) {
         </Pressable>
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(150).duration(700).springify()}>
+      <Animated.View style={passStyle}>
         <Pressable
           style={[
             styles.inputContainer,
@@ -147,10 +195,7 @@ export default function LoginForm(props: Props) {
         </Pressable>
       </Animated.View>
 
-      <Animated.View
-        entering={FadeInDown.delay(280).duration(700).springify()}
-        style={styles.forgotContainer}
-      >
+      <Animated.View style={[styles.forgotContainer, forgotStyle]}>
         <TouchableOpacity
           onPress={onForgotPassword}
           style={styles.forgotButton}
@@ -182,7 +227,7 @@ export default function LoginForm(props: Props) {
         </TouchableOpacity>
       ) : null}
 
-      <Animated.View entering={FadeInDown.delay(420).duration(700).springify()}>
+      <Animated.View style={buttonStyle}>
         <Pressable
           onPress={onSubmit}
           disabled={loading}

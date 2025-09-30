@@ -61,7 +61,13 @@ import AuthFooter from "./AuthFooter";
 import GradientBackdrop from "./GradientBackdrop";
 import { useKeyboardAnimation } from "./useKeyboardAnimation";
 import { ScaledSheet } from "react-native-size-matters";
-import Reanimated, { FadeInUp, FadeInDown } from "react-native-reanimated";
+import Reanimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+  Easing,
+} from "react-native-reanimated";
 
 const { width, height } = Dimensions.get("window");
 
@@ -84,6 +90,49 @@ export default function WelcomeScreen() {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [isContentShifted, setIsContentShifted] = useState(false);
   const { setUserProfile } = useAuthStore();
+
+  // Intro animations driven by shared values to avoid initial layout jumps
+  const headerProgress = useSharedValue(0);
+  const formProgress = useSharedValue(0);
+  const socialProgress = useSharedValue(0);
+  const footerProgress = useSharedValue(0);
+
+  useEffect(() => {
+    // run on first mount
+    headerProgress.value = withTiming(1, {
+      duration: 520,
+      easing: Easing.out(Easing.cubic),
+    });
+    formProgress.value = withDelay(
+      150,
+      withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) })
+    );
+    socialProgress.value = withDelay(
+      350,
+      withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) })
+    );
+    footerProgress.value = withDelay(
+      550,
+      withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) })
+    );
+  }, []);
+
+  const headerStyle = useAnimatedStyle(() => ({
+    opacity: headerProgress.value,
+    transform: [{ translateY: (1 - headerProgress.value) * 12 }], // fade in up
+  }));
+  const formStyle = useAnimatedStyle(() => ({
+    opacity: formProgress.value,
+    transform: [{ translateY: -(1 - formProgress.value) * 12 }], // fade in down
+  }));
+  const socialStyle = useAnimatedStyle(() => ({
+    opacity: socialProgress.value,
+    transform: [{ translateY: -(1 - socialProgress.value) * 12 }],
+  }));
+  const footerStyle = useAnimatedStyle(() => ({
+    opacity: footerProgress.value,
+    transform: [{ translateY: -(1 - footerProgress.value) * 12 }],
+  }));
 
   // Hook dla animacji
   const { contentTranslateY, animateToTop, animateToBottom, resetAnimation } =
@@ -539,20 +588,14 @@ export default function WelcomeScreen() {
                 },
               ]}
             >
-              <Reanimated.View
-                entering={FadeInUp.duration(700).springify()}
-                style={styles.headerWrapper}
-              >
+              <Reanimated.View style={[styles.headerWrapper, headerStyle]}>
                 <LoginHeader
                   errorMessage={errorMessage}
                   verificationMessage={verificationMessage}
                 />
               </Reanimated.View>
 
-              <Reanimated.View
-                entering={FadeInDown.delay(150).duration(700).springify()}
-                style={styles.formWrapper}
-              >
+              <Reanimated.View style={[styles.formWrapper, formStyle]}>
                 <LoginForm
                   identifier={identifier}
                   setIdentifier={setIdentifier}
@@ -576,17 +619,13 @@ export default function WelcomeScreen() {
                 />
               </Reanimated.View>
 
-              <Reanimated.View
-                entering={FadeInDown.delay(350).duration(700).springify()}
-              >
+              <Reanimated.View style={socialStyle}>
                 <SocialAuthRow onContinueWithFacebook={handleFacebookLogin} />
               </Reanimated.View>
             </Animated.View>
           </KeyboardAvoidingView>
 
-          <Reanimated.View
-            entering={FadeInDown.delay(550).duration(700).springify()}
-          >
+          <Reanimated.View style={footerStyle}>
             <AuthFooter
               onCreateAccount={() => router.push("/(registration)/register")}
             />
