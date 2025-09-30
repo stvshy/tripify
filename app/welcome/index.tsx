@@ -100,38 +100,38 @@ export default function WelcomeScreen() {
   useEffect(() => {
     // run on first mount
     headerProgress.value = withTiming(1, {
-      duration: 520,
-      easing: Easing.out(Easing.cubic),
+      duration: 700,
+      easing: Easing.out(Easing.back(1.2)),
     });
     formProgress.value = withDelay(
-      150,
-      withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) })
+      200,
+      withTiming(1, { duration: 700, easing: Easing.out(Easing.back(1.2)) })
     );
     socialProgress.value = withDelay(
-      350,
-      withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) })
+      400,
+      withTiming(1, { duration: 700, easing: Easing.out(Easing.back(1.2)) })
     );
     footerProgress.value = withDelay(
-      550,
-      withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) })
+      600,
+      withTiming(1, { duration: 700, easing: Easing.out(Easing.back(1.2)) })
     );
   }, []);
 
   const headerStyle = useAnimatedStyle(() => ({
     opacity: headerProgress.value,
-    transform: [{ translateY: (1 - headerProgress.value) * 12 }], // fade in up
+    transform: [{ translateY: (1 - headerProgress.value) * 30 }], // fade in up
   }));
   const formStyle = useAnimatedStyle(() => ({
     opacity: formProgress.value,
-    transform: [{ translateY: -(1 - formProgress.value) * 12 }], // fade in down
+    transform: [{ translateY: -(1 - formProgress.value) * 30 }], // fade in down
   }));
   const socialStyle = useAnimatedStyle(() => ({
     opacity: socialProgress.value,
-    transform: [{ translateY: -(1 - socialProgress.value) * 12 }],
+    transform: [{ translateY: -(1 - socialProgress.value) * 30 }],
   }));
   const footerStyle = useAnimatedStyle(() => ({
     opacity: footerProgress.value,
-    transform: [{ translateY: -(1 - footerProgress.value) * 12 }],
+    transform: [{ translateY: -(1 - footerProgress.value) * 30 }],
   }));
 
   // Hook dla animacji

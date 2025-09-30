@@ -74,38 +74,38 @@ export default function LoginForm(props: Props) {
 
   React.useEffect(() => {
     idProgress.value = withTiming(1, {
-      duration: 520,
-      easing: Easing.out(Easing.cubic),
+      duration: 700,
+      easing: Easing.out(Easing.back(1.2)),
     });
     passProgress.value = withDelay(
-      150,
-      withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) })
+      200,
+      withTiming(1, { duration: 700, easing: Easing.out(Easing.back(1.2)) })
     );
     forgotProgress.value = withDelay(
-      280,
-      withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) })
+      400,
+      withTiming(1, { duration: 700, easing: Easing.out(Easing.back(1.2)) })
     );
     buttonProgress.value = withDelay(
-      420,
-      withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) })
+      600,
+      withTiming(1, { duration: 700, easing: Easing.out(Easing.back(1.2)) })
     );
   }, []);
 
   const idStyle = useAnimatedStyle(() => ({
     opacity: idProgress.value,
-    transform: [{ translateY: -(1 - idProgress.value) * 12 }],
+    transform: [{ translateY: -(1 - idProgress.value) * 30 }],
   }));
   const passStyle = useAnimatedStyle(() => ({
     opacity: passProgress.value,
-    transform: [{ translateY: -(1 - passProgress.value) * 12 }],
+    transform: [{ translateY: -(1 - passProgress.value) * 30 }],
   }));
   const forgotStyle = useAnimatedStyle(() => ({
     opacity: forgotProgress.value,
-    transform: [{ translateY: -(1 - forgotProgress.value) * 12 }],
+    transform: [{ translateY: -(1 - forgotProgress.value) * 30 }],
   }));
   const buttonStyle = useAnimatedStyle(() => ({
     opacity: buttonProgress.value,
-    transform: [{ translateY: -(1 - buttonProgress.value) * 12 }],
+    transform: [{ translateY: -(1 - buttonProgress.value) * 30 }],
   }));
 
   return (
