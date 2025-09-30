@@ -49,7 +49,7 @@ export default function RegisterFooter({
   const responsiveScaling = getResponsiveButtonScaling();
   const [isFooterPressed, setIsFooterPressed] = useState(false);
   const uiScale = getClampedUiScale();
-  const buttonHeight = Math.round(47 * uiScale); // base 47dp, gently scaled
+  const buttonHeight = Math.round(49 * uiScale); // base 47dp, gently scaled
   const fontSize = 13.8 * uiScale;
 
   return (
