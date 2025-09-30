@@ -11,6 +11,7 @@ import {
 import { Button } from "react-native-paper";
 import { MaterialIcons, Feather } from "@expo/vector-icons";
 import { s, ScaledSheet } from "react-native-size-matters";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 const { width, height } = Dimensions.get("window");
 
@@ -61,88 +62,95 @@ export default function LoginForm(props: Props) {
 
   return (
     <View>
-      <Pressable
-        style={[
-          styles.inputContainer,
-          isFocused.identifier && styles.inputFocused,
-        ]}
-        onPress={() => identifierInputRef.current?.focus()}
-      >
-        <View style={styles.inputWrapper}>
-          <Feather
-            name="user"
-            size={s(19.5)}
-            color={isFocused.identifier ? "#FFFFFF" : "rgb(228, 228, 230)"}
-            style={styles.inputIcon}
-          />
-          <RNTextInput
-            ref={identifierInputRef}
-            placeholder="Nickname  /  E-mail"
-            placeholderTextColor="#D1D5DB"
-            value={identifier}
-            onChangeText={setIdentifier}
-            onFocus={() => {
-              setIsFocused({ ...isFocused, identifier: true });
-              onInputFocus("identifier");
-            }}
-            onBlur={() => {
-              setIsFocused({ ...isFocused, identifier: false });
-              onInputBlur("identifier");
-            }}
-            keyboardType="default"
-            style={styles.customInput}
-            autoCapitalize="none"
-          />
-        </View>
-      </Pressable>
-
-      <Pressable
-        style={[
-          styles.inputContainer,
-          isFocused.password && styles.inputFocused,
-        ]}
-        onPress={() => passwordInputRef.current?.focus()}
-      >
-        <View style={styles.inputWrapper}>
-          <MaterialIcons
-            name="lock"
-            size={s(19.8)}
-            color={isFocused.password ? "#FFFFFF" : "rgb(228, 228, 230)"}
-            style={[
-              styles.inputIcon,
-              { marginBottom: 0.8, marginLeft: -0.8, marginRight: 12.8 },
-            ]}
-          />
-          <RNTextInput
-            ref={passwordInputRef}
-            placeholder="Password"
-            placeholderTextColor="#D1D5DB"
-            value={password}
-            onChangeText={setPassword}
-            onFocus={() => {
-              setIsFocused({ ...isFocused, password: true });
-              onInputFocus("password");
-            }}
-            onBlur={() => {
-              setIsFocused({ ...isFocused, password: false });
-              onInputBlur("password");
-            }}
-            secureTextEntry={!showPassword}
-            style={styles.customInput}
-            autoCapitalize="sentences"
-          />
-          <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-            <MaterialIcons
-              name={showPassword ? "visibility-off" : "visibility"}
+      <Animated.View entering={FadeInDown.duration(700).springify()}>
+        <Pressable
+          style={[
+            styles.inputContainer,
+            isFocused.identifier && styles.inputFocused,
+          ]}
+          onPress={() => identifierInputRef.current?.focus()}
+        >
+          <View style={styles.inputWrapper}>
+            <Feather
+              name="user"
               size={s(19.5)}
-              color={isFocused.password ? "#FFFFFF" : "rgb(228, 228, 230)"}
-              style={styles.inputIconRight}
+              color={isFocused.identifier ? "#FFFFFF" : "rgb(228, 228, 230)"}
+              style={styles.inputIcon}
             />
-          </TouchableOpacity>
-        </View>
-      </Pressable>
+            <RNTextInput
+              ref={identifierInputRef}
+              placeholder="Nickname  /  E-mail"
+              placeholderTextColor="#D1D5DB"
+              value={identifier}
+              onChangeText={setIdentifier}
+              onFocus={() => {
+                setIsFocused({ ...isFocused, identifier: true });
+                onInputFocus("identifier");
+              }}
+              onBlur={() => {
+                setIsFocused({ ...isFocused, identifier: false });
+                onInputBlur("identifier");
+              }}
+              keyboardType="default"
+              style={styles.customInput}
+              autoCapitalize="none"
+            />
+          </View>
+        </Pressable>
+      </Animated.View>
 
-      <View style={styles.forgotContainer}>
+      <Animated.View entering={FadeInDown.delay(150).duration(700).springify()}>
+        <Pressable
+          style={[
+            styles.inputContainer,
+            isFocused.password && styles.inputFocused,
+          ]}
+          onPress={() => passwordInputRef.current?.focus()}
+        >
+          <View style={styles.inputWrapper}>
+            <MaterialIcons
+              name="lock"
+              size={s(19.8)}
+              color={isFocused.password ? "#FFFFFF" : "rgb(228, 228, 230)"}
+              style={[
+                styles.inputIcon,
+                { marginBottom: 0.8, marginLeft: -0.8, marginRight: 12.8 },
+              ]}
+            />
+            <RNTextInput
+              ref={passwordInputRef}
+              placeholder="Password"
+              placeholderTextColor="#D1D5DB"
+              value={password}
+              onChangeText={setPassword}
+              onFocus={() => {
+                setIsFocused({ ...isFocused, password: true });
+                onInputFocus("password");
+              }}
+              onBlur={() => {
+                setIsFocused({ ...isFocused, password: false });
+                onInputBlur("password");
+              }}
+              secureTextEntry={!showPassword}
+              style={styles.customInput}
+              autoCapitalize="sentences"
+            />
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+              <MaterialIcons
+                name={showPassword ? "visibility-off" : "visibility"}
+                size={s(19.5)}
+                color={isFocused.password ? "#FFFFFF" : "rgb(228, 228, 230)"}
+                style={styles.inputIconRight}
+              />
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Animated.View>
+
+      <Animated.View
+        entering={FadeInDown.delay(280).duration(700).springify()}
+        style={styles.forgotContainer}
+      >
         <TouchableOpacity
           onPress={onForgotPassword}
           style={styles.forgotButton}
@@ -150,7 +158,7 @@ export default function LoginForm(props: Props) {
         >
           <Text style={styles.forgotLabel}>Forgot password?</Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
 
       {verificationMessage ? (
         <TouchableOpacity
@@ -174,21 +182,23 @@ export default function LoginForm(props: Props) {
         </TouchableOpacity>
       ) : null}
 
-      <Pressable
-        onPress={onSubmit}
-        disabled={loading}
-        style={({ pressed }: { pressed: boolean }) => [
-          styles.loginButton,
-          {
-            opacity: loading ? 0.7 : pressed ? 0.8 : 1,
-            transform: [{ scale: pressed ? 0.98 : 1 }],
-          },
-        ]}
-      >
-        <Text style={styles.buttonLabel}>
-          {loading ? "Signing in..." : "Sign in"}
-        </Text>
-      </Pressable>
+      <Animated.View entering={FadeInDown.delay(420).duration(700).springify()}>
+        <Pressable
+          onPress={onSubmit}
+          disabled={loading}
+          style={({ pressed }: { pressed: boolean }) => [
+            styles.loginButton,
+            {
+              opacity: loading ? 0.7 : pressed ? 0.8 : 1,
+              transform: [{ scale: pressed ? 0.98 : 1 }],
+            },
+          ]}
+        >
+          <Text style={styles.buttonLabel}>
+            {loading ? "Signing in..." : "Sign in"}
+          </Text>
+        </Pressable>
+      </Animated.View>
     </View>
   );
 }

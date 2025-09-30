@@ -61,6 +61,7 @@ import AuthFooter from "./AuthFooter";
 import GradientBackdrop from "./GradientBackdrop";
 import { useKeyboardAnimation } from "./useKeyboardAnimation";
 import { ScaledSheet } from "react-native-size-matters";
+import Reanimated, { FadeInUp, FadeInDown } from "react-native-reanimated";
 
 const { width, height } = Dimensions.get("window");
 
@@ -538,14 +539,20 @@ export default function WelcomeScreen() {
                 },
               ]}
             >
-              <View style={styles.headerWrapper}>
+              <Reanimated.View
+                entering={FadeInUp.duration(700).springify()}
+                style={styles.headerWrapper}
+              >
                 <LoginHeader
                   errorMessage={errorMessage}
                   verificationMessage={verificationMessage}
                 />
-              </View>
+              </Reanimated.View>
 
-              <View style={styles.formWrapper}>
+              <Reanimated.View
+                entering={FadeInDown.delay(150).duration(700).springify()}
+                style={styles.formWrapper}
+              >
                 <LoginForm
                   identifier={identifier}
                   setIdentifier={setIdentifier}
@@ -567,15 +574,23 @@ export default function WelcomeScreen() {
                   identifierInputRef={identifierInputRef}
                   passwordInputRef={passwordInputRef}
                 />
-              </View>
+              </Reanimated.View>
 
-              <SocialAuthRow onContinueWithFacebook={handleFacebookLogin} />
+              <Reanimated.View
+                entering={FadeInDown.delay(350).duration(700).springify()}
+              >
+                <SocialAuthRow onContinueWithFacebook={handleFacebookLogin} />
+              </Reanimated.View>
             </Animated.View>
           </KeyboardAvoidingView>
 
-          <AuthFooter
-            onCreateAccount={() => router.push("/(registration)/register")}
-          />
+          <Reanimated.View
+            entering={FadeInDown.delay(550).duration(700).springify()}
+          >
+            <AuthFooter
+              onCreateAccount={() => router.push("/(registration)/register")}
+            />
+          </Reanimated.View>
         </SafeAreaView>
       </View>
     </TouchableWithoutFeedback>
