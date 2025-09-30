@@ -1,6 +1,11 @@
 import React from "react";
 import { View, Text, StyleSheet, Image, Dimensions } from "react-native";
-import { moderateScale, ScaledSheet, vs } from "react-native-size-matters";
+import {
+  moderateScale,
+  scale,
+  ScaledSheet,
+  vs,
+} from "react-native-size-matters";
 import { heightPercentageToDP as hp } from "react-native-responsive-screen";
 
 const { width, height } = Dimensions.get("window");
@@ -13,6 +18,42 @@ const getLogoTopMargin = () => {
   return hp(`${percent}%`);
 };
 
+// Clamp UI scale so elements don't grow too much on large screens
+const getClampedUiScale = () => {
+  const baseWidth = 375; // iPhone X width baseline
+  const shortSide = Math.min(width, height);
+  const rawScale = shortSide / baseWidth;
+  // Keep within [0.9, 1.08] to reduce extremes
+  return Math.max(0.9, Math.min(rawScale, 1.08));
+};
+
+// More moderate scaling for titles and subtitles
+const getTextScale = () => {
+  const baseWidth = 375;
+  const baseHeight = 812; // iPhone X height baseline
+  const shortSide = Math.min(width, height);
+  const longSide = Math.max(width, height);
+
+  // Calculate screen area ratio for more accurate detection
+  const currentArea = width * height;
+  const baseArea = baseWidth * baseHeight;
+  const areaRatio = Math.sqrt(currentArea / baseArea);
+
+  // Debug logging
+  if (__DEV__) {
+    console.log(
+      `Screen: ${width}x${height}, Area: ${currentArea}, Base Area: ${baseArea}, Area Ratio: ${areaRatio.toFixed(3)}`
+    );
+  }
+
+  // Use area ratio for more precise small screen detection
+  // Based on actual Android values: 0.924 and 0.905 are small screens
+  if (areaRatio < 0.91) {
+    return Math.max(0.82, Math.min(areaRatio, 0.92));
+  }
+  return Math.max(0.92, Math.min(areaRatio, 1.12));
+};
+
 type Props = {
   title?: string;
   errorMessage?: string | null;
@@ -23,6 +64,12 @@ export default function RegisterHeader({
   errorMessage,
 }: Props) {
   const logoTopMargin = getLogoTopMargin();
+  const uiScale = getClampedUiScale();
+  const textScale = getTextScale();
+  const logoHeight = Math.round(142 * uiScale); // base ~140dp, gently scaled
+  const titleFontSize = 23.0 * textScale; // slightly increased base size
+  const subtitleFontSize = 13.8 * textScale; // slightly increased base size
+  const errorFontSize = 13.8 * textScale;
 
   return (
     <>
@@ -37,23 +84,25 @@ export default function RegisterHeader({
       >
         <Image
           source={require("../../../assets/images/tripify-icon.png")}
-          style={styles.logo}
+          style={[styles.logo, { height: logoHeight }]}
           resizeMode="contain"
         />
       </View>
-      <Text style={styles.title}>{title}</Text>
+      <Text style={[styles.title, { fontSize: titleFontSize }]}>{title}</Text>
       <View
         style={[
           styles.errorHolder,
           {
-            minHeight: moderateScale(40.3),
+            minHeight: scale(35.8),
           },
         ]}
       >
         {errorMessage ? (
-          <Text style={styles.errorText}>{errorMessage}</Text>
+          <Text style={[styles.errorText, { fontSize: errorFontSize }]}>
+            {errorMessage}
+          </Text>
         ) : (
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, { fontSize: subtitleFontSize }]}>
             E-mail verification will be required
           </Text>
         )}
@@ -64,8 +113,7 @@ export default function RegisterHeader({
 
 const styles = ScaledSheet.create({
   logo: {
-    // width: "40%",
-    height: hp("18.6%"),
+    // height will be set dynamically
   },
   logoContainer: {
     justifyContent: "center",

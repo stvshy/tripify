@@ -11,6 +11,7 @@ import {
 import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { s, ScaledSheet, vs } from "react-native-size-matters";
 import { heightPercentageToDP as hp } from "react-native-responsive-screen";
+import { useResponsiveScaling } from "../../../hooks/useResponsiveScaling";
 
 const { width, height } = Dimensions.get("window");
 
@@ -72,12 +73,12 @@ export default function RegisterForm(props: Props) {
     confirmPasswordInputRef,
   } = props;
 
-  const responsiveSpacing = getResponsiveFormSpacing();
+  const { uiScale, textScale, scaleFont, scaleSize } = useResponsiveScaling();
 
-  // Debug info (remove in production)
-  if (__DEV__) {
-    console.log("Form responsive spacing:", responsiveSpacing);
-  }
+  const responsiveSpacing = getResponsiveFormSpacing();
+  const inputHeight = scaleSize(49, "ui");
+  const fontSize = scaleFont(14.6, "ui");
+  const requirementFontSize = scaleFont(14.5, "text");
 
   return (
     <View>
@@ -90,12 +91,7 @@ export default function RegisterForm(props: Props) {
         ]}
         onPress={() => emailInputRef.current?.focus()}
       >
-        <View
-          style={[
-            styles.inputWrapper,
-            { height: responsiveSpacing.inputHeight },
-          ]}
-        >
+        <View style={[styles.inputWrapper, { height: inputHeight }]}>
           <Ionicons
             name="mail"
             size={s(19.4)}
@@ -111,7 +107,7 @@ export default function RegisterForm(props: Props) {
             onFocus={() => setIsFocused({ ...isFocused, email: true })}
             onBlur={() => setIsFocused({ ...isFocused, email: false })}
             keyboardType="email-address"
-            style={styles.customInput}
+            style={[styles.customInput, { fontSize }]}
             autoCapitalize="none"
           />
         </View>
@@ -126,12 +122,7 @@ export default function RegisterForm(props: Props) {
         ]}
         onPress={() => passwordInputRef.current?.focus()}
       >
-        <View
-          style={[
-            styles.inputWrapper,
-            { height: responsiveSpacing.inputHeight },
-          ]}
-        >
+        <View style={[styles.inputWrapper, { height: inputHeight }]}>
           <MaterialIcons
             name="lock"
             size={s(19.8)}
@@ -147,7 +138,7 @@ export default function RegisterForm(props: Props) {
             onFocus={() => setIsFocused({ ...isFocused, password: true })}
             onBlur={() => setIsFocused({ ...isFocused, password: false })}
             secureTextEntry={!showPassword}
-            style={styles.customInput}
+            style={[styles.customInput, { fontSize }]}
             autoCapitalize="sentences"
           />
           <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
@@ -170,12 +161,7 @@ export default function RegisterForm(props: Props) {
         ]}
         onPress={() => confirmPasswordInputRef.current?.focus()}
       >
-        <View
-          style={[
-            styles.inputWrapper,
-            { height: responsiveSpacing.inputHeight },
-          ]}
-        >
+        <View style={[styles.inputWrapper, { height: inputHeight }]}>
           <MaterialIcons
             name="lock"
             size={s(19.8)}
@@ -195,7 +181,7 @@ export default function RegisterForm(props: Props) {
               setIsFocused({ ...isFocused, confirmPassword: false })
             }
             secureTextEntry={!showConfirmPassword}
-            style={styles.customInput}
+            style={[styles.customInput, { fontSize }]}
             autoCapitalize="sentences"
           />
           <TouchableOpacity
@@ -240,6 +226,7 @@ export default function RegisterForm(props: Props) {
               style={[
                 styles.requirementText,
                 value ? styles.valid : styles.invalid,
+                { fontSize: requirementFontSize },
               ]}
             >
               {getRequirementText(key)}

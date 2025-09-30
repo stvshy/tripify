@@ -16,6 +16,14 @@ const getResponsiveButtonScaling = () => {
   };
 };
 
+// Clamp UI scale so buttons/fonts don't overgrow on large displays
+const getClampedUiScale = () => {
+  const baseWidth = 375;
+  const shortSide = Math.min(width, height);
+  const rawScale = shortSide / baseWidth;
+  return Math.max(0.9, Math.min(rawScale, 1.08));
+};
+
 type Props = {
   isLoading: boolean;
   onSubmit: () => void;
@@ -29,6 +37,9 @@ export default function RegisterFooter({
 }: Props) {
   const responsiveScaling = getResponsiveButtonScaling();
   const [isFooterPressed, setIsFooterPressed] = useState(false);
+  const uiScale = getClampedUiScale();
+  const buttonHeight = Math.round(47 * uiScale); // base 47dp, gently scaled
+  const fontSize = 13.8 * uiScale;
 
   return (
     <View style={styles.footer}>
@@ -37,7 +48,7 @@ export default function RegisterFooter({
         style={({ pressed }) => [
           styles.registerButton,
           {
-            height: responsiveScaling.buttonHeight,
+            height: buttonHeight,
             width: responsiveScaling.buttonWidth,
             opacity: isLoading ? 0.7 : pressed ? 0.8 : 1,
             transform: [{ scale: pressed ? 0.98 : 1 }],
@@ -45,7 +56,9 @@ export default function RegisterFooter({
         ]}
         disabled={isLoading}
       >
-        <Text style={styles.registerButtonText}>Create account</Text>
+        <Text style={[styles.registerButtonText, { fontSize }]}>
+          Create account
+        </Text>
       </Pressable>
 
       <Pressable

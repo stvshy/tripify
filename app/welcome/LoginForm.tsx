@@ -21,6 +21,14 @@ import Animated, {
 
 const { width, height } = Dimensions.get("window");
 
+// Clamp UI scale so inputs/buttons don't overgrow on large displays
+const getClampedUiScale = () => {
+  const baseWidth = 375;
+  const shortSide = Math.min(width, height);
+  const rawScale = shortSide / baseWidth;
+  return Math.max(0.9, Math.min(rawScale, 1.08));
+};
+
 type Props = {
   identifier: string;
   setIdentifier: (text: string) => void;
@@ -108,6 +116,12 @@ export default function LoginForm(props: Props) {
     transform: [{ translateY: -(1 - buttonProgress.value) * 30 }],
   }));
 
+  const uiScale = getClampedUiScale();
+  const inputHeight = Math.round(46 * uiScale); // base 46dp
+  const fontSize = 14.6 * uiScale;
+  const buttonHeight = Math.round(42 * uiScale);
+  const buttonFontSize = 13.8 * uiScale;
+
   return (
     <View>
       <Animated.View style={idStyle}>
@@ -118,7 +132,7 @@ export default function LoginForm(props: Props) {
           ]}
           onPress={() => identifierInputRef.current?.focus()}
         >
-          <View style={styles.inputWrapper}>
+          <View style={[styles.inputWrapper, { height: inputHeight }]}>
             <Feather
               name="user"
               size={s(19.5)}
@@ -140,7 +154,7 @@ export default function LoginForm(props: Props) {
                 onInputBlur("identifier");
               }}
               keyboardType="default"
-              style={styles.customInput}
+              style={[styles.customInput, { fontSize }]}
               autoCapitalize="none"
             />
           </View>
@@ -155,7 +169,7 @@ export default function LoginForm(props: Props) {
           ]}
           onPress={() => passwordInputRef.current?.focus()}
         >
-          <View style={styles.inputWrapper}>
+          <View style={[styles.inputWrapper, { height: inputHeight }]}>
             <MaterialIcons
               name="lock"
               size={s(19.8)}
@@ -180,7 +194,7 @@ export default function LoginForm(props: Props) {
                 onInputBlur("password");
               }}
               secureTextEntry={!showPassword}
-              style={styles.customInput}
+              style={[styles.customInput, { fontSize }]}
               autoCapitalize="sentences"
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
@@ -234,12 +248,13 @@ export default function LoginForm(props: Props) {
           style={({ pressed }: { pressed: boolean }) => [
             styles.loginButton,
             {
+              height: buttonHeight,
               opacity: loading ? 0.7 : pressed ? 0.8 : 1,
               transform: [{ scale: pressed ? 0.98 : 1 }],
             },
           ]}
         >
-          <Text style={styles.buttonLabel}>
+          <Text style={[styles.buttonLabel, { fontSize: buttonFontSize }]}>
             {loading ? "Signing in..." : "Sign in"}
           </Text>
         </Pressable>
