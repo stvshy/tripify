@@ -21,6 +21,17 @@ const getClampedUiScale = () => {
   const baseWidth = 375;
   const shortSide = Math.min(width, height);
   const rawScale = shortSide / baseWidth;
+
+  // Calculate screen area ratio for more accurate small screen detection
+  const currentArea = width * height;
+  const baseArea = 375 * 812; // iPhone X baseline
+  const areaRatio = Math.sqrt(currentArea / baseArea);
+
+  // Use more aggressive scaling for very small screens
+  if (areaRatio < 0.91) {
+    return Math.max(0.75, Math.min(rawScale, 0.9)); // Much smaller minimum for tiny screens
+  }
+
   return Math.max(0.9, Math.min(rawScale, 1.08));
 };
 

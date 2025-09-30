@@ -24,7 +24,7 @@ export const useResponsiveScaling = () => {
     // Moderate scaling for text (titles, subtitles) - adjusted based on console values
     text: () => {
       if (areaRatio < 0.91) {
-        return Math.max(0.94, Math.min(areaRatio, 1.04)); // smaller on small screens
+        return Math.max(0.9, Math.min(areaRatio, 1.0)); // smaller on small screens
       }
       return Math.max(0.95, Math.min(areaRatio, 1.13)); // larger on big screens
     },
