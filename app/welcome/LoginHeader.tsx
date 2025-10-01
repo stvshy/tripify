@@ -60,6 +60,9 @@ const LoginHeader = React.memo(function LoginHeader({
   const subtitleFontSize = 13.5 * textScale;
   const errorFontSize = 13.5 * textScale;
 
+  // Calculate consistent height for subtitle/error area
+  const subtitleAreaHeight = Math.max(36 * uiScale, 50); // Ensure minimum height
+
   return (
     <View style={styles.container}>
       <Ionicons name="location" size={iconSize} color="#FFFFFF" />
@@ -75,6 +78,8 @@ const LoginHeader = React.memo(function LoginHeader({
               errorMessage || verificationMessage
                 ? errorFontSize
                 : subtitleFontSize,
+            height: subtitleAreaHeight, // Fixed height to prevent layout shifts
+            justifyContent: "center", // Center text vertically within fixed height
           },
         ]}
       >
@@ -109,13 +114,13 @@ const styles = ScaledSheet.create({
     textAlign: "center",
     maxWidth: width * 0.8,
     marginBottom: "6.7@vs",
-    minHeight: "36@vs", // Stała wysokość żeby nie wpływać na layout
+    // height will be set dynamically
   },
   errorSubtitle: {
     color: "#F472B6",
     fontSize: "12.9@ms", // Mniejszy font jak wcześniej
     fontFamily: "PlusJakartaSans-Regular", // Regular zamiast Medium/Bold
-    minHeight: "36@vs", // Ta sama wysokość co subtitle
+    // height will be set dynamically
   },
 });
 
