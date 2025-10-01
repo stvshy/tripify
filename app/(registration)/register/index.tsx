@@ -47,6 +47,7 @@ import RegisterHeader from "./RegisterHeader";
 import RegisterForm from "./RegisterForm";
 import RegisterFooter from "./RegisterFooter";
 import { useAuthStore, UserProfileData } from "@/app/store/authStore";
+import { useWelcomeStore } from "@/app/store/welcomeStore";
 import CustomScrollIndicator from "../../../components/CustomScrollIndicator";
 import { s, ScaledSheet, vs } from "react-native-size-matters";
 import { heightPercentageToDP as hp } from "react-native-responsive-screen";
@@ -202,7 +203,9 @@ export default function RegisterScreen() {
 
     // Obsługa systemowego przycisku back
     const handleBackPress = () => {
-      router.replace("/welcome");
+      resetOnEntry(); // Reset welcome state przed powrotem
+      setShouldShowFadeIn(true); // Ustaw flagę fade
+      router.back();
       return true;
     };
     const backHandler = BackHandler.addEventListener(
@@ -220,6 +223,7 @@ export default function RegisterScreen() {
     };
   }, [router]);
   const { setFirebaseUser, setUserProfile } = useAuthStore();
+  const { resetOnEntry, setShouldShowFadeIn } = useWelcomeStore();
   const handleRegister = async () => {
     setErrorMessage(null);
     setIsLoading(true); // Ustawienie spinnera na "true"
@@ -499,7 +503,11 @@ export default function RegisterScreen() {
         <RegisterFooter
           isLoading={isLoading}
           onSubmit={handleRegister}
-          onGoToLogin={() => router.replace("/welcome")}
+          onGoToLogin={() => {
+            resetOnEntry(); // Reset welcome state przed powrotem
+            setShouldShowFadeIn(true); // Ustaw flagę fade
+            router.back();
+          }}
         />
       </SafeAreaView>
     </ImageBackground>

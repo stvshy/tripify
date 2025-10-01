@@ -70,12 +70,33 @@ const AppNavigator = React.memo(
           gestureDirection: "horizontal",
         }}
       >
-        <Stack.Screen name="welcome/index" options={{ animation: "fade" }} />
-        <Stack.Screen name="setNickname/index" />
+        <Stack.Screen
+          name="welcome/index"
+          options={{
+            animation: "fade",
+            gestureEnabled: false, // Wyłącz gesty dla welcome, żeby nie można było cofnąć
+          }}
+        />
+        <Stack.Screen
+          name="setNickname/index"
+          options={{
+            animation: "fade",
+          }}
+        />
         <Stack.Screen name="chooseCountries/index" />
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="(registration)" />
-        <Stack.Screen name="forgotPassword/index" />
+        <Stack.Screen
+          name="(registration)"
+          options={{
+            animation: "fade",
+          }}
+        />
+        <Stack.Screen
+          name="forgotPassword/index"
+          options={{
+            animation: "fade",
+          }}
+        />
         <Stack.Screen name="login/index" />
         <Stack.Screen name="profile/[uid]" />
       </Stack>

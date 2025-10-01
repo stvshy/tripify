@@ -23,6 +23,7 @@ import EmailInput from "./EmailInput";
 import ActionButtons from "./ActionButtons";
 import StatusMessages from "./StatusMessages";
 import { useKeyboardAnimation } from "./useKeyboardAnimation";
+import { useWelcomeStore } from "../store/welcomeStore";
 import {
   hideNavBar,
   showNavBar,
@@ -41,6 +42,7 @@ export default function ForgotPasswordScreen() {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [isContentShifted, setIsContentShifted] = useState(false);
   const router = useRouter();
+  const { resetOnEntry, setShouldShowFadeIn } = useWelcomeStore();
 
   // Hook dla animacji
   const { contentTranslateY, animateToTop, animateToBottom, resetAnimation } =
@@ -67,9 +69,17 @@ export default function ForgotPasswordScreen() {
       return true;
     }
     // Systemowy back - zawsze wróć do welcome z animacją fade
-    router.replace("/welcome");
+    resetOnEntry(); // Reset welcome state przed powrotem
+    setShouldShowFadeIn(true); // Ustaw flagę fade
+    router.back();
     return true;
-  }, [isFocused.email, animateToBottom, router]);
+  }, [
+    isFocused.email,
+    animateToBottom,
+    router,
+    resetOnEntry,
+    setShouldShowFadeIn,
+  ]);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -164,8 +174,10 @@ export default function ForgotPasswordScreen() {
   }, [email]);
 
   const handleBackToLogin = useCallback(() => {
-    router.replace("/welcome");
-  }, [router]);
+    resetOnEntry(); // Reset welcome state przed powrotem
+    setShouldShowFadeIn(true); // Ustaw flagę fade
+    router.back();
+  }, [router, resetOnEntry, setShouldShowFadeIn]);
 
   return (
     <Pressable style={styles.fullScreen} onPress={handleScreenPress}>

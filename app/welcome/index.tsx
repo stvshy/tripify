@@ -54,6 +54,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../config/firebaseConfig";
 import { useAuthStore } from "../store/authStore";
+import { useWelcomeStore } from "../store/welcomeStore";
 import LoginHeader from "./LoginHeader";
 import LoginForm from "./LoginForm";
 import SocialAuthRow from "./SocialAuthRow";
@@ -73,32 +74,65 @@ const { width, height } = Dimensions.get("window");
 
 export default function WelcomeScreen() {
   const router = useRouter();
-  const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [verificationMessage, setVerificationMessage] = useState<string | null>(
-    null
-  );
-  const [resendTimer, setResendTimer] = useState<number>(0);
-  const [isFocused, setIsFocused] = useState({
-    identifier: false,
-    password: false,
-  });
-  const [isLoading, setIsLoading] = useState<boolean>(false); // Dodany spinner
-  const [emailError, setEmailError] = useState<string | null>(null);
+  const { setUserProfile } = useAuthStore();
+
+  // Używamy store zamiast lokalnego stanu
+  const {
+    identifier,
+    setIdentifier,
+    password,
+    setPassword,
+    showPassword,
+    setShowPassword,
+    errorMessage,
+    setErrorMessage,
+    verificationMessage,
+    setVerificationMessage,
+    resendTimer,
+    setResendTimer,
+    isFocused,
+    setIsFocused,
+    isLoading,
+    setIsLoading,
+    emailError,
+    setEmailError,
+    resetForm,
+    resetOnEntry,
+    shouldShowFadeIn,
+    setShouldShowFadeIn,
+  } = useWelcomeStore();
+
+  // Lokalny stan tylko dla UI (keyboard, animations)
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [isContentShifted, setIsContentShifted] = useState(false);
-  const { setUserProfile } = useAuthStore();
 
   // Intro animations driven by shared values to avoid initial layout jumps
   const headerProgress = useSharedValue(0);
   const formProgress = useSharedValue(0);
   const socialProgress = useSharedValue(0);
   const footerProgress = useSharedValue(0);
+  const fadeProgress = useSharedValue(1); // Nowa animacja fade dla całego ekranu
 
+  // Reset stanu przy każdym wejściu na welcome (żeby pokazać animacje na nowo)
   useEffect(() => {
-    // run on first mount
+    resetOnEntry();
+
+    if (shouldShowFadeIn) {
+      fadeProgress.value = 0; // Zacznij od niewidocznego
+      fadeProgress.value = withTiming(1, {
+        duration: 300,
+        easing: Easing.out(Easing.ease),
+      });
+      setShouldShowFadeIn(false); // Wyczyść flagę
+    }
+
+    // Restart animacji po resetcie stanu
+    headerProgress.value = 0;
+    formProgress.value = 0;
+    socialProgress.value = 0;
+    footerProgress.value = 0;
+
+    // Uruchom animacje na nowo
     headerProgress.value = withTiming(1, {
       duration: 700,
       easing: Easing.out(Easing.back(1.2)),
@@ -115,7 +149,18 @@ export default function WelcomeScreen() {
       600,
       withTiming(1, { duration: 700, easing: Easing.out(Easing.back(1.2)) })
     );
-  }, []);
+  }, [
+    resetOnEntry,
+    shouldShowFadeIn,
+    setShouldShowFadeIn,
+    headerProgress,
+    formProgress,
+    socialProgress,
+    footerProgress,
+    fadeProgress,
+  ]);
+
+  // Hook dla animacji
 
   const headerStyle = useAnimatedStyle(() => ({
     opacity: headerProgress.value,
@@ -134,6 +179,10 @@ export default function WelcomeScreen() {
     transform: [{ translateY: -(1 - footerProgress.value) * 30 }],
   }));
 
+  const fadeStyle = useAnimatedStyle(() => ({
+    opacity: fadeProgress.value,
+  }));
+
   // Hook dla animacji
   const { contentTranslateY, animateToTop, animateToBottom, resetAnimation } =
     useKeyboardAnimation();
@@ -143,13 +192,10 @@ export default function WelcomeScreen() {
   const passwordInputRef = useRef<RNTextInput>(null);
   useEffect(() => {
     if (resendTimer > 0) {
-      const timerId = setInterval(
-        () => setResendTimer((prev: number) => prev - 1),
-        1000
-      );
+      const timerId = setInterval(() => setResendTimer(resendTimer - 1), 1000);
       return () => clearInterval(timerId);
     }
-  }, [resendTimer]);
+  }, [resendTimer, setResendTimer]);
 
   // Prefer SystemBars to control transient nav bar; keep helpers as fallback
   useEffect(() => {
@@ -219,19 +265,22 @@ export default function WelcomeScreen() {
 
   const handleInputFocus = useCallback(
     (field: "identifier" | "password") => {
-      setIsFocused((prev) => ({ ...prev, [field]: true }));
+      setIsFocused({ ...isFocused, [field]: true });
       if (!isContentShifted) {
         setIsContentShifted(true);
         resetAnimation();
         animateToTop();
       }
     },
-    [resetAnimation, animateToTop, isContentShifted]
+    [resetAnimation, animateToTop, isContentShifted, isFocused, setIsFocused]
   );
 
-  const handleInputBlur = useCallback((field: "identifier" | "password") => {
-    setIsFocused((prev) => ({ ...prev, [field]: false }));
-  }, []);
+  const handleInputBlur = useCallback(
+    (field: "identifier" | "password") => {
+      setIsFocused({ ...isFocused, [field]: false });
+    },
+    [isFocused, setIsFocused]
+  );
 
   const handleScreenPress = useCallback(
     (event: any) => {
@@ -574,63 +623,65 @@ export default function WelcomeScreen() {
       <View style={styles.background}>
         {/* SystemBars removed to avoid native module requirement in current build */}
         <GradientBackdrop />
-        <SafeAreaView style={styles.container}>
-          <KeyboardAvoidingView
-            // behavior={Platform.OS === "ios" ? "padding" : "padding"}
-            style={styles.keyboardAvoidingViewContainer}
-            // keyboardVerticalOffset={Platform.OS === "ios" ? 0 : -32}
-          >
-            <Animated.View
-              style={[
-                styles.contentContainer,
-                {
-                  transform: [{ translateY: contentTranslateY }],
-                },
-              ]}
+        <Reanimated.View style={[styles.container, fadeStyle]}>
+          <SafeAreaView style={styles.container}>
+            <KeyboardAvoidingView
+              // behavior={Platform.OS === "ios" ? "padding" : "padding"}
+              style={styles.keyboardAvoidingViewContainer}
+              // keyboardVerticalOffset={Platform.OS === "ios" ? 0 : -32}
             >
-              <Reanimated.View style={[styles.headerWrapper, headerStyle]}>
-                <LoginHeader
-                  errorMessage={errorMessage}
-                  verificationMessage={verificationMessage}
-                />
-              </Reanimated.View>
+              <Animated.View
+                style={[
+                  styles.contentContainer,
+                  {
+                    transform: [{ translateY: contentTranslateY }],
+                  },
+                ]}
+              >
+                <Reanimated.View style={[styles.headerWrapper, headerStyle]}>
+                  <LoginHeader
+                    errorMessage={errorMessage}
+                    verificationMessage={verificationMessage}
+                  />
+                </Reanimated.View>
 
-              <Reanimated.View style={[styles.formWrapper, formStyle]}>
-                <LoginForm
-                  identifier={identifier}
-                  setIdentifier={setIdentifier}
-                  password={password}
-                  setPassword={setPassword}
-                  showPassword={showPassword}
-                  setShowPassword={setShowPassword}
-                  isFocused={isFocused}
-                  setIsFocused={setIsFocused}
-                  errorMessage={errorMessage}
-                  verificationMessage={verificationMessage}
-                  resendTimer={resendTimer}
-                  resendVerificationEmail={resendVerificationEmail}
-                  onSubmit={handleLogin}
-                  loading={isLoading}
-                  onForgotPassword={() => router.push("/forgotPassword")}
-                  onInputFocus={handleInputFocus}
-                  onInputBlur={handleInputBlur}
-                  identifierInputRef={identifierInputRef}
-                  passwordInputRef={passwordInputRef}
-                />
-              </Reanimated.View>
+                <Reanimated.View style={[styles.formWrapper, formStyle]}>
+                  <LoginForm
+                    identifier={identifier}
+                    setIdentifier={setIdentifier}
+                    password={password}
+                    setPassword={setPassword}
+                    showPassword={showPassword}
+                    setShowPassword={setShowPassword}
+                    isFocused={isFocused}
+                    setIsFocused={setIsFocused}
+                    errorMessage={errorMessage}
+                    verificationMessage={verificationMessage}
+                    resendTimer={resendTimer}
+                    resendVerificationEmail={resendVerificationEmail}
+                    onSubmit={handleLogin}
+                    loading={isLoading}
+                    onForgotPassword={() => router.push("/forgotPassword")}
+                    onInputFocus={handleInputFocus}
+                    onInputBlur={handleInputBlur}
+                    identifierInputRef={identifierInputRef}
+                    passwordInputRef={passwordInputRef}
+                  />
+                </Reanimated.View>
 
-              <Reanimated.View style={socialStyle}>
-                <SocialAuthRow onContinueWithFacebook={handleFacebookLogin} />
-              </Reanimated.View>
-            </Animated.View>
-          </KeyboardAvoidingView>
+                <Reanimated.View style={socialStyle}>
+                  <SocialAuthRow onContinueWithFacebook={handleFacebookLogin} />
+                </Reanimated.View>
+              </Animated.View>
+            </KeyboardAvoidingView>
 
-          <Reanimated.View style={footerStyle}>
-            <AuthFooter
-              onCreateAccount={() => router.push("/(registration)/register")}
-            />
-          </Reanimated.View>
-        </SafeAreaView>
+            <Reanimated.View style={footerStyle}>
+              <AuthFooter
+                onCreateAccount={() => router.push("/(registration)/register")}
+              />
+            </Reanimated.View>
+          </SafeAreaView>
+        </Reanimated.View>
       </View>
     </TouchableWithoutFeedback>
   );
