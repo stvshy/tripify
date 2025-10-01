@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useLayoutEffect,
+} from "react";
 import {
   View,
   Text,
@@ -68,6 +74,7 @@ import Reanimated, {
   withTiming,
   withDelay,
   Easing,
+  runOnJS,
 } from "react-native-reanimated";
 
 const { width, height } = Dimensions.get("window");
@@ -111,77 +118,100 @@ export default function WelcomeScreen() {
   const formProgress = useSharedValue(0);
   const socialProgress = useSharedValue(0);
   const footerProgress = useSharedValue(0);
-  const fadeProgress = useSharedValue(1); // Nowa animacja fade dla całego ekranu
+  const fadeProgress = useSharedValue(shouldShowFadeIn ? 0 : 1); // Natychmiastowe ukrycie jeśli potrzebny fade
 
-  // Reset stanu przy każdym wejściu na welcome (żeby pokazać animacje na nowo)
-  useEffect(() => {
-    resetOnEntry();
-
+  // Natychmiastowa animacja fade jeśli potrzebna - przed useEffect
+  useLayoutEffect(() => {
     if (shouldShowFadeIn) {
-      fadeProgress.value = 0; // Zacznij od niewidocznego
-      fadeProgress.value = withTiming(1, {
-        duration: 300,
-        easing: Easing.out(Easing.ease),
-      });
-      setShouldShowFadeIn(false); // Wyczyść flagę
+      // Uruchom animację fade natychmiast
+      fadeProgress.value = withTiming(
+        1,
+        {
+          duration: 200, // Jeszcze krótsza animacja
+          easing: Easing.out(Easing.ease),
+        },
+        () => {
+          // Po zakończeniu animacji fade, wyczyść flagę
+          runOnJS(setShouldShowFadeIn)(false);
+        }
+      );
     }
 
-    // Restart animacji po resetcie stanu
+    // Uruchom animacje elementów natychmiast - niezależnie od fade
     headerProgress.value = 0;
     formProgress.value = 0;
     socialProgress.value = 0;
     footerProgress.value = 0;
 
-    // Uruchom animacje na nowo
+    // Uruchom animacje elementów
     headerProgress.value = withTiming(1, {
-      duration: 700,
+      duration: 600,
       easing: Easing.out(Easing.back(1.2)),
     });
     formProgress.value = withDelay(
       200,
-      withTiming(1, { duration: 700, easing: Easing.out(Easing.back(1.2)) })
+      withTiming(1, { duration: 600, easing: Easing.out(Easing.back(1.2)) })
     );
     socialProgress.value = withDelay(
       400,
-      withTiming(1, { duration: 700, easing: Easing.out(Easing.back(1.2)) })
+      withTiming(1, { duration: 600, easing: Easing.out(Easing.back(1.2)) })
     );
     footerProgress.value = withDelay(
       600,
-      withTiming(1, { duration: 700, easing: Easing.out(Easing.back(1.2)) })
+      withTiming(1, { duration: 600, easing: Easing.out(Easing.back(1.2)) })
     );
   }, [
-    resetOnEntry,
     shouldShowFadeIn,
+    fadeProgress,
     setShouldShowFadeIn,
     headerProgress,
     formProgress,
     socialProgress,
     footerProgress,
-    fadeProgress,
   ]);
+
+  // Reset stanu przy każdym wejściu na welcome (żeby pokazać animacje na nowo)
+  useEffect(() => {
+    resetOnEntry();
+  }, [resetOnEntry]);
 
   // Hook dla animacji
 
-  const headerStyle = useAnimatedStyle(() => ({
-    opacity: headerProgress.value,
-    transform: [{ translateY: (1 - headerProgress.value) * 30 }], // fade in up
-  }));
-  const formStyle = useAnimatedStyle(() => ({
-    opacity: formProgress.value,
-    transform: [{ translateY: -(1 - formProgress.value) * 30 }], // fade in down
-  }));
-  const socialStyle = useAnimatedStyle(() => ({
-    opacity: socialProgress.value,
-    transform: [{ translateY: -(1 - socialProgress.value) * 30 }],
-  }));
-  const footerStyle = useAnimatedStyle(() => ({
-    opacity: footerProgress.value,
-    transform: [{ translateY: -(1 - footerProgress.value) * 30 }],
-  }));
+  const headerStyle = useAnimatedStyle(
+    () => ({
+      opacity: headerProgress.value,
+      transform: [{ translateY: (1 - headerProgress.value) * 30 }], // fade in up
+    }),
+    []
+  );
+  const formStyle = useAnimatedStyle(
+    () => ({
+      opacity: formProgress.value,
+      transform: [{ translateY: -(1 - formProgress.value) * 30 }], // fade in down
+    }),
+    []
+  );
+  const socialStyle = useAnimatedStyle(
+    () => ({
+      opacity: socialProgress.value,
+      transform: [{ translateY: -(1 - socialProgress.value) * 30 }],
+    }),
+    []
+  );
+  const footerStyle = useAnimatedStyle(
+    () => ({
+      opacity: footerProgress.value,
+      transform: [{ translateY: -(1 - footerProgress.value) * 30 }],
+    }),
+    []
+  );
 
-  const fadeStyle = useAnimatedStyle(() => ({
-    opacity: fadeProgress.value,
-  }));
+  const fadeStyle = useAnimatedStyle(
+    () => ({
+      opacity: fadeProgress.value,
+    }),
+    []
+  );
 
   // Hook dla animacji
   const { contentTranslateY, animateToTop, animateToBottom, resetAnimation } =
