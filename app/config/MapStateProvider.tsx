@@ -63,6 +63,8 @@ interface MapContextType {
   peekQueuedChanged: () => string[];
   // NEW: Load and apply pending diff for instant visual effects
   loadAndApplyPendingDiff: () => Promise<void>;
+  // NEW: Clear user cache on logout
+  clearUserCache: () => Promise<void>;
 }
 
 const MapContext = createContext<MapContextType | null>(null);
@@ -339,11 +341,23 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
           );
         }
 
-        // Check if diff is recent (within last 5 minutes)
-        if (
-          Date.now() - timestamp < 5 * 60 * 1000 &&
-          (add.length > 0 || remove.length > 0)
-        ) {
+        // CRITICAL FIX: Check if diff is recent (within last 2 minutes) - reduced from 5 minutes
+        if (Date.now() - timestamp > 2 * 60 * 1000) {
+          console.log("MapStateProvider: Pending diff is too old, clearing");
+          await AsyncStorage.removeItem("pendingMapDiff");
+          return;
+        }
+
+        // CRITICAL FIX: Only apply if we have current visited countries data loaded
+        if (!hasVisitedData) {
+          console.log(
+            "MapStateProvider: No visitedCountries loaded yet, clearing pending diff to prevent conflicts"
+          );
+          await AsyncStorage.removeItem("pendingMapDiff");
+          return;
+        }
+
+        if (add.length > 0 || remove.length > 0) {
           console.log(
             "MapStateProvider: Applying pending diff for instant effects - add:",
             add.length,
@@ -535,6 +549,40 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
     [flushQueuedDiffs, showNewIndicator, recentlyChangedCountries]
   );
 
+  // NEW: funkcja czyszczenia AsyncStorage przy wylogowaniu
+  const clearUserCache = useCallback(async () => {
+    try {
+      console.log("MapStateProvider: Clearing user cache on logout");
+      await AsyncStorage.removeItem("pendingMapDiff");
+      // Reset pending diff applied flag
+      pendingDiffAppliedRef.current = false;
+    } catch (error) {
+      console.error("MapStateProvider: Error clearing user cache:", error);
+    }
+  }, []);
+
+  // CRITICAL FIX: Reset pending diff flag when user logs out
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user: any) => {
+      if (!user) {
+        console.log(
+          "MapStateProvider: User logged out, resetting pending diff flag"
+        );
+        pendingDiffAppliedRef.current = false;
+        // Clear any pending highlights to prevent flashing
+        setRecentlyChangedCountries(new Set());
+        setShowNewIndicator(false);
+        setIsUpdating(false);
+        // Clear queued diffs
+        queuedAddsRef.current.clear();
+        queuedRemovesRef.current.clear();
+        queuedChangedRef.current.clear();
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
   // NEW: incremental diff application (moved before wrapper to avoid use-before-declare)
   const applyCountryDiff = useCallback(
     (
@@ -690,6 +738,7 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       flushQueuedDiffs,
       peekQueuedChanged,
       loadAndApplyPendingDiff,
+      clearUserCache,
     }),
     [
       scale,
@@ -714,6 +763,7 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       flushQueuedDiffs,
       peekQueuedChanged,
       loadAndApplyPendingDiff,
+      clearUserCache,
     ]
   );
   return <MapContext.Provider value={value}>{children}</MapContext.Provider>;

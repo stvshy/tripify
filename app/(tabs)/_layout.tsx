@@ -338,6 +338,16 @@ const TabLayoutContent: React.FC = () => {
       clearAuthData(); // To spowoduje zmianę firebaseUser/userProfile na null,
       // co z kolei triggeruje useFocusEffect do przekierowania.
       useWelcomeStore.getState().clearWelcomeState(); // Wyczyść welcome store
+
+      // CRITICAL FIX: Clear AsyncStorage cache to prevent country flashing
+      try {
+        const AsyncStorage =
+          require("@react-native-async-storage/async-storage").default;
+        await AsyncStorage.removeItem("pendingMapDiff");
+        console.log("TabLayout: Cleared pendingMapDiff on logout");
+      } catch (error) {
+        console.error("TabLayout: Error clearing AsyncStorage:", error);
+      }
     } catch (error) {
       console.error("Error logging out:", error);
     }

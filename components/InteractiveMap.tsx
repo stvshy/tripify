@@ -61,6 +61,7 @@ import { useRouter } from "expo-router";
 import { AntDesign } from "@expo/vector-icons";
 import { Entypo } from "@expo/vector-icons";
 import FastImage from "@d11/react-native-fast-image";
+import { auth } from "../app/config/firebaseConfig";
 import {
   Canvas,
   Group,
@@ -1318,6 +1319,21 @@ const InteractiveMapComponent = forwardRef<
       };
     }, [setMapActive, showNewIndicator])
   );
+
+  // CRITICAL FIX: Clear pending highlights when user logs out
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user: any) => {
+      if (!user) {
+        console.log(
+          "InteractiveMap: User logged out, clearing pending highlights"
+        );
+        setPendingHighlights(null);
+        setForceNewVisible(false);
+      }
+    });
+
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     if (!isMapActive) {

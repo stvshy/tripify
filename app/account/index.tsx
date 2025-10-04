@@ -472,6 +472,17 @@ export default function AccountScreen() {
       // Czyszczenie stanu autoryzacji i welcome store
       useAuthStore.getState().clearAuthData();
       useWelcomeStore.getState().clearWelcomeState();
+
+      // CRITICAL FIX: Clear AsyncStorage cache to prevent country flashing
+      try {
+        const AsyncStorage =
+          require("@react-native-async-storage/async-storage").default;
+        await AsyncStorage.removeItem("pendingMapDiff");
+        console.log("Account: Cleared pendingMapDiff on logout");
+      } catch (error) {
+        console.error("Account: Error clearing AsyncStorage:", error);
+      }
+
       router.replace("/welcome");
     } catch (error) {
       console.error("Error logging out:", error);
