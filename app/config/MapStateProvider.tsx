@@ -18,8 +18,10 @@ import {
   withSpring,
 } from "react-native-reanimated";
 import { useCountries } from "./CountryContext";
+import { auth } from "@/app/config/firebaseConfig";
 // NEW: InteractionManager for deferring heavy work
 import { InteractionManager } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface MapContextType {
   // Stan UI
@@ -59,6 +61,8 @@ interface MapContextType {
   flushQueuedDiffs: () => void;
   // NEW: allow reading queued visual diffs to render highlights on first frame
   peekQueuedChanged: () => string[];
+  // NEW: Load and apply pending diff for instant visual effects
+  loadAndApplyPendingDiff: () => Promise<void>;
 }
 
 const MapContext = createContext<MapContextType | null>(null);
@@ -132,8 +136,6 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
 
   // Track previous visitedCountries to detect changes
   const prevVisitedCountriesRef = useRef<string[] | null>(null);
-  // Track if this is the first load after login (to avoid showing all countries as "new")
-  const isFirstLoadRef = useRef(true);
 
   useEffect(() => {
     console.log(
@@ -145,11 +147,10 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       const prev = prevVisitedCountriesRef.current;
 
       // Check if this is a real change (not initial load)
-      // First load: prev is empty array [] and visitedCountries has countries
+      // First load: prev is null (after logout) or empty array [] and visitedCountries has countries
       // Real change: prev has countries and visitedCountries has different countries
       const isFirstLoad =
-        (prev && prev.length === 0 && visitedCountries.length > 0) ||
-        isFirstLoadRef.current;
+        !prev || (prev.length === 0 && visitedCountries.length > 0);
 
       if (
         prev &&
@@ -200,7 +201,6 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
         console.log(
           "MapStateProvider: First load after login, skipping visual effects"
         );
-        isFirstLoadRef.current = false;
       }
 
       // Update ref for next comparison
@@ -216,7 +216,6 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       // CRITICAL FIX: Clear state when no countries data (user logged out)
       console.log("MapStateProvider: No countries data, clearing map state");
       prevVisitedCountriesRef.current = null;
-      isFirstLoadRef.current = true; // Reset for next login
       setSelectedCountries(null);
       setIsLoadingData(true);
       setOptimisticVisitedCount(null);
@@ -298,6 +297,219 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
     return Array.from(queuedChangedRef.current);
   }, []);
 
+  // Track if pending diff has been applied to prevent multiple applications
+  const pendingDiffAppliedRef = useRef(false);
+
+  // NEW: Load and apply pending diff from chooseCountries for instant visual effects
+  const loadAndApplyPendingDiffRef = useRef(async () => {
+    // Prevent multiple applications
+    if (pendingDiffAppliedRef.current) {
+      console.log("MapStateProvider: Pending diff already applied, skipping");
+      return;
+    }
+
+    // CRITICAL FIX: Check if user is still logged in
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      console.log("MapStateProvider: No user logged in, skipping pending diff");
+      return;
+    }
+
+    try {
+      const pendingDiffStr = await AsyncStorage.getItem("pendingMapDiff");
+      if (pendingDiffStr) {
+        const pendingDiff = JSON.parse(pendingDiffStr);
+        const { add, remove, timestamp, userId } = pendingDiff;
+
+        // CRITICAL FIX: Check if diff belongs to current user
+        if (userId !== currentUser.uid) {
+          console.log(
+            "MapStateProvider: Pending diff belongs to different user, skipping"
+          );
+          // Clear old diff
+          await AsyncStorage.removeItem("pendingMapDiff");
+          return;
+        }
+
+        // CRITICAL OPTIMIZATION: Apply visual effects immediately, but skip count update if no data yet
+        const hasVisitedData = visitedCountries && visitedCountries.length > 0;
+        if (!hasVisitedData) {
+          console.log(
+            "MapStateProvider: No visitedCountries loaded yet, applying visual effects only"
+          );
+        }
+
+        // Check if diff is recent (within last 5 minutes)
+        if (
+          Date.now() - timestamp < 5 * 60 * 1000 &&
+          (add.length > 0 || remove.length > 0)
+        ) {
+          console.log(
+            "MapStateProvider: Applying pending diff for instant effects - add:",
+            add.length,
+            "remove:",
+            remove.length
+          );
+
+          // Mark as applied to prevent multiple applications
+          pendingDiffAppliedRef.current = true;
+
+          // Update count only if we have visited data
+          if (hasVisitedData) {
+            // Immediately update optimistic count for instant progress bar animation
+            const currentCount =
+              optimisticVisitedCount || visitedCountries?.length || 0;
+            const newCount = currentCount + add.length - remove.length;
+            setOptimisticVisitedCount(Math.max(0, newCount));
+          }
+
+          // Apply visual effects immediately - no delays, no deferring
+          if (add.length > 0) {
+            const visualAddsSet =
+              add.length > HIGHLIGHT_LIMIT
+                ? new Set(add.slice(0, HIGHLIGHT_LIMIT))
+                : new Set(add);
+
+            // Clear any existing timeout to prevent conflicts
+            if (updateTimeoutRef.current) {
+              clearTimeout(updateTimeoutRef.current);
+              updateTimeoutRef.current = null;
+            }
+
+            // CRITICAL OPTIMIZATION: Use InteractionManager for smooth animations
+            InteractionManager.runAfterInteractions(() => {
+              // Apply visual effects immediately
+              setRecentlyChangedCountries(visualAddsSet as Set<string>);
+              setShowNewIndicator(true);
+              setIsUpdating(true);
+              setUpdateSequence((p) => p + 1);
+
+              // Set auto-dismiss timeout
+              updateTimeoutRef.current = setTimeout(() => {
+                dismissNewIndicator();
+              }, AUTO_DISMISS_MS);
+            });
+          }
+
+          // Clear the pending diff after applying
+          await AsyncStorage.removeItem("pendingMapDiff");
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load pending map diff:", error);
+    }
+  });
+
+  // Update the ref function when dependencies change
+  useEffect(() => {
+    loadAndApplyPendingDiffRef.current = async () => {
+      // Prevent multiple applications
+      if (pendingDiffAppliedRef.current) {
+        console.log("MapStateProvider: Pending diff already applied, skipping");
+        return;
+      }
+
+      // CRITICAL FIX: Check if user is still logged in
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        console.log(
+          "MapStateProvider: No user logged in, skipping pending diff"
+        );
+        return;
+      }
+
+      try {
+        const pendingDiffStr = await AsyncStorage.getItem("pendingMapDiff");
+        if (pendingDiffStr) {
+          const pendingDiff = JSON.parse(pendingDiffStr);
+          const { add, remove, timestamp, userId } = pendingDiff;
+
+          // CRITICAL FIX: Check if diff belongs to current user
+          if (userId !== currentUser.uid) {
+            console.log(
+              "MapStateProvider: Pending diff belongs to different user, skipping"
+            );
+            // Clear old diff
+            await AsyncStorage.removeItem("pendingMapDiff");
+            return;
+          }
+
+          // CRITICAL OPTIMIZATION: Apply visual effects immediately, but skip count update if no data yet
+          const hasVisitedData =
+            visitedCountries && visitedCountries.length > 0;
+          if (!hasVisitedData) {
+            console.log(
+              "MapStateProvider: No visitedCountries loaded yet, applying visual effects only"
+            );
+          }
+
+          // Check if diff is recent (within last 5 minutes)
+          if (
+            Date.now() - timestamp < 5 * 60 * 1000 &&
+            (add.length > 0 || remove.length > 0)
+          ) {
+            console.log(
+              "MapStateProvider: Applying pending diff for instant effects - add:",
+              add.length,
+              "remove:",
+              remove.length
+            );
+
+            // Mark as applied to prevent multiple applications
+            pendingDiffAppliedRef.current = true;
+
+            // Update count only if we have visited data
+            if (hasVisitedData) {
+              // Immediately update optimistic count for instant progress bar animation
+              const currentCount =
+                optimisticVisitedCount || visitedCountries?.length || 0;
+              const newCount = currentCount + add.length - remove.length;
+              setOptimisticVisitedCount(Math.max(0, newCount));
+            }
+
+            // Apply visual effects immediately - no delays, no deferring
+            if (add.length > 0) {
+              const visualAddsSet =
+                add.length > HIGHLIGHT_LIMIT
+                  ? new Set(add.slice(0, HIGHLIGHT_LIMIT))
+                  : new Set(add);
+
+              // Clear any existing timeout to prevent conflicts
+              if (updateTimeoutRef.current) {
+                clearTimeout(updateTimeoutRef.current);
+                updateTimeoutRef.current = null;
+              }
+
+              // CRITICAL OPTIMIZATION: Use InteractionManager for smooth animations
+              InteractionManager.runAfterInteractions(() => {
+                // Apply visual effects immediately
+                setRecentlyChangedCountries(visualAddsSet as Set<string>);
+                setShowNewIndicator(true);
+                setIsUpdating(true);
+                setUpdateSequence((p) => p + 1);
+
+                // Set auto-dismiss timeout
+                updateTimeoutRef.current = setTimeout(() => {
+                  dismissNewIndicator();
+                }, AUTO_DISMISS_MS);
+              });
+            }
+
+            // Clear the pending diff after applying
+            await AsyncStorage.removeItem("pendingMapDiff");
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load pending map diff:", error);
+      }
+    };
+  }, [optimisticVisitedCount, visitedCountries?.length, dismissNewIndicator]);
+
+  // Stable wrapper function
+  const loadAndApplyPendingDiff = useCallback(async () => {
+    await loadAndApplyPendingDiffRef.current();
+  }, []);
+
   const setMapActive = useCallback(
     (active: boolean) => {
       if (active) {
@@ -306,6 +518,8 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
         flushQueuedDiffs();
       } else {
         setIsMapActive(false);
+        // Reset pending diff flag for next activation
+        pendingDiffAppliedRef.current = false;
         // A: szybkie wygaszenie – natychmiast zrezygnuj z pending highlight / przycisku
         if (updateTimeoutRef.current) {
           clearTimeout(updateTimeoutRef.current);
@@ -475,6 +689,7 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       setMapActive,
       flushQueuedDiffs,
       peekQueuedChanged,
+      loadAndApplyPendingDiff,
     }),
     [
       scale,
@@ -498,6 +713,7 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       setMapActive,
       flushQueuedDiffs,
       peekQueuedChanged,
+      loadAndApplyPendingDiff,
     ]
   );
   return <MapContext.Provider value={value}>{children}</MapContext.Provider>;

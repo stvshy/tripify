@@ -280,6 +280,7 @@ const InteractiveMapComponent = forwardRef<
     setMapActive,
     flushQueuedDiffs,
     peekQueuedChanged,
+    loadAndApplyPendingDiff,
   } = useMapState();
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
   const theme = useTheme();
@@ -320,6 +321,8 @@ const InteractiveMapComponent = forwardRef<
   useLayoutEffect(() => {
     // Pre-arm already handled in lazy state initializers; just ensure map active
     setMapActive(true);
+    // CRITICAL OPTIMIZATION: Apply pending diff IMMEDIATELY for instant visual effects
+    loadAndApplyPendingDiff();
     // If already visible flag is true, ensure container visible instantly
     if (showNewIndicator) {
       toggleProgress.value = 1;
@@ -328,7 +331,7 @@ const InteractiveMapComponent = forwardRef<
       setMapActive(false);
       setPendingHighlights(null);
     };
-  }, []);
+  }, []); // Back to empty dependencies for immediate execution
 
   // When provider flag flips to true, stop forcing local visibility
   // useEffect(() => {

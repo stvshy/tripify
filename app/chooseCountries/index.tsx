@@ -802,14 +802,37 @@ export default function ChooseCountriesScreen({
                     countriesWishlist: currentSelectedArray,
                   }
             )
-              .then(() => {
+              .then(async () => {
                 console.log(`${modeToSave} countries saved successfully.`);
                 console.log(
                   `firstLoginComplete set to: ${!fromTab ? "true" : "not set"}`
                 );
 
-                // MapStateProvider will automatically detect changes in visitedCountries from CountryContext
-                // and apply the appropriate visual effects
+                // CRITICAL OPTIMIZATION: Save diff for instant visual effects on map
+                if (
+                  modeToSave === "visited" &&
+                  (add.length > 0 || remove.length > 0)
+                ) {
+                  console.log(
+                    "ChooseCountries: Saving diff for instant map effects - add:",
+                    add.length,
+                    "remove:",
+                    remove.length
+                  );
+                  try {
+                    await AsyncStorage.setItem(
+                      "pendingMapDiff",
+                      JSON.stringify({
+                        add,
+                        remove,
+                        timestamp: Date.now(),
+                        userId: user.uid,
+                      })
+                    );
+                  } catch (error) {
+                    console.error("Failed to save pending map diff:", error);
+                  }
+                }
 
                 savingRef.current = false;
                 resolve();
