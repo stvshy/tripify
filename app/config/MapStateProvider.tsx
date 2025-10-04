@@ -130,16 +130,105 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
     []
   );
 
+  // Track previous visitedCountries to detect changes
+  const prevVisitedCountriesRef = useRef<string[] | null>(null);
+  // Track if this is the first load after login (to avoid showing all countries as "new")
+  const isFirstLoadRef = useRef(true);
+
   useEffect(() => {
+    console.log(
+      "MapStateProvider: visitedCountries changed:",
+      visitedCountries ? visitedCountries.length : "null"
+    );
+
     if (visitedCountries) {
+      const prev = prevVisitedCountriesRef.current;
+
+      // Check if this is a real change (not initial load)
+      // First load: prev is empty array [] and visitedCountries has countries
+      // Real change: prev has countries and visitedCountries has different countries
+      const isFirstLoad =
+        (prev && prev.length === 0 && visitedCountries.length > 0) ||
+        isFirstLoadRef.current;
+
+      if (
+        prev &&
+        !areCountryArraysEqual(prev, visitedCountries) &&
+        !isFirstLoad
+      ) {
+        console.log(
+          "MapStateProvider: Detected real change in visitedCountries, applying visual effects"
+        );
+
+        // Calculate diff
+        const prevSet = new Set(prev);
+        const nextSet = new Set(visitedCountries);
+        const add: string[] = [];
+        const remove: string[] = [];
+
+        for (const c of visitedCountries) if (!prevSet.has(c)) add.push(c);
+        for (const c of prev) if (!nextSet.has(c)) remove.push(c);
+
+        if (add.length > 0 || remove.length > 0) {
+          console.log(
+            "MapStateProvider: Applying visual effects - add:",
+            add.length,
+            "remove:",
+            remove.length
+          );
+
+          // Apply ONLY visual effects without updating visitedCountries
+          const visualAddsSet =
+            add.length > HIGHLIGHT_LIMIT
+              ? new Set(add.slice(0, HIGHLIGHT_LIMIT))
+              : new Set(add);
+
+          if (visualAddsSet.size > 0) {
+            setRecentlyChangedCountries(visualAddsSet);
+            setShowNewIndicator(true);
+            setIsUpdating(true);
+            setUpdateSequence((p) => p + 1);
+            if (updateTimeoutRef.current)
+              clearTimeout(updateTimeoutRef.current);
+            updateTimeoutRef.current = setTimeout(() => {
+              dismissNewIndicator();
+            }, AUTO_DISMISS_MS);
+          }
+        }
+      } else if (isFirstLoad) {
+        // This is the first load after login - don't show visual effects
+        console.log(
+          "MapStateProvider: First load after login, skipping visual effects"
+        );
+        isFirstLoadRef.current = false;
+      }
+
+      // Update ref for next comparison
+      prevVisitedCountriesRef.current = visitedCountries;
+
       setSelectedCountries(visitedCountries);
       // Sync optimistic count with backend when it arrives
       setOptimisticVisitedCount(visitedCountries.length);
       if (isLoadingData) {
         setIsLoadingData(false);
       }
+    } else {
+      // CRITICAL FIX: Clear state when no countries data (user logged out)
+      console.log("MapStateProvider: No countries data, clearing map state");
+      prevVisitedCountriesRef.current = null;
+      isFirstLoadRef.current = true; // Reset for next login
+      setSelectedCountries(null);
+      setIsLoadingData(true);
+      setOptimisticVisitedCount(null);
+      setRecentlyChangedCountries(new Set());
+      setShowNewIndicator(false);
+      setIsUpdating(false);
+      // Clear queued diffs
+      queuedAddsRef.current.clear();
+      queuedRemovesRef.current.clear();
+      queuedChangedRef.current.clear();
     }
-  }, [visitedCountries, isLoadingData]);
+  }, [visitedCountries, isLoadingData, areCountryArraysEqual]);
 
   // NOWA FUNKCJA: Odpowiedzialna tylko za czyszczenie podświetleń
   const clearHighlights = useCallback(() => {

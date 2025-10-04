@@ -78,15 +78,7 @@ export default {
             gradleProperties: {
               glideVersion: "4.13.2",
             },
-            enableProguardInReleaseBuilds: false,
-            enableShrinkResourcesInReleaseBuilds: false,
           },
-        },
-      ],
-      [
-        "react-native-edge-to-edge",
-        {
-          enforceNavigationBarContrast: false,
         },
       ],
     ],

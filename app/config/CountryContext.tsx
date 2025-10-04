@@ -42,32 +42,107 @@ export const CountriesProvider: React.FC<CountryProviderProps> = ({
   const [wishlistCountries, setWishlistCountries] = useState<string[]>([]);
 
   useEffect(() => {
-    const user = auth.currentUser;
-    if (user) {
-      const userDocRef = doc(db, "users", user.uid);
-      const unsubscribe = onSnapshot(userDocRef, (docSnapshot) => {
-        if (docSnapshot.exists()) {
-          const data = docSnapshot.data();
-          const countriesFromDb: string[] = data.countriesVisited || [];
-          const wishlistFromDb: string[] = data.countriesWishlist || [];
+    let currentUnsubscribeSnapshot: (() => void) | null = null;
 
-          setVisitedCountries((current) => {
-            if (JSON.stringify(current) !== JSON.stringify(countriesFromDb)) {
-              return countriesFromDb;
-            }
-            return current;
-          });
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      console.log(
+        "CountryContext: Auth state changed, user:",
+        user ? user.uid : "null"
+      );
 
-          setWishlistCountries((current) => {
-            if (JSON.stringify(current) !== JSON.stringify(wishlistFromDb)) {
-              return wishlistFromDb;
+      // Clean up previous snapshot listener if exists
+      if (currentUnsubscribeSnapshot) {
+        console.log("CountryContext: Cleaning up previous snapshot listener");
+        currentUnsubscribeSnapshot();
+        currentUnsubscribeSnapshot = null;
+      }
+
+      if (user) {
+        console.log(
+          "CountryContext: User logged in, setting up listener for:",
+          user.uid
+        );
+        const userDocRef = doc(db, "users", user.uid);
+        currentUnsubscribeSnapshot = onSnapshot(
+          userDocRef,
+          (docSnapshot) => {
+            console.log(
+              "CountryContext: Snapshot received for user:",
+              user.uid
+            );
+            if (docSnapshot.exists()) {
+              const data = docSnapshot.data();
+              const countriesFromDb: string[] = data.countriesVisited || [];
+              const wishlistFromDb: string[] = data.countriesWishlist || [];
+
+              console.log(
+                "CountryContext: Setting countries - visited:",
+                countriesFromDb.length,
+                "wishlist:",
+                wishlistFromDb.length
+              );
+
+              setVisitedCountries((current) => {
+                if (
+                  JSON.stringify(current) !== JSON.stringify(countriesFromDb)
+                ) {
+                  console.log(
+                    "CountryContext: Updating visited countries from",
+                    current.length,
+                    "to",
+                    countriesFromDb.length
+                  );
+                  return countriesFromDb;
+                }
+                return current;
+              });
+
+              setWishlistCountries((current) => {
+                if (
+                  JSON.stringify(current) !== JSON.stringify(wishlistFromDb)
+                ) {
+                  console.log(
+                    "CountryContext: Updating wishlist countries from",
+                    current.length,
+                    "to",
+                    wishlistFromDb.length
+                  );
+                  return wishlistFromDb;
+                }
+                return current;
+              });
+            } else {
+              console.log("CountryContext: User document does not exist");
+              setVisitedCountries([]);
+              setWishlistCountries([]);
             }
-            return current;
-          });
-        }
-      });
-      return () => unsubscribe();
-    }
+          },
+          (error) => {
+            console.error("CountryContext: Error in snapshot listener:", error);
+            // Clear state on error (e.g., permission denied)
+            setVisitedCountries([]);
+            setWishlistCountries([]);
+          }
+        );
+      } else {
+        // CRITICAL FIX: Clear state when no user is logged in
+        console.log(
+          "CountryContext: No user logged in, clearing country state"
+        );
+        setVisitedCountries([]);
+        setWishlistCountries([]);
+      }
+    });
+
+    return () => {
+      console.log(
+        "CountryContext: Cleaning up auth listener and snapshot listener"
+      );
+      unsubscribe();
+      if (currentUnsubscribeSnapshot) {
+        currentUnsubscribeSnapshot();
+      }
+    };
   }, []);
 
   return (

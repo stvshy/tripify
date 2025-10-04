@@ -696,6 +696,24 @@ export default function ChooseCountriesScreen({
       setLocalCount(null);
     };
   }, [setLocalCount]);
+
+  // CRITICAL FIX: Clear local state when user changes
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      console.log(
+        "ChooseCountries: Auth state changed, user:",
+        user ? user.uid : "null"
+      );
+      if (!user) {
+        console.log("ChooseCountries: User logged out, clearing local state");
+        setLocalSelectedCountries(new Set());
+        setLocalCount(null);
+        setSelectionMode("visited");
+      }
+    });
+
+    return unsubscribe;
+  }, [setLocalCount, setSelectionMode]);
   // ZASTĄP CAŁĄ FUNKCJĘ `handleSelectCountry` PONIŻSZYM KODEM:
   const dismissKeyboard = useCallback(() => {
     searchInputRef.current?.blur();
@@ -766,11 +784,6 @@ export default function ChooseCountriesScreen({
       initialSet.forEach((c) => {
         if (!finalSetSnapshot.has(c)) remove.push(c);
       });
-      if (modeToSave === "visited") {
-        requestAnimationFrame(() => {
-          applyCountryDiff(add, remove, { immediate: true });
-        });
-      }
       const currentSelectedArray = Array.from(finalSetSnapshot);
       const userDocRef = doc(db, "users", user.uid);
 
@@ -794,6 +807,10 @@ export default function ChooseCountriesScreen({
                 console.log(
                   `firstLoginComplete set to: ${!fromTab ? "true" : "not set"}`
                 );
+
+                // MapStateProvider will automatically detect changes in visitedCountries from CountryContext
+                // and apply the appropriate visual effects
+
                 savingRef.current = false;
                 resolve();
               })

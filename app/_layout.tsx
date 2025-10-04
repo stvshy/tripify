@@ -297,7 +297,10 @@ export default function RootLayout() {
           }
         } else {
           // BRAK ZALOGOWANEGO UŻYTKOWNIKA
-          // cleanupCommunity(); // Wyczyść dane i zatrzymaj listenery
+          console.log(
+            "RootLayout: No user logged in, cleaning up community data"
+          );
+          cleanupCommunity(); // Wyczyść dane i zatrzymaj listenery
           setFirebaseUser(null);
           setUserProfile(null);
           finalizePreparation("welcome");
