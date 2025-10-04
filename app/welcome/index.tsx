@@ -59,6 +59,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { auth, db } from "../config/firebaseConfig";
+import type { Auth } from "firebase/auth";
 import { useAuthStore } from "../store/authStore";
 import { useWelcomeStore } from "../store/welcomeStore";
 import LoginHeader from "./LoginHeader";
@@ -173,7 +174,9 @@ export default function WelcomeScreen() {
   // Reset stanu przy każdym wejściu na welcome (żeby pokazać animacje na nowo)
   useEffect(() => {
     resetOnEntry();
-  }, [resetOnEntry]);
+    // Upewnij się, że stan ładowania jest false przy wejściu na welcome
+    setIsLoading(false);
+  }, [resetOnEntry, setIsLoading]);
 
   // Hook dla animacji
 
@@ -387,7 +390,13 @@ export default function WelcomeScreen() {
 
   const isEmail = (input: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input);
 
-  const handleLogin = async () => {
+  const handleLogin = async (retryCount = 0) => {
+    // Upewnij się, że stan ładowania jest false na początku
+    if (isLoading) {
+      console.log("Login already in progress, ignoring duplicate request");
+      return;
+    }
+
     setErrorMessage(null);
     setVerificationMessage(null);
     setIsLoading(true); // Rozpoczęcie ładowania
@@ -436,7 +445,7 @@ export default function WelcomeScreen() {
 
       console.log("Attempting to sign in with email:", email);
       const userCredential = await signInWithEmailAndPassword(
-        auth,
+        auth as Auth,
         email,
         password
       );
@@ -544,16 +553,40 @@ export default function WelcomeScreen() {
         setErrorMessage("No account was found with this e-mail or nickname.");
       } else if (error.code === "auth/wrong-password") {
         setErrorMessage("The password you entered is incorrect.");
+      } else if (error.code === "auth/network-request-failed") {
+        console.log("Network error details:", error);
+        if (retryCount < 2) {
+          console.log(
+            `Retrying login attempt ${retryCount + 1}/2 in ${1000 * (retryCount + 1)}ms`
+          );
+          setTimeout(
+            () => {
+              handleLogin(retryCount + 1);
+            },
+            1000 * (retryCount + 1)
+          ); // Exponential backoff: 1s, 2s
+          return; // Don't set error message, just retry
+        }
+        console.log("All retry attempts failed, showing error message");
+        setErrorMessage(
+          "Network error. Please check your internet connection and try again."
+        );
+        setIsLoading(false); // Zakończ ładowanie po ostatniej próbie
+      } else if (error.code === "auth/timeout") {
+        setErrorMessage("Request timeout. Please try again.");
+        setIsLoading(false);
       } else {
         setErrorMessage("The password you entered is incorrect.");
+        setIsLoading(false);
       }
     } finally {
-      setIsLoading(false); // Zakończenie ładowania
+      // Zakończenie ładowania dla przypadków bez retry
+      // (retry cases już ustawiają setIsLoading(false) w catch)
     }
   };
   // Funkcja ponownego wysyłania maila
   const resendVerificationEmail = async () => {
-    const user = auth.currentUser;
+    const user = (auth as Auth).currentUser;
     if (user && !user.emailVerified && resendTimer === 0) {
       try {
         await sendEmailVerification(user);
@@ -616,7 +649,10 @@ export default function WelcomeScreen() {
 
       const email = await getFacebookEmail();
       if (email) {
-        const signInMethods = await fetchSignInMethodsForEmail(auth, email);
+        const signInMethods = await fetchSignInMethodsForEmail(
+          auth as Auth,
+          email
+        );
         if (
           signInMethods.length > 0 &&
           !signInMethods.includes("facebook.com")
@@ -630,7 +666,7 @@ export default function WelcomeScreen() {
       }
 
       const userCredential = await signInWithCredential(
-        auth,
+        auth as Auth,
         facebookCredential
       );
       const user = userCredential.user;

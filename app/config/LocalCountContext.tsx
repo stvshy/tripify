@@ -31,7 +31,7 @@ export const LocalCountProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // CRITICAL FIX: Clear state when user changes
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const unsubscribe = auth.onAuthStateChanged((user: { uid: any }) => {
       console.log(
         "LocalCountContext: Auth state changed, user:",
         user ? user.uid : "null"

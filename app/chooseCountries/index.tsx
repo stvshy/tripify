@@ -699,7 +699,7 @@ export default function ChooseCountriesScreen({
 
   // CRITICAL FIX: Clear local state when user changes
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const unsubscribe = auth.onAuthStateChanged((user: { uid: any }) => {
       console.log(
         "ChooseCountries: Auth state changed, user:",
         user ? user.uid : "null"

@@ -42,6 +42,7 @@ import CountryFlag from "react-native-country-flag";
 import RankingItem from "../../components/RankItem";
 import { storage } from "../config/storage";
 import { useAuthStore } from "../store/authStore";
+import { useWelcomeStore } from "../store/welcomeStore";
 import { useFocusEffect } from "@react-navigation/native";
 import { signOut } from "firebase/auth";
 import { COUNTRY_BY_CCA2, getFlagUrl } from "../../components/countriesIndex";
@@ -468,6 +469,9 @@ export default function AccountScreen() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
+      // Czyszczenie stanu autoryzacji i welcome store
+      useAuthStore.getState().clearAuthData();
+      useWelcomeStore.getState().clearWelcomeState();
       router.replace("/welcome");
     } catch (error) {
       console.error("Error logging out:", error);

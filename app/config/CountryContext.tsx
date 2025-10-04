@@ -44,7 +44,7 @@ export const CountriesProvider: React.FC<CountryProviderProps> = ({
   useEffect(() => {
     let currentUnsubscribeSnapshot: (() => void) | null = null;
 
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const unsubscribe = auth.onAuthStateChanged((user: { uid: string }) => {
       console.log(
         "CountryContext: Auth state changed, user:",
         user ? user.uid : "null"

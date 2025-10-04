@@ -1,5 +1,9 @@
 import { initializeApp } from "firebase/app";
-import { getReactNativePersistence, initializeAuth } from "firebase/auth";
+import {
+  getReactNativePersistence,
+  initializeAuth,
+  getAuth,
+} from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getStorage } from "firebase/storage";
@@ -18,10 +22,26 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// Użycie AsyncStorage do przechowywania stanu autoryzacji
-const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage),
-});
+// Bezpieczna inicjalizacja Auth - sprawdź czy już istnieje
+let auth: any;
+try {
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage),
+  });
+} catch (error: any) {
+  // Jeśli auth już istnieje, pobierz istniejącą instancję
+  if (error.code === "auth/already-initialized") {
+    auth = getAuth(app);
+  } else {
+    throw error;
+  }
+}
+
+// Dodatkowe ustawienia dla środowiska development
+if (__DEV__) {
+  // Zwiększ timeout dla środowiska development
+  auth.settings.appVerificationDisabledForTesting = false;
+}
 
 // Eksport instancji Firestore
 const db = getFirestore(app);

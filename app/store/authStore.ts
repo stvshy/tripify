@@ -42,7 +42,10 @@ export const useAuthStore = create<AuthState & AuthActions>()((set, get) => ({
   setErrorAuth: (error) => set({ errorAuth: error }),
   clearAuthData: () => {
     get().unsubscribeRequests?.();
-    set(initialState);
+    set({
+      ...initialState,
+      isLoadingAuth: false, // Upewnij się, że stan ładowania jest false po czyszczeniu
+    });
   },
   listenToFriendRequests: (uid: string) => {
     get().unsubscribeRequests?.();

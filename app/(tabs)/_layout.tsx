@@ -38,6 +38,7 @@ import { useCountries } from "../config/CountryContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import filteredCountriesData from "../../components/filteredCountries.json";
 import { useAuthStore } from "../store/authStore";
+import { useWelcomeStore } from "../store/welcomeStore";
 import { MMKV } from "react-native-mmkv";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
@@ -336,6 +337,7 @@ const TabLayoutContent: React.FC = () => {
       await signOut(auth);
       clearAuthData(); // To spowoduje zmianę firebaseUser/userProfile na null,
       // co z kolei triggeruje useFocusEffect do przekierowania.
+      useWelcomeStore.getState().clearWelcomeState(); // Wyczyść welcome store
     } catch (error) {
       console.error("Error logging out:", error);
     }
