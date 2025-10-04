@@ -5,7 +5,7 @@ import { Platform, Dimensions } from "react-native";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 const BUTTON_SIZE = Math.min(screenWidth, screenHeight) * 0.08;
-const MORPH_DURATION = 380; // Oryginalna wartość
+const MORPH_DURATION = 280; // Ultra-fast morphing
 
 interface OptimizedConfettiProps {
   visible: boolean;
@@ -24,10 +24,10 @@ const OptimizedConfetti: React.FC<OptimizedConfettiProps> = ({
 }) => {
   if (!visible) return null;
 
-  // Przywrócone oryginalne wartości konfetti
-  const confettiCount = 140; // Oryginalna liczba
-  const explosionSpeed = 700; // Oryginalna prędkość
-  const fallSpeed = 2400; // Oryginalna prędkość
+  // ULTRA-FAST: Ultra-fast confetti for instant visual impact
+  const confettiCount = 120; // Reduced for better performance
+  const explosionSpeed = 900; // Ultra-fast explosion
+  const fallSpeed = 2000; // Ultra-fast fall
 
   return (
     <ConfettiCannon
@@ -37,7 +37,7 @@ const OptimizedConfetti: React.FC<OptimizedConfettiProps> = ({
       colors={colors}
       fadeOut
       autoStart
-      autoStartDelay={MORPH_DURATION} // Oryginalne
+      autoStartDelay={MORPH_DURATION} // PERFECT TIMING: Start confetti after morphing completes
       explosionSpeed={explosionSpeed}
       fallSpeed={fallSpeed}
     />

@@ -83,9 +83,9 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
   const toggleMenu = useCallback(() => {
     const next = !menuOpen;
     setMenuOpen(next);
-    // Przywrócone oryginalne animacje menu
+    // ULTRA-FAST: Ultra-fast menu animations
     menuProgress.value = withTiming(next ? 1 : 0, {
-      duration: next ? 240 : 180, // Oryginalne
+      duration: next ? 180 : 120, // Ultra-fast
       easing: Easing.out(Easing.ease),
     });
   }, [menuOpen]);
@@ -94,9 +94,9 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
   useEffect(() => {
     if (isMapActive === false && menuOpen) {
       setMenuOpen(false);
-      // Przywrócone oryginalne zamykanie menu
+      // ULTRA-FAST: Ultra-fast menu closing
       menuProgress.value = withTiming(0, {
-        duration: 160, // Oryginalne
+        duration: 100, // Ultra-fast
         easing: Easing.out(Easing.ease),
       });
     }
@@ -174,9 +174,9 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
           onPress={async () => {
             await onShare();
             setMenuOpen(false);
-            // Przywrócone oryginalne zamykanie po udostępnieniu
+            // ULTRA-FAST: Ultra-fast closing after share
             menuProgress.value = withTiming(0, {
-              duration: 160, // Oryginalne
+              duration: 100, // Ultra-fast
               easing: Easing.out(Easing.ease),
             });
           }}
@@ -205,9 +205,9 @@ export default function FloatingActionMenu(props: FloatingActionMenuProps) {
           onPress={() => {
             onToggleTheme();
             setMenuOpen(false);
-            // Przywrócone oryginalne zamykanie po zmianie tematu
+            // ULTRA-FAST: Ultra-fast closing after theme change
             menuProgress.value = withTiming(0, {
-              duration: 160, // Oryginalne
+              duration: 100, // Ultra-fast
               easing: Easing.out(Easing.ease),
             });
           }}

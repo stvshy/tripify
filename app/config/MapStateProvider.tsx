@@ -302,7 +302,7 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
   // Track if pending diff has been applied to prevent multiple applications
   const pendingDiffAppliedRef = useRef(false);
 
-  // NEW: Load and apply pending diff from chooseCountries for instant visual effects
+  // ULTRA-FAST: Load and apply pending diff from chooseCountries for instant visual effects
   const loadAndApplyPendingDiffRef = useRef(async () => {
     // Prevent multiple applications
     if (pendingDiffAppliedRef.current) {
@@ -377,7 +377,7 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
             setOptimisticVisitedCount(Math.max(0, newCount));
           }
 
-          // Apply visual effects immediately - no delays, no deferring
+          // ULTRA-FAST: Apply visual effects IMMEDIATELY - no delays, no InteractionManager
           if (add.length > 0) {
             const visualAddsSet =
               add.length > HIGHLIGHT_LIMIT
@@ -390,19 +390,16 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
               updateTimeoutRef.current = null;
             }
 
-            // CRITICAL OPTIMIZATION: Use InteractionManager for smooth animations
-            InteractionManager.runAfterInteractions(() => {
-              // Apply visual effects immediately
-              setRecentlyChangedCountries(visualAddsSet as Set<string>);
-              setShowNewIndicator(true);
-              setIsUpdating(true);
-              setUpdateSequence((p) => p + 1);
+            // ULTRA-FAST: Apply visual effects IMMEDIATELY without any delays
+            setRecentlyChangedCountries(visualAddsSet as Set<string>);
+            setShowNewIndicator(true);
+            setIsUpdating(true);
+            setUpdateSequence((p) => p + 1);
 
-              // Set auto-dismiss timeout
-              updateTimeoutRef.current = setTimeout(() => {
-                dismissNewIndicator();
-              }, AUTO_DISMISS_MS);
-            });
+            // Set auto-dismiss timeout
+            updateTimeoutRef.current = setTimeout(() => {
+              dismissNewIndicator();
+            }, AUTO_DISMISS_MS);
           }
 
           // Clear the pending diff after applying
@@ -457,9 +454,9 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
             );
           }
 
-          // Check if diff is recent (within last 5 minutes)
+          // Check if diff is recent (within last 2 minutes) - reduced from 5 minutes
           if (
-            Date.now() - timestamp < 5 * 60 * 1000 &&
+            Date.now() - timestamp < 2 * 60 * 1000 &&
             (add.length > 0 || remove.length > 0)
           ) {
             console.log(
@@ -481,7 +478,7 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
               setOptimisticVisitedCount(Math.max(0, newCount));
             }
 
-            // Apply visual effects immediately - no delays, no deferring
+            // ULTRA-FAST: Apply visual effects IMMEDIATELY - no delays, no InteractionManager
             if (add.length > 0) {
               const visualAddsSet =
                 add.length > HIGHLIGHT_LIMIT
@@ -494,19 +491,16 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
                 updateTimeoutRef.current = null;
               }
 
-              // CRITICAL OPTIMIZATION: Use InteractionManager for smooth animations
-              InteractionManager.runAfterInteractions(() => {
-                // Apply visual effects immediately
-                setRecentlyChangedCountries(visualAddsSet as Set<string>);
-                setShowNewIndicator(true);
-                setIsUpdating(true);
-                setUpdateSequence((p) => p + 1);
+              // ULTRA-FAST: Apply visual effects IMMEDIATELY without any delays
+              setRecentlyChangedCountries(visualAddsSet as Set<string>);
+              setShowNewIndicator(true);
+              setIsUpdating(true);
+              setUpdateSequence((p) => p + 1);
 
-                // Set auto-dismiss timeout
-                updateTimeoutRef.current = setTimeout(() => {
-                  dismissNewIndicator();
-                }, AUTO_DISMISS_MS);
-              });
+              // Set auto-dismiss timeout
+              updateTimeoutRef.current = setTimeout(() => {
+                dismissNewIndicator();
+              }, AUTO_DISMISS_MS);
             }
 
             // Clear the pending diff after applying

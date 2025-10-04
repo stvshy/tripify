@@ -46,6 +46,7 @@ import Animated, {
   withSpring,
   withTiming,
   withRepeat,
+  withDelay,
 } from "react-native-reanimated";
 import { useAnimatedReaction } from "react-native-reanimated";
 import { Feather, MaterialIcons } from "@expo/vector-icons";
@@ -93,6 +94,7 @@ const BUTTON_SIZE = Math.min(windowWidth, windowHeight) * 0.08;
 const ICON_SIZE = BUTTON_SIZE * 0.5;
 const screenWidth = windowWidth;
 const screenHeight = windowHeight;
+const MORPH_DURATION = 280; // Ultra-fast morphing for instant response
 const pixelRatio = PixelRatio.get();
 const initialTranslateX = 0;
 const initialTranslateY = 0;
@@ -318,13 +320,13 @@ const InteractiveMapComponent = forwardRef<
   );
   const visitedSet = useMemo(() => new Set(visitedList), [visitedList]);
 
-  // Szybkie włączenie aktywności mapy i flush queued diffs przed pierwszym rysowaniem
+  // ULTRA-FAST: Immediate activation and visual effects on mount
   useLayoutEffect(() => {
-    // Pre-arm already handled in lazy state initializers; just ensure map active
+    // ULTRA-FAST: Mark map as active immediately
     setMapActive(true);
-    // CRITICAL OPTIMIZATION: Apply pending diff IMMEDIATELY for instant visual effects
+    // ULTRA-FAST: Apply pending diff IMMEDIATELY for instant visual effects
     loadAndApplyPendingDiff();
-    // If already visible flag is true, ensure container visible instantly
+    // ULTRA-FAST: Force immediate visibility if needed
     if (showNewIndicator) {
       toggleProgress.value = 1;
     }
@@ -332,7 +334,7 @@ const InteractiveMapComponent = forwardRef<
       setMapActive(false);
       setPendingHighlights(null);
     };
-  }, []); // Back to empty dependencies for immediate execution
+  }, []); // Empty dependencies for immediate execution
 
   // When provider flag flips to true, stop forcing local visibility
   // useEffect(() => {
@@ -404,32 +406,38 @@ const InteractiveMapComponent = forwardRef<
     return { x: originX, y: bottomFromScreen };
   }, []);
 
-  // Synchronize: when showNewIndicator becomes true, start animations immediately
+  // PERFECT TIMING: Synchronize animations when showNewIndicator becomes true
   useLayoutEffect(() => {
     if (!showNewIndicator) return;
-    // Start button scale animation immediately - przywrócone oryginalne
+    // PERFECT TIMING: Start button scale animation AFTER morphing completes
     newButtonScale.value = 1.0;
-    newButtonScale.value = withSequence(
-      withTiming(1.13, { duration: 120, easing: Easing.out(Easing.ease) }), // Oryginalne
-      withTiming(1.0, { duration: 180, easing: Easing.out(Easing.ease) }) // Oryginalne
+    newButtonScale.value = withDelay(
+      MORPH_DURATION, // Wait for morphing to complete (280ms)
+      withSequence(
+        withTiming(1.15, { duration: 80, easing: Easing.out(Easing.ease) }),
+        withTiming(1.0, { duration: 120, easing: Easing.out(Easing.ease) })
+      )
     );
   }, [showNewIndicator]);
 
-  // Also handle the local forced visibility path (before provider flips)
+  // PERFECT TIMING: Handle forced visibility path (before provider flips)
   useLayoutEffect(() => {
     if (!forceNewVisible) return;
-    // Immediate scale pop without waiting a frame - przywrócone oryginalne
+    // PERFECT TIMING: Start scale animation AFTER morphing completes
     try {
       cancelAnimation(newButtonScale);
       cancelAnimation(confettiOpacity);
     } catch {}
     toggleProgress.value = 1;
     newButtonScale.value = 1.0;
-    newButtonScale.value = withSequence(
-      withTiming(1.08, { duration: 80, easing: Easing.out(Easing.ease) }), // Oryginalne
-      withTiming(1.0, { duration: 110, easing: Easing.out(Easing.ease) }) // Oryginalne
+    newButtonScale.value = withDelay(
+      MORPH_DURATION, // Wait for morphing to complete (280ms)
+      withSequence(
+        withTiming(1.15, { duration: 80, easing: Easing.out(Easing.ease) }),
+        withTiming(1.0, { duration: 120, easing: Easing.out(Easing.ease) })
+      )
     );
-    // Start confetti immediately after mount
+    // PERFECT TIMING: Confetti starts after morphing completes
     try {
       confettiRef.current?.start();
     } catch {}
@@ -480,12 +488,12 @@ const InteractiveMapComponent = forwardRef<
       cancelAnimation(borderShiftY);
     } catch {}
 
-    // Przyspieszone random animacje gradientu dla szybszego ruchu
+    // ULTRA-FAST: Ultra-fast random gradient animations for instant visual appeal
     const totalWidth = BUTTON_SIZE * 2.2;
     const travelX = totalWidth * (0.55 + Math.random() * 0.2); // 55%..75% width
     const travelY = BUTTON_SIZE * (0.1 + Math.random() * 0.12); // 10%..22% height
-    const durX = Math.round(800 + Math.random() * 400); // Przyspieszone z 1300-2000ms do 800-1200ms
-    const durY = Math.round(700 + Math.random() * 350); // Przyspieszone z 1200-1800ms do 700-1050ms
+    const durX = Math.round(600 + Math.random() * 300); // Ultra-fast: 600-900ms
+    const durY = Math.round(500 + Math.random() * 250); // Ultra-fast: 500-750ms
 
     borderShiftX.value = -travelX;
     borderShiftY.value = -travelY;
@@ -541,32 +549,35 @@ const InteractiveMapComponent = forwardRef<
   const showNewSV = useSharedValue(showNewIndicator || forceNewVisible ? 1 : 0);
 
   useEffect(() => {
-    // Natychmiastowe pojawienie na wejściu (zero ms), szybkie wygaszanie - przywrócone oryginalne
+    // ULTRA-FAST: Instant appearance (zero ms), ultra-fast dismissal
     const appearing = !prevShowRef.current && showNewIndicator;
     toggleProgress.value = withTiming(showNewIndicator ? 1 : 0, {
-      duration: showNewIndicator ? (appearing ? 0 : 120) : 140, // Oryginalne
+      duration: showNewIndicator ? (appearing ? 0 : 80) : 100, // Ultra-fast
       easing: Easing.out(Easing.ease),
     });
     prevShowRef.current = showNewIndicator;
     showNewSV.value = showNewIndicator ? 1 : 0;
   }, [showNewIndicator]);
 
-  // Layout-efekt, który w pierwszej klatce po ustawieniu showNewIndicator ustawia widok bez animacji
+  // PERFECT TIMING: Layout effect for instant first-frame visibility
   useLayoutEffect(() => {
     if (showNewIndicator && !prevShowRef.current) {
-      // Zero-delay show and immediate confetti start to perfectly sync with highlights - przywrócone oryginalne
+      // PERFECT TIMING: Zero-delay show, scale animation after morphing
       toggleProgress.value = 1;
       try {
         cancelAnimation(newButtonScale);
         cancelAnimation(confettiOpacity);
       } catch {}
-      // no pre-hide of button; confetti wrapper managed separately
+      // PERFECT TIMING: Button scale animation starts AFTER morphing completes
       newButtonScale.value = 1.0;
-      newButtonScale.value = withSequence(
-        withTiming(1.08, { duration: 80, easing: Easing.out(Easing.ease) }), // Oryginalne
-        withTiming(1.0, { duration: 110, easing: Easing.out(Easing.ease) }) // Oryginalne
+      newButtonScale.value = withDelay(
+        MORPH_DURATION, // Wait for morphing to complete (280ms)
+        withSequence(
+          withTiming(1.15, { duration: 80, easing: Easing.out(Easing.ease) }),
+          withTiming(1.0, { duration: 120, easing: Easing.out(Easing.ease) })
+        )
       );
-      // rely on ConfettiCannon autoStart on remount
+      // rely on ConfettiCannon autoStart on remount (with MORPH_DURATION delay)
     }
   }, [showNewIndicator]);
 
@@ -590,19 +601,21 @@ const InteractiveMapComponent = forwardRef<
     if (prevShowRef.current) return;
     if (lastAnimSeqRef.current === updateSequence) return;
     lastAnimSeqRef.current = updateSequence;
-    // Upewnij się, że warstwa jest widoczna
+    // PERFECT TIMING: Ensure layer is visible
     toggleProgress.value = 1;
-    // Zresetuj i odpal efekt przycisku + konfetti
+    // PERFECT TIMING: Reset and fire button effect after morphing
     try {
       cancelAnimation(newButtonScale);
       cancelAnimation(confettiOpacity);
     } catch {}
-    // no pre-hide of button; confetti wrapper managed separately
+    // PERFECT TIMING: Button scale animation starts AFTER morphing completes
     newButtonScale.value = 1.0;
-    // Ultra-fast scale to avoid blocking JS and RN bridge
-    newButtonScale.value = withSequence(
-      withTiming(1.08, { duration: 90, easing: Easing.out(Easing.ease) }),
-      withTiming(1.0, { duration: 120, easing: Easing.out(Easing.ease) })
+    newButtonScale.value = withDelay(
+      MORPH_DURATION, // Wait for morphing to complete (280ms)
+      withSequence(
+        withTiming(1.15, { duration: 80, easing: Easing.out(Easing.ease) }),
+        withTiming(1.0, { duration: 120, easing: Easing.out(Easing.ease) })
+      )
     );
     // rely on autoStart on remount
   }, [isMapActive, showNewIndicator, updateSequence]);
@@ -1259,7 +1272,7 @@ const InteractiveMapComponent = forwardRef<
   }, [resetMapTransform]);
 
   const handlePressNew = useCallback(() => {
-    // Fade out the New layer quickly, while keeping regular buttons hidden to avoid any flash
+    // ULTRA-FAST: Ultra-fast fade out with immediate cleanup
     try {
       cancelAnimation(toggleProgress);
       cancelAnimation(newButtonScale);
@@ -1267,16 +1280,16 @@ const InteractiveMapComponent = forwardRef<
     } catch {}
     confettiOpacity.value = 1; // keep visible; cannon will unmount on dismiss
     suppressRegularButtons.value = 1; // prevent functional buttons from flashing
-    // Clear highlights and hide indicator immediately to keep map visuals in sync
+    // ULTRA-FAST: Clear highlights and hide indicator immediately
     instantDismissNewIndicator();
     toggleProgress.value = withTiming(0, {
-      duration: 140,
+      duration: 100, // Ultra-fast fade out
       easing: Easing.out(Easing.ease),
     });
-    // Defer enabling regular buttons slightly after the fade completes to avoid any overlap
+    // ULTRA-FAST: Enable regular buttons immediately after ultra-fast fade
     setTimeout(() => {
       suppressRegularButtons.value = 0;
-    }, 160);
+    }, 120); // Reduced delay for ultra-fast response
   }, [instantDismissNewIndicator]);
 
   // Reset tooltip & zarządzanie aktywnością mapy na fokus/blur ekranu
@@ -1296,15 +1309,18 @@ const InteractiveMapComponent = forwardRef<
               cancelAnimation(confettiOpacity);
             } catch {}
             newButtonScale.value = 1.0;
-            newButtonScale.value = withSequence(
-              withTiming(1.08, {
-                duration: 90,
-                easing: Easing.out(Easing.ease),
-              }),
-              withTiming(1.0, {
-                duration: 120,
-                easing: Easing.out(Easing.ease),
-              })
+            newButtonScale.value = withDelay(
+              MORPH_DURATION, // Wait for morphing to complete (280ms)
+              withSequence(
+                withTiming(1.15, {
+                  duration: 80,
+                  easing: Easing.out(Easing.ease),
+                }),
+                withTiming(1.0, {
+                  duration: 120,
+                  easing: Easing.out(Easing.ease),
+                })
+              )
             );
             confettiOpacity.value = withTiming(1, { duration: 0 });
           }
@@ -1387,9 +1403,12 @@ const InteractiveMapComponent = forwardRef<
         cancelAnimation(confettiOpacity);
       } catch {}
       newButtonScale.value = 1.0;
-      newButtonScale.value = withSequence(
-        withTiming(1.08, { duration: 80, easing: Easing.out(Easing.ease) }),
-        withTiming(1.0, { duration: 110, easing: Easing.out(Easing.ease) })
+      newButtonScale.value = withDelay(
+        MORPH_DURATION, // Wait for morphing to complete (280ms)
+        withSequence(
+          withTiming(1.15, { duration: 80, easing: Easing.out(Easing.ease) }),
+          withTiming(1.0, { duration: 120, easing: Easing.out(Easing.ease) })
+        )
       );
       // Progress width will be handled by ProgressBar internally
     }

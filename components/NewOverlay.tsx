@@ -39,8 +39,8 @@ type Props = {
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 const BUTTON_SIZE = Math.min(screenWidth, screenHeight) * 0.08;
 const ICON_SIZE = BUTTON_SIZE * 0.5;
-const MORPH_DURATION = 380; // Przywrócone oryginalne
-const COLLAPSE_DURATION = 260; // Przywrócone oryginalne
+const MORPH_DURATION = 280; // Ultra-fast morphing for instant response
+const COLLAPSE_DURATION = 200; // Ultra-fast collapse
 const COLLAPSE_TARGET = 0; // collapse to a perfect circle
 
 // Confetti origin tuning (mirrors InteractiveMap defaults)
@@ -202,11 +202,11 @@ const NewOverlay: React.FC<Props> = ({
       cancelAnimation(borderShiftY);
     } catch {}
 
-    // Przyspieszone animacje gradientu dla szybszego ruchu
+    // ULTRA-FAST: Przyspieszone animacje gradientu dla błyskawicznego ruchu
     const travelX = BUTTON_SIZE * 1.6;
     const travelY = BUTTON_SIZE * 0.6;
-    const durationX = 2500; // Przyspieszone z 4200ms
-    const durationY = 2200; // Przyspieszone z 3800ms
+    const durationX = 1800; // Ultra-fast gradient movement
+    const durationY = 1600; // Ultra-fast gradient movement
 
     borderShiftX.value = -travelX;
     borderShiftY.value = -travelY;
@@ -238,12 +238,13 @@ const NewOverlay: React.FC<Props> = ({
       cancelAnimation(overlayOpacity);
       cancelAnimation(newButtonScale);
     } catch {}
+    // ULTRA-FAST: Ultra-fast confetti fade out
     confettiOpacity.value = withTiming(0, {
-      duration: 140,
+      duration: 100, // Ultra-fast
       easing: Easing.out(Easing.ease),
     });
     confettiScale.value = withTiming(0.82, {
-      duration: 160,
+      duration: 120, // Ultra-fast
       easing: Easing.in(Easing.cubic),
     });
     morphProgress.value = withTiming(
@@ -263,7 +264,7 @@ const NewOverlay: React.FC<Props> = ({
     );
   }, [collapsing]);
 
-  // Show animation (unchanged) and programmatic collapse when visible flips false
+  // ULTRA-FAST: Show animation with zero delays for instant response
   useEffect(() => {
     if (collapsing) {
       prevVisibleRef.current = visible;
@@ -281,34 +282,27 @@ const NewOverlay: React.FC<Props> = ({
       overlayOpacity.value = 1;
       confettiOpacity.value = 1;
       confettiScale.value = 1;
-      requestAnimationFrame(() => {
-        morphProgress.value = withDelay(
-          16,
-          withTiming(1, {
-            duration: MORPH_DURATION,
-            easing: Easing.out(Easing.cubic),
-          })
-        );
-        overlayOpacity.value = withDelay(
-          16,
-          withTiming(
-            isDarkTheme
-              ? TARGET_OVERLAY_ALPHA_DARK
-              : TARGET_OVERLAY_ALPHA_LIGHT,
-            {
-              duration: MORPH_DURATION,
-              easing: Easing.out(Easing.cubic),
-            }
-          )
-        );
-        newButtonScale.value = withDelay(
-          MORPH_DURATION,
-          withSequence(
-            withTiming(1.1, { duration: 110, easing: Easing.out(Easing.ease) }),
-            withTiming(1.0, { duration: 140, easing: Easing.out(Easing.ease) })
-          )
-        );
+
+      // ULTRA-FAST: Start morphing animation first
+      morphProgress.value = withTiming(1, {
+        duration: MORPH_DURATION,
+        easing: Easing.out(Easing.cubic),
       });
+      overlayOpacity.value = withTiming(
+        isDarkTheme ? TARGET_OVERLAY_ALPHA_DARK : TARGET_OVERLAY_ALPHA_LIGHT,
+        {
+          duration: MORPH_DURATION,
+          easing: Easing.out(Easing.cubic),
+        }
+      );
+      // PERFECT TIMING: Button scale animation starts AFTER morphing completes
+      newButtonScale.value = withDelay(
+        MORPH_DURATION, // Wait for morphing to complete
+        withSequence(
+          withTiming(1.15, { duration: 80, easing: Easing.out(Easing.ease) }),
+          withTiming(1.0, { duration: 120, easing: Easing.out(Easing.ease) })
+        )
+      );
     } else {
       if (prevVisibleRef.current) {
         startCollapse();
