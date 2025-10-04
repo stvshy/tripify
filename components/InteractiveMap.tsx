@@ -70,7 +70,7 @@ import {
   Path as SkiaPathDrawing,
 } from "@shopify/react-native-skia";
 import ProgressBar from "./ProgressBar";
-import ConfettiCannon from "react-native-confetti-cannon";
+// ConfettiCannon is now handled by NewOverlay component
 import { moderateScale, ScaledSheet } from "react-native-size-matters";
 import { useMapState } from "@/app/config/MapStateProvider";
 import FloatingActionMenu from "./FloatingActionMenu";
@@ -366,45 +366,14 @@ const InteractiveMapComponent = forwardRef<
   const animatedToggleStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scaleValue.value }],
   }));
-  // --- Confetti firing and New button scale animation ---
-  const confettiRef = useRef<ConfettiCannon>(null);
+  // --- New button scale animation ---
   const newButtonRef = useRef<View>(null);
-  const [confettiOrigin, setConfettiOrigin] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
   // For scale animation
   const newButtonScale = useSharedValue(1);
-  // Confetti: start hidden; reveal next frame to avoid initial clump at origin
-  const confettiOpacity = useSharedValue(1);
-  const confettiWrapperStyle = useAnimatedStyle(() => ({
-    opacity: confettiOpacity.value,
-  }));
   // During dismissal, keep regular buttons hidden to avoid flash
   const suppressRegularButtons = useSharedValue(0);
-  const CONFETTI_SHIFT_X_RATIO = 0.12; // subtle left shift for origin centering
-  const CONFETTI_ORIGIN_Y_RATIO = 2.06; // anchor inside button height: 0=top, 1=bottom
-  const FALLBACK_ORIGIN = { x: screenWidth / 2, y: screenHeight * 0.08 };
 
-  // Helper to compute corrected confetti origin immediately (no layout measurement)
-  const computeConfettiOrigin = useCallback(() => {
-    const buttonWidth = BUTTON_SIZE * 2.2; // styles.newButtonWrapper.width
-    const originX = screenWidth / 2 - buttonWidth * CONFETTI_SHIFT_X_RATIO;
-
-    // Convert anchor position to bottom-from-screen coordinates expected by ConfettiCannon
-    const containerBottomOffset = screenHeight * 0.08; // styles.buttonContainer.bottom
-    const containerHeight = BUTTON_SIZE; // styles.buttonContainer.height
-    const wrapperHeight = BUTTON_SIZE * 1.05; // styles.newButtonWrapper.height
-    const wrapperTop =
-      screenHeight -
-      containerBottomOffset -
-      containerHeight +
-      (containerHeight - wrapperHeight) / 2;
-    const anchorTopY = wrapperTop + wrapperHeight * CONFETTI_ORIGIN_Y_RATIO;
-    const bottomFromScreen = Math.max(0, screenHeight - anchorTopY);
-
-    return { x: originX, y: bottomFromScreen };
-  }, []);
+  // Confetti origin computation is now handled by NewOverlay component
 
   // PERFECT TIMING: Synchronize animations when showNewIndicator becomes true
   useLayoutEffect(() => {
@@ -418,6 +387,7 @@ const InteractiveMapComponent = forwardRef<
         withTiming(1.0, { duration: 120, easing: Easing.out(Easing.ease) })
       )
     );
+    // PERFECT TIMING: Confetti is now controlled by NewOverlay component
   }, [showNewIndicator]);
 
   // PERFECT TIMING: Handle forced visibility path (before provider flips)
@@ -426,7 +396,6 @@ const InteractiveMapComponent = forwardRef<
     // PERFECT TIMING: Start scale animation AFTER morphing completes
     try {
       cancelAnimation(newButtonScale);
-      cancelAnimation(confettiOpacity);
     } catch {}
     toggleProgress.value = 1;
     newButtonScale.value = 1.0;
@@ -437,10 +406,7 @@ const InteractiveMapComponent = forwardRef<
         withTiming(1.0, { duration: 120, easing: Easing.out(Easing.ease) })
       )
     );
-    // PERFECT TIMING: Confetti starts after morphing completes
-    try {
-      confettiRef.current?.start();
-    } catch {}
+    // PERFECT TIMING: Confetti is now controlled by NewOverlay component
   }, [forceNewVisible]);
 
   // When neither global nor forced visibility is active, nothing to do here now
@@ -453,10 +419,8 @@ const InteractiveMapComponent = forwardRef<
   // Fire confetti exactly when the overlay becomes visible; rely on manual start for perfect sync
   useLayoutEffect(() => {
     if (!(showNewIndicator || forceNewVisible)) return;
-    // Start immediately after mount (ref should be set post-commit)
-    try {
-      confettiRef.current?.start();
-    } catch {}
+    // PERFECT TIMING: Start confetti when scale animation reaches peak (morph + first scale phase)
+    // This is handled by the individual effects above, so we don't need to duplicate here
   }, [showNewIndicator, forceNewVisible, updateSequence]);
 
   // Progress bar animation is handled inside ProgressBar component
@@ -566,7 +530,6 @@ const InteractiveMapComponent = forwardRef<
       toggleProgress.value = 1;
       try {
         cancelAnimation(newButtonScale);
-        cancelAnimation(confettiOpacity);
       } catch {}
       // PERFECT TIMING: Button scale animation starts AFTER morphing completes
       newButtonScale.value = 1.0;
@@ -606,7 +569,6 @@ const InteractiveMapComponent = forwardRef<
     // PERFECT TIMING: Reset and fire button effect after morphing
     try {
       cancelAnimation(newButtonScale);
-      cancelAnimation(confettiOpacity);
     } catch {}
     // PERFECT TIMING: Button scale animation starts AFTER morphing completes
     newButtonScale.value = 1.0;
@@ -1276,9 +1238,7 @@ const InteractiveMapComponent = forwardRef<
     try {
       cancelAnimation(toggleProgress);
       cancelAnimation(newButtonScale);
-      cancelAnimation(confettiOpacity);
     } catch {}
-    confettiOpacity.value = 1; // keep visible; cannon will unmount on dismiss
     suppressRegularButtons.value = 1; // prevent functional buttons from flashing
     // ULTRA-FAST: Clear highlights and hide indicator immediately
     instantDismissNewIndicator();
@@ -1306,7 +1266,6 @@ const InteractiveMapComponent = forwardRef<
             toggleProgress.value = 1;
             try {
               cancelAnimation(newButtonScale);
-              cancelAnimation(confettiOpacity);
             } catch {}
             newButtonScale.value = 1.0;
             newButtonScale.value = withDelay(
@@ -1322,7 +1281,7 @@ const InteractiveMapComponent = forwardRef<
                 })
               )
             );
-            confettiOpacity.value = withTiming(1, { duration: 0 });
+            // PERFECT TIMING: Start confetti when scale animation reaches peak (morph + first scale phase)
           }
         }
       } catch {}
@@ -1364,10 +1323,8 @@ const InteractiveMapComponent = forwardRef<
       try {
         cancelAnimation(toggleProgress);
         cancelAnimation(newButtonScale);
-        cancelAnimation(confettiOpacity);
       } catch {}
       toggleProgress.value = 0;
-      confettiOpacity.value = 1;
       suppressRegularButtons.value = 0;
       newButtonScale.value = 1;
     }
@@ -1387,7 +1344,6 @@ const InteractiveMapComponent = forwardRef<
       suppressRegularButtons.value = 1;
       toggleProgress.value = 1;
     } catch {}
-    confettiOpacity.value = withTiming(1, { duration: 0 });
   }, [forceNewVisible]);
 
   // If provider already painted highlights (recentlyChangedCountries > 0), but overlay isn't up yet,
@@ -1400,7 +1356,6 @@ const InteractiveMapComponent = forwardRef<
       toggleProgress.value = 1;
       try {
         cancelAnimation(newButtonScale);
-        cancelAnimation(confettiOpacity);
       } catch {}
       newButtonScale.value = 1.0;
       newButtonScale.value = withDelay(
@@ -1410,6 +1365,7 @@ const InteractiveMapComponent = forwardRef<
           withTiming(1.0, { duration: 120, easing: Easing.out(Easing.ease) })
         )
       );
+      // PERFECT TIMING: Confetti is now controlled by NewOverlay component
       // Progress width will be handled by ProgressBar internally
     }
   }, [

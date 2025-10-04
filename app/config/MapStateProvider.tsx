@@ -550,6 +550,8 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
       await AsyncStorage.removeItem("pendingMapDiff");
       // Reset pending diff applied flag
       pendingDiffAppliedRef.current = false;
+      // Reset updateSequence to ensure consistent confetti timing
+      setUpdateSequence(0);
     } catch (error) {
       console.error("MapStateProvider: Error clearing user cache:", error);
     }
@@ -567,6 +569,8 @@ export const MapStateProvider = ({ children }: { children: ReactNode }) => {
         setRecentlyChangedCountries(new Set());
         setShowNewIndicator(false);
         setIsUpdating(false);
+        // Reset updateSequence to ensure consistent confetti timing
+        setUpdateSequence(0);
         // Clear queued diffs
         queuedAddsRef.current.clear();
         queuedRemovesRef.current.clear();

@@ -4,6 +4,7 @@ import React, {
   useCallback,
   useState,
   useRef,
+  useLayoutEffect,
 } from "react";
 import {
   Dimensions,
@@ -25,7 +26,9 @@ import Animated, {
 import { LinearGradient } from "expo-linear-gradient";
 import ConfettiCannon from "react-native-confetti-cannon";
 import { useTheme } from "react-native-paper";
-import OptimizedConfetti from "./PerformanceOptimizedConfetti";
+import OptimizedConfetti, {
+  OptimizedConfettiRef,
+} from "./PerformanceOptimizedConfetti";
 
 type Props = {
   visible: boolean;
@@ -40,7 +43,7 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 const BUTTON_SIZE = Math.min(screenWidth, screenHeight) * 0.08;
 const ICON_SIZE = BUTTON_SIZE * 0.5;
 const MORPH_DURATION = 280; // Ultra-fast morphing for instant response
-const COLLAPSE_DURATION = 200; // Ultra-fast collapse
+const COLLAPSE_DURATION = 300; // Increased duration for complete animation
 const COLLAPSE_TARGET = 0; // collapse to a perfect circle
 
 // Confetti origin tuning (mirrors InteractiveMap defaults)
@@ -106,12 +109,22 @@ const NewOverlay: React.FC<Props> = ({
 }) => {
   const theme = useTheme();
   const prevVisibleRef = useRef(visible);
+  const confettiRef = useRef<OptimizedConfettiRef>(null);
 
   const [collapsing, setCollapsing] = useState(false);
+  const [collapseStarted, setCollapseStarted] = useState(false);
   const effectiveVisible = visible || collapsing;
 
   const morphProgress = useSharedValue(0);
   const collapsingSV = useSharedValue(0);
+
+  // Reset state when updateSequence changes (new user session)
+  useEffect(() => {
+    setCollapsing(false);
+    setCollapseStarted(false);
+    morphProgress.value = 0;
+    collapsingSV.value = 0;
+  }, [updateSequence]);
 
   const newButtonScale = useSharedValue(1);
   const newButtonAnimatedStyle = useAnimatedStyle(() => ({
@@ -148,9 +161,10 @@ const NewOverlay: React.FC<Props> = ({
   const textOpacityStyle = useAnimatedStyle(() => {
     const p = morphProgress.value;
     if (collapsingSV.value) {
+      // During collapse, fade out text immediately and smoothly
       const t = 1 - p;
       const smooth = t * t * (3 - 2 * t);
-      const opacity = 1 - smooth;
+      const opacity = Math.max(0, 1 - smooth * 2); // Faster fade out during collapse
       return { opacity } as const;
     }
     const start = 0.28;
@@ -228,15 +242,35 @@ const NewOverlay: React.FC<Props> = ({
     );
   }, [borderShiftX, borderShiftY]);
 
+  // PERFECT TIMING: Start confetti with precise delay using withDelay
+  const startConfetti = useCallback(() => {
+    try {
+      confettiRef.current?.start();
+    } catch (error) {
+      console.log("Confetti start error:", error);
+    }
+  }, []);
+
+  const startConfettiWithDelay = useCallback((delay: number) => {
+    try {
+      confettiRef.current?.startWithDelay(delay);
+    } catch (error) {
+      console.log("Confetti startWithDelay error:", error);
+    }
+  }, []);
+
   // Unified collapse starter (idempotent)
   const startCollapse = useCallback(() => {
-    if (collapsing) return;
+    if (collapsing || collapseStarted) return;
     setCollapsing(true);
+    setCollapseStarted(true);
     collapsingSV.value = 1;
     try {
       cancelAnimation(morphProgress);
       cancelAnimation(overlayOpacity);
       cancelAnimation(newButtonScale);
+      cancelAnimation(borderShiftX);
+      cancelAnimation(borderShiftY);
     } catch {}
     // ULTRA-FAST: Ultra-fast confetti fade out
     confettiOpacity.value = withTiming(0, {
@@ -247,6 +281,9 @@ const NewOverlay: React.FC<Props> = ({
       duration: 120, // Ultra-fast
       easing: Easing.in(Easing.cubic),
     });
+    // ULTRA-FAST: Stop gradient motion immediately
+    borderShiftX.value = 0;
+    borderShiftY.value = 0;
     morphProgress.value = withTiming(
       COLLAPSE_TARGET,
       {
@@ -258,15 +295,24 @@ const NewOverlay: React.FC<Props> = ({
         overlayOpacity.value = 1;
         collapsingSV.value = 0;
         runOnJS(setCollapsing)(false);
+        runOnJS(setCollapseStarted)(false);
         runOnJS(restartGradientMotion)();
         if (onReverseComplete) runOnJS(onReverseComplete)();
       }
     );
-  }, [collapsing]);
+  }, [collapsing, collapseStarted, restartGradientMotion, onReverseComplete]);
+
+  // PERFECT TIMING: Start confetti with precise delay when component mounts
+  useLayoutEffect(() => {
+    if (visible && !collapsing && !collapseStarted) {
+      // Start confetti with precise delay using withDelay
+      startConfettiWithDelay(30); // Small delay to sync with button animation
+    }
+  }, [visible, collapsing, collapseStarted, startConfettiWithDelay]);
 
   // ULTRA-FAST: Show animation with zero delays for instant response
   useEffect(() => {
-    if (collapsing) {
+    if (collapsing || collapseStarted) {
       prevVisibleRef.current = visible;
       return;
     }
@@ -299,10 +345,21 @@ const NewOverlay: React.FC<Props> = ({
       newButtonScale.value = withDelay(
         MORPH_DURATION, // Wait for morphing to complete
         withSequence(
-          withTiming(1.15, { duration: 80, easing: Easing.out(Easing.ease) }),
+          withTiming(1.15, {
+            duration: 80,
+            easing: Easing.out(Easing.ease),
+          }),
           withTiming(1.0, { duration: 120, easing: Easing.out(Easing.ease) })
         )
       );
+      // PERFECT TIMING: Use withDelay for precise confetti timing
+      startConfettiWithDelay(0); // Start immediately
+      startConfettiWithDelay(10); // Backup after 10ms
+      startConfettiWithDelay(20); // Backup after 20ms
+      // BALANCED: Use requestAnimationFrame for precision
+      requestAnimationFrame(() => {
+        startConfetti();
+      });
     } else {
       if (prevVisibleRef.current) {
         startCollapse();
@@ -319,19 +376,20 @@ const NewOverlay: React.FC<Props> = ({
     }
 
     prevVisibleRef.current = visible;
-  }, [visible, isDarkTheme, collapsing]);
+  }, [visible, isDarkTheme, collapsing, collapseStarted, startCollapse]);
 
   useEffect(() => {
     // Keep gradient motion running during collapse to avoid visual jumps
-    if (visible || collapsing) {
+    if (visible && !collapsing) {
       restartGradientMotion();
-    } else {
+    } else if (!visible && !collapsing) {
       try {
         cancelAnimation(borderShiftX);
         cancelAnimation(borderShiftY);
       } catch {}
     }
-  }, [visible, collapsing]);
+    // During collapse, gradient motion is stopped immediately in startCollapse()
+  }, [visible, collapsing, restartGradientMotion]);
 
   const confettiOrigin = useMemo(
     () => computeConfettiOrigin() || FALLBACK_ORIGIN,
@@ -389,6 +447,7 @@ const NewOverlay: React.FC<Props> = ({
         style={[CONFETTI_CONTAINER_STYLE, confettiWrapperAnimatedStyle]}
       >
         <OptimizedConfetti
+          ref={confettiRef}
           visible={visible && !collapsing}
           origin={confettiOrigin}
           colors={confettiColors}
