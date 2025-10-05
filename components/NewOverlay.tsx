@@ -22,6 +22,8 @@ import Animated, {
   withSequence,
   withTiming,
   runOnJS,
+  useAnimatedReaction,
+  runOnUI,
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import ConfettiCannon from "react-native-confetti-cannon";
@@ -64,7 +66,7 @@ const CONFETTI_CONTAINER_STYLE: ViewStyle = {
   left: 0,
   right: 0,
   top: 0,
-  bottom: -15.5,
+  bottom: 0, // full-screen to match screen-based origin
   justifyContent: "center",
   alignItems: "center",
 };
@@ -192,6 +194,7 @@ const NewOverlay: React.FC<Props> = ({
 
   const confettiOpacity = useSharedValue(1);
   const confettiScale = useSharedValue(1);
+  const confettiProgress = useSharedValue(0);
   const confettiWrapperAnimatedStyle = useAnimatedStyle(() => ({
     opacity: confettiOpacity.value,
     transform: [{ scale: confettiScale.value }],
@@ -302,13 +305,50 @@ const NewOverlay: React.FC<Props> = ({
     );
   }, [collapsing, collapseStarted, restartGradientMotion, onReverseComplete]);
 
-  // PERFECT TIMING: Start confetti with precise delay when component mounts
-  useLayoutEffect(() => {
-    if (visible && !collapsing && !collapseStarted) {
-      // Start confetti with precise delay using withDelay
-      startConfettiWithDelay(30); // Small delay to sync with button animation
-    }
-  }, [visible, collapsing, collapseStarted, startConfettiWithDelay]);
+  // Unified UI-thread sequence starter (worklet)
+  const startNewOverlaySequence = useCallback(() => {
+    "worklet";
+    // Reset all shared values to initial state
+    morphProgress.value = 0;
+    newButtonScale.value = 1;
+    overlayOpacity.value = 1;
+    confettiOpacity.value = 1;
+    confettiScale.value = 1;
+    confettiProgress.value = 0;
+
+    // Fire confetti shortly BEFORE the scale-up phase (which starts after morph)
+    // Lead time ~60ms, skip early frames in Lottie to show visible burst immediately
+    const CONFETTI_LEAD_MS = -110;
+    const startFrame = 0.15; // start a bit into the animation for instant particles
+    const confettiDuration = 850;
+    const confettiSequence = withSequence(
+      withTiming(startFrame, { duration: 0 }),
+      withTiming(1, { duration: confettiDuration, easing: Easing.linear })
+    );
+    const delayMs = Math.max(0, MORPH_DURATION - CONFETTI_LEAD_MS);
+    confettiProgress.value = withDelay(delayMs, confettiSequence);
+
+    // Start morph/overlay now; scale will start after morph (MORPH_DURATION)
+    morphProgress.value = withTiming(1, {
+      duration: MORPH_DURATION,
+      easing: Easing.out(Easing.cubic),
+    });
+    overlayOpacity.value = withTiming(
+      isDarkTheme ? TARGET_OVERLAY_ALPHA_DARK : TARGET_OVERLAY_ALPHA_LIGHT,
+      {
+        duration: MORPH_DURATION,
+        easing: Easing.out(Easing.cubic),
+      }
+    );
+    // Button scale animation
+    newButtonScale.value = withDelay(
+      MORPH_DURATION,
+      withSequence(
+        withTiming(1.15, { duration: 80, easing: Easing.out(Easing.ease) }),
+        withTiming(1.0, { duration: 120, easing: Easing.out(Easing.ease) })
+      )
+    );
+  }, [isDarkTheme]);
 
   // ULTRA-FAST: Show animation with zero delays for instant response
   useEffect(() => {
@@ -329,37 +369,8 @@ const NewOverlay: React.FC<Props> = ({
       confettiOpacity.value = 1;
       confettiScale.value = 1;
 
-      // ULTRA-FAST: Start morphing animation first
-      morphProgress.value = withTiming(1, {
-        duration: MORPH_DURATION,
-        easing: Easing.out(Easing.cubic),
-      });
-      overlayOpacity.value = withTiming(
-        isDarkTheme ? TARGET_OVERLAY_ALPHA_DARK : TARGET_OVERLAY_ALPHA_LIGHT,
-        {
-          duration: MORPH_DURATION,
-          easing: Easing.out(Easing.cubic),
-        }
-      );
-      // PERFECT TIMING: Button scale animation starts AFTER morphing completes
-      newButtonScale.value = withDelay(
-        MORPH_DURATION, // Wait for morphing to complete
-        withSequence(
-          withTiming(1.15, {
-            duration: 80,
-            easing: Easing.out(Easing.ease),
-          }),
-          withTiming(1.0, { duration: 120, easing: Easing.out(Easing.ease) })
-        )
-      );
-      // PERFECT TIMING: Use withDelay for precise confetti timing
-      startConfettiWithDelay(0); // Start immediately
-      startConfettiWithDelay(10); // Backup after 10ms
-      startConfettiWithDelay(20); // Backup after 20ms
-      // BALANCED: Use requestAnimationFrame for precision
-      requestAnimationFrame(() => {
-        startConfetti();
-      });
+      // Run entire sequence on UI thread for perfect sync
+      runOnUI(startNewOverlaySequence)();
     } else {
       if (prevVisibleRef.current) {
         startCollapse();
@@ -376,7 +387,14 @@ const NewOverlay: React.FC<Props> = ({
     }
 
     prevVisibleRef.current = visible;
-  }, [visible, isDarkTheme, collapsing, collapseStarted, startCollapse]);
+  }, [
+    visible,
+    isDarkTheme,
+    collapsing,
+    collapseStarted,
+    startCollapse,
+    startNewOverlaySequence,
+  ]);
 
   useEffect(() => {
     // Keep gradient motion running during collapse to avoid visual jumps
@@ -453,6 +471,7 @@ const NewOverlay: React.FC<Props> = ({
           colors={confettiColors}
           updateSequence={updateSequence}
           isMapActive={isMapActive}
+          progressSV={confettiProgress}
         />
       </Animated.View>
 
